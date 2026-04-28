@@ -1,0 +1,29 @@
+[tasks.test]
+depends     = ["ensure-deps"]
+description = "Run rise tests"
+run         = "bun run vitest run"
+
+[tasks.check]
+depends     = ["ensure-deps"]
+description = "Run rise checks"
+run         = "bun run check"
+
+[tasks.fmt]
+depends     = ["ensure-deps"]
+description = "Format rise sources"
+run         = "bun run fmt"
+
+[tasks.ensure-deps]
+description = "Install rise dependencies when they are missing or stale"
+run = """mise i -q
+case \"${CI:-}\" in
+  \"\"|0|false|False|FALSE) ;;
+  *) exit 0 ;;  # CI truthy: skip bun install
+esac
+if [ ! -d node_modules ] || [ bun.lock -nt node_modules ] || [ package.json -nt node_modules ]; then
+  bun install && touch node_modules
+fi"""
+
+[hooks.enter]
+# Delegate dependency bootstrapping to the shared task.
+script = "mise run --silent ensure-deps"

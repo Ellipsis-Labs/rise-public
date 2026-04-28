@@ -1,0 +1,23 @@
+[package]
+description  = { workspace = true }
+edition      = { workspace = true }
+homepage     = { workspace = true }
+license      = { workspace = true }
+name         = "phoenix-rise-sdk-cli"
+publish      = false
+readme       = { workspace = true }
+repository   = { workspace = true }
+rust-version = { workspace = true }
+version      = { workspace = true }
+
+[dependencies]
+phoenix-rise = { path = "..", features = ["solana-keypair"] }
+
+chrono         = { workspace = true }
+clap           = { workspace = true }
+serde          = { workspace = true }
+serde_json     = { workspace = true }
+solana-keypair = { workspace = true }
+solana-pubkey  = { workspace = true }
+tokio          = { workspace = true }
+url            = { workspace = true }

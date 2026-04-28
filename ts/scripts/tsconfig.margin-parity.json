@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "types": ["node"]
+  },
+  "include": [
+    "./margin-parity-export.ts",
+    "./lib/marginParityExport.ts",
+    "../src/margin/**/*.ts"
+  ]
+}
