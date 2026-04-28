@@ -1,6 +1,6 @@
 {
   "name": "@ellipsis-labs/rise",
-  "version": "0.4.5",
+  "version": "0.4.7",
   "packageManager": "bun@1.3.9",
   "repository": {
     "type": "git",
@@ -8,8 +8,8 @@
     "directory": "rise/ts"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com",
-    "access": "restricted"
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
   },
   "engines": {
     "bun": ">=1.3.9"
