@@ -1,0 +1,53 @@
+# Rise Rust SDK
+
+`rise/rust` publishes a single Rust library crate for interacting with Phoenix.
+
+## Published Crate
+
+- Crate name: `phoenix-rise`
+- Rust import path: `phoenix_rise`
+
+```toml
+[dependencies]
+phoenix-rise = "0.1.1"
+```
+
+Optional features:
+
+- `solana-keypair` for examples and auth/signing flows that use local Solana keypairs
+- `ed25519-dalek` for service-account signing helpers
+- `rust_decimal` for decimal-backed helpers
+
+## Source Layout
+
+The published `phoenix-rise` crate is assembled from:
+
+- high-level HTTP, WebSocket, auth, and transaction-building flows in `sdk/src/`
+- API wire types in `types/src/`
+- instruction builders in `ix/src/`
+- market and margin math in `math/src/`
+
+Examples live in `sdk/examples/` and are wired through the root package.
+
+## Examples
+
+Examples that use a local Solana keypair require `solana-keypair`:
+
+```bash
+cargo run -p phoenix-rise --example subscribe_trader_state --features solana-keypair
+```
+
+Examples that do not need that feature can be run directly:
+
+```bash
+cargo run -p phoenix-rise --example subscribe_l2_book -- SOL
+cargo run -p phoenix-rise --example register_trader -- <AUTHORITY_PUBKEY> --access-code ACCESS123
+```
+
+## Basic Usage
+
+```rust
+use phoenix_rise::{PhoenixHttpClient, PhoenixWSClient, PhoenixTxBuilder};
+```
+
+Docs: <https://docs.phoenix.trade/>

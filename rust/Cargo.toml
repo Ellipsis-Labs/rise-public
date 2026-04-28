@@ -1,0 +1,242 @@
+[package]
+description = "SDK for interacting with Phoenix"
+edition = { workspace = true }
+homepage = "https://docs.phoenix.trade/"
+include = [
+  "Cargo.toml",
+  "CRATES.md",
+  "LICENSE",
+  "README.md",
+  "sdk/src/**",
+  "sdk/examples/**",
+  "ix/src/**",
+  "math/src/**",
+  "types/src/**",
+]
+license = "MIT"
+name = "phoenix-rise"
+publish = { workspace = true }
+readme = "CRATES.md"
+repository = "https://github.com/Ellipsis-Labs/rise"
+rust-version = { workspace = true }
+version = { workspace = true }
+
+[lib]
+path = "sdk/src/lib.rs"
+
+[[example]]
+name              = "cancel_all_conditional_orders"
+path              = "sdk/examples/cancel_all_conditional_orders.rs"
+required-features = ["solana-keypair"]
+
+[[example]]
+name = "build_all_ix"
+path = "ix/examples/build_all_ix.rs"
+
+[[example]]
+name              = "cancel_order"
+path              = "sdk/examples/cancel_order.rs"
+required-features = ["solana-keypair"]
+
+[[example]]
+name              = "cancel_stop_loss"
+path              = "sdk/examples/cancel_stop_loss.rs"
+required-features = ["solana-keypair"]
+
+[[example]]
+name = "compute_trader_margin"
+path = "sdk/examples/compute_trader_margin.rs"
+
+[[example]]
+name              = "deposit_funds"
+path              = "sdk/examples/deposit_funds.rs"
+required-features = ["solana-keypair"]
+
+[[example]]
+name = "fetch_on_chain_accounts"
+path = "sdk/examples/fetch_on_chain_accounts.rs"
+
+[[example]]
+name = "http_client"
+path = "sdk/examples/http_client.rs"
+
+[[example]]
+name              = "isolated_limit_order"
+path              = "sdk/examples/isolated_limit_order.rs"
+required-features = ["solana-keypair"]
+
+[[example]]
+name              = "isolated_market_order_client"
+path              = "sdk/examples/isolated_market_order_client.rs"
+required-features = ["solana-keypair"]
+
+[[example]]
+name              = "isolated_market_order_server"
+path              = "sdk/examples/isolated_market_order_server.rs"
+required-features = ["solana-keypair"]
+
+[[example]]
+name              = "market_maker"
+path              = "sdk/examples/market_maker.rs"
+required-features = ["solana-keypair"]
+
+[[example]]
+name = "phoenix_client"
+path = "sdk/examples/phoenix_client.rs"
+
+[[example]]
+name = "register_trader"
+path = "sdk/examples/register_trader.rs"
+
+[[example]]
+name              = "send_limit_order"
+path              = "sdk/examples/send_limit_order.rs"
+required-features = ["solana-keypair"]
+
+[[example]]
+name              = "send_market_order"
+path              = "sdk/examples/send_market_order.rs"
+required-features = ["solana-keypair"]
+
+[[example]]
+name = "subscribe_candles"
+path = "sdk/examples/subscribe_candles.rs"
+
+[[example]]
+name = "subscribe_l2_book"
+path = "sdk/examples/subscribe_l2_book.rs"
+
+[[example]]
+name = "subscribe_market_stats"
+path = "sdk/examples/subscribe_market_stats.rs"
+
+[[example]]
+name              = "subscribe_trader_state"
+path              = "sdk/examples/subscribe_trader_state.rs"
+required-features = ["solana-keypair"]
+
+[[example]]
+name = "subscribe_trades"
+path = "sdk/examples/subscribe_trades.rs"
+
+[[example]]
+name = "ws_debug_cli"
+path = "sdk/examples/ws_debug_cli.rs"
+
+[features]
+default        = []
+ed25519-dalek  = ["dep:ed25519-dalek"]
+rust_decimal   = []
+solana-keypair = ["dep:solana-keypair", "dep:solana-signer"]
+utoipa         = ["dep:utoipa"]
+
+[dependencies]
+base64             = { workspace = true }
+borsh              = { workspace = true }
+bs58               = { workspace = true }
+bytemuck           = { workspace = true }
+chrono             = { workspace = true }
+ed25519-dalek      = { workspace = true, optional = true }
+fixed              = { workspace = true }
+futures-util       = { workspace = true }
+parking_lot        = { workspace = true }
+pastey             = { workspace = true }
+reqwest            = { workspace = true }
+rust_decimal       = { workspace = true }
+serde              = { workspace = true }
+serde_json         = { workspace = true }
+serde_urlencoded   = { workspace = true }
+serde_with         = { workspace = true }
+sha2               = { workspace = true }
+sha2-const-stable  = { workspace = true }
+solana-instruction = { workspace = true }
+solana-keypair     = { workspace = true, optional = true }
+solana-pubkey      = { workspace = true }
+solana-rpc-client  = { workspace = true }
+solana-signer      = { workspace = true, optional = true }
+thiserror          = { workspace = true }
+tokio              = { workspace = true }
+tokio-stream       = "0.1"
+tokio-tungstenite  = { workspace = true }
+tracing            = { workspace = true }
+url                = { workspace = true }
+utoipa             = { workspace = true, optional = true }
+
+[dev-dependencies]
+axum                     = "0.8"
+proptest                 = "1.6"
+rand                     = "0.9"
+solana-commitment-config = { workspace = true }
+solana-transaction       = { workspace = true }
+toml                     = "0.8"
+tracing-subscriber       = { workspace = true }
+
+[workspace]
+members  = ["cli"]
+resolver = "2"
+
+[workspace.package]
+description  = "SDK for interacting with Phoenix"
+edition      = "2021"
+homepage     = "https://docs.phoenix.trade/"
+license      = "MIT"
+publish      = true
+readme       = "CRATES.md"
+repository   = "https://github.com/Ellipsis-Labs/rise"
+rust-version = "1.84.0"
+version      = "0.1.1"
+
+[workspace.dependencies]
+base64 = "0.22"
+borsh = { version = "1.5", features = ["derive"] }
+bs58 = "0.5"
+bytemuck = { version = "1.21", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4.5", features = ["derive"] }
+ed25519-dalek = "2"
+fixed = "=1.29.0"
+futures-util = "0.3"
+parking_lot = "0.12"
+pastey = "0.1"
+reqwest = { version = "0.12", features = ["json"] }
+rust_decimal = { version = "1.39.0", features = ["serde-str"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_urlencoded = "0.7"
+serde_with = "3.12"
+sha2 = "0.10"
+sha2-const-stable = "0.1"
+solana-commitment-config = { version = "~2.2" }
+solana-instruction = { version = "~2.3", default-features = false, features = [
+  "std",
+] }
+solana-keypair = { version = "~2.2" }
+solana-pubkey = { version = "~2.4", features = ["curve25519"] }
+solana-rpc-client = "~2.3"
+solana-signer = { version = "~2.2" }
+solana-transaction = { version = "~2.2" }
+thiserror = "2.0"
+tokio = { version = "1.44", features = [
+  "sync",
+  "rt-multi-thread",
+  "macros",
+  "time",
+  "test-util",
+] }
+tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
+tracing = { version = "0.1", features = ["log"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+url = "2.5"
+utoipa = { version = "5.4", features = ["chrono"] }
+
+[profile.ci]
+inherits = "dev"
+# Full debug in CI builds is unnecessary and makes cache artifacts large.
+debug = "line-tables-only"
+
+[lints.rust.unexpected_cfgs]
+check-cfg = ['cfg(target_os, values("solana"))', 'cfg(tokio_unstable)']
+level     = "allow"
+
+[lints.clippy]
+uninlined_format_args = "allow"
