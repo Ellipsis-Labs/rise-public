@@ -135,10 +135,10 @@ export const buildEmberWithdrawIxResolved = (
 ): EmberWithdrawIx =>
   buildEmberWithdrawIx({
     owner: params.trader.authority,
-    inputMint: params.exchange.canonicalMint,
-    outputMint: params.exchange.usdcMint,
-    inputTokenAccount: params.trader.phoenixTokenAccount,
-    outputTokenAccount: params.trader.usdcTokenAccount,
+    inputMint: params.exchange.usdcMint,
+    outputMint: params.exchange.canonicalMint,
+    inputTokenAccount: params.trader.usdcTokenAccount,
+    outputTokenAccount: params.trader.phoenixTokenAccount,
     emberState: params.exchange.emberState,
     emberVault: params.exchange.emberVault,
     amount: params.amount,
