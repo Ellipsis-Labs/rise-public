@@ -390,10 +390,10 @@ describe("resolved ix builders", () => {
       amount: 1000n,
     });
 
-    expect(ix.accounts[2]?.address).toBe("usdc-mint");
-    expect(ix.accounts[3]?.address).toBe("phoenix-mint");
-    expect(ix.accounts[4]?.address).toBe("usdc-token-account");
-    expect(ix.accounts[5]?.address).toBe("phoenix-token-account");
+    expect(ix.accounts[2]?.address).toBe("phoenix-mint");
+    expect(ix.accounts[3]?.address).toBe("usdc-mint");
+    expect(ix.accounts[4]?.address).toBe("phoenix-token-account");
+    expect(ix.accounts[5]?.address).toBe("usdc-token-account");
   });
 
   it("builds a resolved stop-loss ix synchronously", () => {
@@ -504,8 +504,8 @@ describe("resolved ix builders", () => {
       "phoenix-token-account"
     );
     expect(result.named.emberWithdraw.accounts[2]?.address).toBe(
-      "usdc-mint"
+      "phoenix-mint"
     );
-    expect(result.named.emberWithdraw.accounts[3]?.address).toBe("phoenix-mint");
+    expect(result.named.emberWithdraw.accounts[3]?.address).toBe("usdc-mint");
   });
 });

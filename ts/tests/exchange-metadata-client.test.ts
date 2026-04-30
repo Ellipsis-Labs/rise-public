@@ -1145,10 +1145,10 @@ describe("exchange metadata client integration", () => {
     );
     expect(result.named.withdrawFunds.accounts[3]?.address).toBe(authority);
     expect(result.named.emberWithdraw.accounts[2]?.address).toBe(
-      "EPjFWdd5AufqSSqeM2qAEyFnjAu1pzsVbW8UVzA73NA"
+      "So11111111111111111111111111111111111111112"
     );
     expect(result.named.emberWithdraw.accounts[3]?.address).toBe(
-      "So11111111111111111111111111111111111111112"
+      "EPjFWdd5AufqSSqeM2qAEyFnjAu1pzsVbW8UVzA73NA"
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
