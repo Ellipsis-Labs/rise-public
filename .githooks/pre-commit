@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+if command -v python3 >/dev/null 2>&1; then
+  python3 "$repo_root/scripts/secret_scan.py" --staged
+elif command -v python >/dev/null 2>&1; then
+  python "$repo_root/scripts/secret_scan.py" --staged
+else
+  echo "Error: python3 is required to run the rise-public secret scan." >&2
+  exit 1
+fi
