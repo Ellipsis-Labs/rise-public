@@ -62,6 +62,18 @@ bun examples/05-cancel-all-conditional-orders.ts <AUTHORITY_PUBKEY> [options]
 Running this example with no arguments prints safety guidance instead of
 submitting live transactions.
 
+### 06-flight-market-order.ts
+
+Configures `createPhoenixClient(...)` with a builder authority and builds a
+Flight-routed market-order instruction so builder fees would be credited to the
+configured builder trader account. This example only builds the instruction; the
+runnable Rust counterpart in `rise/rust/sdk/examples/send_flight_market_order.rs`
+also submits it.
+
+```bash
+bun examples/06-flight-market-order.ts <BUILDER_AUTHORITY> <TRADER_AUTHORITY> <SYMBOL> <bid|ask> <NUM_BASE_LOTS> [PRICE_LIMIT_TICKS]
+```
+
 ## Larger Demos
 
 ### phoenix-client-example.ts

@@ -90,6 +90,8 @@ Use the examples as the fastest reference for intended SDK usage:
   live trader-state store wiring
 - [examples/05-cancel-all-conditional-orders.ts](./examples/05-cancel-all-conditional-orders.ts):
   advanced conditional-order cancellation workflow
+- [examples/06-flight-market-order.ts](./examples/06-flight-market-order.ts):
+  Flight-routed market order placement with builder fee routing
 - [examples/phoenix-client-example.ts](./examples/phoenix-client-example.ts):
   broader API walkthrough
 - [examples/phoenix-ws-example.ts](./examples/phoenix-ws-example.ts):
@@ -118,8 +120,12 @@ const client = createPhoenixClient({
 If you route supported limit and market order flows through Flight, configure
 it once on the client:
 
-Flight support in `@ellipsis-labs/rise` is currently beta and should not yet
-be treated as a stable production surface.
+> **Use embedded wallets for Flight integrations.** Integrators are strongly
+> encouraged to provision an embedded wallet per user rather than routing
+> Flight orders through the user's raw/external wallet. A raw wallet shares
+> its Phoenix trader state with every other dapp the user trades on, which
+> results in bad UX (positions, balances, and orders bleeding across
+> integrations). Embedded wallets isolate per-integration state.
 
 ```ts
 import { createPhoenixClient } from "@ellipsis-labs/rise";

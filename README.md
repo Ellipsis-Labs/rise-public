@@ -30,6 +30,7 @@ TypeScript:
 - [rise/ts/examples/03-build-limit-order-ix.ts](./ts/examples/03-build-limit-order-ix.ts)
 - [rise/ts/examples/04-trader-state-store.ts](./ts/examples/04-trader-state-store.ts)
 - [rise/ts/examples/05-cancel-all-conditional-orders.ts](./ts/examples/05-cancel-all-conditional-orders.ts)
+- [rise/ts/examples/06-flight-market-order.ts](./ts/examples/06-flight-market-order.ts)
 - [rise/ts/examples/phoenix-client-example.ts](./ts/examples/phoenix-client-example.ts)
 - [rise/ts/examples/phoenix-ws-example.ts](./ts/examples/phoenix-ws-example.ts)
 - [rise/ts/README.md](./ts/README.md)
@@ -42,6 +43,7 @@ Rust:
 - [rise/rust/sdk/examples/http_client.rs](./rust/sdk/examples/http_client.rs)
 - [rise/rust/sdk/examples/send_limit_order.rs](./rust/sdk/examples/send_limit_order.rs)
 - [rise/rust/sdk/examples/send_market_order.rs](./rust/sdk/examples/send_market_order.rs)
+- [rise/rust/sdk/examples/send_flight_market_order.rs](./rust/sdk/examples/send_flight_market_order.rs)
 
 ## Onboarding: Access Code vs Referral Code
 
@@ -311,9 +313,6 @@ Runnable examples:
 
 Flight is the builder-routing layer. The important pieces are:
 
-Flight support in Rise is currently beta and should not yet be treated as a
-stable production surface.
-
 - the builder still needs a Phoenix trader account
 - builder registration is its own on-chain instruction
 - the builder's associated trader account is the fee collector for Flight-routed
@@ -324,6 +323,13 @@ stable production surface.
 When you register Flight against a builder authority and its associated trader
 account, all builder fees from Flight-routed orders accrue to that builder
 trader account. Those fees are withdrawable from the Phoenix frontend.
+
+> **Use embedded wallets for Flight integrations.** Integrators are strongly
+> encouraged to provision an embedded wallet per user rather than routing
+> Flight orders through the user's raw/external wallet. A raw wallet shares
+> its Phoenix trader state with every other dapp the user trades on, which
+> results in bad UX (positions, balances, and orders bleeding across
+> integrations). Embedded wallets isolate per-integration state.
 
 TypeScript:
 
@@ -404,6 +410,11 @@ let routed_ixs = builder
     .map(|ix| flight.try_wrap_order_instruction(ix, trader_authority))
     .collect::<Result<Vec<_>, _>>()?;
 ```
+
+Runnable Flight examples:
+
+- [06-flight-market-order.ts](./ts/examples/06-flight-market-order.ts)
+- [send_flight_market_order.rs](./rust/sdk/examples/send_flight_market_order.rs)
 
 For more Flight-specific TypeScript examples, see
 [rise/ts/src/flight/README.md](./ts/src/flight/README.md).
