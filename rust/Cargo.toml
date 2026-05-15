@@ -99,6 +99,11 @@ path              = "sdk/examples/send_market_order.rs"
 required-features = ["solana-keypair"]
 
 [[example]]
+name              = "send_flight_market_order"
+path              = "sdk/examples/send_flight_market_order.rs"
+required-features = ["solana-keypair"]
+
+[[example]]
 name = "subscribe_candles"
 path = "sdk/examples/subscribe_candles.rs"
 
@@ -129,6 +134,20 @@ ed25519-dalek  = ["dep:ed25519-dalek"]
 rust_decimal   = []
 solana-keypair = ["dep:solana-keypair", "dep:solana-signer"]
 utoipa         = ["dep:utoipa"]
+
+[package.metadata.cargo-machete]
+ignored = [
+  "borsh",
+  "bytemuck",
+  "fixed",
+  "pastey",
+  "proptest",
+  "rand",
+  "serde_with",
+  "sha2",
+  "sha2-const-stable",
+  "utoipa",
+]
 
 [dependencies]
 base64             = { workspace = true }
@@ -163,13 +182,16 @@ url                = { workspace = true }
 utoipa             = { workspace = true, optional = true }
 
 [dev-dependencies]
-axum                     = "0.8"
-proptest                 = "1.6"
-rand                     = "0.9"
-solana-commitment-config = { workspace = true }
-solana-transaction       = { workspace = true }
-toml                     = "0.8"
-tracing-subscriber       = { workspace = true }
+litesvm                         = "0.7"
+proptest                        = "1.6"
+rand                            = "0.9"
+solana-commitment-config        = { workspace = true }
+solana-compute-budget-interface = "~2.2"
+solana-keypair                  = { workspace = true }
+solana-signer                   = { workspace = true }
+solana-transaction              = { workspace = true }
+toml                            = "0.8"
+tracing-subscriber              = { workspace = true }
 
 [workspace]
 members  = ["cli"]
@@ -198,7 +220,10 @@ fixed = "=1.29.0"
 futures-util = "0.3"
 parking_lot = "0.12"
 pastey = "0.1"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", default-features = false, features = [
+  "json",
+  "rustls-tls-webpki-roots",
+] }
 rust_decimal = { version = "1.39.0", features = ["serde-str"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -223,7 +248,10 @@ tokio = { version = "1.44", features = [
   "time",
   "test-util",
 ] }
-tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.26", default-features = false, features = [
+  "connect",
+  "rustls-tls-webpki-roots",
+] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2.5"

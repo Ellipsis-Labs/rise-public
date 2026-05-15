@@ -4,6 +4,13 @@ This document shows how to use `rise` with the Flight program so limit and
 market order instructions are proxied through Flight and the configured builder
 trader collects builder fees.
 
+> **Use embedded wallets for Flight integrations.** Integrators are strongly
+> encouraged to provision an embedded wallet per user rather than routing
+> Flight orders through the user's raw/external wallet. A raw wallet shares
+> its Phoenix trader state with every other dapp the user trades on, which
+> results in bad UX (positions, balances, and orders bleeding across
+> integrations). Embedded wallets isolate per-integration state.
+
 ## Summary
 
 The recommended path is to configure `flight` on `createPhoenixClient(...)`.
@@ -182,6 +189,16 @@ defaults.
 If you override `flightBuilderAuthority` but omit
 `flightFeeCollectorTrader`, `rise` derives the fee collector trader for the
 override builder using the configured builder PDA/subaccount defaults.
+
+## Build A Flight Market Order Ix
+
+[`examples/06-flight-market-order.ts`](../../examples/06-flight-market-order.ts)
+is a minimal example that takes builder + trader CLI args and builds the
+Flight-wrapped market-order instruction via `client.ixs.placeMarketOrder(...)`:
+
+```bash
+bun examples/06-flight-market-order.ts <BUILDER_AUTHORITY> <TRADER_AUTHORITY> <SYMBOL> <bid|ask> <NUM_BASE_LOTS> [PRICE_LIMIT_TICKS]
+```
 
 ## Wrap A Native Order Ix Manually
 

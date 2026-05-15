@@ -102,8 +102,12 @@ metadata rather than server-assisted order helpers.
 Use this when you want to wrap supported Phoenix order instructions through
 Flight so builder fees are routed to the configured builder trader account.
 
-Flight support in `rise/rust`, including `PhoenixFlightClient`, is currently
-beta and should not yet be treated as a stable production surface.
+> **Use embedded wallets for Flight integrations.** Integrators are strongly
+> encouraged to provision an embedded wallet per user rather than routing
+> Flight orders through the user's raw/external wallet. A raw wallet shares
+> its Phoenix trader state with every other dapp the user trades on, which
+> results in bad UX (positions, balances, and orders bleeding across
+> integrations). Embedded wallets isolate per-integration state.
 
 ## Crate Internals By Area
 
@@ -167,8 +171,8 @@ Use `rise/rust/sdk/examples/` as the main reference set:
   `subscribe_market_stats.rs`, `subscribe_l2_book.rs`,
   `subscribe_candles.rs`, `subscribe_trades.rs`, `ws_debug_cli.rs`
 - Transaction building and trading: `send_limit_order.rs`,
-  `send_market_order.rs`, `cancel_order.rs`, `cancel_stop_loss.rs`,
-  `deposit_funds.rs`
+  `send_market_order.rs`, `send_flight_market_order.rs`, `cancel_order.rs`,
+  `cancel_stop_loss.rs`, `deposit_funds.rs`
 - Isolated flows: `isolated_limit_order.rs`,
   `isolated_market_order_client.rs`, `isolated_market_order_server.rs`
 - Broader reference flows: `phoenix_client.rs`, `market_maker.rs`,
@@ -190,4 +194,6 @@ cargo run -p phoenix-rise --example http_client
 cargo run -p phoenix-rise --example subscribe_l2_book -- SOL
 cargo run -p phoenix-rise --example subscribe_trader_state --features solana-keypair
 cargo run -p phoenix-rise --example send_market_order --features solana-keypair -- SOL
+cargo run -p phoenix-rise --example send_flight_market_order --features solana-keypair -- \
+    Builder1111111111111111111111111111111111 0 0 SOL bid 67
 ```
