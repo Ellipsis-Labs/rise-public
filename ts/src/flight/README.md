@@ -1,8 +1,7 @@
 # Flight Routing
 
-This document shows how to use `rise` with the Flight program so limit and
-market order instructions are proxied through Flight and the configured builder
-trader collects builder fees.
+This document shows how to use `rise` with the Flight program so supported
+Phoenix placement instructions are proxied through Flight.
 
 > **Use embedded wallets for Flight integrations.** Integrators are strongly
 > encouraged to provision an embedded wallet per user rather than routing
@@ -18,14 +17,22 @@ When you do that:
 
 - `client.ixs.buildPlaceLimitOrder(...)` returns a Flight proxy instruction
 - `client.ixs.buildPlaceMarketOrder(...)` returns a Flight proxy instruction
+- `client.ixs.buildPlaceStopLoss(...)` returns a Flight proxy instruction
+- `client.ixs.buildPlacePositionConditionalOrder(...)` returns a Flight proxy
+  instruction
+- `client.ixs.buildPlaceAttachedConditionalOrder(...)` returns a Flight proxy
+  instruction
+- `client.ixs.buildPlaceLimitOrderWithConditionals(...)` returns a Flight proxy
+  instruction
 - `client.ixs.placeLimitOrder(...)` returns a Flight proxy instruction
 - `client.ixs.placeMarketOrder(...)` returns a Flight proxy instruction
+- `client.ixs.placePositionConditionalOrder(...)` returns a Flight proxy
+  instruction
 - `client.api.orders().placeIsolatedLimitOrder(...)` and
   `client.api.orders().placeIsolatedMarketOrder(...)` inherit the same Flight
   builder defaults
 
-Only limit and market order placement are Flight-routed today. Post-only orders
-remain native Phoenix instructions.
+Post-only orders remain native Phoenix instructions.
 
 For most integrations, the recommended client settings are:
 
@@ -234,8 +241,8 @@ const wrappedIx = await flight.wrapInstructionWithFlight({
 });
 ```
 
-`wrapInstructionWithFlight(...)` only wraps supported order placement
-instructions. Non-order instructions are returned unchanged.
+`wrapInstructionWithFlight(...)` only wraps supported placement instructions.
+Unsupported instructions are returned unchanged.
 
 ## Wrap An Existing `PhoenixInstructionClient`
 

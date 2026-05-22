@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 /// Build all shared instruction builders and output JSON with hex-encoded data.
 /// This script tests parity between Rust and TS instruction builders.
+use phoenix_rise::PhoenixFlightClient;
 use phoenix_rise::phoenix_rise_ix::{self, *};
 use solana_pubkey::Pubkey;
 
@@ -9,7 +10,7 @@ fn derive_trader_account_pda(authority: Pubkey, pda_index: u8, subaccount_index:
     let pda_schema = [pda_index, subaccount_index];
     let (pda, _bump) = Pubkey::find_program_address(
         &[b"trader", authority.as_ref(), pda_schema.as_ref()],
-        &PHOENIX_PROGRAM_ID,
+        &*PHOENIX_PROGRAM_ID,
     );
     pda
 }
@@ -124,6 +125,31 @@ fn main() {
 
         let ix = create_cancel_stop_loss_ix(params).unwrap();
         results.insert("CancelStopLoss".to_string(), hex_encode(&ix.data));
+    }
+
+    // 6. PlaceStopLoss
+    {
+        let params = PlaceStopLossParams::builder()
+            .funder(pubkeys[0])
+            .trader_account(pubkeys[1])
+            .position_authority(pubkeys[2])
+            .perp_asset_map(pubkeys[3])
+            .orderbook(pubkeys[4])
+            .spline_collection(pubkeys[5])
+            .global_trader_index(vec2(6, 7))
+            .active_trader_buffer(vec2(8, 9))
+            .stop_loss_account(pubkeys[10])
+            .asset_id(0)
+            .trigger_price(1000)
+            .execution_price(999)
+            .trade_side(Side::Ask)
+            .execution_direction(phoenix_rise_ix::Direction::LessThan)
+            .order_kind(phoenix_rise_ix::StopLossOrderKind::IOC)
+            .build()
+            .unwrap();
+
+        let ix = create_place_stop_loss_ix(params).unwrap();
+        results.insert("PlaceStopLoss".to_string(), hex_encode(&ix.data));
     }
 
     // 6. CreateConditionalOrdersAccount
@@ -463,6 +489,158 @@ fn main() {
 
         let ix = phoenix_rise_ix::flight::create_proxy_instruction_ix(params).unwrap();
         results.insert("ProxyInstruction".to_string(), hex_encode(&ix.data));
+    }
+
+    // 18. Flight client wrapper for deterministic Flight-supported instructions.
+    {
+        let flight_client = PhoenixFlightClient::new(pubkeys[9], 0, 0);
+
+        let stop_loss_params = PlaceStopLossParams::builder()
+            .funder(pubkeys[0])
+            .trader_account(pubkeys[1])
+            .position_authority(pubkeys[2])
+            .perp_asset_map(pubkeys[3])
+            .orderbook(pubkeys[4])
+            .spline_collection(pubkeys[5])
+            .global_trader_index(vec2(6, 7))
+            .active_trader_buffer(vec2(8, 9))
+            .stop_loss_account(pubkeys[10])
+            .asset_id(0)
+            .trigger_price(1000)
+            .execution_price(999)
+            .trade_side(Side::Ask)
+            .execution_direction(phoenix_rise_ix::Direction::LessThan)
+            .order_kind(phoenix_rise_ix::StopLossOrderKind::IOC)
+            .build()
+            .unwrap();
+        let ix = flight_client
+            .try_wrap_order_instruction(
+                create_place_stop_loss_ix(stop_loss_params).unwrap().into(),
+                pubkeys[0],
+            )
+            .unwrap();
+        results.insert("FlightPlaceStopLoss".to_string(), hex_encode(&ix.data));
+
+        let position_params = PlacePositionConditionalOrderParams::builder()
+            .payer(pubkeys[0])
+            .trader_account(pubkeys[1])
+            .position_authority(pubkeys[2])
+            .perp_asset_map(pubkeys[3])
+            .orderbook(pubkeys[4])
+            .spline_collection(pubkeys[5])
+            .global_trader_index(vec2(6, 7))
+            .active_trader_buffer(vec2(8, 9))
+            .trader_conditional_orders(pubkeys[10])
+            .asset_id(0)
+            .greater_trigger_order(TriggerOrderParams::new(
+                phoenix_rise_ix::Direction::GreaterThan,
+                Side::Ask,
+                phoenix_rise_ix::StopLossOrderKind::IOC,
+                1000,
+                999,
+            ))
+            .size_base_lots(100)
+            .build()
+            .unwrap();
+        let ix = flight_client
+            .try_wrap_order_instruction(
+                create_place_position_conditional_order_ix(position_params)
+                    .unwrap()
+                    .into(),
+                pubkeys[0],
+            )
+            .unwrap();
+        results.insert(
+            "FlightPlacePositionConditionalOrder".to_string(),
+            hex_encode(&ix.data),
+        );
+
+        let attached_params = PlaceAttachedConditionalOrderParams::builder()
+            .trader_account(pubkeys[1])
+            .position_authority(pubkeys[2])
+            .orderbook(pubkeys[4])
+            .trader_conditional_orders(pubkeys[10])
+            .payer(pubkeys[0])
+            .global_trader_index(vec2(6, 7))
+            .active_trader_buffer(vec2(8, 9))
+            .order_id(FifoOrderId {
+                price_in_ticks: 1000,
+                order_sequence_number: 0,
+            })
+            .asset_id(0)
+            .less_trigger_order(TriggerOrderParams::new(
+                phoenix_rise_ix::Direction::LessThan,
+                Side::Ask,
+                phoenix_rise_ix::StopLossOrderKind::IOC,
+                900,
+                899,
+            ))
+            .build()
+            .unwrap();
+        let ix = flight_client
+            .try_wrap_order_instruction(
+                create_place_attached_conditional_order_ix(attached_params)
+                    .unwrap()
+                    .into(),
+                pubkeys[0],
+            )
+            .unwrap();
+        results.insert(
+            "FlightPlaceAttachedConditionalOrder".to_string(),
+            hex_encode(&ix.data),
+        );
+
+        let order_packet = OrderPacket::limit(
+            Side::Bid,
+            1000,
+            100,
+            phoenix_rise_ix::SelfTradeBehavior::Abort,
+            None,
+            phoenix_rise_ix::client_order_id_to_bytes(0),
+            None,
+            phoenix_rise_ix::OrderFlags::None,
+            false,
+        );
+        let limit_with_conditionals_params = PlaceLimitOrderWithConditionalsParams::builder()
+            .position_authority(pubkeys[2])
+            .trader_account(pubkeys[1])
+            .perp_asset_map(pubkeys[3])
+            .orderbook(pubkeys[4])
+            .spline_collection(pubkeys[5])
+            .global_trader_index(vec2(6, 7))
+            .active_trader_buffer(vec2(8, 9))
+            .payer(pubkeys[0])
+            .trader_conditional_orders(pubkeys[10])
+            .order_packet(order_packet)
+            .slot(0)
+            .greater_trigger_order(TriggerOrderParams::new(
+                phoenix_rise_ix::Direction::GreaterThan,
+                Side::Ask,
+                phoenix_rise_ix::StopLossOrderKind::IOC,
+                1100,
+                1099,
+            ))
+            .less_trigger_order(TriggerOrderParams::new(
+                phoenix_rise_ix::Direction::LessThan,
+                Side::Ask,
+                phoenix_rise_ix::StopLossOrderKind::IOC,
+                900,
+                899,
+            ))
+            .build()
+            .unwrap();
+        let ix = flight_client
+            .try_wrap_order_instruction(
+                create_place_limit_order_with_conditionals_ix(limit_with_conditionals_params)
+                    .unwrap()
+                    .into(),
+                pubkeys[0],
+            )
+            .unwrap();
+        results.insert(
+            "FlightPlaceLimitOrderWithConditionals".to_string(),
+            hex_encode(&ix.data),
+        );
     }
 
     // Output JSON

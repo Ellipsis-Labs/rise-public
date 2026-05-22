@@ -10,6 +10,9 @@ impl CandlesClient<'_> {
         &self,
         params: CandlesQueryParams,
     ) -> Result<Vec<ApiCandle>, PhoenixHttpError> {
-        self.http.get_json_with_query("/candles", &params).await
+        let symbol = params.symbol.to_ascii_uppercase();
+        self.http
+            .get_json_with_query(&format!("/v1/candles/{}", symbol), &params)
+            .await
     }
 }

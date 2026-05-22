@@ -11,10 +11,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Timeframe {
-    #[serde(rename = "1s")]
-    Second1,
-    #[serde(rename = "5s")]
-    Second5,
     #[serde(rename = "1m")]
     Minute1,
     #[serde(rename = "5m")]
@@ -34,8 +30,6 @@ pub enum Timeframe {
 impl Display for Timeframe {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Timeframe::Second1 => write!(f, "1s"),
-            Timeframe::Second5 => write!(f, "5s"),
             Timeframe::Minute1 => write!(f, "1m"),
             Timeframe::Minute5 => write!(f, "5m"),
             Timeframe::Minute15 => write!(f, "15m"),
@@ -52,8 +46,6 @@ impl FromStr for Timeframe {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "1s" => Ok(Timeframe::Second1),
-            "5s" => Ok(Timeframe::Second5),
             "1m" => Ok(Timeframe::Minute1),
             "5m" => Ok(Timeframe::Minute5),
             "15m" => Ok(Timeframe::Minute15),
@@ -62,6 +54,20 @@ impl FromStr for Timeframe {
             "4h" => Ok(Timeframe::Hour4),
             "1d" => Ok(Timeframe::Day1),
             _ => Err(format!("Unknown timeframe: {s}")),
+        }
+    }
+}
+
+impl Timeframe {
+    pub fn as_seconds(self) -> i64 {
+        match self {
+            Timeframe::Minute1 => 60,
+            Timeframe::Minute5 => 5 * 60,
+            Timeframe::Minute15 => 15 * 60,
+            Timeframe::Minute30 => 30 * 60,
+            Timeframe::Hour1 => 60 * 60,
+            Timeframe::Hour4 => 4 * 60 * 60,
+            Timeframe::Day1 => 24 * 60 * 60,
         }
     }
 }

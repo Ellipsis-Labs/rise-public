@@ -100,6 +100,19 @@ pub struct L2Orderbook {
     pub mid: Option<f64>,
 }
 
+/// HTTP orderbook response returned by `/market/{symbol}/orderbook`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderbookView {
+    pub slot: u64,
+    pub symbol: String,
+    pub bids: Vec<(f64, f64)>,
+    pub asks: Vec<(f64, f64)>,
+    pub mid: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub splines: Option<serde_json::Value>,
+}
+
 /// L2 orderbook update from the WebSocket server.
 ///
 /// Contains bid and ask levels for a specific market.
@@ -151,6 +164,16 @@ pub struct MarketStatsUpdate {
     pub funding_rate: f64,
 }
 
+/// Current mark price response returned by `/v1/market/{symbol}/mark-price`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarkPriceResponse {
+    pub slot: u64,
+    pub slot_index: u32,
+    pub symbol: String,
+    pub mark_price: Option<Price>,
+}
+
 // ============================================================================
 // Market Views (HTTP API)
 // ============================================================================
@@ -187,7 +210,7 @@ pub struct MarketInfo {
     pub l2_orderbook: L2Orderbook,
 }
 
-/// Response for the `/view/market/{symbol}` endpoint.
+/// Market snapshot response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketView {
@@ -195,7 +218,7 @@ pub struct MarketView {
     pub market: MarketInfo,
 }
 
-/// Summary market information returned by the `/view/markets` endpoint.
+/// Summary market information.
 /// This is a simpler structure than `MarketInfo` without orderbook/price data.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -217,7 +240,7 @@ pub struct MarketSummary {
     pub isolated_only: bool,
 }
 
-/// Response for the `/view/markets` endpoint.
+/// Markets snapshot response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketsView {

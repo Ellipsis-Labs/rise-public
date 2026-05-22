@@ -1,16 +1,17 @@
 //! High-level helper mirroring the TS `PhoenixFlightClient`
 //! (`ts/src/flight/client.ts`).
 //!
-//! A Flight builder wraps order-placing Phoenix instructions in a
-//! `proxy_instruction` so the Flight program can record its fee before
-//! forwarding execution to Phoenix.
+//! A Flight builder wraps supported Phoenix placement instructions in a
+//! `proxy_instruction` before forwarding execution to Phoenix.
 
 use solana_instruction::Instruction;
 use solana_pubkey::Pubkey;
 
 use crate::phoenix_rise_ix::flight::{ProxyInstructionParams, create_proxy_instruction_ix};
 use crate::phoenix_rise_ix::{
-    PhoenixIxError, place_limit_order_discriminant, place_market_order_discriminant,
+    PhoenixIxError, place_attached_conditional_order_discriminant, place_limit_order_discriminant,
+    place_limit_order_with_conditionals_discriminant, place_market_order_discriminant,
+    place_position_conditional_order_discriminant, place_stop_loss_discriminant,
 };
 use crate::phoenix_rise_types::TraderKey;
 
@@ -44,8 +45,8 @@ impl PhoenixFlightClient {
         )
     }
 
-    /// Wrap `ix` in a Flight `proxy_instruction` if it places an order; return
-    /// it unchanged otherwise.
+    /// Wrap `ix` in a Flight `proxy_instruction` if Flight supports routing it;
+    /// return it unchanged otherwise.
     ///
     /// Mirrors TS `PhoenixFlightClient.tryWrapFlightInstruction` at
     /// `ts/src/flight/client.ts`.
@@ -54,7 +55,7 @@ impl PhoenixFlightClient {
         ix: Instruction,
         trader_wallet: Pubkey,
     ) -> Result<Instruction, PhoenixIxError> {
-        if !is_order_placing_instruction(&ix) {
+        if !is_flight_routable_instruction(&ix) {
             return Ok(ix);
         }
 
@@ -71,12 +72,19 @@ impl PhoenixFlightClient {
     }
 }
 
-/// Returns true if the instruction targets `place_limit_order` or
-/// `place_market_order`. Mirrors TS `isOrderPlacingInstruction`
+/// Returns true if the instruction targets a Flight-routable placement
+/// instruction. Mirrors TS `isFlightRoutableInstruction`
 /// (`ts/src/flight/helper.ts`).
-pub fn is_order_placing_instruction(ix: &Instruction) -> bool {
+pub fn is_flight_routable_instruction(ix: &Instruction) -> bool {
     has_discriminant(&ix.data, &place_limit_order_discriminant())
         || has_discriminant(&ix.data, &place_market_order_discriminant())
+        || has_discriminant(&ix.data, &place_stop_loss_discriminant())
+        || has_discriminant(&ix.data, &place_position_conditional_order_discriminant())
+        || has_discriminant(&ix.data, &place_attached_conditional_order_discriminant())
+        || has_discriminant(
+            &ix.data,
+            &place_limit_order_with_conditionals_discriminant(),
+        )
 }
 
 fn has_discriminant(data: &[u8], discriminant: &[u8; 8]) -> bool {
@@ -128,6 +136,14 @@ mod tests {
         create_place_limit_order_ix(params).unwrap().into()
     }
 
+    fn build_sample_phoenix_ix(discriminant: [u8; 8]) -> Instruction {
+        Instruction {
+            program_id: *crate::phoenix_rise_ix::PHOENIX_PROGRAM_ID,
+            accounts: vec![SolAccountMeta::new_readonly(Pubkey::new_unique(), false)],
+            data: discriminant.to_vec(),
+        }
+    }
+
     #[test]
     fn test_wraps_order_placing_ix() {
         let client = PhoenixFlightClient::new(Pubkey::new_unique(), 0, 0);
@@ -173,14 +189,29 @@ mod tests {
     }
 
     #[test]
-    fn test_is_order_placing_instruction() {
-        assert!(is_order_placing_instruction(&build_sample_limit_ix()));
+    fn test_is_flight_routable_instruction() {
+        assert!(is_flight_routable_instruction(&build_sample_limit_ix()));
+        assert!(is_flight_routable_instruction(&build_sample_phoenix_ix(
+            place_market_order_discriminant()
+        )));
+        assert!(is_flight_routable_instruction(&build_sample_phoenix_ix(
+            place_stop_loss_discriminant()
+        )));
+        assert!(is_flight_routable_instruction(&build_sample_phoenix_ix(
+            place_position_conditional_order_discriminant()
+        )));
+        assert!(is_flight_routable_instruction(&build_sample_phoenix_ix(
+            place_attached_conditional_order_discriminant()
+        )));
+        assert!(is_flight_routable_instruction(&build_sample_phoenix_ix(
+            place_limit_order_with_conditionals_discriminant()
+        )));
 
         let fake = Instruction {
             program_id: Pubkey::new_unique(),
             accounts: vec![],
             data: vec![0u8; 8],
         };
-        assert!(!is_order_placing_instruction(&fake));
+        assert!(!is_flight_routable_instruction(&fake));
     }
 }

@@ -112,7 +112,7 @@ impl ProxyInstructionParamsBuilder {
 pub fn create_proxy_instruction_ix(
     params: ProxyInstructionParams,
 ) -> Result<Instruction, PhoenixIxError> {
-    if params.inner_instruction().program_id != PHOENIX_PROGRAM_ID {
+    if params.inner_instruction().program_id != *PHOENIX_PROGRAM_ID {
         return Err(PhoenixIxError::InvalidInnerProgram);
     }
 
@@ -124,7 +124,7 @@ pub fn create_proxy_instruction_ix(
 
     let mut accounts = Vec::with_capacity(6 + params.inner_instruction().accounts.len());
     accounts.push(AccountMeta::readonly(get_flight_global_state_address()));
-    accounts.push(AccountMeta::readonly(PHOENIX_PROGRAM_ID));
+    accounts.push(AccountMeta::readonly(*PHOENIX_PROGRAM_ID));
     accounts.push(AccountMeta::readonly(params.builder_authority()));
     accounts.push(AccountMeta::writable(params.builder_trader_account()));
     accounts.push(AccountMeta::readonly(get_flight_builder_state_address(
@@ -146,7 +146,7 @@ mod tests {
 
     fn make_inner_ix(data: Vec<u8>, accounts: Vec<AccountMeta>) -> Instruction {
         Instruction {
-            program_id: PHOENIX_PROGRAM_ID,
+            program_id: *PHOENIX_PROGRAM_ID,
             accounts,
             data,
         }
@@ -218,7 +218,7 @@ mod tests {
         assert_eq!(ix.accounts[0].pubkey, get_flight_global_state_address());
         assert!(!ix.accounts[0].is_writable);
 
-        assert_eq!(ix.accounts[1].pubkey, PHOENIX_PROGRAM_ID);
+        assert_eq!(ix.accounts[1].pubkey, *PHOENIX_PROGRAM_ID);
 
         assert_eq!(ix.accounts[2].pubkey, builder_authority);
         assert!(!ix.accounts[2].is_writable);

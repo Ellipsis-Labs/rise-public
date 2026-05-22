@@ -135,7 +135,7 @@ export const buildPlaceStopLossIxResolved = (
       logAuthorityAddress: params.exchange.logAuthorityAddress,
       globalConfigurationAddress: params.exchange.globalConfigurationAddress,
     }),
-    funder: params.trader.authority,
+    funder: params.trader.funder ?? params.trader.authority,
     traderAccount: params.trader.traderAccount,
     perpAssetMap: params.exchange.perpAssetMap,
     orderbook: params.market.marketAddress,

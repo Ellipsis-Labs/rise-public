@@ -3,7 +3,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::types::core::Decimal;
-use crate::types::exchange::ExchangeRiskFactors;
+use crate::types::exchange::{
+    AuthoritySetView, ExchangeKeysView, ExchangeLeverageTier, ExchangeMarketConfig,
+    ExchangeResponse, ExchangeRiskFactors,
+};
 use crate::types::js_safe_ints::JsSafeU64;
 use crate::types::market::MarketStatus;
 
@@ -22,17 +25,17 @@ pub struct AuthoritySet {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeWsLeverageTier {
-    pub max_leverage: f64,
+    pub max_leverage: u64,
     pub max_size_base_lots: JsSafeU64,
-    pub limit_order_risk_factor: f64,
+    pub limit_order_risk_factor: u16,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeWsFundingConfig {
-    pub funding_interval_seconds: u32,
-    pub funding_period_seconds: u32,
-    pub max_funding_rate_per_interval: f64,
+    pub funding_interval_seconds: u64,
+    pub funding_period_seconds: u64,
+    pub max_funding_rate_per_interval: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -57,8 +60,8 @@ pub struct ExchangeWsMarkPriceParameters {
     pub book_price_stale_threshold: JsSafeU64,
     pub perp_price_stale_threshold: JsSafeU64,
     pub risk_action_price_validity_rules: ExchangeWsRiskActionPriceValidityRules,
-    pub oracle_divergence_radius: u64,
-    pub min_oracle_responses: u32,
+    pub oracle_divergence_radius: u16,
+    pub min_oracle_responses: u8,
 }
 
 pub type ExchangeWsRiskActionPriceValidityRules = [[[ExchangeWsValidationRule; 8]; 4]; 8];
@@ -118,7 +121,7 @@ pub struct ExchangeStateSnapshot {
     pub global_trader_index: Vec<String>,
     pub active_trader_buffer: Vec<String>,
     pub withdraw_queue: String,
-    pub exchange_status_bits: u32,
+    pub exchange_status_bits: u8,
     pub exchange_status_features: Vec<String>,
     pub active: bool,
     pub gated: bool,
@@ -150,10 +153,10 @@ pub struct ExchangeMarketSnapshot {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeSnapshotView {
-    pub version: u32,
+    pub version: u16,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sequence_number: Option<JsSafeU64>,
-    pub slot: JsSafeU64,
+    pub slot: u64,
     pub slot_index: u32,
     pub exchange: ExchangeStateSnapshot,
     pub markets: Vec<ExchangeMarketSnapshot>,
@@ -177,9 +180,9 @@ pub enum ExchangeSnapshotEncoding {
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeSnapshotMessage {
     pub channel: String,
-    pub version: u32,
+    pub version: u16,
     pub sequence_number: JsSafeU64,
-    pub slot: JsSafeU64,
+    pub slot: u64,
     pub slot_index: u32,
     pub reason: ExchangeSnapshotReason,
     pub exchange: ExchangeStateSnapshot,
@@ -203,9 +206,9 @@ impl From<&ExchangeSnapshotMessage> for ExchangeSnapshotView {
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeEncodedSnapshotMessage {
     pub channel: String,
-    pub version: u32,
+    pub version: u16,
     pub sequence_number: JsSafeU64,
-    pub slot: JsSafeU64,
+    pub slot: u64,
     pub slot_index: u32,
     pub reason: ExchangeSnapshotReason,
     pub encoding: ExchangeSnapshotEncoding,
@@ -216,9 +219,9 @@ pub struct ExchangeEncodedSnapshotMessage {
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeDeltaMessage {
     pub channel: String,
-    pub version: u32,
+    pub version: u16,
     pub sequence_number: JsSafeU64,
-    pub slot: JsSafeU64,
+    pub slot: u64,
     pub slot_index: u32,
     pub ops: Vec<ExchangeDeltaOp>,
 }
@@ -275,8 +278,8 @@ pub enum ExchangeDeltaOp {
         exchange: ExchangeStateSnapshot,
     },
     ExchangeStatusChanged {
-        previous_bits: u32,
-        new_bits: u32,
+        previous_bits: u8,
+        new_bits: u8,
         previous_features: Vec<String>,
         new_features: Vec<String>,
         enabled_features: Vec<String>,
@@ -312,4 +315,245 @@ pub enum ExchangeDeltaOp {
         symbol: String,
         update: ExchangeMarketParameterUpdate,
     },
+}
+
+impl ExchangeSnapshotView {
+    /// Exchange keys converted for instruction metadata.
+    ///
+    /// The snapshot carries the active authority set; `pending_authorities` is
+    /// mirrored from the active set for compatibility with `ExchangeKeysView`.
+    pub fn keys(&self) -> ExchangeKeysView {
+        ExchangeKeysView::from(&self.exchange)
+    }
+
+    /// Market configs converted into the same shape used by `PhoenixMetadata`.
+    pub fn market_configs(&self) -> Vec<ExchangeMarketConfig> {
+        self.markets
+            .iter()
+            .map(ExchangeMarketConfig::from)
+            .collect()
+    }
+
+    /// Convert the snapshot into exchange metadata for instruction builders.
+    pub fn into_exchange_response(self) -> ExchangeResponse {
+        ExchangeResponse {
+            keys: ExchangeKeysView::from(&self.exchange),
+            markets: self
+                .markets
+                .iter()
+                .map(ExchangeMarketConfig::from)
+                .collect(),
+        }
+    }
+}
+
+impl From<ExchangeSnapshotView> for ExchangeResponse {
+    fn from(snapshot: ExchangeSnapshotView) -> Self {
+        snapshot.into_exchange_response()
+    }
+}
+
+impl From<&AuthoritySet> for AuthoritySetView {
+    fn from(authorities: &AuthoritySet) -> Self {
+        Self {
+            root_authority: authorities.root_authority.clone(),
+            risk_authority: authorities.risk_authority.clone(),
+            market_authority: authorities.market_authority.clone(),
+            oracle_authority: authorities.oracle_authority.clone(),
+        }
+    }
+}
+
+impl From<&ExchangeStateSnapshot> for ExchangeKeysView {
+    fn from(exchange: &ExchangeStateSnapshot) -> Self {
+        // `/v1/exchange/snapshot` does not include pending authorities; these
+        // keys are unused by instruction builders, so mirror the active set.
+        let current_authorities = AuthoritySetView::from(&exchange.current_authorities);
+        Self {
+            program_id: Some(exchange.program_id.clone()),
+            global_config: exchange.global_config.clone(),
+            current_authorities: current_authorities.clone(),
+            pending_authorities: current_authorities,
+            canonical_mint: exchange.canonical_mint.clone(),
+            global_vault: exchange.global_vault.clone(),
+            perp_asset_map: exchange.perp_asset_map.clone(),
+            global_trader_index: exchange.global_trader_index.clone(),
+            active_trader_buffer: exchange.active_trader_buffer.clone(),
+            withdraw_queue: exchange.withdraw_queue.clone(),
+        }
+    }
+}
+
+impl From<&ExchangeWsLeverageTier> for ExchangeLeverageTier {
+    fn from(tier: &ExchangeWsLeverageTier) -> Self {
+        Self {
+            max_leverage: tier.max_leverage as f64,
+            max_size_base_lots: tier.max_size_base_lots.into_inner(),
+            limit_order_risk_factor: tier.limit_order_risk_factor as f64 / 100.0,
+        }
+    }
+}
+
+impl From<&ExchangeMarketSnapshot> for ExchangeMarketConfig {
+    fn from(market: &ExchangeMarketSnapshot) -> Self {
+        Self {
+            symbol: market.symbol.clone(),
+            asset_id: market.asset_id,
+            market_status: market.market_status,
+            market_pubkey: market.market_pubkey.clone(),
+            spline_pubkey: market.spline_pubkey.clone(),
+            tick_size: market.tick_size,
+            base_lots_decimals: market.base_lots_decimals,
+            taker_fee: market.taker_fee,
+            maker_fee: market.maker_fee,
+            leverage_tiers: market
+                .leverage_tiers
+                .iter()
+                .map(ExchangeLeverageTier::from)
+                .collect(),
+            risk_factors: market.risk_factors,
+            funding_interval_seconds: clamp_u64_to_u32(
+                market.funding_config.funding_interval_seconds,
+            ),
+            funding_period_seconds: clamp_u64_to_u32(market.funding_config.funding_period_seconds),
+            max_funding_rate_per_interval: market.funding_config.max_funding_rate_per_interval
+                as f64,
+            open_interest_cap_base_lots: market.open_interest_cap_base_lots,
+            max_liquidation_size_base_lots: market.max_liquidation_size_base_lots,
+            isolated_only: market.isolated_only,
+        }
+    }
+}
+
+fn clamp_u64_to_u32(value: u64) -> u32 {
+    value.min(u32::MAX as u64) as u32
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn authority_set() -> AuthoritySet {
+        AuthoritySet {
+            root_authority: "root".to_string(),
+            risk_authority: "risk".to_string(),
+            market_authority: "market".to_string(),
+            oracle_authority: "oracle".to_string(),
+            adl_authority: "adl".to_string(),
+            cancel_authority: "cancel".to_string(),
+            backstop_authority: "backstop".to_string(),
+        }
+    }
+
+    fn mark_price_parameters() -> ExchangeWsMarkPriceParameters {
+        ExchangeWsMarkPriceParameters {
+            ema_period_slots: 375_u64.into(),
+            ema_diff_radius: 250_u64.into(),
+            book_price_radius: 500_u64.into(),
+            commodities_after_hours_radius: 0_u64.into(),
+            commodities_after_hours_radius_bps: 0_u64.into(),
+            adjusted_exchange_spot_price_weight: 2_000_u64.into(),
+            book_price_weight: 4_000_u64.into(),
+            exchange_perp_price_weight: 4_000_u64.into(),
+            spot_price_stale_threshold: 120_u64.into(),
+            book_price_stale_threshold: 15_u64.into(),
+            perp_price_stale_threshold: 15_u64.into(),
+            risk_action_price_validity_rules: [[[ExchangeWsValidationRule::Ignore; 8]; 4]; 8],
+            oracle_divergence_radius: 500,
+            min_oracle_responses: 1,
+        }
+    }
+
+    fn snapshot() -> ExchangeSnapshotView {
+        ExchangeSnapshotView {
+            version: 1,
+            sequence_number: None,
+            slot: 42,
+            slot_index: 7,
+            exchange: ExchangeStateSnapshot {
+                program_id: "program".to_string(),
+                global_config: "global-config".to_string(),
+                current_authorities: authority_set(),
+                canonical_mint: "canonical".to_string(),
+                usdc_mint: "usdc".to_string(),
+                global_vault: "vault".to_string(),
+                perp_asset_map: "perp-map".to_string(),
+                global_trader_index: vec!["gti-0".to_string()],
+                active_trader_buffer: vec!["atb-0".to_string()],
+                withdraw_queue: "withdraw-queue".to_string(),
+                exchange_status_bits: 129,
+                exchange_status_features: vec!["active".to_string()],
+                active: true,
+                gated: false,
+            },
+            markets: vec![ExchangeMarketSnapshot {
+                symbol: "SOL-PERP".to_string(),
+                asset_id: 1,
+                market_status: MarketStatus::Active,
+                market_pubkey: "sol-market".to_string(),
+                spline_pubkey: "sol-spline".to_string(),
+                tick_size: 100,
+                base_lots_decimals: 3,
+                taker_fee: 0.0005,
+                maker_fee: -0.0001,
+                leverage_tiers: vec![ExchangeWsLeverageTier {
+                    max_leverage: 20,
+                    max_size_base_lots: 1_000_u64.into(),
+                    limit_order_risk_factor: 2_500,
+                }],
+                risk_factors: ExchangeRiskFactors {
+                    maintenance: 5.0,
+                    backstop: 8.0,
+                    high_risk: 12.0,
+                    upnl: 90.0,
+                    upnl_for_withdrawals: 80.0,
+                    cancel_order: 2.5,
+                },
+                funding_config: ExchangeWsFundingConfig {
+                    funding_interval_seconds: 3_600,
+                    funding_period_seconds: 28_800,
+                    max_funding_rate_per_interval: 2_500,
+                },
+                open_interest_cap_base_lots: 5_000_u64.into(),
+                max_liquidation_size_base_lots: 250_u64.into(),
+                isolated_only: false,
+                mark_price_parameters: mark_price_parameters(),
+                commodity_metadata: None,
+            }],
+        }
+    }
+
+    #[test]
+    fn deserializes_v1_exchange_snapshot_shape() {
+        let value = serde_json::to_value(snapshot()).unwrap();
+        let decoded: ExchangeSnapshotView = serde_json::from_value(value).unwrap();
+        assert_eq!(decoded.version, 1);
+        assert_eq!(decoded.slot, 42);
+        assert_eq!(
+            decoded.exchange.current_authorities.cancel_authority,
+            "cancel"
+        );
+        assert_eq!(decoded.markets[0].leverage_tiers[0].max_leverage, 20);
+        assert_eq!(
+            decoded.markets[0]
+                .funding_config
+                .max_funding_rate_per_interval,
+            2_500
+        );
+    }
+
+    #[test]
+    fn converts_snapshot_into_exchange_metadata_response() {
+        let response = snapshot().into_exchange_response();
+        assert_eq!(response.keys.global_config, "global-config");
+        assert_eq!(response.keys.perp_asset_map, "perp-map");
+        assert_eq!(response.markets.len(), 1);
+        assert_eq!(response.markets[0].symbol, "SOL-PERP");
+        assert_eq!(response.markets[0].leverage_tiers[0].max_leverage, 20.0);
+        assert_eq!(
+            response.markets[0].leverage_tiers[0].limit_order_risk_factor,
+            25.0
+        );
+        assert_eq!(response.markets[0].funding_interval_seconds, 3_600);
+    }
 }

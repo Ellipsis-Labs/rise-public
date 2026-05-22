@@ -12,16 +12,17 @@ use thiserror::Error;
 
 use crate::PhoenixMetadata;
 use crate::order_tickets::{
-    BracketLegOrders, BracketLegSize, BracketLegTicket, LimitOrderTicket, MarketOrderTicket,
-    OrderTicketMetadata,
+    BracketLeg, BracketLegExecution, BracketLegOrders, BracketLegSize, BracketLegTicket,
+    DEFAULT_BRACKET_LEG_SLIPPAGE_BPS, LimitOrderTicket, MarketOrderTicket, OrderTicketMetadata,
 };
 use crate::phoenix_rise_ix::{
     CancelId, CancelOrdersByIdParams, CancelStopLossParams, CondensedOrder,
     CreateConditionalOrdersAccountParams, DepositFundsParams, Direction, EmberDepositParams,
     EmberWithdrawParams, IsolatedCollateralFlow, IsolatedLimitOrderParams,
     IsolatedMarketOrderParams, LimitOrderParams, MarketOrderParams, MultiLimitOrderParams,
-    OrderPacket, PlaceLimitOrderWithConditionalsParams, PlacePositionConditionalOrderParams,
-    RegisterTraderParams, Side, SplApproveParams, StopLossOrderKind, SyncParentToChildParams,
+    OrderPacket, PHOENIX_PROGRAM_ID, PlaceLimitOrderWithConditionalsParams,
+    PlacePositionConditionalOrderParams, PlaceStopLossParams, RegisterTraderParams, Side,
+    SplApproveParams, StopLossOrderKind, SyncParentToChildParams,
     TransferCollateralChildToParentParams, TransferCollateralParams, TriggerOrderParams, USDC_MINT,
     WithdrawFundsParams, client_order_id_to_bytes, create_associated_token_account_idempotent_ix,
     create_cancel_orders_by_id_ix, create_cancel_stop_loss_ix,
@@ -29,18 +30,20 @@ use crate::phoenix_rise_ix::{
     create_ember_withdraw_ix, create_place_limit_order_ix,
     create_place_limit_order_with_conditionals_ix, create_place_market_order_ix,
     create_place_multi_limit_order_ix, create_place_position_conditional_order_ix,
-    create_register_trader_ix, create_spl_approve_ix, create_sync_parent_to_child_ix,
-    create_transfer_collateral_child_to_parent_ix, create_transfer_collateral_ix,
-    create_withdraw_funds_ix, get_associated_token_address, get_conditional_orders_address,
-    get_ember_state_address,
+    create_place_stop_loss_ix, create_register_trader_ix, create_spl_approve_ix,
+    create_sync_parent_to_child_ix, create_transfer_collateral_child_to_parent_ix,
+    create_transfer_collateral_ix, create_withdraw_funds_ix, get_associated_token_address,
+    get_conditional_orders_address, get_ember_state_address, get_stop_loss_address,
 };
 use crate::phoenix_rise_math::{MathError, WrapperNum};
+use crate::phoenix_rise_types::accounts::StopLosses;
 use crate::phoenix_rise_types::{
     CROSS_MARGIN_SUBACCOUNT_IDX, ExchangeMarketConfig, Trader, TraderKey,
 };
 
 const USDC_NATIVE_DECIMALS: f64 = 1_000_000.0;
 const DEFAULT_CONDITIONAL_ORDERS_CAPACITY: u8 = 8;
+const BPS_DENOMINATOR: u128 = 10_000;
 
 /// Errors that can occur when building Phoenix transactions.
 #[derive(Debug, Error)]
@@ -81,6 +84,10 @@ pub enum PhoenixTxBuilderError {
     /// RPC fetch failed while resolving bracket-order prerequisites.
     #[error("RPC error: {0}")]
     Rpc(String),
+
+    /// Invalid bracket leg execution price configuration.
+    #[error("Invalid bracket leg execution price: {0}")]
+    InvalidBracketLegExecutionPrice(String),
 
     /// Attached limit-order conditionals do not yet support explicit per-leg
     /// sizing in the local tx builder.
@@ -156,6 +163,15 @@ impl<'a> PhoenixTxBuilder<'a> {
     /// Creates a new transaction builder from exchange metadata.
     pub fn new(metadata: &'a PhoenixMetadata) -> Self {
         Self { metadata }
+    }
+
+    fn trader_pda(authority: &Pubkey, pda_index: u8, subaccount_index: u8) -> Pubkey {
+        let pda_schema = [pda_index, subaccount_index];
+        Pubkey::find_program_address(
+            &[b"trader", authority.as_ref(), pda_schema.as_ref()],
+            &*PHOENIX_PROGRAM_ID,
+        )
+        .0
     }
 
     /// Build an instruction to create a trader conditional-orders account.
@@ -433,7 +449,7 @@ impl<'a> PhoenixTxBuilder<'a> {
     ///
     /// # Arguments
     ///
-    /// * `authority` - The trader's wallet address (signer / funder)
+    /// * `authority` - The trader's wallet address (signer)
     /// * `trader_pda` - The trader's PDA account
     /// * `symbol` - Market symbol ("SOL", "BTC", "ETH")
     /// * `execution_direction` - Which leg to cancel (`LessThan` for SL on
@@ -445,15 +461,102 @@ impl<'a> PhoenixTxBuilder<'a> {
         symbol: &str,
         execution_direction: Direction,
     ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        self.build_cancel_bracket_leg_with_funder(
+            authority,
+            authority,
+            trader_pda,
+            symbol,
+            execution_direction,
+        )
+    }
+
+    /// Build a cancel stop loss instruction using the funding key stored on
+    /// the stop-loss account.
+    ///
+    /// Legacy stop-loss account validation requires the cancel `funder`
+    /// account to match the account that originally funded the stop-loss PDA.
+    /// This mirrors the API ix route behavior while keeping instruction
+    /// construction local to the Rust SDK.
+    pub async fn build_cancel_bracket_leg_from_account(
+        &self,
+        authority: Pubkey,
+        trader_pda: Pubkey,
+        symbol: &str,
+        execution_direction: Direction,
+        rpc: &RpcClient,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
         let market = self
             .metadata
             .get_market(symbol)
             .ok_or_else(|| PhoenixTxBuilderError::UnknownSymbol(symbol.to_string()))?;
+        let asset_id = market.asset_id as u64;
+        let stop_loss = get_stop_loss_address(&trader_pda, asset_id);
+        let account = rpc
+            .get_account_with_commitment(&stop_loss, rpc.commitment())
+            .await
+            .map_err(|err| {
+                PhoenixTxBuilderError::Rpc(format!(
+                    "failed to fetch stop loss account {stop_loss}: {err}"
+                ))
+            })?
+            .value
+            .ok_or_else(|| {
+                PhoenixTxBuilderError::Rpc(format!(
+                    "stop loss account {stop_loss} not found for trader {trader_pda} on {symbol}"
+                ))
+            })?;
 
+        if account.owner != *PHOENIX_PROGRAM_ID {
+            let program_id = *PHOENIX_PROGRAM_ID;
+            return Err(PhoenixTxBuilderError::Rpc(format!(
+                "stop loss account {stop_loss} has owner {}, expected {program_id}",
+                account.owner
+            )));
+        }
+
+        let stop_losses = StopLosses::try_from_account_bytes(&account.data).map_err(|err| {
+            PhoenixTxBuilderError::Rpc(format!(
+                "failed to decode stop loss account {stop_loss}: {err}"
+            ))
+        })?;
+        if stop_losses.trader_key != trader_pda {
+            return Err(PhoenixTxBuilderError::Rpc(format!(
+                "stop loss account {stop_loss} belongs to trader {}, expected {trader_pda}",
+                stop_losses.trader_key
+            )));
+        }
+        if stop_losses.asset_id != asset_id {
+            return Err(PhoenixTxBuilderError::Rpc(format!(
+                "stop loss account {stop_loss} has asset id {}, expected {asset_id}",
+                stop_losses.asset_id
+            )));
+        }
+
+        self.build_cancel_bracket_leg_with_funder(
+            stop_losses.funding_key,
+            authority,
+            trader_pda,
+            symbol,
+            execution_direction,
+        )
+    }
+
+    fn build_cancel_bracket_leg_with_funder(
+        &self,
+        funder: Pubkey,
+        authority: Pubkey,
+        trader_pda: Pubkey,
+        symbol: &str,
+        execution_direction: Direction,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        let market = self
+            .metadata
+            .get_market(symbol)
+            .ok_or_else(|| PhoenixTxBuilderError::UnknownSymbol(symbol.to_string()))?;
         let asset_id = market.asset_id as u64;
 
         let params = CancelStopLossParams::builder()
-            .funder(authority)
+            .funder(funder)
             .trader_account(trader_pda)
             .position_authority(authority)
             .asset_id(asset_id)
@@ -492,6 +595,53 @@ impl<'a> PhoenixTxBuilder<'a> {
             bracket.bracket_legs(),
         )?);
         Ok(ixs)
+    }
+
+    /// Build legacy stop-loss/take-profit trigger instructions.
+    ///
+    /// These mutate the legacy stop-loss account and emit trader-state
+    /// position trigger deltas. Use `place_position_bracket_order` for the
+    /// newer conditional-order account flow.
+    pub fn build_stop_loss_orders(
+        &self,
+        authority: Pubkey,
+        trader_account: Pubkey,
+        symbol: &str,
+        position_side: Side,
+        bracket: &BracketLegOrders,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        let market = self
+            .metadata
+            .get_market(symbol)
+            .ok_or_else(|| PhoenixTxBuilderError::UnknownSymbol(symbol.to_string()))?;
+        let addrs = self.parse_addresses(market)?;
+        let asset_id = market.asset_id as u64;
+        let stop_loss_account = get_stop_loss_address(&trader_account, asset_id);
+        let resolved_legs = self.build_resolved_bracket_legs(symbol, position_side, bracket)?;
+
+        resolved_legs
+            .into_iter()
+            .map(|leg| {
+                let params = PlaceStopLossParams::builder()
+                    .funder(authority)
+                    .trader_account(trader_account)
+                    .position_authority(authority)
+                    .perp_asset_map(addrs.perp_asset_map)
+                    .orderbook(addrs.orderbook)
+                    .spline_collection(addrs.spline_collection)
+                    .global_trader_index(addrs.global_trader_index.clone())
+                    .active_trader_buffer(addrs.active_trader_buffer.clone())
+                    .stop_loss_account(stop_loss_account)
+                    .asset_id(asset_id)
+                    .trigger_price(leg.trigger.trigger_price())
+                    .execution_price(leg.trigger.execution_price())
+                    .trade_side(leg.trigger.trade_side())
+                    .execution_direction(leg.trigger.trigger_direction())
+                    .order_kind(leg.trigger.order_kind())
+                    .build()?;
+                Ok(create_place_stop_loss_ix(params)?.into())
+            })
+            .collect()
     }
 
     /// Build deposit funds instructions.
@@ -684,11 +834,7 @@ impl<'a> PhoenixTxBuilder<'a> {
         } else {
             1
         };
-        let trader_pda = crate::phoenix_rise_types::TraderKey::derive_pda(
-            &authority,
-            pda_index,
-            subaccount_index,
-        );
+        let trader_pda = Self::trader_pda(&authority, pda_index, subaccount_index);
 
         let params = RegisterTraderParams::builder()
             .payer(authority)
@@ -1210,29 +1356,45 @@ impl<'a> PhoenixTxBuilder<'a> {
         let mut resolved_legs = Vec::new();
 
         if let Some(stop_loss) = &bracket.stop_loss {
-            let price_in_ticks = calc.price_to_ticks(stop_loss.price)?.as_inner();
+            let trigger_ticks = calc.price_to_ticks(stop_loss.price)?.as_inner();
+            let order_kind = stop_loss.resolved_order_kind(StopLossOrderKind::IOC);
+            let execution_ticks = bracket_leg_execution_ticks(
+                &calc,
+                stop_loss,
+                trigger_ticks,
+                bracket_trade_side,
+                order_kind,
+            )?;
             resolved_legs.push(ResolvedBracketLeg {
                 size: stop_loss.resolved_size(),
                 trigger: TriggerOrderParams::new(
                     sl_direction,
                     bracket_trade_side,
-                    StopLossOrderKind::IOC,
-                    price_in_ticks,
-                    price_in_ticks,
+                    order_kind,
+                    trigger_ticks,
+                    execution_ticks,
                 ),
             });
         }
 
         if let Some(take_profit) = &bracket.take_profit {
-            let price_in_ticks = calc.price_to_ticks(take_profit.price)?.as_inner();
+            let trigger_ticks = calc.price_to_ticks(take_profit.price)?.as_inner();
+            let order_kind = take_profit.resolved_order_kind(StopLossOrderKind::Limit);
+            let execution_ticks = bracket_leg_execution_ticks(
+                &calc,
+                take_profit,
+                trigger_ticks,
+                bracket_trade_side,
+                order_kind,
+            )?;
             resolved_legs.push(ResolvedBracketLeg {
                 size: take_profit.resolved_size(),
                 trigger: TriggerOrderParams::new(
                     tp_direction,
                     bracket_trade_side,
-                    StopLossOrderKind::IOC,
-                    price_in_ticks,
-                    price_in_ticks,
+                    order_kind,
+                    trigger_ticks,
+                    execution_ticks,
                 ),
             });
         }
@@ -1385,6 +1547,102 @@ impl<'a> PhoenixTxBuilder<'a> {
     }
 }
 
+fn bracket_leg_execution_ticks(
+    calc: &crate::phoenix_rise_math::MarketCalculator,
+    leg: &BracketLeg,
+    trigger_ticks: u64,
+    trade_side: Side,
+    order_kind: StopLossOrderKind,
+) -> Result<u64, PhoenixTxBuilderError> {
+    match leg.execution {
+        Some(BracketLegExecution::Price(price)) => Ok(calc.price_to_ticks(price)?.as_inner()),
+        Some(BracketLegExecution::SlippageBps(slippage_bps)) => {
+            execution_ticks_with_slippage(trigger_ticks, trade_side, slippage_bps)
+        }
+        None if order_kind == StopLossOrderKind::Limit => Ok(trigger_ticks),
+        None => execution_ticks_with_slippage(
+            trigger_ticks,
+            trade_side,
+            DEFAULT_BRACKET_LEG_SLIPPAGE_BPS,
+        ),
+    }
+}
+
+fn execution_ticks_with_slippage(
+    trigger_ticks: u64,
+    trade_side: Side,
+    slippage_bps: u32,
+) -> Result<u64, PhoenixTxBuilderError> {
+    match trade_side {
+        Side::Ask => sell_execution_ticks(trigger_ticks, slippage_bps),
+        Side::Bid => buy_execution_ticks(trigger_ticks, slippage_bps),
+    }
+}
+
+fn sell_execution_ticks(
+    trigger_ticks: u64,
+    slippage_bps: u32,
+) -> Result<u64, PhoenixTxBuilderError> {
+    if slippage_bps >= 10_000 {
+        return Err(PhoenixTxBuilderError::InvalidBracketLegExecutionPrice(
+            "sell-side slippage must be less than 10000 bps".to_string(),
+        ));
+    }
+
+    let numerator = (trigger_ticks as u128)
+        .checked_mul(BPS_DENOMINATOR - slippage_bps as u128)
+        .ok_or_else(slippage_overflow_error)?;
+    let mut ticks = (numerator / BPS_DENOMINATOR) as u64;
+
+    if slippage_bps > 0 && ticks == trigger_ticks {
+        ticks = trigger_ticks.checked_sub(1).ok_or_else(|| {
+            PhoenixTxBuilderError::InvalidBracketLegExecutionPrice(
+                "sell-side slippage resolves execution price to 0 ticks".to_string(),
+            )
+        })?;
+    }
+
+    if ticks == 0 {
+        return Err(PhoenixTxBuilderError::InvalidBracketLegExecutionPrice(
+            "sell-side slippage resolves execution price to 0 ticks".to_string(),
+        ));
+    }
+
+    Ok(ticks)
+}
+
+fn buy_execution_ticks(
+    trigger_ticks: u64,
+    slippage_bps: u32,
+) -> Result<u64, PhoenixTxBuilderError> {
+    let numerator = (trigger_ticks as u128)
+        .checked_mul(BPS_DENOMINATOR + slippage_bps as u128)
+        .ok_or_else(slippage_overflow_error)?;
+    let ticks = numerator
+        .checked_add(BPS_DENOMINATOR - 1)
+        .ok_or_else(slippage_overflow_error)?
+        / BPS_DENOMINATOR;
+
+    if ticks > u64::MAX as u128 {
+        return Err(slippage_overflow_error());
+    }
+
+    let mut ticks = ticks as u64;
+    if slippage_bps > 0 && ticks == trigger_ticks {
+        ticks = trigger_ticks
+            .checked_add(1)
+            .ok_or_else(slippage_overflow_error)?;
+    }
+
+    Ok(ticks)
+}
+
+fn slippage_overflow_error() -> PhoenixTxBuilderError {
+    PhoenixTxBuilderError::InvalidBracketLegExecutionPrice(
+        "slippage overflows execution ticks".to_string(),
+    )
+}
+
 /// Parse a vector of base58-encoded pubkeys.
 fn parse_pubkey_vec(strings: &[String]) -> Result<Vec<Pubkey>, PhoenixTxBuilderError> {
     strings
@@ -1413,7 +1671,9 @@ mod tests {
 
     use super::*;
     use crate::order_tickets::BracketLeg;
-    use crate::phoenix_rise_ix::OrderFlags;
+    use crate::phoenix_rise_ix::{
+        OrderFlags, PHOENIX_GLOBAL_CONFIGURATION, PHOENIX_LOG_AUTHORITY, get_ember_vault_address,
+    };
     use crate::phoenix_rise_math::{MarketCalculator, QuoteLotsPerBaseLotPerTick};
     use crate::phoenix_rise_types::{
         AuthoritySetView, ExchangeKeysView, ExchangeRiskFactors, ExchangeView, MarketStatus,
@@ -1428,6 +1688,7 @@ mod tests {
         };
 
         ExchangeKeysView {
+            program_id: None,
             global_config: Pubkey::new_unique().to_string(),
             current_authorities: authorities(),
             pending_authorities: authorities(),
@@ -1463,13 +1724,14 @@ mod tests {
     }
 
     fn mock_metadata(symbol: &str) -> PhoenixMetadata {
+        mock_metadata_with_keys(symbol, mock_exchange_keys())
+    }
+
+    fn mock_metadata_with_keys(symbol: &str, keys: ExchangeKeysView) -> PhoenixMetadata {
         let market = mock_market(symbol);
         let mut markets = HashMap::new();
         markets.insert(symbol.to_string(), market);
-        PhoenixMetadata::new(ExchangeView {
-            keys: mock_exchange_keys(),
-            markets,
-        })
+        PhoenixMetadata::new(ExchangeView { keys, markets })
     }
 
     #[test]
@@ -1558,6 +1820,135 @@ mod tests {
     }
 
     #[test]
+    fn test_builder_ignores_metadata_program_id_for_register_trader() {
+        let mut keys = mock_exchange_keys();
+        let program_id = Pubkey::new_unique();
+        let global_config = Pubkey::new_unique();
+        keys.program_id = Some(program_id.to_string());
+        keys.global_config = global_config.to_string();
+        let metadata = mock_metadata_with_keys("SOL", keys);
+        let builder = PhoenixTxBuilder::new(&metadata);
+        let authority = Pubkey::new_unique();
+        let pda_index = 7;
+        let subaccount_index = 2;
+        let expected_trader_pda = Pubkey::find_program_address(
+            &[
+                b"trader",
+                authority.as_ref(),
+                &[pda_index, subaccount_index],
+            ],
+            &*PHOENIX_PROGRAM_ID,
+        )
+        .0;
+
+        let ix = builder
+            .build_register_trader(authority, pda_index, subaccount_index)
+            .unwrap()
+            .pop()
+            .unwrap();
+
+        assert_eq!(ix.program_id, *PHOENIX_PROGRAM_ID);
+        assert_eq!(ix.accounts[0].pubkey, *PHOENIX_PROGRAM_ID);
+        assert_eq!(ix.accounts[1].pubkey, *PHOENIX_LOG_AUTHORITY);
+        assert_eq!(ix.accounts[2].pubkey, *PHOENIX_GLOBAL_CONFIGURATION);
+        assert_ne!(ix.accounts[2].pubkey, global_config);
+        assert_eq!(ix.accounts[5].pubkey, expected_trader_pda);
+    }
+
+    #[test]
+    fn test_builder_ignores_metadata_program_id_for_ember_accounts() {
+        let mut keys = mock_exchange_keys();
+        let program_id = Pubkey::new_unique();
+        keys.program_id = Some(program_id.to_string());
+        let metadata = mock_metadata_with_keys("SOL", keys);
+        let builder = PhoenixTxBuilder::new(&metadata);
+        let authority = Pubkey::new_unique();
+        let trader_pda = Pubkey::new_unique();
+
+        let ixs = builder
+            .build_deposit_funds(authority, trader_pda, 1.0)
+            .unwrap();
+
+        assert_eq!(ixs[1].accounts[1].pubkey, get_ember_state_address());
+        assert_eq!(ixs[1].accounts[6].pubkey, get_ember_vault_address());
+        assert_eq!(ixs[2].program_id, *PHOENIX_PROGRAM_ID);
+        assert_eq!(ixs[2].accounts[0].pubkey, *PHOENIX_PROGRAM_ID);
+        assert_ne!(ixs[2].program_id, program_id);
+    }
+
+    #[test]
+    fn test_builder_ignores_metadata_program_id_for_legacy_stop_loss() {
+        let mut keys = mock_exchange_keys();
+        let program_id = Pubkey::new_unique();
+        let global_config = Pubkey::new_unique();
+        keys.program_id = Some(program_id.to_string());
+        keys.global_config = global_config.to_string();
+        let metadata = mock_metadata_with_keys("SOL", keys);
+        let builder = PhoenixTxBuilder::new(&metadata);
+        let authority = Pubkey::new_unique();
+        let trader_pda = Pubkey::new_unique();
+
+        let ixs = builder
+            .build_stop_loss_orders(
+                authority,
+                trader_pda,
+                "SOL",
+                Side::Bid,
+                &BracketLegOrders {
+                    stop_loss: Some(BracketLeg::new(100.0)),
+                    take_profit: Some(BracketLeg::new(200.0)),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(ixs.len(), 2);
+        for ix in ixs {
+            assert_eq!(ix.program_id, *PHOENIX_PROGRAM_ID);
+            assert_eq!(ix.accounts[0].pubkey, *PHOENIX_PROGRAM_ID);
+            assert_eq!(ix.accounts[1].pubkey, *PHOENIX_LOG_AUTHORITY);
+            assert_eq!(ix.accounts[2].pubkey, *PHOENIX_GLOBAL_CONFIGURATION);
+            assert_ne!(ix.accounts[2].pubkey, global_config);
+            assert_eq!(
+                ix.accounts[11].pubkey,
+                get_stop_loss_address(&trader_pda, 1)
+            );
+        }
+    }
+
+    #[test]
+    fn test_builder_cancel_stop_loss_uses_explicit_funder() {
+        let mut keys = mock_exchange_keys();
+        let program_id = Pubkey::new_unique();
+        keys.program_id = Some(program_id.to_string());
+        let metadata = mock_metadata_with_keys("SOL", keys);
+        let builder = PhoenixTxBuilder::new(&metadata);
+        let funder = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
+        let trader_pda = Pubkey::new_unique();
+
+        let ix = builder
+            .build_cancel_bracket_leg_with_funder(
+                funder,
+                authority,
+                trader_pda,
+                "SOL",
+                Direction::LessThan,
+            )
+            .unwrap()
+            .pop()
+            .unwrap();
+
+        assert_eq!(ix.program_id, *PHOENIX_PROGRAM_ID);
+        assert_ne!(ix.program_id, program_id);
+        assert_eq!(ix.accounts[3].pubkey, funder);
+        assert!(!ix.accounts[3].is_signer);
+        assert!(ix.accounts[3].is_writable);
+        assert_eq!(ix.accounts[5].pubkey, authority);
+        assert!(ix.accounts[5].is_signer);
+        assert_eq!(ix.accounts[6].pubkey, get_stop_loss_address(&trader_pda, 1));
+    }
+
+    #[test]
     fn test_try_to_tp_sl_config_rejects_explicit_leg_sizes() {
         let bracket = BracketLegOrders {
             stop_loss: Some(BracketLeg::new(120.0).with_size(BracketLegSize::BaseLots(5))),
@@ -1566,6 +1957,219 @@ mod tests {
 
         let err = bracket.try_to_tp_sl_config().unwrap_err();
         assert!(err.contains("custom TP/SL leg sizing"));
+    }
+
+    #[test]
+    fn test_try_to_tp_sl_config_for_side_derives_slippage_execution_price() {
+        let bracket = BracketLegOrders {
+            stop_loss: Some(BracketLeg::new(120.0).with_slippage_bps(100)),
+            take_profit: None,
+        };
+
+        let config = bracket.try_to_tp_sl_config_for_side(Side::Bid).unwrap();
+
+        assert_eq!(config.stop_loss_trigger_price, Some(120.0));
+        assert!((config.stop_loss_execution_price.unwrap() - 118.8).abs() < f64::EPSILON);
+        assert_eq!(config.order_kind.as_deref(), Some("ioc"));
+    }
+
+    #[test]
+    fn test_try_to_tp_sl_config_for_side_defaults_to_ten_percent_slippage() {
+        let bracket = BracketLegOrders {
+            stop_loss: Some(BracketLeg::new(120.0)),
+            take_profit: None,
+        };
+
+        let config = bracket.try_to_tp_sl_config_for_side(Side::Bid).unwrap();
+
+        assert_eq!(config.stop_loss_trigger_price, Some(120.0));
+        assert_eq!(config.stop_loss_execution_price, Some(108.0));
+        assert_eq!(config.order_kind.as_deref(), Some("ioc"));
+    }
+
+    #[test]
+    fn test_try_to_tp_sl_config_defaults_take_profit_to_limit_trigger() {
+        let bracket = BracketLegOrders {
+            stop_loss: None,
+            take_profit: Some(BracketLeg::new(150.0)),
+        };
+
+        let config = bracket.try_to_tp_sl_config().unwrap();
+
+        assert_eq!(config.take_profit_trigger_price, Some(150.0));
+        assert_eq!(config.take_profit_execution_price, Some(150.0));
+        assert_eq!(config.order_kind.as_deref(), Some("limit"));
+    }
+
+    #[test]
+    fn test_try_to_tp_sl_config_rejects_default_slippage_without_side() {
+        let bracket = BracketLegOrders {
+            stop_loss: Some(BracketLeg::new(120.0)),
+            take_profit: None,
+        };
+
+        let err = bracket.try_to_tp_sl_config().unwrap_err();
+        assert!(err.contains("primary order side"));
+    }
+
+    #[test]
+    fn test_try_to_tp_sl_config_for_side_rejects_mixed_default_order_kinds() {
+        let bracket = BracketLegOrders {
+            stop_loss: Some(BracketLeg::new(120.0)),
+            take_profit: Some(BracketLeg::new(150.0)),
+        };
+
+        let err = bracket.try_to_tp_sl_config_for_side(Side::Bid).unwrap_err();
+        assert!(err.contains("mixed TP/SL order kinds"));
+    }
+
+    #[test]
+    fn test_bracket_leg_execution_price_uses_explicit_price() {
+        let metadata = mock_metadata("SOL");
+        let builder = PhoenixTxBuilder::new(&metadata);
+        let bracket = BracketLegOrders {
+            stop_loss: Some(BracketLeg::new(120.0).with_execution_price(118.0)),
+            take_profit: None,
+        };
+
+        let (_, less_trigger_order) = builder
+            .build_bracket_trigger_orders("SOL", Side::Bid, &bracket)
+            .unwrap();
+        let less_trigger_order = less_trigger_order.unwrap();
+
+        assert_eq!(less_trigger_order.trigger_price(), 120);
+        assert_eq!(less_trigger_order.execution_price(), 118);
+    }
+
+    #[test]
+    fn test_bracket_leg_slippage_moves_execution_price_away_from_trigger() {
+        let metadata = mock_metadata("SOL");
+        let builder = PhoenixTxBuilder::new(&metadata);
+        let bracket = BracketLegOrders {
+            stop_loss: Some(BracketLeg::new(120.0).with_slippage_bps(100)),
+            take_profit: None,
+        };
+
+        let (_, long_stop_loss) = builder
+            .build_bracket_trigger_orders("SOL", Side::Bid, &bracket)
+            .unwrap();
+        assert_eq!(long_stop_loss.unwrap().execution_price(), 118);
+
+        let (short_stop_loss, _) = builder
+            .build_bracket_trigger_orders("SOL", Side::Ask, &bracket)
+            .unwrap();
+        assert_eq!(short_stop_loss.unwrap().execution_price(), 122);
+    }
+
+    #[test]
+    fn test_bracket_leg_defaults_to_ten_percent_slippage() {
+        let metadata = mock_metadata("SOL");
+        let builder = PhoenixTxBuilder::new(&metadata);
+        let bracket = BracketLegOrders {
+            stop_loss: Some(BracketLeg::new(120.0)),
+            take_profit: None,
+        };
+
+        let (_, long_stop_loss) = builder
+            .build_bracket_trigger_orders("SOL", Side::Bid, &bracket)
+            .unwrap();
+        let long_stop_loss = long_stop_loss.unwrap();
+        assert_eq!(long_stop_loss.order_kind(), StopLossOrderKind::IOC);
+        assert_eq!(long_stop_loss.execution_price(), 108);
+
+        let (short_stop_loss, _) = builder
+            .build_bracket_trigger_orders("SOL", Side::Ask, &bracket)
+            .unwrap();
+        let short_stop_loss = short_stop_loss.unwrap();
+        assert_eq!(short_stop_loss.order_kind(), StopLossOrderKind::IOC);
+        assert_eq!(short_stop_loss.execution_price(), 132);
+    }
+
+    #[test]
+    fn test_take_profit_defaults_to_limit_at_trigger_price() {
+        let metadata = mock_metadata("SOL");
+        let builder = PhoenixTxBuilder::new(&metadata);
+        let long_bracket = BracketLegOrders {
+            stop_loss: None,
+            take_profit: Some(BracketLeg::new(150.0)),
+        };
+
+        let (long_take_profit, _) = builder
+            .build_bracket_trigger_orders("SOL", Side::Bid, &long_bracket)
+            .unwrap();
+        let long_take_profit = long_take_profit.unwrap();
+        assert_eq!(long_take_profit.order_kind(), StopLossOrderKind::Limit);
+        assert_eq!(long_take_profit.trade_side(), Side::Ask);
+        assert_eq!(long_take_profit.trigger_price(), 150);
+        assert_eq!(long_take_profit.execution_price(), 150);
+
+        let short_bracket = BracketLegOrders {
+            stop_loss: None,
+            take_profit: Some(BracketLeg::new(90.0)),
+        };
+        let (_, short_take_profit) = builder
+            .build_bracket_trigger_orders("SOL", Side::Ask, &short_bracket)
+            .unwrap();
+        let short_take_profit = short_take_profit.unwrap();
+        assert_eq!(short_take_profit.order_kind(), StopLossOrderKind::Limit);
+        assert_eq!(short_take_profit.trade_side(), Side::Bid);
+        assert_eq!(short_take_profit.trigger_price(), 90);
+        assert_eq!(short_take_profit.execution_price(), 90);
+    }
+
+    #[test]
+    fn test_ioc_take_profit_defaults_to_ten_percent_slippage_when_requested() {
+        let metadata = mock_metadata("SOL");
+        let builder = PhoenixTxBuilder::new(&metadata);
+        let bracket = BracketLegOrders {
+            stop_loss: None,
+            take_profit: Some(BracketLeg::new(150.0).with_ioc_order()),
+        };
+
+        let (take_profit, _) = builder
+            .build_bracket_trigger_orders("SOL", Side::Bid, &bracket)
+            .unwrap();
+        let take_profit = take_profit.unwrap();
+        assert_eq!(take_profit.order_kind(), StopLossOrderKind::IOC);
+        assert_eq!(take_profit.execution_price(), 135);
+    }
+
+    #[test]
+    fn test_bracket_leg_slots_match_frontend_defaults() {
+        let metadata = mock_metadata("SOL");
+        let builder = PhoenixTxBuilder::new(&metadata);
+        let long_bracket = BracketLegOrders {
+            stop_loss: Some(BracketLeg::new(120.0)),
+            take_profit: Some(BracketLeg::new(150.0)),
+        };
+
+        let (greater, less) = builder
+            .build_bracket_trigger_orders("SOL", Side::Bid, &long_bracket)
+            .unwrap();
+        let greater = greater.unwrap();
+        let less = less.unwrap();
+        assert_eq!(greater.order_kind(), StopLossOrderKind::Limit);
+        assert_eq!(greater.trigger_price(), 150);
+        assert_eq!(greater.execution_price(), 150);
+        assert_eq!(less.order_kind(), StopLossOrderKind::IOC);
+        assert_eq!(less.trigger_price(), 120);
+        assert_eq!(less.execution_price(), 108);
+
+        let short_bracket = BracketLegOrders {
+            stop_loss: Some(BracketLeg::new(120.0)),
+            take_profit: Some(BracketLeg::new(90.0)),
+        };
+        let (greater, less) = builder
+            .build_bracket_trigger_orders("SOL", Side::Ask, &short_bracket)
+            .unwrap();
+        let greater = greater.unwrap();
+        let less = less.unwrap();
+        assert_eq!(greater.order_kind(), StopLossOrderKind::IOC);
+        assert_eq!(greater.trigger_price(), 120);
+        assert_eq!(greater.execution_price(), 132);
+        assert_eq!(less.order_kind(), StopLossOrderKind::Limit);
+        assert_eq!(less.trigger_price(), 90);
+        assert_eq!(less.execution_price(), 90);
     }
 
     #[test]

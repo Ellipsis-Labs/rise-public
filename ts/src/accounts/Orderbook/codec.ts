@@ -10,7 +10,7 @@ import {
   ORDERBOOK_CAPACITY,
   getOrderbookHeaderDecoder,
   getOrderbookRestingOrderDecoder,
-  getStaticRedBlackTreeEntriesDecoder,
+  getStaticOrderedListMapEntriesDecoder,
 } from "../internal";
 import { getFIFOOrderIdDecoder } from "@/primitives/FIFOOrderId";
 import type { Orderbook } from "./types";
@@ -24,7 +24,7 @@ export const getOrderbookDecoder = (): Decoder<Orderbook> =>
             bytes,
             offset
           );
-          const treeDecoder = getStaticRedBlackTreeEntriesDecoder(
+          const treeDecoder = getStaticOrderedListMapEntriesDecoder(
             getFIFOOrderIdDecoder,
             getOrderbookRestingOrderDecoder,
             { maxSize: ORDERBOOK_CAPACITY }

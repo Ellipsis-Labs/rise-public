@@ -23,6 +23,8 @@ use crate::http_client::map_transport_error;
 use crate::phoenix_rise_types::{
     AuthResponse, ChallengeResponse, PhoenixHttpError, RefreshRequest, ServiceChallengeRequest,
     ServiceLoginRequest, WalletLoginRequest, WalletNonceQuery, WalletNonceResponse,
+    WalletTransactionChallengeRequest, WalletTransactionChallengeResponse,
+    WalletTransactionLoginRequest,
 };
 use crate::transport::{
     PhoenixApiError, build_default_http_client, map_api_error_response, map_reqwest_error,
@@ -285,6 +287,7 @@ pub struct PhoenixServiceChallenge {
 pub type PhoenixServiceLoginRequest = ServiceLoginRequest;
 pub type PhoenixWalletNonceRequest = WalletNonceQuery;
 pub type PhoenixWalletNonce = WalletNonceResponse;
+pub type PhoenixWalletTransactionChallenge = WalletTransactionChallengeResponse;
 
 #[derive(Clone)]
 pub struct PhoenixServiceAuthClient {
@@ -623,7 +626,7 @@ impl AuthSessionStore for FileAuthSessionStore {
 }
 
 impl PhoenixServiceAuthClient {
-    pub(crate) fn new(
+    pub fn new(
         api_url: &str,
         session_store: Arc<dyn AuthSessionStore>,
     ) -> Result<Self, PhoenixHttpError> {
@@ -720,6 +723,48 @@ impl PhoenixServiceAuthClient {
         let signature = keypair.sign_message(nonce.message.as_bytes());
         self.login_with_wallet_signature(wallet_pubkey, signature.as_ref(), nonce.nonce_id)
             .await
+    }
+
+    /// Fetches a memo-transaction login challenge for wallets that cannot
+    /// sign off-chain `signMessage` payloads (canonically: Ledger's Solana
+    /// app). The resulting session is equivalent to one minted via
+    /// [`Self::login_with_wallet_signature`].
+    pub async fn get_wallet_transaction_challenge(
+        &self,
+        wallet_pubkey: impl AsRef<str>,
+    ) -> Result<WalletTransactionChallengeResponse, PhoenixHttpError> {
+        let body = WalletTransactionChallengeRequest {
+            wallet_pubkey: wallet_pubkey.as_ref().to_string(),
+        };
+        self.post_json("/v1/auth/wallet/transaction-challenge", &body)
+            .await
+            .map_err(|error| map_transport_error(error, None, None))
+    }
+
+    pub async fn login_with_wallet_transaction(
+        &self,
+        wallet_pubkey: impl AsRef<str>,
+        nonce_id: impl AsRef<str>,
+        signed_transaction: impl AsRef<str>,
+    ) -> Result<AuthSession, PhoenixHttpError> {
+        let body = WalletTransactionLoginRequest {
+            wallet_pubkey: wallet_pubkey.as_ref().to_string(),
+            nonce_id: nonce_id.as_ref().to_string(),
+            signed_transaction: signed_transaction.as_ref().to_string(),
+        };
+        let response: AuthResponseBody = self
+            .post_json("/v1/auth/login/wallet/transaction", &body)
+            .await
+            .map_err(|error| map_transport_error(error, None, None))?;
+        let session = AuthSession::from_auth_response(response).map_err(|error| {
+            map_transport_error(PhoenixApiError::Authentication(error), None, None)
+        })?;
+        self.session_store
+            .store_session(&session)
+            .map_err(|error| {
+                map_transport_error(PhoenixApiError::Authentication(error), None, None)
+            })?;
+        Ok(session)
     }
 
     pub async fn login_with_service_signature(

@@ -6,7 +6,6 @@ import {
   generateReadonlyAccount,
   generateReadonlySignerAccount,
   generateWritableAccount,
-  generateWritableSignerAccount,
 } from "@/core/utils/accountMeta";
 import { getCancelStopLossEncoder } from "./codec";
 import type {
@@ -30,7 +29,7 @@ export const buildCancelStopLossIx = (
     generateReadonlyAccount(programAddress),
     generateReadonlyAccount(logAuthorityAddress),
     generateReadonlyAccount(globalConfigurationAddress),
-    generateWritableSignerAccount(params.funder),
+    generateWritableAccount(params.funder),
     generateReadonlyAccount(params.traderAccount),
     generateReadonlySignerAccount(params.traderWallet),
     generateWritableAccount(params.stopLossAccount),

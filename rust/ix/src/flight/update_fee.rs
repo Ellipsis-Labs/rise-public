@@ -77,7 +77,7 @@ pub fn create_update_fee_ix(params: UpdateFeeParams) -> Result<Instruction, Phoe
 
     let accounts = vec![
         AccountMeta::readonly(get_flight_global_state_address()),
-        AccountMeta::readonly(PHOENIX_PROGRAM_ID),
+        AccountMeta::readonly(*PHOENIX_PROGRAM_ID),
         AccountMeta::readonly_signer(params.trader_authority()),
         AccountMeta::writable(get_flight_builder_state_address(&params.trader_authority())),
     ];
@@ -141,7 +141,7 @@ mod tests {
         assert_eq!(ix.accounts[0].pubkey, get_flight_global_state_address());
         assert!(!ix.accounts[0].is_writable);
 
-        assert_eq!(ix.accounts[1].pubkey, PHOENIX_PROGRAM_ID);
+        assert_eq!(ix.accounts[1].pubkey, *PHOENIX_PROGRAM_ID);
         assert!(!ix.accounts[1].is_writable);
 
         assert_eq!(ix.accounts[2].pubkey, authority);

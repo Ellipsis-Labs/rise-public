@@ -24,6 +24,7 @@ export const buildUpdateTraderStateIx = (
     generateReadonlyAccount(globalConfigurationAddress),
     generateWritableAccount(params.traderAccount),
     generateReadonlyAccount(params.perpAssetMap),
+    ...generateArenaAccounts(params.globalTraderIndex),
     ...generateArenaAccounts(params.activeTraderBuffer),
   ] as const;
 

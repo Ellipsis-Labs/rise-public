@@ -384,6 +384,19 @@ const readU32LE = (bytes: ReadonlyUint8Array, offset: number): number =>
   ((bytes[offset + 2] ?? 0) << 16) |
   ((bytes[offset + 3] ?? 0) << 24);
 
+const calculateNodeStrideFromKeyStart = <K, V>(
+  bytes: ReadonlyUint8Array,
+  keyStart: number,
+  getKeyDecoder: () => Decoder<K>,
+  getValueDecoder: () => Decoder<V>
+): number => {
+  const keyDecoder = getKeyDecoder();
+  const valueDecoder = getValueDecoder();
+  const [, afterKey] = keyDecoder.read(bytes, keyStart);
+  const [, afterValue] = valueDecoder.read(bytes, afterKey);
+  return afterValue;
+};
+
 const calculateNodeStride = <K, V>(
   bytes: ReadonlyUint8Array,
   nodesBase: number,
@@ -391,11 +404,12 @@ const calculateNodeStride = <K, V>(
   getKeyDecoder: () => Decoder<K>,
   getValueDecoder: () => Decoder<V>
 ): number => {
-  const keyDecoder = getKeyDecoder();
-  const valueDecoder = getValueDecoder();
-  const keyStart = nodesBase + 16 + activeFlagBytes;
-  const [, afterKey] = keyDecoder.read(bytes, keyStart);
-  const [, afterValue] = valueDecoder.read(bytes, afterKey);
+  const afterValue = calculateNodeStrideFromKeyStart(
+    bytes,
+    nodesBase + 16 + activeFlagBytes,
+    getKeyDecoder,
+    getValueDecoder
+  );
   return afterValue - nodesBase;
 };
 
@@ -524,6 +538,57 @@ export const getStaticRedBlackTreeEntriesDecoder = <K, V>(
         ),
         offset + consumed,
       ];
+    },
+  });
+};
+
+export const getStaticOrderedListMapEntriesDecoder = <K, V>(
+  getKeyDecoder: () => Decoder<K>,
+  getValueDecoder: () => Decoder<V>,
+  options: { maxSize: number }
+): Decoder<Array<{ key: K; value: V }>> => {
+  const { maxSize } = options;
+
+  return createDecoder({
+    read: (bytes: ReadonlyUint8Array | Uint8Array, offset: number) => {
+      const head = readU32LE(bytes, offset);
+      const size = Number(getU64Decoder().read(bytes, offset + 16)[0]);
+      const nodesBase = offset + 16 + 16;
+      const keyStart = nodesBase + 8;
+      const afterValue = calculateNodeStrideFromKeyStart(
+        bytes,
+        keyStart,
+        getKeyDecoder,
+        getValueDecoder
+      );
+      const nodeStrideBytes = afterValue - nodesBase;
+      const consumed = 16 + 16 + nodeStrideBytes * maxSize;
+      const keyDecoder = getKeyDecoder();
+      const valueDecoder = getValueDecoder();
+      const entries: Array<{ key: K; value: V }> = [];
+      let current = head >>> 0;
+
+      for (let remaining = size; remaining > 0 && current !== 0; remaining--) {
+        if (current > maxSize) {
+          throw new Error(
+            `StaticOrderedListMap node pointer ${current} exceeds capacity ${maxSize}`
+          );
+        }
+
+        const nodeStart = nodesBase + (current - 1) * nodeStrideBytes;
+        const [key, afterKey] = keyDecoder.read(bytes, nodeStart + 8);
+        const [value] = valueDecoder.read(bytes, afterKey);
+        entries.push({ key, value });
+        current = readU32LE(bytes, nodeStart + 4);
+      }
+
+      if (entries.length !== size) {
+        throw new Error(
+          `StaticOrderedListMap decoded ${entries.length} entries, expected ${size}`
+        );
+      }
+
+      return [entries, offset + consumed];
     },
   });
 };

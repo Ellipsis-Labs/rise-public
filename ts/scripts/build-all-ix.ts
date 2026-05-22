@@ -8,6 +8,7 @@ import {
   buildPlaceMultiLimitOrderIx,
   buildCancelOrdersByIdIx,
   buildCancelStopLossIx,
+  buildPlaceStopLossIx,
   buildCancelConditionalOrderIx,
   buildCreateConditionalOrdersAccountIx,
   buildPlaceAttachedConditionalOrderIx,
@@ -30,6 +31,10 @@ import {
   Direction,
   StopLossOrderKind,
   flight,
+  PHOENIX_PROGRAM_ADDRESS,
+  PHOENIX_LOG_AUTHORITY_ADDRESS,
+  PHOENIX_GLOBAL_CONFIGURATION_ADDRESS,
+  USDC_MINT_ADDRESS,
 } from "@/index";
 import { address } from "@solana/kit";
 
@@ -179,6 +184,27 @@ try {
       executionDirection: Direction.GreaterThan,
     });
     results["CancelStopLoss"] = hexEncode(ix.data);
+  }
+
+  // 6. PlaceStopLoss
+  {
+    const ix = buildPlaceStopLossIx({
+      funder: p(0),
+      traderAccount: p(1),
+      perpAssetMap: p(3),
+      orderbook: p(4),
+      splineCollection: p(5),
+      globalTraderIndex: vec2(6, 7),
+      activeTraderBuffer: vec2(8, 9),
+      positionAuthority: p(2),
+      stopLossAccount: p(10),
+      triggerPrice: ticks(1000n),
+      executionPrice: ticks(999n),
+      tradeSide: Side.Ask,
+      executionDirection: Direction.LessThan,
+      orderKind: StopLossOrderKind.IOC,
+    });
+    results["PlaceStopLoss"] = hexEncode(ix.data);
   }
 
   // 6. CreateConditionalOrdersAccount
@@ -467,6 +493,152 @@ try {
       innerInstruction: inner,
     });
     results["ProxyInstruction"] = hexEncode(ix.data);
+  }
+
+  // 18. Flight client wrapper for deterministic Flight-supported instructions
+  {
+    const flightClient = new flight.PhoenixFlightClient(
+      {
+        addresses: {
+          phoenixProgramAddress: PHOENIX_PROGRAM_ADDRESS,
+          logAuthorityAddress: PHOENIX_LOG_AUTHORITY_ADDRESS,
+          globalConfigurationAddress: PHOENIX_GLOBAL_CONFIGURATION_ADDRESS,
+          usdcMintAddress: USDC_MINT_ADDRESS,
+          emberStateAddress: p(11),
+        },
+        fetchAccount: async () => ({ data: new Uint8Array() }),
+      } as any,
+      {
+        builderAuthority: p(9),
+        builderPdaIndex: 0,
+        builderSubaccountIndex: 0,
+      }
+    );
+
+    const stopLossIx = buildPlaceStopLossIx({
+      funder: p(0),
+      traderAccount: p(1),
+      perpAssetMap: p(3),
+      orderbook: p(4),
+      splineCollection: p(5),
+      globalTraderIndex: vec2(6, 7),
+      activeTraderBuffer: vec2(8, 9),
+      positionAuthority: p(2),
+      stopLossAccount: p(10),
+      triggerPrice: ticks(1000n),
+      executionPrice: ticks(999n),
+      tradeSide: Side.Ask,
+      executionDirection: Direction.LessThan,
+      orderKind: StopLossOrderKind.IOC,
+    });
+    const wrappedStopLossIx = await flightClient.tryWrapFlightInstruction(
+      stopLossIx,
+      p(0)
+    );
+    results["FlightPlaceStopLoss"] = hexEncode(wrappedStopLossIx.data);
+
+    const positionConditionalIx = buildPlacePositionConditionalOrderIx({
+      payer: p(0),
+      traderAccount: p(1),
+      perpAssetMap: p(3),
+      orderbook: p(4),
+      splineCollection: p(5),
+      globalTraderIndex: vec2(6, 7),
+      activeTraderBuffer: vec2(8, 9),
+      traderWallet: p(2),
+      traderConditionalOrders: p(10),
+      assetId: 0,
+      greaterTriggerOrder: {
+        triggerDirection: Direction.GreaterThan,
+        tradeSide: Side.Ask,
+        orderKind: StopLossOrderKind.IOC,
+        triggerPrice: ticks(1000n),
+        executionPrice: ticks(999n),
+      },
+      lessTriggerOrder: null,
+      sizeBaseLots: baseLots(100n),
+      sizePercent: null,
+    });
+    const wrappedPositionConditionalIx =
+      await flightClient.tryWrapFlightInstruction(positionConditionalIx, p(0));
+    results["FlightPlacePositionConditionalOrder"] = hexEncode(
+      wrappedPositionConditionalIx.data
+    );
+
+    const attachedConditionalIx = buildPlaceAttachedConditionalOrderIx({
+      traderAccount: p(1),
+      traderWallet: p(2),
+      orderbook: p(4),
+      traderConditionalOrders: p(10),
+      payer: p(0),
+      globalTraderIndex: vec2(6, 7),
+      activeTraderBuffer: vec2(8, 9),
+      orderId: {
+        priceInTicks: ticks(1000n),
+        orderSequenceNumber: 0n,
+      },
+      assetId: 0,
+      greaterTriggerOrder: null,
+      lessTriggerOrder: {
+        triggerDirection: Direction.LessThan,
+        tradeSide: Side.Ask,
+        orderKind: StopLossOrderKind.IOC,
+        triggerPrice: ticks(900n),
+        executionPrice: ticks(899n),
+      },
+    });
+    const wrappedAttachedConditionalIx =
+      await flightClient.tryWrapFlightInstruction(attachedConditionalIx, p(0));
+    results["FlightPlaceAttachedConditionalOrder"] = hexEncode(
+      wrappedAttachedConditionalIx.data
+    );
+
+    const limitWithConditionalsIx = buildPlaceLimitOrderWithConditionalsIx({
+      traderWallet: p(2),
+      traderAccount: p(1),
+      perpAssetMap: p(3),
+      orderbook: p(4),
+      splineCollection: p(5),
+      globalTraderIndex: vec2(6, 7),
+      activeTraderBuffer: vec2(8, 9),
+      payer: p(0),
+      traderConditionalOrders: p(10),
+      orderPacket: {
+        __kind: "Limit",
+        side: Side.Bid,
+        priceInTicks: ticks(1000n),
+        numBaseLots: baseLots(100n),
+        selfTradeBehavior: SelfTradeBehavior.Abort,
+        matchLimit: null,
+        clientOrderId: 0n,
+        lastValidSlot: null,
+        orderFlags: OrderFlags.None,
+        cancelExisting: false,
+      },
+      slot: 0n,
+      greaterTriggerOrder: {
+        triggerDirection: Direction.GreaterThan,
+        tradeSide: Side.Ask,
+        orderKind: StopLossOrderKind.IOC,
+        triggerPrice: ticks(1100n),
+        executionPrice: ticks(1099n),
+      },
+      lessTriggerOrder: {
+        triggerDirection: Direction.LessThan,
+        tradeSide: Side.Ask,
+        orderKind: StopLossOrderKind.IOC,
+        triggerPrice: ticks(900n),
+        executionPrice: ticks(899n),
+      },
+    });
+    const wrappedLimitWithConditionalsIx =
+      await flightClient.tryWrapFlightInstruction(
+        limitWithConditionalsIx,
+        p(0)
+      );
+    results["FlightPlaceLimitOrderWithConditionals"] = hexEncode(
+      wrappedLimitWithConditionalsIx.data
+    );
   }
 
   // Output JSON in sorted order

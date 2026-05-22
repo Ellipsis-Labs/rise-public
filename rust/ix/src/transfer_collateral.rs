@@ -175,7 +175,7 @@ pub fn create_transfer_collateral_ix(
     let accounts = build_accounts(&params);
 
     Ok(Instruction {
-        program_id: PHOENIX_PROGRAM_ID,
+        program_id: *PHOENIX_PROGRAM_ID,
         accounts,
         data,
     })
@@ -197,11 +197,11 @@ fn build_accounts(params: &TransferCollateralParams) -> Vec<AccountMeta> {
     let mut accounts = Vec::new();
 
     // 1. phoenix_program (readonly)
-    accounts.push(AccountMeta::readonly(PHOENIX_PROGRAM_ID));
-    // 2. phoenix_log_authority (readonly)
-    accounts.push(AccountMeta::readonly(PHOENIX_LOG_AUTHORITY));
+    accounts.push(AccountMeta::readonly(*PHOENIX_PROGRAM_ID));
+    // 2. PHOENIX_LOG_AUTHORITY (readonly)
+    accounts.push(AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY));
     // 3. global_configuration (readonly — differs from deposit which is writable)
-    accounts.push(AccountMeta::readonly(PHOENIX_GLOBAL_CONFIGURATION));
+    accounts.push(AccountMeta::readonly(*PHOENIX_GLOBAL_CONFIGURATION));
     // 4. trader (readonly signer)
     accounts.push(AccountMeta::readonly_signer(params.trader()));
     // 5. src_trader_account (writable)
@@ -362,7 +362,7 @@ pub fn create_transfer_collateral_child_to_parent_ix(
     let accounts = build_child_to_parent_accounts(&params);
 
     Ok(Instruction {
-        program_id: PHOENIX_PROGRAM_ID,
+        program_id: *PHOENIX_PROGRAM_ID,
         accounts,
         data,
     })
@@ -374,11 +374,11 @@ fn build_child_to_parent_accounts(
     let mut accounts = Vec::new();
 
     // 1. phoenix_program (readonly)
-    accounts.push(AccountMeta::readonly(PHOENIX_PROGRAM_ID));
-    // 2. phoenix_log_authority (readonly)
-    accounts.push(AccountMeta::readonly(PHOENIX_LOG_AUTHORITY));
+    accounts.push(AccountMeta::readonly(*PHOENIX_PROGRAM_ID));
+    // 2. PHOENIX_LOG_AUTHORITY (readonly)
+    accounts.push(AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY));
     // 3. global_configuration (readonly)
-    accounts.push(AccountMeta::readonly(PHOENIX_GLOBAL_CONFIGURATION));
+    accounts.push(AccountMeta::readonly(*PHOENIX_GLOBAL_CONFIGURATION));
     // 4. trader (readonly signer)
     accounts.push(AccountMeta::readonly_signer(params.trader()));
     // 5. child_trader_account (writable)
@@ -420,7 +420,7 @@ mod tests {
 
         let ix = create_transfer_collateral_ix(params).unwrap();
 
-        assert_eq!(ix.program_id, PHOENIX_PROGRAM_ID);
+        assert_eq!(ix.program_id, *PHOENIX_PROGRAM_ID);
         // 7 base accounts + 1 global_trader_index + 1 active_trader_buffer = 9
         assert_eq!(ix.accounts.len(), 9);
 
@@ -503,16 +503,16 @@ mod tests {
 
         let ix = create_transfer_collateral_ix(params).unwrap();
 
-        // Account 0: PHOENIX_PROGRAM_ID (readonly)
-        assert_eq!(ix.accounts[0].pubkey, PHOENIX_PROGRAM_ID);
+        // Account 0: *PHOENIX_PROGRAM_ID (readonly)
+        assert_eq!(ix.accounts[0].pubkey, *PHOENIX_PROGRAM_ID);
         assert!(!ix.accounts[0].is_writable);
 
-        // Account 1: PHOENIX_LOG_AUTHORITY (readonly)
-        assert_eq!(ix.accounts[1].pubkey, PHOENIX_LOG_AUTHORITY);
+        // Account 1: *PHOENIX_LOG_AUTHORITY (readonly)
+        assert_eq!(ix.accounts[1].pubkey, *PHOENIX_LOG_AUTHORITY);
         assert!(!ix.accounts[1].is_writable);
 
-        // Account 2: PHOENIX_GLOBAL_CONFIGURATION (readonly — not writable)
-        assert_eq!(ix.accounts[2].pubkey, PHOENIX_GLOBAL_CONFIGURATION);
+        // Account 2: *PHOENIX_GLOBAL_CONFIGURATION (readonly — not writable)
+        assert_eq!(ix.accounts[2].pubkey, *PHOENIX_GLOBAL_CONFIGURATION);
         assert!(!ix.accounts[2].is_writable);
 
         // Account 3: trader (readonly signer)
@@ -587,7 +587,7 @@ mod tests {
 
         let ix = create_transfer_collateral_child_to_parent_ix(params).unwrap();
 
-        assert_eq!(ix.program_id, PHOENIX_PROGRAM_ID);
+        assert_eq!(ix.program_id, *PHOENIX_PROGRAM_ID);
         // 7 base accounts + 1 global_trader_index + 1 active_trader_buffer = 9
         assert_eq!(ix.accounts.len(), 9);
 
@@ -620,16 +620,16 @@ mod tests {
 
         let ix = create_transfer_collateral_child_to_parent_ix(params).unwrap();
 
-        // Account 0: PHOENIX_PROGRAM_ID (readonly)
-        assert_eq!(ix.accounts[0].pubkey, PHOENIX_PROGRAM_ID);
+        // Account 0: *PHOENIX_PROGRAM_ID (readonly)
+        assert_eq!(ix.accounts[0].pubkey, *PHOENIX_PROGRAM_ID);
         assert!(!ix.accounts[0].is_writable);
 
-        // Account 1: PHOENIX_LOG_AUTHORITY (readonly)
-        assert_eq!(ix.accounts[1].pubkey, PHOENIX_LOG_AUTHORITY);
+        // Account 1: *PHOENIX_LOG_AUTHORITY (readonly)
+        assert_eq!(ix.accounts[1].pubkey, *PHOENIX_LOG_AUTHORITY);
         assert!(!ix.accounts[1].is_writable);
 
-        // Account 2: PHOENIX_GLOBAL_CONFIGURATION (readonly)
-        assert_eq!(ix.accounts[2].pubkey, PHOENIX_GLOBAL_CONFIGURATION);
+        // Account 2: *PHOENIX_GLOBAL_CONFIGURATION (readonly)
+        assert_eq!(ix.accounts[2].pubkey, *PHOENIX_GLOBAL_CONFIGURATION);
         assert!(!ix.accounts[2].is_writable);
 
         // Account 3: trader (readonly signer)

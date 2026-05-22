@@ -297,7 +297,7 @@ pub fn create_place_limit_order_ix(
     let accounts = build_accounts(&params);
 
     Ok(Instruction {
-        program_id: PHOENIX_PROGRAM_ID,
+        program_id: *PHOENIX_PROGRAM_ID,
         accounts,
         data,
     })
@@ -341,11 +341,11 @@ fn build_accounts(params: &LimitOrderParams) -> Vec<AccountMeta> {
     let mut accounts = Vec::new();
 
     // LogAccountGroupAccounts (2 accounts)
-    accounts.push(AccountMeta::readonly(PHOENIX_PROGRAM_ID));
-    accounts.push(AccountMeta::readonly(PHOENIX_LOG_AUTHORITY));
+    accounts.push(AccountMeta::readonly(*PHOENIX_PROGRAM_ID));
+    accounts.push(AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY));
 
     // MarketActionInstructionGroupAccounts
-    accounts.push(AccountMeta::writable(PHOENIX_GLOBAL_CONFIGURATION));
+    accounts.push(AccountMeta::writable(*PHOENIX_GLOBAL_CONFIGURATION));
     accounts.push(AccountMeta::readonly_signer(params.trader()));
     accounts.push(AccountMeta::writable(params.trader_account()));
     accounts.push(AccountMeta::writable(params.perp_asset_map()));
@@ -405,7 +405,7 @@ mod tests {
 
         let ix = create_place_limit_order_ix(params).unwrap();
 
-        assert_eq!(ix.program_id, PHOENIX_PROGRAM_ID);
+        assert_eq!(ix.program_id, *PHOENIX_PROGRAM_ID);
         // 2 log accounts + 4 base accounts + 1 global trader index + 1 active trader
         // buffer + 2 market accounts = 10
         assert_eq!(ix.accounts.len(), 10);

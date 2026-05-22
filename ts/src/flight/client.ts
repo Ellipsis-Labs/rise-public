@@ -13,7 +13,7 @@ import type {
 } from "@/core/clientTypes.js";
 import type { PhoenixExchangeMetadata } from "@/exchange-cache/types.js";
 import type { Address, ReadonlyUint8Array } from "@solana/kit";
-import { isOrderPlacingInstruction } from "./helper.js";
+import { isFlightRoutableInstruction } from "./helper.js";
 import { getPhoenixTraderSubaccountAddress } from "@/pdas.js";
 
 export interface PhoenixFlightClientConfig {
@@ -64,7 +64,7 @@ export const wrapInstructionWithFlight = async (params: {
     subaccountIndex: number
   ) => Promise<TraderAddress>;
 }): Promise<InstructionsWithAccountsAndData> => {
-  if (!isOrderPlacingInstruction(params.phoenixInstruction)) {
+  if (!isFlightRoutableInstruction(params.phoenixInstruction)) {
     return params.phoenixInstruction;
   }
 

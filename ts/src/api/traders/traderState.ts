@@ -178,7 +178,7 @@ export interface TraderStateTradeHistoryDelta {
   eventIndex: number;
   market: string;
   instructionType: string;
-  tradeType: "limit" | "market" | "liquidation";
+  tradeType: "limit" | "market" | "liquidation" | "adl";
   fillId?: string | null;
   baseQtyBefore: string;
   baseQtyAfter: string;
@@ -472,7 +472,7 @@ const TraderStateTradeHistoryDeltaSchema: z.ZodType<TraderStateTradeHistoryDelta
     eventIndex: z.number(),
     market: z.string(),
     instructionType: z.string(),
-    tradeType: z.enum(["limit", "market", "liquidation"]),
+    tradeType: z.enum(["limit", "market", "liquidation", "adl"]),
     fillId: z.string().nullable().optional().default(null),
     baseQtyBefore: z.string(),
     baseQtyAfter: z.string(),

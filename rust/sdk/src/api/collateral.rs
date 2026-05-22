@@ -25,8 +25,19 @@ impl CollateralClient<'_> {
         trader_key: &TraderKey,
         params: CollateralHistoryQueryParams,
     ) -> Result<CollateralHistoryResponse, PhoenixHttpError> {
-        let params = params.with_pda_index(trader_key.pda_index);
-        self.get_collateral_history_internal(&trader_key.authority(), params)
+        let trader_pda = trader_key.pda();
+        let query = CollateralHistoryRequestQuery {
+            limit: params.request.limit,
+            next_cursor: params.request.next_cursor.as_deref(),
+            prev_cursor: params.request.prev_cursor.as_deref(),
+            cursor: params.request.cursor.as_deref(),
+        };
+
+        self.http
+            .get_json_with_query(
+                &format!("/v1/traders/{}/collateral-history", trader_pda),
+                &query,
+            )
             .await
     }
 
@@ -36,7 +47,6 @@ impl CollateralClient<'_> {
         params: CollateralHistoryQueryParams,
     ) -> Result<CollateralHistoryResponse, PhoenixHttpError> {
         let query = CollateralHistoryRequestQuery {
-            pda_index: params.pda_index,
             limit: params.request.limit,
             next_cursor: params.request.next_cursor.as_deref(),
             prev_cursor: params.request.prev_cursor.as_deref(),
@@ -44,7 +54,10 @@ impl CollateralClient<'_> {
         };
 
         self.http
-            .get_json_with_query(&format!("/trader/{}/collateral-history", authority), &query)
+            .get_json_with_query(
+                &format!("/v1/users/{}/collateral-history", authority),
+                &query,
+            )
             .await
     }
 }
@@ -52,7 +65,6 @@ impl CollateralClient<'_> {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CollateralHistoryRequestQuery<'a> {
-    pda_index: u8,
     limit: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     next_cursor: Option<&'a str>,

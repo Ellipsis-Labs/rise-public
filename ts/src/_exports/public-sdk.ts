@@ -121,6 +121,17 @@ export {
 } from "../primitives/_numberTypes";
 
 export {
+  TP_SL_MAX_SLIPPAGE_BPS,
+  buildTakeProfitStopLossTriggerOrders,
+  buildTriggerOrderParams,
+  executionPriceFromSlippageBps,
+  normalizeTriggerOrderParams,
+  type TakeProfitStopLossTriggerOrders,
+  type TakeProfitStopLossTriggerOrdersInput,
+  type TriggerOrderParamsInput,
+} from "../conditionalOrders";
+
+export {
   type ConditionalOrderIndex,
   type ConditionalOrderPacket,
   type Percent,

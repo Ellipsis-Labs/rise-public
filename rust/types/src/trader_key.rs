@@ -2,6 +2,8 @@
 
 use solana_pubkey::Pubkey;
 
+use crate::ix::PHOENIX_PROGRAM_ID;
+
 /// The Phoenix Eternal program ID (mainnet).
 pub const ETERNAL_PROGRAM_ID: Pubkey =
     solana_pubkey::pubkey!("EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih");
@@ -26,7 +28,7 @@ impl TraderKey {
         let pda_schema = [pda_index, subaccount_index];
         let (pda, _bump) = Pubkey::find_program_address(
             &[b"trader", authority.as_ref(), pda_schema.as_ref()],
-            &ETERNAL_PROGRAM_ID,
+            &*PHOENIX_PROGRAM_ID,
         );
         pda
     }

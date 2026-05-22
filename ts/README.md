@@ -117,8 +117,8 @@ const client = createPhoenixClient({
 });
 ```
 
-If you route supported limit and market order flows through Flight, configure
-it once on the client:
+If you route supported placement flows through Flight, configure it once on the
+client:
 
 > **Use embedded wallets for Flight integrations.** Integrators are strongly
 > encouraged to provision an embedded wallet per user rather than routing

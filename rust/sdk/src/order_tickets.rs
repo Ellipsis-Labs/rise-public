@@ -7,13 +7,16 @@ use solana_pubkey::Pubkey;
 use solana_rpc_client::nonblocking::rpc_client::RpcClient;
 
 use crate::phoenix_rise_ix::{
-    LimitOrderParams, MarketOrderParams, OrderFlags, SelfTradeBehavior, Side,
+    LimitOrderParams, MarketOrderParams, OrderFlags, SelfTradeBehavior, Side, StopLossOrderKind,
 };
 use crate::phoenix_rise_math::{MarketCalculator, WrapperNum};
 use crate::phoenix_rise_types::{
     CROSS_MARGIN_SUBACCOUNT_IDX, ExchangeKeysView, ExchangeMarketConfig,
 };
 use crate::tx_builder::{ParsedAddresses, PhoenixTxBuilderError};
+
+const BPS_DENOMINATOR: f64 = 10_000.0;
+pub const DEFAULT_BRACKET_LEG_SLIPPAGE_BPS: u32 = 1_000;
 
 /// Metadata required to convert an order ticket into ix-level params.
 #[derive(Debug, Clone, Copy)]
@@ -495,18 +498,39 @@ impl Default for BracketLegSize {
     }
 }
 
+/// Execution price behavior for a bracket leg.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum BracketLegExecution {
+    /// Use an explicit execution price in USD.
+    Price(f64),
+    /// Derive the execution price from the trigger price using slippage bps.
+    SlippageBps(u32),
+}
+
 /// A single TP or SL leg.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BracketLeg {
-    /// Trigger and execution price in USD.
+    /// Trigger price in USD.
     pub price: f64,
     /// Optional sizing override for this leg.
     pub size: Option<BracketLegSize>,
+    /// Optional execution order kind. Defaults are role-aware in bracket
+    /// helpers: stop-loss legs default to IOC and take-profit legs default to
+    /// Limit.
+    pub order_kind: Option<StopLossOrderKind>,
+    /// Optional execution price behavior. If omitted, Limit legs execute at the
+    /// trigger price and IOC legs execute with 10% slippage.
+    pub execution: Option<BracketLegExecution>,
 }
 
 impl BracketLeg {
     pub fn new(price: f64) -> Self {
-        Self { price, size: None }
+        Self {
+            price,
+            size: None,
+            order_kind: None,
+            execution: None,
+        }
     }
 
     pub fn with_size(mut self, size: BracketLegSize) -> Self {
@@ -514,8 +538,37 @@ impl BracketLeg {
         self
     }
 
+    pub fn with_order_kind(mut self, order_kind: StopLossOrderKind) -> Self {
+        self.order_kind = Some(order_kind);
+        self
+    }
+
+    pub fn with_limit_order(mut self) -> Self {
+        self.order_kind = Some(StopLossOrderKind::Limit);
+        self
+    }
+
+    pub fn with_ioc_order(mut self) -> Self {
+        self.order_kind = Some(StopLossOrderKind::IOC);
+        self
+    }
+
+    pub fn with_execution_price(mut self, execution_price: f64) -> Self {
+        self.execution = Some(BracketLegExecution::Price(execution_price));
+        self
+    }
+
+    pub fn with_slippage_bps(mut self, slippage_bps: u32) -> Self {
+        self.execution = Some(BracketLegExecution::SlippageBps(slippage_bps));
+        self
+    }
+
     pub(crate) fn resolved_size(&self) -> BracketLegSize {
         self.size.unwrap_or_default()
+    }
+
+    pub(crate) fn resolved_order_kind(&self, default: StopLossOrderKind) -> StopLossOrderKind {
+        self.order_kind.unwrap_or(default)
     }
 }
 
@@ -541,23 +594,36 @@ impl BracketLegOrders {
 
     /// Convert to a [`TpSlOrderConfig`] for server-side order endpoints.
     ///
-    /// Sets both trigger and execution price to the supplied price for each
-    /// leg.
+    /// This is a lossy, infallible conversion for callers that already know
+    /// the shared server-side order kind is representable. Prefer the `try_*`
+    /// variants when converting bracket defaults.
     pub fn to_tp_sl_config(&self) -> crate::phoenix_rise_types::TpSlOrderConfig {
         crate::phoenix_rise_types::TpSlOrderConfig {
             take_profit_trigger_price: self.take_profit.as_ref().map(|leg| leg.price),
-            take_profit_execution_price: self.take_profit.as_ref().map(|leg| leg.price),
+            take_profit_execution_price: self
+                .take_profit
+                .as_ref()
+                .and_then(|leg| execution_price_without_side(leg, StopLossOrderKind::Limit)),
             stop_loss_trigger_price: self.stop_loss.as_ref().map(|leg| leg.price),
-            stop_loss_execution_price: self.stop_loss.as_ref().map(|leg| leg.price),
+            stop_loss_execution_price: self
+                .stop_loss
+                .as_ref()
+                .and_then(|leg| execution_price_without_side(leg, StopLossOrderKind::IOC)),
+            order_kind: self
+                .shared_order_kind()
+                .ok()
+                .flatten()
+                .map(order_kind_api_string),
             ..Default::default()
         }
     }
 
     /// Convert to a [`TpSlOrderConfig`] for server-side order endpoints.
     ///
-    /// Sets both trigger and execution price to the supplied price for each
-    /// leg. Explicit per-leg sizing is rejected because these endpoints only
-    /// support a shared TP/SL size model.
+    /// Explicit per-leg sizing is rejected because these endpoints only support
+    /// a shared TP/SL size model. IOC default/slippage-based execution prices
+    /// require the primary order side and are rejected here; use
+    /// [`Self::try_to_tp_sl_config_for_side`] instead.
     pub fn try_to_tp_sl_config(
         &self,
     ) -> Result<crate::phoenix_rise_types::TpSlOrderConfig, String> {
@@ -568,8 +634,190 @@ impl BracketLegOrders {
             );
         }
 
-        Ok(self.to_tp_sl_config())
+        if self.has_side_dependent_execution() {
+            return Err(
+                "default/slippage TP/SL execution price requires the primary order side"
+                    .to_string(),
+            );
+        }
+
+        let order_kind = self.shared_order_kind()?;
+        Ok(crate::phoenix_rise_types::TpSlOrderConfig {
+            take_profit_trigger_price: self.take_profit.as_ref().map(|leg| leg.price),
+            take_profit_execution_price: self
+                .take_profit
+                .as_ref()
+                .and_then(|leg| execution_price_without_side(leg, StopLossOrderKind::Limit)),
+            stop_loss_trigger_price: self.stop_loss.as_ref().map(|leg| leg.price),
+            stop_loss_execution_price: self
+                .stop_loss
+                .as_ref()
+                .and_then(|leg| execution_price_without_side(leg, StopLossOrderKind::IOC)),
+            order_kind: order_kind.map(order_kind_api_string),
+            ..Default::default()
+        })
     }
+
+    /// Convert to a [`TpSlOrderConfig`] while deriving slippage-based execution
+    /// prices from the primary order side. Server-side TP/SL config supports
+    /// one shared order kind, so mixed defaults (TP limit, SL IOC) are rejected
+    /// here instead of being silently downgraded.
+    pub fn try_to_tp_sl_config_for_side(
+        &self,
+        primary_side: Side,
+    ) -> Result<crate::phoenix_rise_types::TpSlOrderConfig, String> {
+        if self.has_explicit_sizes() {
+            return Err(
+                "custom TP/SL leg sizing is not supported by isolated HTTP order builders"
+                    .to_string(),
+            );
+        }
+
+        let order_kind = self.shared_order_kind()?;
+        Ok(crate::phoenix_rise_types::TpSlOrderConfig {
+            take_profit_trigger_price: self.take_profit.as_ref().map(|leg| leg.price),
+            take_profit_execution_price: execution_price_for_side(
+                self.take_profit.as_ref(),
+                primary_side,
+                StopLossOrderKind::Limit,
+            )?,
+            stop_loss_trigger_price: self.stop_loss.as_ref().map(|leg| leg.price),
+            stop_loss_execution_price: execution_price_for_side(
+                self.stop_loss.as_ref(),
+                primary_side,
+                StopLossOrderKind::IOC,
+            )?,
+            order_kind: order_kind.map(order_kind_api_string),
+            ..Default::default()
+        })
+    }
+
+    fn has_side_dependent_execution(&self) -> bool {
+        self.stop_loss
+            .as_ref()
+            .is_some_and(|leg| leg_requires_side_for_execution(leg, StopLossOrderKind::IOC))
+            || self
+                .take_profit
+                .as_ref()
+                .is_some_and(|leg| leg_requires_side_for_execution(leg, StopLossOrderKind::Limit))
+    }
+
+    fn shared_order_kind(&self) -> Result<Option<StopLossOrderKind>, String> {
+        let mut shared = None;
+
+        if let Some(take_profit) = &self.take_profit {
+            set_shared_order_kind(
+                &mut shared,
+                take_profit.resolved_order_kind(StopLossOrderKind::Limit),
+            )?;
+        }
+        if let Some(stop_loss) = &self.stop_loss {
+            set_shared_order_kind(
+                &mut shared,
+                stop_loss.resolved_order_kind(StopLossOrderKind::IOC),
+            )?;
+        }
+
+        Ok(shared)
+    }
+}
+
+fn execution_price_without_side(
+    leg: &BracketLeg,
+    default_order_kind: StopLossOrderKind,
+) -> Option<f64> {
+    let order_kind = leg.resolved_order_kind(default_order_kind);
+    match leg.execution {
+        Some(BracketLegExecution::Price(price)) => Some(price),
+        None if order_kind == StopLossOrderKind::Limit => Some(leg.price),
+        Some(BracketLegExecution::SlippageBps(_)) | None => None,
+    }
+}
+
+fn leg_requires_side_for_execution(
+    leg: &BracketLeg,
+    default_order_kind: StopLossOrderKind,
+) -> bool {
+    let order_kind = leg.resolved_order_kind(default_order_kind);
+    match leg.execution {
+        Some(BracketLegExecution::Price(_)) => false,
+        Some(BracketLegExecution::SlippageBps(_)) => true,
+        None => order_kind == StopLossOrderKind::IOC,
+    }
+}
+
+fn set_shared_order_kind(
+    shared: &mut Option<StopLossOrderKind>,
+    order_kind: StopLossOrderKind,
+) -> Result<(), String> {
+    if let Some(existing) = *shared {
+        if existing != order_kind {
+            return Err(
+                "mixed TP/SL order kinds are not supported by isolated HTTP order builders; use \
+                 client-side conditional order builders for per-leg order kinds"
+                    .to_string(),
+            );
+        }
+    } else {
+        *shared = Some(order_kind);
+    }
+    Ok(())
+}
+
+fn order_kind_api_string(order_kind: StopLossOrderKind) -> String {
+    match order_kind {
+        StopLossOrderKind::IOC => "ioc",
+        StopLossOrderKind::Limit => "limit",
+    }
+    .to_string()
+}
+
+fn execution_price_for_side(
+    leg: Option<&BracketLeg>,
+    primary_side: Side,
+    default_order_kind: StopLossOrderKind,
+) -> Result<Option<f64>, String> {
+    let Some(leg) = leg else {
+        return Ok(None);
+    };
+
+    let order_kind = leg.resolved_order_kind(default_order_kind);
+    let execution_price = match leg.execution {
+        Some(BracketLegExecution::Price(price)) => price,
+        Some(BracketLegExecution::SlippageBps(slippage_bps)) => {
+            execution_price_with_slippage(leg.price, primary_side, slippage_bps)?
+        }
+        None if order_kind == StopLossOrderKind::Limit => leg.price,
+        None => execution_price_with_slippage(
+            leg.price,
+            primary_side,
+            DEFAULT_BRACKET_LEG_SLIPPAGE_BPS,
+        )?,
+    };
+
+    Ok(Some(execution_price))
+}
+
+fn execution_price_with_slippage(
+    trigger_price: f64,
+    primary_side: Side,
+    slippage_bps: u32,
+) -> Result<f64, String> {
+    let execution_price = match primary_side {
+        Side::Bid => {
+            if slippage_bps >= 10_000 {
+                return Err("sell-side slippage must be less than 10000 bps".to_string());
+            }
+            trigger_price * (BPS_DENOMINATOR - slippage_bps as f64) / BPS_DENOMINATOR
+        }
+        Side::Ask => trigger_price * (BPS_DENOMINATOR + slippage_bps as f64) / BPS_DENOMINATOR,
+    };
+
+    if !execution_price.is_finite() || execution_price <= 0.0 {
+        return Err("slippage resolves to a non-positive execution price".to_string());
+    }
+
+    Ok(execution_price)
 }
 
 /// Bracket configuration attached directly to an order ticket.

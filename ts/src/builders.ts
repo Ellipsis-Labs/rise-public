@@ -26,7 +26,6 @@ import {
   type StopLossOrderKind,
   type Symbol,
   type TokenAccountAddress,
-  type TriggerOrderParams,
 } from "@/primitives";
 import type {
   ImmediateOrCancelOrderPacket,
@@ -66,20 +65,11 @@ import { type DepositFundsIx } from "./core/ixBuilders/DepositFunds";
 import { type EmberDepositIx } from "./core/ixBuilders/EmberDeposit";
 import { type EmberWithdrawIx } from "./core/ixBuilders/EmberWithdraw";
 import { type PlaceLimitOrderIx } from "./core/ixBuilders/PlaceLimitOrder";
-import {
-  buildPlaceAttachedConditionalOrderIx,
-  type PlaceAttachedConditionalOrderIx,
-} from "./core/ixBuilders/PlaceAttachedConditionalOrder";
-import {
-  buildPlaceLimitOrderWithConditionalsIx,
-  type PlaceLimitOrderWithConditionalsIx,
-} from "./core/ixBuilders/PlaceLimitOrderWithConditionals";
+import { type PlaceAttachedConditionalOrderIx } from "./core/ixBuilders/PlaceAttachedConditionalOrder";
+import { type PlaceLimitOrderWithConditionalsIx } from "./core/ixBuilders/PlaceLimitOrderWithConditionals";
 import { type PlaceMarketOrderIx } from "./core/ixBuilders/PlaceMarketOrder";
 import { type PlacePostOnlyOrderIx } from "./core/ixBuilders/PlacePostOnlyOrder";
-import {
-  buildPlacePositionConditionalOrderIx,
-  type PlacePositionConditionalOrderIx,
-} from "./core/ixBuilders/PlacePositionConditionalOrder";
+import { type PlacePositionConditionalOrderIx } from "./core/ixBuilders/PlacePositionConditionalOrder";
 import { type PlaceStopLossIx } from "./core/ixBuilders/PlaceStopLoss";
 import { type RegisterTraderIx } from "./core/ixBuilders/RegisterTrader";
 import { type SyncParentToChildIx } from "./core/ixBuilders/SyncParentToChild";
@@ -96,6 +86,7 @@ import {
   type PhoenixIxOperationContext,
 } from "./ixs/operations";
 import { isFlightClient } from "./flight/client.js";
+import type { TriggerOrderParamsInput } from "./conditionalOrders";
 
 export type { BuildRegisterTraderParams } from "./ixs";
 
@@ -670,6 +661,7 @@ export const buildPlaceStopLoss = async (
     symbol: Symbol;
     triggerPrice: bigint;
     executionPrice?: bigint;
+    slippageBps?: number | null;
     tradeSide: Side;
     executionDirection: Direction;
     orderKind: StopLossOrderKind;
@@ -724,57 +716,20 @@ export const buildPlacePositionConditionalOrder = async (
     positionAuthority?: Authority;
     payer?: Authority;
     symbol: Symbol;
-    greaterTriggerOrder?: TriggerOrderParams | null;
-    lessTriggerOrder?: TriggerOrderParams | null;
+    greaterTriggerOrder?: TriggerOrderParamsInput | null;
+    lessTriggerOrder?: TriggerOrderParamsInput | null;
     sizeBaseLots?: BaseLots | null;
     sizePercent?: number | null;
   },
   client: PhoenixInstructionClient,
   traderPdaIndex = 0,
   traderSubaccountIndex = 0
-): Promise<PlacePositionConditionalOrderIx> => {
-  const { globalConfiguration, arenaAddresses, globalTraderIndexAddresses } =
-    await fetchRequiredAccounts(client);
-  const { traderAccount } = await getClientTraderAddresses(
-    client,
-    params.authority,
-    globalConfiguration.canonicalTokenMintKey,
+): Promise<PlacePositionConditionalOrderIx> =>
+  createLegacyPhoenixIxOperations(client).buildPlacePositionConditionalOrder({
+    ...params,
     traderPdaIndex,
-    traderSubaccountIndex
-  );
-  const { marketAddress, assetId } = await getMarketMetadataForSymbol(
-    params.symbol,
-    client
-  );
-  const [splineCollection, traderConditionalOrders] = await Promise.all([
-    getPhoenixSplineCollectionAddress(
-      marketAddress,
-      client.addresses.phoenixProgramAddress
-    ),
-    getPhoenixConditionalOrdersAddress({
-      traderAccount,
-      phoenixProgramAddress: client.addresses.phoenixProgramAddress,
-    }),
-  ]);
-
-  return buildPlacePositionConditionalOrderIx({
-    ...clientPhoenixInstructionAddresses(client),
-    payer: params.payer ?? params.authority,
-    traderAccount,
-    perpAssetMap: globalConfiguration.perpAssetMapKey,
-    globalTraderIndex: globalTraderIndexAddresses,
-    activeTraderBuffer: arenaAddresses,
-    orderbook: marketAddress,
-    splineCollection,
-    traderWallet: params.positionAuthority ?? params.authority,
-    traderConditionalOrders,
-    assetId: Number(assetId),
-    greaterTriggerOrder: params.greaterTriggerOrder ?? null,
-    lessTriggerOrder: params.lessTriggerOrder ?? null,
-    sizeBaseLots: params.sizeBaseLots ?? null,
-    sizePercent: params.sizePercent ?? null,
+    traderSubaccountIndex,
   });
-};
 
 export const buildPlaceAttachedConditionalOrder = async (
   params: {
@@ -783,46 +738,18 @@ export const buildPlaceAttachedConditionalOrder = async (
     payer?: Authority;
     symbol: Symbol;
     orderId: FIFOOrderId;
-    greaterTriggerOrder?: TriggerOrderParams | null;
-    lessTriggerOrder?: TriggerOrderParams | null;
+    greaterTriggerOrder?: TriggerOrderParamsInput | null;
+    lessTriggerOrder?: TriggerOrderParamsInput | null;
   },
   client: PhoenixInstructionClient,
   traderPdaIndex = 0,
   traderSubaccountIndex = 0
-): Promise<PlaceAttachedConditionalOrderIx> => {
-  const { globalConfiguration, arenaAddresses, globalTraderIndexAddresses } =
-    await fetchRequiredAccounts(client);
-  const { traderAccount } = await getClientTraderAddresses(
-    client,
-    params.authority,
-    globalConfiguration.canonicalTokenMintKey,
+): Promise<PlaceAttachedConditionalOrderIx> =>
+  createLegacyPhoenixIxOperations(client).buildPlaceAttachedConditionalOrder({
+    ...params,
     traderPdaIndex,
-    traderSubaccountIndex
-  );
-  const { marketAddress, assetId } = await getMarketMetadataForSymbol(
-    params.symbol,
-    client
-  );
-  const traderConditionalOrders = await getPhoenixConditionalOrdersAddress({
-    traderAccount,
-    phoenixProgramAddress: client.addresses.phoenixProgramAddress,
+    traderSubaccountIndex,
   });
-
-  return buildPlaceAttachedConditionalOrderIx({
-    ...clientPhoenixInstructionAddresses(client),
-    traderAccount,
-    traderWallet: params.positionAuthority ?? params.authority,
-    orderbook: marketAddress,
-    traderConditionalOrders,
-    payer: params.payer ?? params.authority,
-    globalTraderIndex: globalTraderIndexAddresses,
-    activeTraderBuffer: arenaAddresses,
-    orderId: params.orderId,
-    assetId: Number(assetId),
-    greaterTriggerOrder: params.greaterTriggerOrder ?? null,
-    lessTriggerOrder: params.lessTriggerOrder ?? null,
-  });
-};
 
 export const buildPlaceLimitOrderWithConditionals = async (
   params: {
@@ -832,51 +759,18 @@ export const buildPlaceLimitOrderWithConditionals = async (
     symbol: Symbol;
     orderPacket: ConditionalOrderPacket;
     slot?: bigint;
-    greaterTriggerOrder?: TriggerOrderParams | null;
-    lessTriggerOrder?: TriggerOrderParams | null;
+    greaterTriggerOrder?: TriggerOrderParamsInput | null;
+    lessTriggerOrder?: TriggerOrderParamsInput | null;
   },
   client: PhoenixInstructionClient,
   traderPdaIndex = 0,
   traderSubaccountIndex = 0
-): Promise<PlaceLimitOrderWithConditionalsIx> => {
-  const { globalConfiguration, arenaAddresses, globalTraderIndexAddresses } =
-    await fetchRequiredAccounts(client);
-  const { traderAccount } = await getClientTraderAddresses(
-    client,
-    params.authority,
-    globalConfiguration.canonicalTokenMintKey,
+): Promise<PlaceLimitOrderWithConditionalsIx> =>
+  createLegacyPhoenixIxOperations(client).buildPlaceLimitOrderWithConditionals({
+    ...params,
     traderPdaIndex,
-    traderSubaccountIndex
-  );
-  const marketAddress = await getMarketAddressForSymbol(params.symbol, client);
-  const [splineCollection, traderConditionalOrders] = await Promise.all([
-    getPhoenixSplineCollectionAddress(
-      marketAddress,
-      client.addresses.phoenixProgramAddress
-    ),
-    getPhoenixConditionalOrdersAddress({
-      traderAccount,
-      phoenixProgramAddress: client.addresses.phoenixProgramAddress,
-    }),
-  ]);
-
-  return buildPlaceLimitOrderWithConditionalsIx({
-    ...clientPhoenixInstructionAddresses(client),
-    traderWallet: params.positionAuthority ?? params.authority,
-    traderAccount,
-    perpAssetMap: globalConfiguration.perpAssetMapKey,
-    globalTraderIndex: globalTraderIndexAddresses,
-    activeTraderBuffer: arenaAddresses,
-    orderbook: marketAddress,
-    splineCollection,
-    payer: params.payer ?? params.authority,
-    traderConditionalOrders,
-    orderPacket: params.orderPacket,
-    slot: params.slot,
-    greaterTriggerOrder: params.greaterTriggerOrder ?? null,
-    lessTriggerOrder: params.lessTriggerOrder ?? null,
+    traderSubaccountIndex,
   });
-};
 
 export const buildCancelConditionalOrder = async (
   params: {

@@ -134,7 +134,7 @@ impl PhoenixExchangeCacheStore {
         self.replace_snapshot(snapshot);
         vec![ExchangeCacheEvent::SnapshotApplied {
             source,
-            slot: self.snapshot.slot.into_inner(),
+            slot: self.snapshot.slot,
             slot_index: self.snapshot.slot_index,
             market_count: self.snapshot.markets.len(),
         }]
@@ -183,7 +183,7 @@ impl PhoenixExchangeCacheStore {
                     next_snapshot.exchange = exchange.clone();
                     events.push(ExchangeCacheEvent::ExchangeUpdated {
                         change: ExchangeCacheExchangeChangeKind::Keys,
-                        slot: delta.slot.into_inner(),
+                        slot: delta.slot,
                         slot_index: delta.slot_index,
                     });
                 }
@@ -200,7 +200,7 @@ impl PhoenixExchangeCacheStore {
                     next_snapshot.exchange.gated = *gated;
                     events.push(ExchangeCacheEvent::ExchangeUpdated {
                         change: ExchangeCacheExchangeChangeKind::Status,
-                        slot: delta.slot.into_inner(),
+                        slot: delta.slot,
                         slot_index: delta.slot_index,
                     });
                 }
@@ -208,7 +208,7 @@ impl PhoenixExchangeCacheStore {
                     upsert_market(&mut next_snapshot.markets, market.clone());
                     events.push(ExchangeCacheEvent::MarketAdded {
                         symbol: market.symbol.clone(),
-                        slot: delta.slot.into_inner(),
+                        slot: delta.slot,
                         slot_index: delta.slot_index,
                     });
                 }
@@ -223,7 +223,7 @@ impl PhoenixExchangeCacheStore {
                     events.push(ExchangeCacheEvent::MarketUpdated {
                         symbol: symbol.clone(),
                         change: ExchangeCacheMarketChangeKind::Status,
-                        slot: delta.slot.into_inner(),
+                        slot: delta.slot,
                         slot_index: delta.slot_index,
                     });
                 }
@@ -234,7 +234,7 @@ impl PhoenixExchangeCacheStore {
                     events.push(ExchangeCacheEvent::MarketUpdated {
                         symbol: symbol.clone(),
                         change: ExchangeCacheMarketChangeKind::Closed,
-                        slot: delta.slot.into_inner(),
+                        slot: delta.slot,
                         slot_index: delta.slot_index,
                     });
                 }
@@ -245,7 +245,7 @@ impl PhoenixExchangeCacheStore {
                     events.push(ExchangeCacheEvent::MarketUpdated {
                         symbol: symbol.clone(),
                         change: ExchangeCacheMarketChangeKind::Tombstoned,
-                        slot: delta.slot.into_inner(),
+                        slot: delta.slot,
                         slot_index: delta.slot_index,
                     });
                 }
@@ -256,7 +256,7 @@ impl PhoenixExchangeCacheStore {
                     events.push(ExchangeCacheEvent::MarketRemoved {
                         symbol: symbol.clone(),
                         asset_id: *asset_id,
-                        slot: delta.slot.into_inner(),
+                        slot: delta.slot,
                         slot_index: delta.slot_index,
                     });
                 }
@@ -267,7 +267,7 @@ impl PhoenixExchangeCacheStore {
                     events.push(ExchangeCacheEvent::MarketUpdated {
                         symbol: symbol.clone(),
                         change: market_change_kind(update),
-                        slot: delta.slot.into_inner(),
+                        slot: delta.slot,
                         slot_index: delta.slot_index,
                     });
                 }
@@ -279,7 +279,7 @@ impl PhoenixExchangeCacheStore {
             0,
             ExchangeCacheEvent::SnapshotApplied {
                 source: ExchangeCacheSnapshotSource::Websocket,
-                slot: self.snapshot.slot.into_inner(),
+                slot: self.snapshot.slot,
                 slot_index: self.snapshot.slot_index,
                 market_count: self.snapshot.markets.len(),
             },
@@ -457,7 +457,7 @@ mod tests {
         ExchangeSnapshotView {
             version: 1,
             sequence_number: None,
-            slot: slot.into(),
+            slot,
             slot_index,
             exchange: ExchangeStateSnapshot {
                 program_id: "program".to_string(),
@@ -486,9 +486,9 @@ mod tests {
                 taker_fee: 0.0005,
                 maker_fee: -0.0001,
                 leverage_tiers: vec![ExchangeWsLeverageTier {
-                    max_leverage: 20.0,
+                    max_leverage: 20,
                     max_size_base_lots: 1_000_u64.into(),
-                    limit_order_risk_factor: 250.0,
+                    limit_order_risk_factor: 2_500,
                 }],
                 risk_factors: crate::phoenix_rise_types::ExchangeRiskFactors {
                     maintenance: 5.0,
@@ -501,7 +501,7 @@ mod tests {
                 funding_config: ExchangeWsFundingConfig {
                     funding_interval_seconds: 3600,
                     funding_period_seconds: 28800,
-                    max_funding_rate_per_interval: 2500.0,
+                    max_funding_rate_per_interval: 2_500,
                 },
                 open_interest_cap_base_lots: 5_000_u64.into(),
                 max_liquidation_size_base_lots: 250_u64.into(),
@@ -569,7 +569,7 @@ mod tests {
             channel: "exchange".to_string(),
             version: 1,
             sequence_number: sequence_number.into(),
-            slot: 3_u64.into(),
+            slot: 3,
             slot_index: 2,
             ops: vec![ExchangeDeltaOp::MarketParameterUpdated {
                 symbol: "SOL-PERP".to_string(),

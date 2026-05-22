@@ -207,7 +207,7 @@ pub fn create_deposit_funds_ix(params: DepositFundsParams) -> Result<Instruction
     let accounts = build_accounts(&params);
 
     Ok(Instruction {
-        program_id: PHOENIX_PROGRAM_ID,
+        program_id: *PHOENIX_PROGRAM_ID,
         accounts,
         data,
     })
@@ -229,11 +229,11 @@ fn build_accounts(params: &DepositFundsParams) -> Vec<AccountMeta> {
     let mut accounts = Vec::new();
 
     // 1. phoenix_program (readonly) - Log accounts
-    accounts.push(AccountMeta::readonly(PHOENIX_PROGRAM_ID));
-    // 2. phoenix_log_authority (readonly)
-    accounts.push(AccountMeta::readonly(PHOENIX_LOG_AUTHORITY));
+    accounts.push(AccountMeta::readonly(*PHOENIX_PROGRAM_ID));
+    // 2. PHOENIX_LOG_AUTHORITY (readonly)
+    accounts.push(AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY));
     // 3. global_configuration_account (writable)
-    accounts.push(AccountMeta::writable(PHOENIX_GLOBAL_CONFIGURATION));
+    accounts.push(AccountMeta::writable(*PHOENIX_GLOBAL_CONFIGURATION));
     // 4. trader_wallet (signer, readonly)
     accounts.push(AccountMeta::readonly_signer(params.trader()));
     // 5. trader_token_account (writable) - Owner's Phoenix token ATA
@@ -282,7 +282,7 @@ mod tests {
 
         let ix = create_deposit_funds_ix(params).unwrap();
 
-        assert_eq!(ix.program_id, PHOENIX_PROGRAM_ID);
+        assert_eq!(ix.program_id, *PHOENIX_PROGRAM_ID);
         // 8 base accounts + 1 global_trader_index + 1 active_trader_buffer = 10
         assert_eq!(ix.accounts.len(), 10);
 
@@ -371,13 +371,13 @@ mod tests {
         let ix = create_deposit_funds_ix(params).unwrap();
 
         // Verify account order
-        assert_eq!(ix.accounts[0].pubkey, PHOENIX_PROGRAM_ID);
+        assert_eq!(ix.accounts[0].pubkey, *PHOENIX_PROGRAM_ID);
         assert!(!ix.accounts[0].is_writable);
 
-        assert_eq!(ix.accounts[1].pubkey, PHOENIX_LOG_AUTHORITY);
+        assert_eq!(ix.accounts[1].pubkey, *PHOENIX_LOG_AUTHORITY);
         assert!(!ix.accounts[1].is_writable);
 
-        assert_eq!(ix.accounts[2].pubkey, PHOENIX_GLOBAL_CONFIGURATION);
+        assert_eq!(ix.accounts[2].pubkey, *PHOENIX_GLOBAL_CONFIGURATION);
         assert!(ix.accounts[2].is_writable);
 
         assert_eq!(ix.accounts[3].pubkey, trader);

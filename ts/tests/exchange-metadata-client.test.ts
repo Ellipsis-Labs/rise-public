@@ -1015,6 +1015,143 @@ describe("exchange metadata client integration", () => {
     client.dispose();
   });
 
+  it("routes attached and limit-with-conditionals ixs through flight from client.ixs", async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(stringifyWithBigints(buildSnapshot()), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const authority = address("11111111111111111111111111111111");
+    const builderAuthority = address(
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+    );
+    const feeCollectorTrader = address(
+      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+    ) as never;
+
+    const client = createPhoenixClient({
+      baseUrl: "https://example.com",
+      ws: false,
+      flight: {
+        builderAuthority,
+        builderPdaIndex: 4,
+        builderSubaccountIndex: 7,
+      },
+    });
+    const getTraderAddressSpy = vi
+      .spyOn(client.pda, "getTraderAddress")
+      .mockResolvedValue(feeCollectorTrader);
+    const greaterTriggerOrder = {
+      triggerDirection: Direction.GreaterThan,
+      tradeSide: Side.Ask,
+      orderKind: StopLossOrderKind.IOC,
+      triggerPrice: ticks(1100n),
+      executionPrice: ticks(1099n),
+    };
+
+    const attachedIx = await client.ixs.buildPlaceAttachedConditionalOrder({
+      authority,
+      symbol: "SOL-PERP",
+      orderId: {
+        priceInTicks: ticks(1000n),
+        orderSequenceNumber: 1n,
+      },
+      greaterTriggerOrder,
+    });
+    const limitWithConditionalsIx =
+      await client.ixs.buildPlaceLimitOrderWithConditionals({
+        authority,
+        symbol: "SOL-PERP",
+        orderPacket: {
+          __kind: "Limit",
+          side: Side.Bid,
+          priceInTicks: ticks(1000n),
+          numBaseLots: baseLots(5n),
+          selfTradeBehavior: 1,
+          matchLimit: null,
+          clientOrderId: 0n,
+          lastValidSlot: null,
+          orderFlags: 0,
+          cancelExisting: false,
+        },
+        greaterTriggerOrder,
+      });
+
+    expect(attachedIx.programAddress).toBe(flight.FLIGHT_PROGRAM_ADDRESS);
+    expect(limitWithConditionalsIx.programAddress).toBe(
+      flight.FLIGHT_PROGRAM_ADDRESS
+    );
+    expect(attachedIx.accounts[2]?.address).toBe(builderAuthority);
+    expect(limitWithConditionalsIx.accounts[2]?.address).toBe(builderAuthority);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(getTraderAddressSpy).toHaveBeenCalledWith({
+      authority: builderAuthority,
+      traderPdaIndex: 4,
+      subaccountIndex: 7,
+      phoenixProgramAddress: client.pda.getProgramAddress(),
+    });
+
+    client.dispose();
+  });
+
+  it("routes stop loss ixs through flight when the client is configured with a fee collector", async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(stringifyWithBigints(buildSnapshot()), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const authority = address("11111111111111111111111111111111");
+    const builderAuthority = address(
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+    );
+    const feeCollectorTrader = address(
+      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+    ) as never;
+
+    const client = createPhoenixClient({
+      baseUrl: "https://example.com",
+      ws: false,
+      flight: {
+        builderAuthority,
+        builderPdaIndex: 4,
+        builderSubaccountIndex: 7,
+      },
+    });
+    const getTraderAddressSpy = vi
+      .spyOn(client.pda, "getTraderAddress")
+      .mockResolvedValue(feeCollectorTrader);
+
+    const ix = await client.ixs.buildPlaceStopLoss({
+      authority,
+      symbol: "SOL-PERP",
+      triggerPrice: 900n,
+      executionPrice: 890n,
+      tradeSide: Side.Ask,
+      executionDirection: Direction.LessThan,
+      orderKind: StopLossOrderKind.IOC,
+    });
+
+    expect(ix.programAddress).toBe(flight.FLIGHT_PROGRAM_ADDRESS);
+    expect(ix.accounts[2]?.address).toBe(builderAuthority);
+    expect(ix.accounts[3]?.address).toBe(feeCollectorTrader);
+    expect(ix.accounts[5]?.address).toBe(authority);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(getTraderAddressSpy).toHaveBeenCalledWith({
+      authority: builderAuthority,
+      traderPdaIndex: 4,
+      subaccountIndex: 7,
+      phoenixProgramAddress: client.pda.getProgramAddress(),
+    });
+
+    client.dispose();
+  });
+
   it("prefers the registered Flight BuilderState trader over the configured PDA derivation", async () => {
     const fetchMock = vi.fn(async () => {
       return new Response(stringifyWithBigints(buildSnapshot()), {

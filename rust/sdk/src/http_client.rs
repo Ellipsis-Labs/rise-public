@@ -28,8 +28,9 @@ use crate::phoenix_rise_ix::{IsolatedCollateralFlow, Side};
 use crate::phoenix_rise_types::{
     ApiCandle, CandlesQueryParams, CollateralHistoryQueryParams, CollateralHistoryResponse,
     ExchangeKeysView, ExchangeMarketConfig, ExchangeResponse, ExchangeSnapshotView,
-    FundingHistoryQueryParams, FundingHistoryResponse, NextCommodityMarketTransition,
-    OrderHistoryQueryParams, OrderHistoryResponse, PhoenixHttpError,
+    FundingHistoryQueryParams, FundingHistoryResponse, FundingHourlyHistoryResponse,
+    FundingHourlyQuery, FundingRateHistoryQuery, FundingRateHistoryResponse,
+    NextCommodityMarketTransition, OrderHistoryQueryParams, OrderHistoryResponse, PhoenixHttpError,
     PlaceIsolatedLimitOrderRequest, PlaceIsolatedMarketOrderRequest, PnlPoint, PnlQueryParams,
     TradeHistoryQueryParams, TradeHistoryResponse, TraderKey, TraderView,
 };
@@ -523,6 +524,26 @@ impl PhoenixHttpClient {
             .await
     }
 
+    pub async fn get_user_hourly_funding_history(
+        &self,
+        user_pubkey: &Pubkey,
+        params: FundingHourlyQuery,
+    ) -> Result<FundingHourlyHistoryResponse, PhoenixHttpError> {
+        self.funding()
+            .get_user_hourly_funding_history(user_pubkey, params)
+            .await
+    }
+
+    pub async fn get_market_funding_rate_history(
+        &self,
+        symbol: &str,
+        params: FundingRateHistoryQuery,
+    ) -> Result<FundingRateHistoryResponse, PhoenixHttpError> {
+        self.funding()
+            .get_market_funding_rate_history(symbol, params)
+            .await
+    }
+
     pub async fn get_order_history(
         &self,
         authority: &Pubkey,
@@ -555,8 +576,16 @@ impl PhoenixHttpClient {
         authority: &Pubkey,
         params: TradeHistoryQueryParams,
     ) -> Result<TradeHistoryResponse, PhoenixHttpError> {
+        self.get_user_trade_history(authority, params).await
+    }
+
+    pub async fn get_user_trade_history(
+        &self,
+        authority: &Pubkey,
+        params: TradeHistoryQueryParams,
+    ) -> Result<TradeHistoryResponse, PhoenixHttpError> {
         self.trades()
-            .get_trader_trade_history(authority, params)
+            .get_user_trade_history(authority, params)
             .await
     }
 
@@ -570,12 +599,48 @@ impl PhoenixHttpClient {
             .await
     }
 
+    pub async fn get_trade_history_by_trader_pda(
+        &self,
+        trader_pda: &Pubkey,
+        params: TradeHistoryQueryParams,
+    ) -> Result<TradeHistoryResponse, PhoenixHttpError> {
+        self.trades()
+            .get_trader_trade_history_by_pda(trader_pda, params)
+            .await
+    }
+
     pub async fn get_pnl(
         &self,
         authority: &Pubkey,
         params: PnlQueryParams,
     ) -> Result<Vec<PnlPoint>, PhoenixHttpError> {
         self.traders().get_trader_pnl(authority, params).await
+    }
+
+    pub async fn get_user_pnl(
+        &self,
+        authority: &Pubkey,
+        params: PnlQueryParams,
+    ) -> Result<Vec<PnlPoint>, PhoenixHttpError> {
+        self.traders().get_user_pnl(authority, params).await
+    }
+
+    pub async fn get_trader_pda_pnl(
+        &self,
+        trader_pda: &Pubkey,
+        params: PnlQueryParams,
+    ) -> Result<Vec<PnlPoint>, PhoenixHttpError> {
+        self.traders().get_trader_pda_pnl(trader_pda, params).await
+    }
+
+    pub async fn get_trader_pnl_with_trader_key(
+        &self,
+        trader_key: &TraderKey,
+        params: PnlQueryParams,
+    ) -> Result<Vec<PnlPoint>, PhoenixHttpError> {
+        self.traders()
+            .get_trader_pnl_with_trader_key(trader_key, params)
+            .await
     }
 
     pub async fn build_isolated_limit_order_tx(

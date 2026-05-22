@@ -251,11 +251,11 @@ impl TraderPortfolioMargin {
     }
 
     pub fn calculate_transferable_collateral(&self) -> Result<u64, MarginError> {
-        let total_collateral = self.quote_lot_collateral;
+        let available_collateral = self.effective_collateral_for_withdrawals();
 
         // If trader has no positions or limit orders, all collateral is transferable
         if self.positions.is_empty() {
-            return Ok(total_collateral.max(SignedQuoteLots::ZERO).as_inner() as u64);
+            return Ok(available_collateral.max(SignedQuoteLots::ZERO).as_inner() as u64);
         }
 
         // Use the pre-calculated initial_margin_for_withdrawals which includes
@@ -265,13 +265,58 @@ impl TraderPortfolioMargin {
             .initial_margin_for_withdrawals
             .checked_as_signed()?;
 
-        // Transferable amount = total collateral - required margin
-        if total_collateral >= total_margin_required {
-            Ok((total_collateral - total_margin_required)
+        // Transferable amount = withdrawal effective collateral - required
+        // margin, matching on-chain withdrawal checks.
+        if available_collateral >= total_margin_required {
+            Ok((available_collateral - total_margin_required)
                 .max(SignedQuoteLots::ZERO)
                 .as_inner() as u64)
         } else {
             Ok(0)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn transferable_collateral_uses_withdrawal_effective_collateral_without_positions() {
+        let margin = TraderPortfolioMargin {
+            quote_lot_collateral: SignedQuoteLots::new(100),
+            margin: Margin {
+                discounted_pnl_for_withdrawals: SignedQuoteLots::new(-25),
+                unsettled_funding: SignedQuoteLots::new(5),
+                ..Margin::default()
+            },
+            ..TraderPortfolioMargin::default()
+        };
+
+        assert_eq!(margin.calculate_transferable_collateral().unwrap(), 80);
+    }
+
+    #[test]
+    fn transferable_collateral_uses_withdrawal_effective_collateral_with_margin() {
+        let margin = TraderPortfolioMargin {
+            quote_lot_collateral: SignedQuoteLots::new(100),
+            margin: Margin {
+                initial_margin_for_withdrawals: QuoteLots::new(35),
+                discounted_pnl_for_withdrawals: SignedQuoteLots::new(-25),
+                unsettled_funding: SignedQuoteLots::new(5),
+                ..Margin::default()
+            },
+            positions: HashMap::from([(
+                "SOL".to_string(),
+                MarketMargin {
+                    position: None,
+                    limit_orders: Vec::new(),
+                    margin: Margin::default(),
+                },
+            )]),
+            ..TraderPortfolioMargin::default()
+        };
+
+        assert_eq!(margin.calculate_transferable_collateral().unwrap(), 45);
     }
 }

@@ -82,4 +82,22 @@ impl PhoenixHttpError {
     pub fn is_auth_error(&self) -> bool {
         matches!(self, PhoenixHttpError::Authentication { .. })
     }
+
+    pub fn is_rate_limited(&self) -> bool {
+        match self {
+            PhoenixHttpError::RateLimited { .. } => true,
+            PhoenixHttpError::ApiError {
+                status, error_code, ..
+            } => *status == 429 || matches!(error_code.as_deref(), Some("rate_limited")),
+            _ => false,
+        }
+    }
+
+    pub fn status(&self) -> Option<u16> {
+        match self {
+            PhoenixHttpError::ApiError { status, .. } => Some(*status),
+            PhoenixHttpError::Authentication { status, .. } => *status,
+            _ => None,
+        }
+    }
 }

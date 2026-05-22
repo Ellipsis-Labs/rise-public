@@ -57,9 +57,10 @@ pub mod phoenix_rise_math {
 
 pub mod phoenix_rise_types {
     pub use crate::types::{
-        accounts, auth, candles, client, conversions, core, exchange, exchange_ws, http_error, ix,
-        js_safe_ints, l2book, market, market_state, market_stats, metadata, service_accounts,
-        subscription_key, trader, trader_http, trader_key, trader_state, trades, ws, ws_error, *,
+        accounts, auth, candles, client, conversions, core, exchange, exchange_ws, funding,
+        http_error, ix, js_safe_ints, l2book, market, market_state, market_stats, metadata,
+        service_accounts, subscription_key, trader, trader_http, trader_key, trader_state, trades,
+        ws, ws_error, *,
     };
 }
 
@@ -88,7 +89,7 @@ pub use auth::{
     AuthError, AuthSession, AuthSessionSnapshot, AuthSessionStore, FileAuthSessionStore,
     MemoryAuthSessionStore, PhoenixAuthSigner, PhoenixHttpAuthConfig, PhoenixServiceAuthClient,
     PhoenixServiceChallenge, PhoenixServiceLoginRequest, PhoenixWalletNonce,
-    PhoenixWalletNonceRequest, default_auth_session_store_path,
+    PhoenixWalletNonceRequest, PhoenixWalletTransactionChallenge, default_auth_session_store_path,
 };
 pub use auth_lifecycle::{AuthLifecycleError, AuthLifecycleErrorReason, AuthLifecycleState};
 #[cfg(feature = "ed25519-dalek")]
@@ -109,8 +110,9 @@ pub use exchange_cache::{
 pub use flight_client::PhoenixFlightClient;
 pub use http_client::{PhoenixHttpClient, PhoenixHttpClientBuilder, RateLimitRetryConfig};
 pub use order_tickets::{
-    BracketLeg, BracketLegOrders, BracketLegSize, BracketLegTicket, LimitOrderTicket,
-    LimitOrderTicketBuilder, MarketOrderTicket, MarketOrderTicketBuilder, OrderTicketMetadata,
+    BracketLeg, BracketLegExecution, BracketLegOrders, BracketLegSize, BracketLegTicket,
+    DEFAULT_BRACKET_LEG_SLIPPAGE_BPS, LimitOrderTicket, LimitOrderTicketBuilder, MarketOrderTicket,
+    MarketOrderTicketBuilder, OrderTicketMetadata,
 };
 pub use rust_decimal::Decimal;
 pub use tx_builder::{PhoenixTxBuilder, PhoenixTxBuilderError};
@@ -123,7 +125,8 @@ pub use crate::phoenix_rise_ix::{
     PlaceAttachedConditionalOrderParams, PlaceLimitOrderWithConditionalsParams,
     PlacePositionConditionalOrderParams, RegisterTraderParams, SelfTradeBehavior, Side,
     StopLossOrderKind, TransferCollateralParams, TriggerOrderParams,
-    get_conditional_orders_address,
+    get_conditional_orders_address, phoenix_global_configuration, phoenix_instruction_addresses,
+    phoenix_log_authority, phoenix_program_id, resolve_phoenix_instruction_addresses_for_env,
 };
 // Re-export useful types from the types crate
 pub use crate::phoenix_rise_types::{
@@ -131,21 +134,23 @@ pub use crate::phoenix_rise_types::{
     CancelConditionalOrderRequest, CandleData, CandlesQueryParams, CandlesSubscriptionRequest,
     ClientCommand, ClientSubscriptionId, CollateralEvent, CollateralHistoryQueryParams,
     CollateralHistoryResponse, CommodityMarketState, ETERNAL_PROGRAM_ID, ExchangeDeltaMessage,
-    ExchangeDeltaOp, ExchangeEncodedSnapshotMessage, ExchangeMarketConfig,
+    ExchangeDeltaOp, ExchangeEncodedSnapshotMessage, ExchangeKeysView, ExchangeMarketConfig,
     ExchangeMarketParameterUpdate, ExchangeMarketSnapshot, ExchangeSnapshotEncoding,
     ExchangeSnapshotMessage, ExchangeSnapshotReason, ExchangeSnapshotView, ExchangeStateSnapshot,
     ExchangeView, ExchangeWsCommodityMetadata, ExchangeWsFeeConfig, ExchangeWsFundingConfig,
     ExchangeWsLeverageTier, ExchangeWsMarkPriceParameters, ExchangeWsMarketPriceBand,
-    FundingHistoryEvent, FundingHistoryQueryParams, FundingHistoryResponse, FundingRateMessage,
-    L2Book, L2BookUpdate, LogicalSubscription, MarginTrigger, Market, MarketStats,
-    MarketStatsUpdate, NextCommodityMarketTransition, OrderHistoryItem, OrderHistoryQueryParams,
+    FundingHistoryEvent, FundingHistoryQueryParams, FundingHistoryResponse, FundingHourlyEvent,
+    FundingHourlyHistoryResponse, FundingHourlyQuery, FundingRateHistoryQuery,
+    FundingRateHistoryResponse, FundingRateMessage, FundingRatePoint, L2Book, L2BookUpdate,
+    LogicalSubscription, MarginTrigger, MarkPriceResponse, Market, MarketStats, MarketStatsUpdate,
+    MarketStatus, NextCommodityMarketTransition, OrderHistoryItem, OrderHistoryQueryParams,
     OrderHistoryResponse, OrderStatus, PaginatedResponse, PhoenixClientError, PhoenixClientEvent,
     PhoenixClientSubscriptionHandle, PhoenixHttpError, PhoenixMetadata, PhoenixSubscription,
     PhoenixWsError, PlaceIsolatedLimitOrderRequest, PlaceIsolatedMarketOrderRequest, PnlPoint,
     PnlQueryParams, PnlResolution, Position, PriceLevel, RuntimeState, ServerMessage, Spline,
     SubaccountState, SubscriptionKey, Timeframe, TpSlOrderConfig, TradeEvent, TradeHistoryItem,
     TradeHistoryQueryParams, TradeHistoryResponse, Trader, TraderKey, TraderStateDelta,
-    TraderStatePayload, TraderStateServerMessage, TraderStateSnapshot, TradesMessage,
-    TradesSubscriptionRequest, WalletNonceResponse,
+    TraderStatePayload, TraderStateRowChangeKind, TraderStateServerMessage, TraderStateSnapshot,
+    TraderView, TradesMessage, TradesSubscriptionRequest, WalletNonceResponse,
 };
 pub use crate::types::conversions::*;

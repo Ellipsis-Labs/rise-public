@@ -13,7 +13,6 @@ version      = { workspace = true }
 [dependencies]
 phoenix-rise = { path = "..", features = ["solana-keypair"] }
 
-chrono         = { workspace = true }
 clap           = { workspace = true }
 serde          = { workspace = true }
 serde_json     = { workspace = true }
