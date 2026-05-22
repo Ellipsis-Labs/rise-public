@@ -125,7 +125,7 @@ pub fn create_sync_parent_to_child_ix(
     let accounts = build_accounts(&params);
 
     Ok(Instruction {
-        program_id: PHOENIX_PROGRAM_ID,
+        program_id: *PHOENIX_PROGRAM_ID,
         accounts,
         data,
     })
@@ -134,10 +134,10 @@ pub fn create_sync_parent_to_child_ix(
 fn build_accounts(params: &SyncParentToChildParams) -> Vec<AccountMeta> {
     let mut accounts = vec![
         // LogAccountGroupAccounts (2 accounts)
-        AccountMeta::readonly(PHOENIX_PROGRAM_ID),
-        AccountMeta::readonly(PHOENIX_LOG_AUTHORITY),
+        AccountMeta::readonly(*PHOENIX_PROGRAM_ID),
+        AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY),
         // SyncParentToChildInstructionGroupAccounts
-        AccountMeta::readonly(PHOENIX_GLOBAL_CONFIGURATION),
+        AccountMeta::readonly(*PHOENIX_GLOBAL_CONFIGURATION),
         AccountMeta::readonly_signer(params.trader_wallet()),
         AccountMeta::readonly(params.parent_trader_account()),
         AccountMeta::writable(params.child_trader_account()),
@@ -170,7 +170,7 @@ mod tests {
         let params = build_params();
         let ix = create_sync_parent_to_child_ix(params).unwrap();
 
-        assert_eq!(ix.program_id, PHOENIX_PROGRAM_ID);
+        assert_eq!(ix.program_id, *PHOENIX_PROGRAM_ID);
         // 6 base accounts + 1 global_trader_index = 7
         assert_eq!(ix.accounts.len(), 7);
         assert_eq!(&ix.data[..8], &sync_parent_to_child_discriminant());
@@ -201,18 +201,18 @@ mod tests {
 
         let ix = create_sync_parent_to_child_ix(params).unwrap();
 
-        // Account 0: PHOENIX_PROGRAM_ID (readonly)
-        assert_eq!(ix.accounts[0].pubkey, PHOENIX_PROGRAM_ID);
+        // Account 0: *PHOENIX_PROGRAM_ID (readonly)
+        assert_eq!(ix.accounts[0].pubkey, *PHOENIX_PROGRAM_ID);
         assert!(!ix.accounts[0].is_signer);
         assert!(!ix.accounts[0].is_writable);
 
-        // Account 1: PHOENIX_LOG_AUTHORITY (readonly)
-        assert_eq!(ix.accounts[1].pubkey, PHOENIX_LOG_AUTHORITY);
+        // Account 1: *PHOENIX_LOG_AUTHORITY (readonly)
+        assert_eq!(ix.accounts[1].pubkey, *PHOENIX_LOG_AUTHORITY);
         assert!(!ix.accounts[1].is_signer);
         assert!(!ix.accounts[1].is_writable);
 
-        // Account 2: PHOENIX_GLOBAL_CONFIGURATION (readonly)
-        assert_eq!(ix.accounts[2].pubkey, PHOENIX_GLOBAL_CONFIGURATION);
+        // Account 2: *PHOENIX_GLOBAL_CONFIGURATION (readonly)
+        assert_eq!(ix.accounts[2].pubkey, *PHOENIX_GLOBAL_CONFIGURATION);
         assert!(!ix.accounts[2].is_signer);
         assert!(!ix.accounts[2].is_writable);
 

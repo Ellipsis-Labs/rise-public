@@ -18,10 +18,21 @@ const hasDiscriminant = (
   return true;
 };
 
-export const isOrderPlacingInstruction = (instruction: Instruction): boolean =>
+export const isFlightRoutableInstruction = (
+  instruction: Instruction
+): boolean =>
   hasDiscriminant(instruction.data, DISCRIMINANTS.PLACE_MARKET_ORDER) ||
   hasDiscriminant(instruction.data, DISCRIMINANTS.PLACE_LIMIT_ORDER) ||
+  hasDiscriminant(instruction.data, DISCRIMINANTS.PLACE_STOP_LOSS) ||
   hasDiscriminant(
     instruction.data,
     DISCRIMINANTS.PLACE_POSITION_CONDITIONAL_ORDER
+  ) ||
+  hasDiscriminant(
+    instruction.data,
+    DISCRIMINANTS.PLACE_ATTACHED_CONDITIONAL_ORDER
+  ) ||
+  hasDiscriminant(
+    instruction.data,
+    DISCRIMINANTS.PLACE_LIMIT_ORDER_WITH_CONDITIONALS
   );

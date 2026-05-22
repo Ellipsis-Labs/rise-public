@@ -149,7 +149,7 @@ pub fn create_register_trader_ix(
     let accounts = build_accounts(&params);
 
     Ok(Instruction {
-        program_id: PHOENIX_PROGRAM_ID,
+        program_id: *PHOENIX_PROGRAM_ID,
         accounts,
         data,
     })
@@ -188,10 +188,10 @@ fn encode_register_trader(params: &RegisterTraderParams) -> Vec<u8> {
 fn build_accounts(params: &RegisterTraderParams) -> Vec<AccountMeta> {
     vec![
         // LogAccountGroupAccounts (2 accounts)
-        AccountMeta::readonly(PHOENIX_PROGRAM_ID),
-        AccountMeta::readonly(PHOENIX_LOG_AUTHORITY),
+        AccountMeta::readonly(*PHOENIX_PROGRAM_ID),
+        AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY),
         // RegisterTraderInstructionGroupAccounts
-        AccountMeta::readonly(PHOENIX_GLOBAL_CONFIGURATION),
+        AccountMeta::readonly(*PHOENIX_GLOBAL_CONFIGURATION),
         AccountMeta::writable_signer(params.payer()),
         AccountMeta::readonly(params.trader()),
         AccountMeta::writable(params.trader_account()),
@@ -232,7 +232,7 @@ mod tests {
         let params = build_cross_margin_params();
         let ix = create_register_trader_ix(params).unwrap();
 
-        assert_eq!(ix.program_id, PHOENIX_PROGRAM_ID);
+        assert_eq!(ix.program_id, *PHOENIX_PROGRAM_ID);
         assert_eq!(ix.accounts.len(), 7);
         assert_eq!(&ix.data[..8], &register_trader_discriminant());
     }
@@ -242,7 +242,7 @@ mod tests {
         let params = build_isolated_margin_params();
         let ix = create_register_trader_ix(params).unwrap();
 
-        assert_eq!(ix.program_id, PHOENIX_PROGRAM_ID);
+        assert_eq!(ix.program_id, *PHOENIX_PROGRAM_ID);
         assert_eq!(ix.accounts.len(), 7);
         assert_eq!(&ix.data[..8], &register_trader_discriminant());
     }
@@ -293,18 +293,18 @@ mod tests {
 
         let ix = create_register_trader_ix(params).unwrap();
 
-        // Account 0: PHOENIX_PROGRAM_ID (readonly)
-        assert_eq!(ix.accounts[0].pubkey, PHOENIX_PROGRAM_ID);
+        // Account 0: *PHOENIX_PROGRAM_ID (readonly)
+        assert_eq!(ix.accounts[0].pubkey, *PHOENIX_PROGRAM_ID);
         assert!(!ix.accounts[0].is_signer);
         assert!(!ix.accounts[0].is_writable);
 
-        // Account 1: PHOENIX_LOG_AUTHORITY (readonly)
-        assert_eq!(ix.accounts[1].pubkey, PHOENIX_LOG_AUTHORITY);
+        // Account 1: *PHOENIX_LOG_AUTHORITY (readonly)
+        assert_eq!(ix.accounts[1].pubkey, *PHOENIX_LOG_AUTHORITY);
         assert!(!ix.accounts[1].is_signer);
         assert!(!ix.accounts[1].is_writable);
 
-        // Account 2: PHOENIX_GLOBAL_CONFIGURATION (readonly)
-        assert_eq!(ix.accounts[2].pubkey, PHOENIX_GLOBAL_CONFIGURATION);
+        // Account 2: *PHOENIX_GLOBAL_CONFIGURATION (readonly)
+        assert_eq!(ix.accounts[2].pubkey, *PHOENIX_GLOBAL_CONFIGURATION);
         assert!(!ix.accounts[2].is_signer);
         assert!(!ix.accounts[2].is_writable);
 

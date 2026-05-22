@@ -63,7 +63,7 @@ pub struct CancelConditionalOrderRequest {
     pub execution_direction: String,
 }
 
-/// Request payload for /ix/place-isolated-limit-order.
+/// Request payload for `/v1/ix/place-isolated-limit-order`.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaceIsolatedLimitOrderRequest {
@@ -100,7 +100,7 @@ pub struct PlaceIsolatedLimitOrderRequest {
     pub tp_sl: Option<TpSlOrderConfig>,
 }
 
-/// Request payload for /ix/place-isolated-market-order.
+/// Request payload for `/v1/ix/place-isolated-market-order`.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaceIsolatedMarketOrderRequest {

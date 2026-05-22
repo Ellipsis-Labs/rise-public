@@ -40,7 +40,7 @@ impl OrdersClient<'_> {
         params: OrderHistoryQueryParams,
     ) -> Result<OrderHistoryResponse, PhoenixHttpError> {
         self.http
-            .get_json_with_query(&format!("/trader/{}/order-history", authority), &params)
+            .get_json_with_query(&format!("/v1/trader/{}/order-history", authority), &params)
             .await
     }
 
@@ -77,7 +77,7 @@ impl OrdersClient<'_> {
     ) -> Result<Vec<Instruction>, PhoenixHttpError> {
         let api_ixs: Vec<ApiInstructionResponse> = self
             .http
-            .post_json("/ix/place-isolated-limit-order", &request)
+            .post_json("/v1/ix/place-isolated-limit-order", &request)
             .await?;
 
         api_ixs.into_iter().map(try_into_instruction).collect()
@@ -153,7 +153,7 @@ impl OrdersClient<'_> {
         let tp_sl = match bracket {
             Some(bracket) => Some(
                 bracket
-                    .try_to_tp_sl_config()
+                    .try_to_tp_sl_config_for_side(side)
                     .map_err(PhoenixHttpError::UnsupportedFeature)?,
             ),
             None => None,
@@ -180,7 +180,7 @@ impl OrdersClient<'_> {
     ) -> Result<Vec<Instruction>, PhoenixHttpError> {
         let api_ixs: Vec<ApiInstructionResponse> = self
             .http
-            .post_json("/ix/place-isolated-market-order", &request)
+            .post_json("/v1/ix/place-isolated-market-order", &request)
             .await?;
 
         api_ixs.into_iter().map(try_into_instruction).collect()
@@ -200,7 +200,7 @@ impl OrdersClient<'_> {
         let tp_sl = match bracket {
             Some(bracket) => Some(
                 bracket
-                    .try_to_tp_sl_config()
+                    .try_to_tp_sl_config_for_side(side)
                     .map_err(PhoenixHttpError::UnsupportedFeature)?,
             ),
             None => None,

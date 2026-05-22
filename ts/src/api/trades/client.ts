@@ -39,6 +39,8 @@ const buildMarketTradeHistoryQuery = (
 
   if (request.limit !== undefined) params.limit = request.limit;
   if (request.cursor) params.cursor = request.cursor;
+  if (request.startTime !== undefined) params.startTime = request.startTime;
+  if (request.endTime !== undefined) params.endTime = request.endTime;
 
   return Object.keys(params).length > 0 ? params : undefined;
 };

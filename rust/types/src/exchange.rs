@@ -24,10 +24,13 @@ pub struct AuthoritySetView {
     pub oracle_authority: String,
 }
 
-/// Response for the `/view/exchange-keys` endpoint.
+/// Exchange key-address response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeKeysView {
+    /// The active Phoenix program ID for this exchange environment.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub program_id: Option<String>,
     pub global_config: String,
     pub current_authorities: AuthoritySetView,
     pub pending_authorities: AuthoritySetView,
@@ -44,7 +47,7 @@ pub struct ExchangeKeysView {
 // ============================================================================
 
 /// Leverage tier with risk factors as f64 percentages.
-/// Used by the `/v1/exchange` endpoint.
+/// Used by the `/exchange` endpoint.
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeLeverageTier {
@@ -55,7 +58,7 @@ pub struct ExchangeLeverageTier {
 }
 
 /// Risk factors as f64 percentages.
-/// Used by the `/v1/exchange` endpoint.
+/// Used by the `/exchange` endpoint.
 #[derive(Debug, Default, Copy, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeRiskFactors {
@@ -79,7 +82,7 @@ pub struct ExchangeRiskFactors {
 // ============================================================================
 
 /// Static market configuration without live data like prices or open interest.
-/// Used by the `/v1/exchange` endpoint to return market parameters.
+/// Used by the `/exchange` endpoint to return market parameters.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeMarketConfig {
@@ -107,7 +110,7 @@ pub struct ExchangeMarketConfig {
     pub isolated_only: bool,
 }
 
-/// Raw response from the `/v1/exchange` endpoint.
+/// Raw response from the `/exchange` endpoint.
 /// Markets are returned as a Vec from the server.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -156,6 +159,7 @@ mod tests {
     #[test]
     fn test_deserialize_exchange_keys_view() {
         let json = r#"{
+            "programId": "Program1111111111111111111111111111111111",
             "globalConfig": "11111111111111111111111111111111",
             "currentAuthorities": {
                 "rootAuthority": "22222222222222222222222222222222",
@@ -178,6 +182,10 @@ mod tests {
         }"#;
 
         let view: ExchangeKeysView = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            view.program_id.as_deref(),
+            Some("Program1111111111111111111111111111111111")
+        );
         assert_eq!(view.global_config, "11111111111111111111111111111111");
         assert_eq!(
             view.current_authorities.root_authority,
@@ -240,6 +248,7 @@ mod tests {
 
         let view = ExchangeView {
             keys: ExchangeKeysView {
+                program_id: None,
                 global_config: "test".to_string(),
                 current_authorities: AuthoritySetView {
                     root_authority: "test".to_string(),

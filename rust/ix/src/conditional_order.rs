@@ -183,9 +183,9 @@ pub fn create_create_conditional_orders_account_ix(
     );
 
     let accounts = vec![
-        AccountMeta::readonly(PHOENIX_PROGRAM_ID),
-        AccountMeta::readonly(PHOENIX_LOG_AUTHORITY),
-        AccountMeta::readonly(PHOENIX_GLOBAL_CONFIGURATION),
+        AccountMeta::readonly(*PHOENIX_PROGRAM_ID),
+        AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY),
+        AccountMeta::readonly(*PHOENIX_GLOBAL_CONFIGURATION),
         AccountMeta::writable_signer(params.payer),
         AccountMeta::readonly(params.trader_wallet),
         AccountMeta::readonly(params.trader_account),
@@ -194,7 +194,7 @@ pub fn create_create_conditional_orders_account_ix(
     ];
 
     Ok(Instruction {
-        program_id: PHOENIX_PROGRAM_ID,
+        program_id: *PHOENIX_PROGRAM_ID,
         accounts,
         data,
     })
@@ -396,9 +396,9 @@ pub fn create_place_position_conditional_order_ix(
     );
 
     let mut accounts = vec![
-        AccountMeta::readonly(PHOENIX_PROGRAM_ID),
-        AccountMeta::readonly(PHOENIX_LOG_AUTHORITY),
-        AccountMeta::readonly(PHOENIX_GLOBAL_CONFIGURATION),
+        AccountMeta::readonly(*PHOENIX_PROGRAM_ID),
+        AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY),
+        AccountMeta::readonly(*PHOENIX_GLOBAL_CONFIGURATION),
         AccountMeta::writable_signer(params.payer),
         AccountMeta::writable(params.trader_account),
         AccountMeta::writable(params.perp_asset_map),
@@ -415,7 +415,7 @@ pub fn create_place_position_conditional_order_ix(
     accounts.push(AccountMeta::readonly(SYSTEM_PROGRAM_ID));
 
     Ok(Instruction {
-        program_id: PHOENIX_PROGRAM_ID,
+        program_id: *PHOENIX_PROGRAM_ID,
         accounts,
         data,
     })
@@ -588,9 +588,9 @@ pub fn create_place_attached_conditional_order_ix(
     );
 
     let mut accounts = vec![
-        AccountMeta::readonly(PHOENIX_PROGRAM_ID),
-        AccountMeta::readonly(PHOENIX_LOG_AUTHORITY),
-        AccountMeta::readonly(PHOENIX_GLOBAL_CONFIGURATION),
+        AccountMeta::readonly(*PHOENIX_PROGRAM_ID),
+        AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY),
+        AccountMeta::readonly(*PHOENIX_GLOBAL_CONFIGURATION),
         AccountMeta::writable(params.trader_account),
         AccountMeta::readonly_signer(params.trader_wallet),
         AccountMeta::writable(params.orderbook),
@@ -605,7 +605,7 @@ pub fn create_place_attached_conditional_order_ix(
     accounts.push(AccountMeta::readonly(SYSTEM_PROGRAM_ID));
 
     Ok(Instruction {
-        program_id: PHOENIX_PROGRAM_ID,
+        program_id: *PHOENIX_PROGRAM_ID,
         accounts,
         data,
     })
@@ -796,9 +796,9 @@ pub fn create_place_limit_order_with_conditionals_ix(
     );
 
     let mut accounts = vec![
-        AccountMeta::readonly(PHOENIX_PROGRAM_ID),
-        AccountMeta::readonly(PHOENIX_LOG_AUTHORITY),
-        AccountMeta::writable(PHOENIX_GLOBAL_CONFIGURATION),
+        AccountMeta::readonly(*PHOENIX_PROGRAM_ID),
+        AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY),
+        AccountMeta::writable(*PHOENIX_GLOBAL_CONFIGURATION),
         AccountMeta::readonly_signer(params.trader_wallet),
         AccountMeta::writable(params.trader_account),
         AccountMeta::writable(params.perp_asset_map),
@@ -815,7 +815,7 @@ pub fn create_place_limit_order_with_conditionals_ix(
     accounts.push(AccountMeta::readonly(SYSTEM_PROGRAM_ID));
 
     Ok(Instruction {
-        program_id: PHOENIX_PROGRAM_ID,
+        program_id: *PHOENIX_PROGRAM_ID,
         accounts,
         data,
     })
@@ -947,9 +947,9 @@ pub fn create_cancel_conditional_order_ix(
     );
 
     let accounts = vec![
-        AccountMeta::readonly(PHOENIX_PROGRAM_ID),
-        AccountMeta::readonly(PHOENIX_LOG_AUTHORITY),
-        AccountMeta::readonly(PHOENIX_GLOBAL_CONFIGURATION),
+        AccountMeta::readonly(*PHOENIX_PROGRAM_ID),
+        AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY),
+        AccountMeta::readonly(*PHOENIX_GLOBAL_CONFIGURATION),
         AccountMeta::writable(params.trader_account),
         AccountMeta::readonly_signer(params.trader_wallet),
         AccountMeta::writable(params.orderbook),
@@ -957,7 +957,7 @@ pub fn create_cancel_conditional_order_ix(
     ];
 
     Ok(Instruction {
-        program_id: PHOENIX_PROGRAM_ID,
+        program_id: *PHOENIX_PROGRAM_ID,
         accounts,
         data,
     })
@@ -1051,7 +1051,7 @@ mod tests {
             .unwrap();
 
         let ix = create_create_conditional_orders_account_ix(params).unwrap();
-        assert_eq!(ix.program_id, PHOENIX_PROGRAM_ID);
+        assert_eq!(ix.program_id, *PHOENIX_PROGRAM_ID);
         assert_eq!(ix.accounts.len(), 8);
         assert_eq!(
             &ix.data[..8],

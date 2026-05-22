@@ -29,6 +29,36 @@ pub struct WalletLoginRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct WalletTransactionChallengeRequest {
+    pub wallet_pubkey: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct WalletTransactionChallengeResponse {
+    pub nonce_id: String,
+    /// Base64-encoded unsigned Solana legacy transaction (bincode wire
+    /// format). See [`WalletTransactionLoginRequest::signed_transaction`] for
+    /// the accepted signing shape.
+    pub unsigned_transaction: String,
+    pub expires_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct WalletTransactionLoginRequest {
+    pub wallet_pubkey: String,
+    pub nonce_id: String,
+    /// Base64-encoded fully-signed Solana legacy transaction (bincode wire
+    /// format). Wallets are permitted to prepend ComputeBudget instructions
+    /// before signing; any other instruction is rejected. The transaction
+    /// uses the deterministic, non-recent blockhash the server issued so
+    /// the signed bytes can never be broadcast on-chain.
+    pub signed_transaction: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct AdminChallengeRequest {
     pub key_id: Option<String>,
 }

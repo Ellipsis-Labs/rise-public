@@ -599,6 +599,8 @@ describe("public client route mapping", () => {
     const marketFills = await trades.getMarketFills("SOL", {
       limit: 3,
       cursor: "fills-cursor",
+      startTime: 1_700_000_000_000,
+      endTime: 1_700_000_060_000,
     });
     await trades.getTraderTradeHistoryV2("trader-pubkey", {
       marketSymbol: "SOL",
@@ -745,7 +747,12 @@ describe("public client route mapping", () => {
       {
         method: "GET",
         endpoint: "/market/SOL/fills",
-        params: { limit: 3, cursor: "fills-cursor" },
+        params: {
+          limit: 3,
+          cursor: "fills-cursor",
+          startTime: 1_700_000_000_000,
+          endTime: 1_700_000_060_000,
+        },
         body: undefined,
       },
       {

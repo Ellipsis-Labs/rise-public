@@ -1,6 +1,7 @@
 use crate::http_client::HttpClientInner;
 use crate::phoenix_rise_types::{
-    ExchangeMarketConfig, NextCommodityMarketTransition, PhoenixHttpError,
+    ExchangeMarketConfig, MarkPriceResponse, NextCommodityMarketTransition, OrderbookView,
+    PhoenixHttpError,
 };
 
 pub struct MarketsClient<'a> {
@@ -19,11 +20,40 @@ impl MarketsClient<'_> {
             .await
     }
 
+    pub async fn get_orderbook(
+        &self,
+        symbol: &str,
+        include_splines: bool,
+    ) -> Result<OrderbookView, PhoenixHttpError> {
+        #[derive(serde::Serialize)]
+        struct Query {
+            include_splines: bool,
+        }
+
+        let symbol_upper = symbol.to_ascii_uppercase();
+        self.http
+            .get_json_with_query(
+                &format!("/market/{}/orderbook", symbol_upper),
+                &Query { include_splines },
+            )
+            .await
+    }
+
     pub async fn get_next_commodity_market_transition(
         &self,
     ) -> Result<NextCommodityMarketTransition, PhoenixHttpError> {
         self.http
             .get_json("/v1/market/next-commodity-market-transition")
+            .await
+    }
+
+    pub async fn get_mark_price(
+        &self,
+        symbol: &str,
+    ) -> Result<MarkPriceResponse, PhoenixHttpError> {
+        let symbol_upper = symbol.to_ascii_uppercase();
+        self.http
+            .get_json(&format!("/v1/market/{}/mark-price", symbol_upper))
             .await
     }
 }

@@ -8,7 +8,9 @@ import type { DelegateTraderIx } from "@/core/ixBuilders/DelegateTrader";
 import type { DepositFundsIx } from "@/core/ixBuilders/DepositFunds";
 import type { EmberDepositIx } from "@/core/ixBuilders/EmberDeposit";
 import type { EmberWithdrawIx } from "@/core/ixBuilders/EmberWithdraw";
+import type { PlaceAttachedConditionalOrderIx } from "@/core/ixBuilders/PlaceAttachedConditionalOrder";
 import type { PlaceLimitOrderIx } from "@/core/ixBuilders/PlaceLimitOrder";
+import type { PlaceLimitOrderWithConditionalsIx } from "@/core/ixBuilders/PlaceLimitOrderWithConditionals";
 import type { PlacePositionConditionalOrderIx } from "@/core/ixBuilders/PlacePositionConditionalOrder";
 import type { PlaceMarketOrderIx } from "@/core/ixBuilders/PlaceMarketOrder";
 import type { PlacePostOnlyOrderIx } from "@/core/ixBuilders/PlacePostOnlyOrder";
@@ -24,9 +26,11 @@ import type {
   Authority,
   BaseLots,
   CancelId,
+  ConditionalOrderPacket,
   Direction,
   EmberStateAddress,
   EmberVaultAddress,
+  FIFOOrderId,
   GlobalConfigurationAddress,
   GlobalVaultAddress,
   GlobalTraderIndexAddressArray,
@@ -43,7 +47,6 @@ import type {
   Symbol,
   TokenAccountAddress,
   TraderAddress,
-  TriggerOrderParams,
   WithdrawQueueAddress,
 } from "@/primitives";
 import type { InstructionsWithAccountsAndData } from "@/primitives/_utilityTypes";
@@ -52,6 +55,7 @@ import type {
   LimitOrderPacket,
 } from "@/primitives/OrderPacket";
 import type { Address } from "@solana/kit";
+import type { TriggerOrderParamsInput } from "../conditionalOrders";
 
 export interface ResolvedPlaceOrderContext {
   exchange: {
@@ -68,6 +72,7 @@ export interface ResolvedPlaceOrderContext {
   };
   trader: {
     authority: Authority;
+    funder?: Authority;
     positionAuthority?: Authority;
     traderAccount: TraderAddress;
   };
@@ -126,6 +131,7 @@ export interface ClientCancelOrdersByIdInput extends ClientCancelAllInput {
 
 export interface ClientCancelStopLossInput {
   authority: Authority;
+  funder?: Authority;
   symbol: Symbol;
   executionDirection: Direction;
   traderPdaIndex?: number;
@@ -195,9 +201,11 @@ export interface ClientTransferCollateralChildToParentInput {
 export interface ClientPlaceStopLossInput {
   authority: Authority;
   positionAuthority?: Authority;
+  payer?: Authority;
   symbol: Symbol;
   triggerPrice: bigint;
   executionPrice?: bigint;
+  slippageBps?: number | null;
   tradeSide: Side;
   executionDirection: Direction;
   orderKind: StopLossOrderKind;
@@ -210,10 +218,35 @@ export interface ClientPlacePositionConditionalOrderInput {
   positionAuthority?: Authority;
   payer?: Authority;
   symbol: Symbol;
-  greaterTriggerOrder?: TriggerOrderParams | null;
-  lessTriggerOrder?: TriggerOrderParams | null;
+  greaterTriggerOrder?: TriggerOrderParamsInput | null;
+  lessTriggerOrder?: TriggerOrderParamsInput | null;
   sizeBaseLots?: BaseLots | null;
   sizePercent?: number | null;
+  traderPdaIndex?: number;
+  traderSubaccountIndex?: number;
+}
+
+export interface ClientPlaceAttachedConditionalOrderInput {
+  authority: Authority;
+  positionAuthority?: Authority;
+  payer?: Authority;
+  symbol: Symbol;
+  orderId: FIFOOrderId;
+  greaterTriggerOrder?: TriggerOrderParamsInput | null;
+  lessTriggerOrder?: TriggerOrderParamsInput | null;
+  traderPdaIndex?: number;
+  traderSubaccountIndex?: number;
+}
+
+export interface ClientPlaceLimitOrderWithConditionalsInput {
+  authority: Authority;
+  positionAuthority?: Authority;
+  payer?: Authority;
+  symbol: Symbol;
+  orderPacket: ConditionalOrderPacket;
+  slot?: bigint;
+  greaterTriggerOrder?: TriggerOrderParamsInput | null;
+  lessTriggerOrder?: TriggerOrderParamsInput | null;
   traderPdaIndex?: number;
   traderSubaccountIndex?: number;
 }
@@ -254,6 +287,7 @@ export interface ResolvedCancelStopLossIxInput {
   };
   trader: {
     authority: Authority;
+    funder?: Authority;
     traderAccount: TraderAddress;
     stopLossAccount: Address;
   };
@@ -529,6 +563,12 @@ export interface PhoenixIxClient {
   buildPlacePositionConditionalOrder(
     params: ClientPlacePositionConditionalOrderInput
   ): Promise<PlacePositionConditionalOrderIx>;
+  buildPlaceAttachedConditionalOrder(
+    params: ClientPlaceAttachedConditionalOrderInput
+  ): Promise<PlaceAttachedConditionalOrderIx>;
+  buildPlaceLimitOrderWithConditionals(
+    params: ClientPlaceLimitOrderWithConditionalsInput
+  ): Promise<PlaceLimitOrderWithConditionalsIx>;
   buildPlacePostOnlyOrder(
     params: ClientPlaceOrderInput<PostOnlyOrderPacket>
   ): Promise<PlacePostOnlyOrderIx>;

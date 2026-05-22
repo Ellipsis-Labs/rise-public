@@ -99,8 +99,8 @@ metadata rather than server-assisted order helpers.
 
 ### `PhoenixFlightClient`
 
-Use this when you want to wrap supported Phoenix order instructions through
-Flight so builder fees are routed to the configured builder trader account.
+Use this when you want to wrap supported Phoenix placement instructions through
+Flight.
 
 > **Use embedded wallets for Flight integrations.** Integrators are strongly
 > encouraged to provision an embedded wallet per user rather than routing

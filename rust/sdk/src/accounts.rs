@@ -62,7 +62,7 @@ where
         &self,
         address: Option<Pubkey>,
     ) -> Result<GlobalConfiguration, PhoenixAccountClientError> {
-        let address = address.unwrap_or(crate::phoenix_rise_ix::PHOENIX_GLOBAL_CONFIGURATION);
+        let address = address.unwrap_or(*crate::phoenix_rise_ix::PHOENIX_GLOBAL_CONFIGURATION);
         self.fetch_decoded(&address)
     }
 

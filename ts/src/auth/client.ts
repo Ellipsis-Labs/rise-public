@@ -7,13 +7,20 @@ import {
   AuthChallengeResponseSchema,
   AuthResponseSchema,
   JsonWebKeySetSchema,
+  PrivyWalletChallengeResponseSchema,
   WalletNonceResponseSchema,
+  WalletTransactionChallengeResponseSchema,
   type RiseSessionControl,
   type AuthChallengeResponse,
   type JsonWebKeySet,
+  type PrivyLoginRequest,
+  type PrivyWalletChallengeResponse,
+  type PrivyWalletProof,
   type ServiceChallengeRequest,
   type ServiceLoginRequest,
   type WalletNonceResponse,
+  type WalletTransactionChallengeResponse,
+  type WalletTransactionLoginRequest,
 } from "./types";
 
 export interface PhoenixAuthClientConfig extends PhoenixApiUrlConfig {
@@ -188,14 +195,46 @@ export class PhoenixAuthClient {
     return session;
   }
 
-  async loginWithPrivyToken(privyToken: string): Promise<AuthSession> {
+  async loginWithPrivyToken(
+    privyToken: string,
+    walletPubkey?: string,
+    walletProof?: PrivyWalletProof
+  ): Promise<AuthSession> {
+    const body: PrivyLoginRequest = {
+      privy_token: privyToken,
+      ...(walletPubkey ? { wallet_pubkey: walletPubkey } : {}),
+      ...(walletProof ? { wallet_proof: walletProof } : {}),
+    };
     const response = await this.requestJson(
       "POST",
       "/v1/auth/login/privy",
       AuthResponseSchema,
-      { privy_token: privyToken }
+      body
     );
     return this.handleAuthResponse(response);
+  }
+
+  /**
+   * Fetches a Solana memo transaction the wallet must sign to prove ownership
+   * during a Privy-authenticated login. Designed for Ledger users (and any
+   * other wallet that can sign transactions but not arbitrary off-chain
+   * messages). Returns the base64-encoded unsigned transaction; sign it with
+   * the wallet, then pass `{ nonce_id, signed_transaction }` as `walletProof`
+   * to `loginWithPrivyToken`.
+   */
+  async getPrivyWalletChallenge(
+    privyToken: string,
+    walletPubkey: string
+  ): Promise<PrivyWalletChallengeResponse> {
+    return this.requestJson(
+      "POST",
+      "/v1/auth/privy/wallet-challenge",
+      PrivyWalletChallengeResponseSchema,
+      {
+        privy_token: privyToken,
+        wallet_pubkey: walletPubkey,
+      }
+    );
   }
 
   async getWalletNonce(walletPubkey: string): Promise<WalletNonceResponse> {
@@ -222,6 +261,44 @@ export class PhoenixAuthClient {
         signature,
         nonce_id: nonceId,
       }
+    );
+    return this.handleAuthResponse(response);
+  }
+
+  /**
+   * Fetches a Solana memo transaction the wallet must sign to authenticate
+   * with Phoenix directly. Designed for wallets that refuse off-chain
+   * `signMessage` payloads (canonically: Ledger's Solana app). The Phoenix
+   * session minted from `loginWithWalletTransaction` is interchangeable with
+   * one minted from `loginWithWalletSignature`; downstream
+   * `linkWithCustomJwt` (Privy) continues to work the same way.
+   */
+  async getWalletTransactionChallenge(
+    walletPubkey: string
+  ): Promise<WalletTransactionChallengeResponse> {
+    return this.requestJson(
+      "POST",
+      "/v1/auth/wallet/transaction-challenge",
+      WalletTransactionChallengeResponseSchema,
+      { wallet_pubkey: walletPubkey }
+    );
+  }
+
+  async loginWithWalletTransaction(
+    walletPubkey: string,
+    signedTransaction: string,
+    nonceId: string
+  ): Promise<AuthSession> {
+    const body: WalletTransactionLoginRequest = {
+      wallet_pubkey: walletPubkey,
+      nonce_id: nonceId,
+      signed_transaction: signedTransaction,
+    };
+    const response = await this.requestJson(
+      "POST",
+      "/v1/auth/login/wallet/transaction",
+      AuthResponseSchema,
+      body
     );
     return this.handleAuthResponse(response);
   }

@@ -31,7 +31,7 @@ export const buildCancelStopLossIxResolved = (
       logAuthorityAddress: params.exchange.logAuthorityAddress,
       globalConfigurationAddress: params.exchange.globalConfigurationAddress,
     }),
-    funder: params.trader.authority,
+    funder: params.trader.funder ?? params.trader.authority,
     traderWallet: params.trader.authority,
     traderAccount: params.trader.traderAccount,
     stopLossAccount: params.trader.stopLossAccount,

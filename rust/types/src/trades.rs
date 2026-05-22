@@ -26,6 +26,7 @@ pub enum TradeType {
     Limit,
     Market,
     Liquidation,
+    Adl,
 }
 
 /// Trades message from the trades channel (wrapper with array of events).

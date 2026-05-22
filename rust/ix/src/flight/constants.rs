@@ -19,26 +19,22 @@ pub fn flight_proxy_instruction_discriminant() -> [u8; 8] {
 
 /// Derives the global state PDA for the Flight program.
 ///
-/// Seeds: [phoenix_program_id, "global_state"] against Flight program
+/// Seeds: [PHOENIX_PROGRAM_ID, "global_state"] against Flight program
 pub fn get_flight_global_state_address() -> Pubkey {
-    let (pda, _bump) = Pubkey::find_program_address(
-        &[PHOENIX_PROGRAM_ID.as_ref(), b"global_state"],
-        &FLIGHT_PROGRAM_ID,
-    );
+    let program_id = *PHOENIX_PROGRAM_ID;
+    let (pda, _bump) =
+        Pubkey::find_program_address(&[program_id.as_ref(), b"global_state"], &FLIGHT_PROGRAM_ID);
     pda
 }
 
 /// Derives the builder state PDA for the Flight program.
 ///
-/// Seeds: [phoenix_program_id, authority, "builder_state"] against Flight
+/// Seeds: [PHOENIX_PROGRAM_ID, authority, "builder_state"] against Flight
 /// program
 pub fn get_flight_builder_state_address(authority: &Pubkey) -> Pubkey {
+    let program_id = *PHOENIX_PROGRAM_ID;
     let (pda, _bump) = Pubkey::find_program_address(
-        &[
-            PHOENIX_PROGRAM_ID.as_ref(),
-            authority.as_ref(),
-            b"builder_state",
-        ],
+        &[program_id.as_ref(), authority.as_ref(), b"builder_state"],
         &FLIGHT_PROGRAM_ID,
     );
     pda

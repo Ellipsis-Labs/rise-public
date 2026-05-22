@@ -40,6 +40,7 @@ mod limit_order;
 mod market_order;
 mod multi_limit_order;
 mod order_packet;
+mod place_stop_loss;
 mod register_trader;
 mod spl_approve;
 mod sync_parent_to_child;
@@ -75,6 +76,7 @@ pub use multi_limit_order::{
 pub use order_packet::{
     CondensedOrder, MultipleOrderPacket, OrderPacket, client_order_id_to_bytes,
 };
+pub use place_stop_loss::{PlaceStopLossParams, create_place_stop_loss_ix};
 pub use register_trader::{RegisterTraderParams, create_register_trader_ix};
 pub use spl_approve::{SplApproveParams, create_spl_approve_ix};
 pub use sync_parent_to_child::{SyncParentToChildParams, create_sync_parent_to_child_ix};

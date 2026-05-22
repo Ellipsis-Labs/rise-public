@@ -27,6 +27,7 @@ import {
   quoteLots,
   ticks,
 } from "@/index";
+import { AccountRole } from "@solana/kit";
 import { describe, expect, it } from "vitest";
 
 const resolvedOrderContext = {
@@ -186,8 +187,30 @@ describe("resolved ix builders", () => {
 
     expect(ix.programAddress).toBe("phoenix-program");
     expect(ix.accounts[3]?.address).toBe("trader-authority");
+    expect(ix.accounts[3]?.role).toBe(AccountRole.WRITABLE);
     expect(ix.accounts[4]?.address).toBe("trader-account");
+    expect(ix.accounts[5]?.role).toBe(AccountRole.READONLY_SIGNER);
     expect(ix.accounts[6]?.address).toBe("stop-loss-account");
+  });
+
+  it("builds a resolved cancel-stop-loss ix with a separate funder", () => {
+    const ix = buildCancelStopLossIxResolved({
+      exchange: {
+        phoenixProgramAddress: "phoenix-program" as never,
+        logAuthorityAddress: "log-authority" as never,
+        globalConfigurationAddress: "global-config" as never,
+      },
+      trader: {
+        authority: "trader-authority" as never,
+        funder: "stop-loss-funder" as never,
+        traderAccount: "trader-account" as never,
+        stopLossAccount: "stop-loss-account" as never,
+      },
+      executionDirection: Direction.GreaterThan,
+    });
+
+    expect(ix.accounts[3]?.address).toBe("stop-loss-funder");
+    expect(ix.accounts[5]?.address).toBe("trader-authority");
   });
 
   it("builds a resolved create-escrow-request ix synchronously", () => {
@@ -413,6 +436,25 @@ describe("resolved ix builders", () => {
     expect(ix.accounts.at(-2)?.address).toBe("stop-loss-account");
   });
 
+  it("builds a resolved stop-loss ix with a separate funder", () => {
+    const ix = buildPlaceStopLossIxResolved({
+      ...resolvedOrderContext,
+      trader: {
+        ...resolvedOrderContext.trader,
+        funder: "stop-loss-funder" as never,
+      },
+      stopLossAccount: "stop-loss-account" as never,
+      triggerPrice: 1000n,
+      executionPrice: 1001n,
+      tradeSide: Side.Bid,
+      executionDirection: Direction.GreaterThan,
+      orderKind: StopLossOrderKind.IOC,
+    });
+
+    expect(ix.accounts[3]?.address).toBe("stop-loss-funder");
+    expect(ix.accounts.at(-3)?.address).toBe("position-authority");
+  });
+
   it("builds a resolved register-trader ix synchronously", () => {
     const ix = buildRegisterTraderIxResolved({
       exchange: {
@@ -503,9 +545,9 @@ describe("resolved ix builders", () => {
     expect(result.named.withdrawFunds.accounts[7]?.address).toBe(
       "phoenix-token-account"
     );
-    expect(result.named.emberWithdraw.accounts[2]?.address).toBe(
-      "usdc-mint"
+    expect(result.named.emberWithdraw.accounts[2]?.address).toBe("usdc-mint");
+    expect(result.named.emberWithdraw.accounts[3]?.address).toBe(
+      "phoenix-mint"
     );
-    expect(result.named.emberWithdraw.accounts[3]?.address).toBe("phoenix-mint");
   });
 });

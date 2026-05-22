@@ -10,13 +10,19 @@
 //! Use "x" in place of a price to skip stop-loss or take-profit.
 //! Examples:
 //!   isolated_market_order_server SOL 10 5000000              # no bracket legs
-//!   isolated_market_order_server SOL 10 5000000 120.5 150.0  # SL at 120.5, TP
-//! at 150.0   isolated_market_order_server SOL 10 5000000 x 150.0      # no SL,
-//! TP at 150.0
+//!   isolated_market_order_server SOL 10 5000000 120.5 x      # SL at 120.5
+//!   isolated_market_order_server SOL 10 5000000 x 150.0      # TP at 150.0
+//!
+//! The server-side isolated endpoint has one shared TP/SL order kind. Use the
+//! client-side example when you need both default legs in one order: SL = IOC
+//! with slippage, TP = limit at the trigger price.
 
 use std::env;
 
-use phoenix_rise::{BracketLeg, BracketLegOrders, IsolatedCollateralFlow, PhoenixHttpClient, Side};
+use phoenix_rise::{
+    BracketLeg, BracketLegOrders, DEFAULT_BRACKET_LEG_SLIPPAGE_BPS, IsolatedCollateralFlow,
+    PhoenixHttpClient, Side,
+};
 use solana_commitment_config::CommitmentConfig;
 use solana_keypair::read_keypair_file;
 use solana_rpc_client::nonblocking::rpc_client::RpcClient;
@@ -54,10 +60,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let sl_price = args.get(4).and_then(|s| parse_price(s));
     let tp_price = args.get(5).and_then(|s| parse_price(s));
+    if sl_price.is_some() && tp_price.is_some() {
+        return Err(
+            "server-side isolated TP/SL cannot encode mixed default order kinds; use \
+             isolated_market_order_client for SL IOC plus TP limit"
+                .into(),
+        );
+    }
     let bracket = if sl_price.is_some() || tp_price.is_some() {
         Some(BracketLegOrders {
-            stop_loss: sl_price.map(BracketLeg::new),
-            take_profit: tp_price.map(BracketLeg::new),
+            stop_loss: sl_price.map(|price| {
+                BracketLeg::new(price).with_slippage_bps(DEFAULT_BRACKET_LEG_SLIPPAGE_BPS)
+            }),
+            take_profit: tp_price.map(|price| BracketLeg::new(price).with_limit_order()),
         })
     } else {
         None
@@ -104,10 +119,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     if let Some(ref b) = bracket {
         if let Some(sl) = b.stop_loss.as_ref().map(|leg| leg.price) {
-            println!("  Stop-loss: {}", sl);
+            println!(
+                "  Stop-loss: {} (IOC, {} bps slippage)",
+                sl, DEFAULT_BRACKET_LEG_SLIPPAGE_BPS
+            );
         }
         if let Some(tp) = b.take_profit.as_ref().map(|leg| leg.price) {
-            println!("  Take-profit: {}", tp);
+            println!("  Take-profit: {} (limit at trigger price)", tp);
         }
     }
 

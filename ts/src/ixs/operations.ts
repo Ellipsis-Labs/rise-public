@@ -4,6 +4,14 @@ import {
   type CreateConditionalOrdersAccountIx,
 } from "@/core/ixBuilders/CreateConditionalOrdersAccount";
 import {
+  buildPlaceAttachedConditionalOrderIx,
+  type PlaceAttachedConditionalOrderIx,
+} from "@/core/ixBuilders/PlaceAttachedConditionalOrder";
+import {
+  buildPlaceLimitOrderWithConditionalsIx,
+  type PlaceLimitOrderWithConditionalsIx,
+} from "@/core/ixBuilders/PlaceLimitOrderWithConditionals";
+import {
   buildPlacePositionConditionalOrderIx,
   type PlacePositionConditionalOrderIx,
 } from "@/core/ixBuilders/PlacePositionConditionalOrder";
@@ -31,6 +39,10 @@ import type {
 } from "@/primitives";
 import type { InstructionsWithAccountsAndData } from "@/primitives/_utilityTypes";
 import type { Address } from "@solana/kit";
+import {
+  buildTriggerOrderParams,
+  normalizeTriggerOrderParams,
+} from "../conditionalOrders";
 import {
   buildDepositIxsResolved,
   buildDepositFundsIxResolved,
@@ -65,6 +77,8 @@ import type {
   ClientCreateEscrowRequestInput,
   ClientDepositInput,
   ClientDelegateTraderInput,
+  ClientPlaceAttachedConditionalOrderInput,
+  ClientPlaceLimitOrderWithConditionalsInput,
   ClientPlaceOrderInput,
   ClientPlacePositionConditionalOrderInput,
   ClientPlaceStopLossInput,
@@ -87,8 +101,8 @@ export interface PhoenixIxResolvedMarketContext {
   assetId: number;
   marketAddress: MarketAddress;
   splineCollection: SplineCollectionAddress;
-  tickSize: number;
-  baseLotsDecimals: number;
+  tickSize?: number;
+  baseLotsDecimals?: number;
 }
 
 export interface PhoenixIxExchangeInstructionAccounts {
@@ -267,10 +281,88 @@ export const createPhoenixIxOperations = (
         traderConditionalOrders:
           await resolveConditionalOrdersAccount(traderAccount),
         assetId: market.assetId,
-        greaterTriggerOrder: params.greaterTriggerOrder ?? null,
-        lessTriggerOrder: params.lessTriggerOrder ?? null,
+        greaterTriggerOrder: normalizeTriggerOrderParams(
+          params.greaterTriggerOrder
+        ),
+        lessTriggerOrder: normalizeTriggerOrderParams(params.lessTriggerOrder),
         sizeBaseLots: params.sizeBaseLots ?? null,
         sizePercent: params.sizePercent ?? null,
+      }),
+      params.authority
+    );
+  };
+
+  const buildWrappedAttachedConditionalOrder = async (
+    params: ClientPlaceAttachedConditionalOrderInput
+  ): Promise<PlaceAttachedConditionalOrderIx> => {
+    const [exchangeAccounts, market, traderAccount] = await Promise.all([
+      context.resolveExchangeInstructionAccounts(),
+      context.resolveMarketContext(params.symbol),
+      context.resolveTraderAccount({
+        authority: params.authority,
+        traderPdaIndex: params.traderPdaIndex,
+        traderSubaccountIndex: params.traderSubaccountIndex,
+      }),
+    ]);
+
+    return context.maybeWrapOrderIx(
+      buildPlaceAttachedConditionalOrderIx({
+        programAddress: exchangeAccounts.phoenixProgramAddress,
+        logAuthorityAddress: exchangeAccounts.logAuthorityAddress,
+        globalConfigurationAddress: exchangeAccounts.globalConfigurationAddress,
+        traderAccount,
+        traderWallet: params.positionAuthority ?? params.authority,
+        orderbook: market.marketAddress,
+        traderConditionalOrders:
+          await resolveConditionalOrdersAccount(traderAccount),
+        payer: params.payer ?? params.authority,
+        globalTraderIndex: exchangeAccounts.globalTraderIndex,
+        activeTraderBuffer: exchangeAccounts.activeTraderBuffer,
+        orderId: params.orderId,
+        assetId: market.assetId,
+        greaterTriggerOrder: normalizeTriggerOrderParams(
+          params.greaterTriggerOrder
+        ),
+        lessTriggerOrder: normalizeTriggerOrderParams(params.lessTriggerOrder),
+      }),
+      params.authority
+    );
+  };
+
+  const buildWrappedLimitOrderWithConditionals = async (
+    params: ClientPlaceLimitOrderWithConditionalsInput
+  ): Promise<PlaceLimitOrderWithConditionalsIx> => {
+    const [exchangeAccounts, market, traderAccount] = await Promise.all([
+      context.resolveExchangeInstructionAccounts(),
+      context.resolveMarketContext(params.symbol),
+      context.resolveTraderAccount({
+        authority: params.authority,
+        traderPdaIndex: params.traderPdaIndex,
+        traderSubaccountIndex: params.traderSubaccountIndex,
+      }),
+    ]);
+
+    return context.maybeWrapOrderIx(
+      buildPlaceLimitOrderWithConditionalsIx({
+        programAddress: exchangeAccounts.phoenixProgramAddress,
+        logAuthorityAddress: exchangeAccounts.logAuthorityAddress,
+        globalConfigurationAddress: exchangeAccounts.globalConfigurationAddress,
+        traderWallet: params.positionAuthority ?? params.authority,
+        traderAccount,
+        perpAssetMap: exchangeAccounts.perpAssetMap,
+        globalTraderIndex: exchangeAccounts.globalTraderIndex,
+        activeTraderBuffer: exchangeAccounts.activeTraderBuffer,
+        orderbook: market.marketAddress,
+        splineCollection: market.splineCollection,
+        payer: params.payer ?? params.authority,
+        traderConditionalOrders:
+          await resolveConditionalOrdersAccount(traderAccount),
+        orderPacket: params.orderPacket,
+        slot: params.slot,
+        greaterTriggerOrder: normalizeTriggerOrderParams(
+          params.greaterTriggerOrder
+        ),
+        lessTriggerOrder: normalizeTriggerOrderParams(params.lessTriggerOrder),
       }),
       params.authority
     );
@@ -290,6 +382,17 @@ export const createPhoenixIxOperations = (
           traderSubaccountIndex: params.traderSubaccountIndex,
         }),
       ]);
+      const { tickSize, baseLotsDecimals } = market;
+      if (tickSize === undefined) {
+        throw new Error(
+          `Market metadata for ${params.symbol} is missing tick size`
+        );
+      }
+      if (baseLotsDecimals === undefined) {
+        throw new Error(
+          `Market metadata for ${params.symbol} is missing base lot decimals`
+        );
+      }
 
       return buildCancelOrdersByIdIxResolved({
         exchange: {
@@ -314,11 +417,7 @@ export const createPhoenixIxOperations = (
           nodePointer: null,
           orderId: {
             priceInTicks: ticks(
-              priceToTicks(
-                order.price,
-                market.tickSize,
-                market.baseLotsDecimals
-              )
+              priceToTicks(order.price, tickSize, baseLotsDecimals)
             ),
             orderSequenceNumber: BigInt(order.orderSequenceNumber),
           },
@@ -349,6 +448,7 @@ export const createPhoenixIxOperations = (
         },
         trader: {
           authority: params.authority,
+          funder: params.funder,
           traderAccount,
           stopLossAccount,
         },
@@ -438,6 +538,9 @@ export const createPhoenixIxOperations = (
     buildPlaceLimitOrder: buildWrappedLimitOrder,
     buildPlaceMarketOrder: buildWrappedMarketOrder,
     buildPlacePositionConditionalOrder: buildWrappedPositionConditionalOrder,
+    buildPlaceAttachedConditionalOrder: buildWrappedAttachedConditionalOrder,
+    buildPlaceLimitOrderWithConditionals:
+      buildWrappedLimitOrderWithConditionals,
     buildPlacePostOnlyOrder: buildWrappedPostOnlyOrder,
     placeLimitOrder: buildWrappedLimitOrder,
     placeMarketOrder: buildWrappedMarketOrder,
@@ -651,33 +754,48 @@ export const createPhoenixIxOperations = (
         traderAccount,
         assetId: BigInt(market.assetId),
       });
-
-      return buildPlaceStopLossIxResolved({
-        exchange: {
-          phoenixProgramAddress: exchangeAccounts.phoenixProgramAddress,
-          logAuthorityAddress: exchangeAccounts.logAuthorityAddress,
-          globalConfigurationAddress:
-            exchangeAccounts.globalConfigurationAddress,
-          perpAssetMap: exchangeAccounts.perpAssetMap,
-          globalTraderIndex: exchangeAccounts.globalTraderIndex,
-          activeTraderBuffer: exchangeAccounts.activeTraderBuffer,
-        },
-        market: {
-          marketAddress: market.marketAddress,
-          splineCollection: market.splineCollection,
-        },
-        trader: {
-          authority: params.authority,
-          positionAuthority: params.positionAuthority,
-          traderAccount,
-        },
-        stopLossAccount,
-        triggerPrice: params.triggerPrice,
-        executionPrice: params.executionPrice ?? params.triggerPrice,
+      const triggerOrder = buildTriggerOrderParams({
+        triggerDirection: params.executionDirection,
         tradeSide: params.tradeSide,
-        executionDirection: params.executionDirection,
         orderKind: params.orderKind,
+        triggerPrice: ticks(params.triggerPrice),
+        executionPrice:
+          params.executionPrice == null
+            ? params.executionPrice
+            : ticks(params.executionPrice),
+        slippageBps: params.slippageBps,
       });
+
+      return context.maybeWrapOrderIx(
+        buildPlaceStopLossIxResolved({
+          exchange: {
+            phoenixProgramAddress: exchangeAccounts.phoenixProgramAddress,
+            logAuthorityAddress: exchangeAccounts.logAuthorityAddress,
+            globalConfigurationAddress:
+              exchangeAccounts.globalConfigurationAddress,
+            perpAssetMap: exchangeAccounts.perpAssetMap,
+            globalTraderIndex: exchangeAccounts.globalTraderIndex,
+            activeTraderBuffer: exchangeAccounts.activeTraderBuffer,
+          },
+          market: {
+            marketAddress: market.marketAddress,
+            splineCollection: market.splineCollection,
+          },
+          trader: {
+            authority: params.authority,
+            funder: params.payer,
+            positionAuthority: params.positionAuthority,
+            traderAccount,
+          },
+          stopLossAccount,
+          triggerPrice: triggerOrder.triggerPrice,
+          executionPrice: triggerOrder.executionPrice,
+          tradeSide: triggerOrder.tradeSide,
+          executionDirection: triggerOrder.triggerDirection,
+          orderKind: triggerOrder.orderKind,
+        }),
+        params.authority
+      );
     },
     buildRegisterTrader: async (params: BuildRegisterTraderParams) => {
       const traderPdaIndex = params.traderPdaIndex ?? 0;

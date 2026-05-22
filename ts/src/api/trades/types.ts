@@ -31,6 +31,8 @@ export interface TradeHistoryRequest {
 export interface MarketTradeHistoryRequest {
   limit?: number;
   cursor?: string;
+  startTime?: number;
+  endTime?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -133,7 +135,7 @@ export interface FillRecord {
   liquidity: "maker" | "taker";
   orderSequenceNumber: number | null;
   splineSequenceNumber: number | null;
-  tradeType: "limit" | "market" | "liquidation";
+  tradeType: "limit" | "market" | "liquidation" | "adl";
 }
 
 const RawFillRecordSchema = z
@@ -169,7 +171,7 @@ const RawFillRecordSchema = z
       .union([z.number(), z.string()])
       .nullable()
       .optional(),
-    tradeType: z.enum(["limit", "market", "liquidation"]),
+    tradeType: z.enum(["limit", "market", "liquidation", "adl"]),
   })
   .loose();
 
@@ -288,7 +290,7 @@ export interface TradeHistoryV2Item {
   liquidity: "maker" | "taker";
   orderSequenceNumber: number | null;
   splineSequenceNumber: number | null;
-  tradeType: "limit" | "market" | "liquidation";
+  tradeType: "limit" | "market" | "liquidation" | "adl";
 }
 
 const RawTradeHistoryV2ItemSchema = z
@@ -324,7 +326,7 @@ const RawTradeHistoryV2ItemSchema = z
       .union([z.number(), z.string()])
       .nullable()
       .optional(),
-    tradeType: z.enum(["limit", "market", "liquidation"]),
+    tradeType: z.enum(["limit", "market", "liquidation", "adl"]),
   })
   .loose();
 

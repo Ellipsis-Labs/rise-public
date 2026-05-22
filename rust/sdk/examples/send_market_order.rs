@@ -20,8 +20,8 @@ use std::env;
 use std::sync::Arc;
 
 use phoenix_rise::{
-    BracketLeg, BracketLegOrders, BracketLegTicket, MarketOrderTicket, PhoenixHttpClient,
-    PhoenixMetadata, PhoenixTxBuilder, Side, TraderKey,
+    BracketLeg, BracketLegOrders, BracketLegTicket, DEFAULT_BRACKET_LEG_SLIPPAGE_BPS,
+    MarketOrderTicket, PhoenixHttpClient, PhoenixMetadata, PhoenixTxBuilder, Side, TraderKey,
 };
 use solana_commitment_config::CommitmentConfig;
 use solana_keypair::read_keypair_file;
@@ -53,8 +53,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tp_price = args.get(3).and_then(|s| parse_price(s));
     let bracket = if sl_price.is_some() || tp_price.is_some() {
         Some(BracketLegOrders {
-            stop_loss: sl_price.map(BracketLeg::new),
-            take_profit: tp_price.map(BracketLeg::new),
+            stop_loss: sl_price.map(|price| {
+                BracketLeg::new(price).with_slippage_bps(DEFAULT_BRACKET_LEG_SLIPPAGE_BPS)
+            }),
+            take_profit: tp_price.map(|price| BracketLeg::new(price).with_limit_order()),
         })
     } else {
         None
@@ -103,10 +105,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     if let Some(ref b) = bracket {
         if let Some(sl) = &b.stop_loss {
-            println!("  Stop-loss: {}", sl.price);
+            println!(
+                "  Stop-loss: {} (IOC, {} bps slippage)",
+                sl.price, DEFAULT_BRACKET_LEG_SLIPPAGE_BPS
+            );
         }
         if let Some(tp) = &b.take_profit {
-            println!("  Take-profit: {}", tp.price);
+            println!("  Take-profit: {} (limit at trigger price)", tp.price);
         }
     }
 

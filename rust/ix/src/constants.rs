@@ -1,19 +1,114 @@
 //! Phoenix program constants and addresses.
 
+use std::sync::LazyLock;
+
 use sha2::{Digest, Sha256};
 use solana_pubkey::Pubkey;
 
 /// The Phoenix program ID (mainnet).
-pub const PHOENIX_PROGRAM_ID: Pubkey =
+pub const PROD_PHOENIX_PROGRAM_ID: Pubkey =
     solana_pubkey::pubkey!("EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih");
 
+/// The Phoenix program ID (beta).
+pub const BETA_PHOENIX_PROGRAM_ID: Pubkey =
+    solana_pubkey::pubkey!("phDEVv4w6BcfkLrLNeXr8HhhgQxnxziVGXpGPcaadMf");
+
 /// The Phoenix log authority address (mainnet).
-pub const PHOENIX_LOG_AUTHORITY: Pubkey =
+pub const PROD_PHOENIX_LOG_AUTHORITY: Pubkey =
     solana_pubkey::pubkey!("GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS");
 
+/// The Phoenix log authority address (beta).
+pub const BETA_PHOENIX_LOG_AUTHORITY: Pubkey =
+    solana_pubkey::pubkey!("8Q1zeC7qAPUhJ2ncHAW8N1TGcpMVDsSxdSBPLaE8G2ab");
+
 /// The Phoenix global configuration address (mainnet).
-pub const PHOENIX_GLOBAL_CONFIGURATION: Pubkey =
+pub const PROD_PHOENIX_GLOBAL_CONFIGURATION: Pubkey =
     solana_pubkey::pubkey!("2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ");
+
+/// The Phoenix global configuration address (beta).
+pub const BETA_PHOENIX_GLOBAL_CONFIGURATION: Pubkey =
+    solana_pubkey::pubkey!("3CkM38UaZW6nyTJku4ABE5jjS5AComQErrkd55LGTfxa");
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PhoenixInstructionAddresses {
+    pub program_id: Pubkey,
+    pub log_authority: Pubkey,
+    pub global_configuration: Pubkey,
+}
+
+pub const PROD_PHOENIX_INSTRUCTION_ADDRESSES: PhoenixInstructionAddresses =
+    PhoenixInstructionAddresses {
+        program_id: PROD_PHOENIX_PROGRAM_ID,
+        log_authority: PROD_PHOENIX_LOG_AUTHORITY,
+        global_configuration: PROD_PHOENIX_GLOBAL_CONFIGURATION,
+    };
+
+pub const BETA_PHOENIX_INSTRUCTION_ADDRESSES: PhoenixInstructionAddresses =
+    PhoenixInstructionAddresses {
+        program_id: BETA_PHOENIX_PROGRAM_ID,
+        log_authority: BETA_PHOENIX_LOG_AUTHORITY,
+        global_configuration: BETA_PHOENIX_GLOBAL_CONFIGURATION,
+    };
+
+/// Active Phoenix instruction addresses for the current process.
+///
+/// This is resolved once from `PHOENIX_ENV`. Set `PHOENIX_ENV=beta` before
+/// first use to target the beta deployment.
+pub static PHOENIX_INSTRUCTION_ADDRESSES: LazyLock<PhoenixInstructionAddresses> =
+    LazyLock::new(|| {
+        resolve_phoenix_instruction_addresses_for_env(std::env::var("PHOENIX_ENV").ok().as_deref())
+    });
+
+/// Active Phoenix program ID for the current process.
+///
+/// This is resolved once from `PHOENIX_ENV`. Set `PHOENIX_ENV=beta` before
+/// first use to target the beta deployment.
+pub static PHOENIX_PROGRAM_ID: LazyLock<Pubkey> =
+    LazyLock::new(|| phoenix_instruction_addresses().program_id);
+
+/// Active Phoenix log authority for the current process.
+pub static PHOENIX_LOG_AUTHORITY: LazyLock<Pubkey> =
+    LazyLock::new(|| phoenix_instruction_addresses().log_authority);
+
+/// Active Phoenix global configuration for the current process.
+pub static PHOENIX_GLOBAL_CONFIGURATION: LazyLock<Pubkey> =
+    LazyLock::new(|| phoenix_instruction_addresses().global_configuration);
+
+/// Resolve Phoenix instruction addresses for an explicit environment value.
+///
+/// `beta` selects the beta deployment. Everything else defaults to production.
+pub fn resolve_phoenix_instruction_addresses_for_env(
+    phoenix_env: Option<&str>,
+) -> PhoenixInstructionAddresses {
+    match phoenix_env
+        .map(str::trim)
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("beta") => BETA_PHOENIX_INSTRUCTION_ADDRESSES,
+        _ => PROD_PHOENIX_INSTRUCTION_ADDRESSES,
+    }
+}
+
+/// Resolve Phoenix instruction addresses once from `PHOENIX_ENV`.
+pub fn phoenix_instruction_addresses() -> PhoenixInstructionAddresses {
+    *PHOENIX_INSTRUCTION_ADDRESSES
+}
+
+/// The active Phoenix program ID for the current process.
+pub fn phoenix_program_id() -> Pubkey {
+    *PHOENIX_PROGRAM_ID
+}
+
+/// The active Phoenix log authority for the current process.
+pub fn phoenix_log_authority() -> Pubkey {
+    *PHOENIX_LOG_AUTHORITY
+}
+
+/// The active Phoenix global configuration for the current process.
+pub fn phoenix_global_configuration() -> Pubkey {
+    *PHOENIX_GLOBAL_CONFIGURATION
+}
 
 /// The Ember program ID (for USDC -> Phoenix token conversion).
 pub const EMBER_PROGRAM_ID: Pubkey =
@@ -110,6 +205,11 @@ pub fn cancel_stop_loss_discriminant() -> [u8; 8] {
     compute_discriminant("global:cancel_stop_loss")
 }
 
+/// Instruction discriminant for place_stop_loss.
+pub fn place_stop_loss_discriminant() -> [u8; 8] {
+    compute_discriminant("global:place_stop_loss")
+}
+
 /// Instruction discriminant for create_conditional_orders_account.
 pub fn create_conditional_orders_account_discriminant() -> [u8; 8] {
     compute_discriminant("global:create_conditional_orders_account")
@@ -139,13 +239,14 @@ pub fn place_limit_order_with_conditionals_discriminant() -> [u8; 8] {
 ///
 /// Seeds: ["stoploss", trader_account, &asset_id.to_le_bytes()]
 pub fn get_stop_loss_address(trader_account: &Pubkey, asset_id: u64) -> Pubkey {
+    let program_id = *PHOENIX_PROGRAM_ID;
     let (pda, _bump) = Pubkey::find_program_address(
         &[
             b"stoploss",
             trader_account.as_ref(),
             &asset_id.to_le_bytes(),
         ],
-        &PHOENIX_PROGRAM_ID,
+        &program_id,
     );
     pda
 }
@@ -154,9 +255,10 @@ pub fn get_stop_loss_address(trader_account: &Pubkey, asset_id: u64) -> Pubkey {
 ///
 /// Seeds: ["conditional_orders", trader_account]
 pub fn get_conditional_orders_address(trader_account: &Pubkey) -> Pubkey {
+    let program_id = *PHOENIX_PROGRAM_ID;
     let (pda, _bump) = Pubkey::find_program_address(
         &[b"conditional_orders", trader_account.as_ref()],
-        &PHOENIX_PROGRAM_ID,
+        &program_id,
     );
     pda
 }
@@ -165,8 +267,8 @@ pub fn get_conditional_orders_address(trader_account: &Pubkey) -> Pubkey {
 ///
 /// Seeds: ["spline", market_address]
 pub fn get_spline_collection_address(market: &Pubkey) -> Pubkey {
-    let (pda, _bump) =
-        Pubkey::find_program_address(&[b"spline", market.as_ref()], &PHOENIX_PROGRAM_ID);
+    let program_id = *PHOENIX_PROGRAM_ID;
+    let (pda, _bump) = Pubkey::find_program_address(&[b"spline", market.as_ref()], &program_id);
     pda
 }
 
@@ -174,8 +276,9 @@ pub fn get_spline_collection_address(market: &Pubkey) -> Pubkey {
 ///
 /// Seeds: [phoenix_program_id, "state"] against Ember program
 pub fn get_ember_state_address() -> Pubkey {
+    let program_id = *PHOENIX_PROGRAM_ID;
     let (pda, _bump) =
-        Pubkey::find_program_address(&[PHOENIX_PROGRAM_ID.as_ref(), b"state"], &EMBER_PROGRAM_ID);
+        Pubkey::find_program_address(&[program_id.as_ref(), b"state"], &EMBER_PROGRAM_ID);
     pda
 }
 
@@ -183,8 +286,9 @@ pub fn get_ember_state_address() -> Pubkey {
 ///
 /// Seeds: [phoenix_program_id, "vault"] against Ember program
 pub fn get_ember_vault_address() -> Pubkey {
+    let program_id = *PHOENIX_PROGRAM_ID;
     let (pda, _bump) =
-        Pubkey::find_program_address(&[PHOENIX_PROGRAM_ID.as_ref(), b"vault"], &EMBER_PROGRAM_ID);
+        Pubkey::find_program_address(&[program_id.as_ref(), b"vault"], &EMBER_PROGRAM_ID);
     pda
 }
 
@@ -192,8 +296,8 @@ pub fn get_ember_vault_address() -> Pubkey {
 ///
 /// Seeds: ["vault", mint] against Phoenix program
 pub fn get_global_vault_address(mint: &Pubkey) -> Pubkey {
-    let (pda, _bump) =
-        Pubkey::find_program_address(&[b"vault", mint.as_ref()], &PHOENIX_PROGRAM_ID);
+    let program_id = *PHOENIX_PROGRAM_ID;
+    let (pda, _bump) = Pubkey::find_program_address(&[b"vault", mint.as_ref()], &program_id);
     pda
 }
 
@@ -211,6 +315,38 @@ pub fn get_associated_token_address(owner: &Pubkey, mint: &Pubkey) -> Pubkey {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_resolves_beta_instruction_addresses() {
+        let addresses = resolve_phoenix_instruction_addresses_for_env(Some(" beta "));
+
+        assert_eq!(addresses.program_id, BETA_PHOENIX_PROGRAM_ID);
+        assert_eq!(addresses.log_authority, BETA_PHOENIX_LOG_AUTHORITY);
+        assert_eq!(
+            addresses.global_configuration,
+            BETA_PHOENIX_GLOBAL_CONFIGURATION
+        );
+    }
+
+    #[test]
+    fn test_resolves_prod_instruction_addresses_by_default() {
+        let addresses = resolve_phoenix_instruction_addresses_for_env(None);
+
+        assert_eq!(addresses.program_id, PROD_PHOENIX_PROGRAM_ID);
+        assert_eq!(addresses.log_authority, PROD_PHOENIX_LOG_AUTHORITY);
+        assert_eq!(
+            addresses.global_configuration,
+            PROD_PHOENIX_GLOBAL_CONFIGURATION
+        );
+        assert_eq!(
+            resolve_phoenix_instruction_addresses_for_env(Some("prod")),
+            addresses
+        );
+        assert_eq!(
+            resolve_phoenix_instruction_addresses_for_env(Some("unexpected")),
+            addresses
+        );
+    }
 
     #[test]
     fn test_discriminant_computation() {

@@ -116,7 +116,7 @@ pub fn create_cancel_stop_loss_ix(
     let accounts = build_accounts(&params);
 
     Ok(Instruction {
-        program_id: PHOENIX_PROGRAM_ID,
+        program_id: *PHOENIX_PROGRAM_ID,
         accounts,
         data,
     })
@@ -139,12 +139,12 @@ fn build_accounts(params: &CancelStopLossParams) -> Vec<AccountMeta> {
     let mut accounts = Vec::new();
 
     // LogAccountGroupAccounts
-    accounts.push(AccountMeta::readonly(PHOENIX_PROGRAM_ID));
-    accounts.push(AccountMeta::readonly(PHOENIX_LOG_AUTHORITY));
+    accounts.push(AccountMeta::readonly(*PHOENIX_PROGRAM_ID));
+    accounts.push(AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY));
 
     // CancelStopLossInstructionGroupAccounts
-    accounts.push(AccountMeta::readonly(PHOENIX_GLOBAL_CONFIGURATION));
-    accounts.push(AccountMeta::writable_signer(params.funder));
+    accounts.push(AccountMeta::readonly(*PHOENIX_GLOBAL_CONFIGURATION));
+    accounts.push(AccountMeta::writable(params.funder));
     accounts.push(AccountMeta::readonly(params.trader_account));
     accounts.push(AccountMeta::readonly_signer(params.position_authority));
     accounts.push(AccountMeta::writable(stop_loss_pda));
@@ -173,7 +173,7 @@ mod tests {
         let params = test_params();
         let ix = create_cancel_stop_loss_ix(params).unwrap();
 
-        assert_eq!(ix.program_id, PHOENIX_PROGRAM_ID);
+        assert_eq!(ix.program_id, *PHOENIX_PROGRAM_ID);
         // 2 log + 6 (global_config, funder, trader, authority, stop_loss, system) = 8
         assert_eq!(ix.accounts.len(), 8);
         assert_eq!(&ix.data[..8], &cancel_stop_loss_discriminant());
@@ -195,21 +195,21 @@ mod tests {
         let accounts = build_accounts(&params);
 
         // Position 0: program id (readonly)
-        assert_eq!(accounts[0].pubkey, PHOENIX_PROGRAM_ID);
+        assert_eq!(accounts[0].pubkey, *PHOENIX_PROGRAM_ID);
         assert!(!accounts[0].is_signer);
         assert!(!accounts[0].is_writable);
 
         // Position 1: log authority (readonly)
-        assert_eq!(accounts[1].pubkey, PHOENIX_LOG_AUTHORITY);
+        assert_eq!(accounts[1].pubkey, *PHOENIX_LOG_AUTHORITY);
         assert!(!accounts[1].is_signer);
 
         // Position 2: global config (readonly)
-        assert_eq!(accounts[2].pubkey, PHOENIX_GLOBAL_CONFIGURATION);
+        assert_eq!(accounts[2].pubkey, *PHOENIX_GLOBAL_CONFIGURATION);
         assert!(!accounts[2].is_writable);
 
-        // Position 3: funder (writable signer)
+        // Position 3: funder (writable)
         assert_eq!(accounts[3].pubkey, params.funder);
-        assert!(accounts[3].is_signer);
+        assert!(!accounts[3].is_signer);
         assert!(accounts[3].is_writable);
 
         // Position 4: trader_account (readonly)
