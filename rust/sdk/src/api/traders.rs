@@ -29,15 +29,22 @@ impl TradersClient<'_> {
         authority: &Pubkey,
         pda_index: u8,
     ) -> Result<Vec<TraderView>, PhoenixHttpError> {
-        let resp: TraderStateResponse = self
-            .http
+        let resp = self.get_trader_state(authority, pda_index).await?;
+
+        Ok(resp.traders)
+    }
+
+    pub async fn get_trader_state(
+        &self,
+        authority: &Pubkey,
+        pda_index: u8,
+    ) -> Result<TraderStateResponse, PhoenixHttpError> {
+        self.http
             .get_json_with_query(
                 &format!("/trader/{authority}/state"),
                 &TraderStateQuery { pda_index },
             )
-            .await?;
-
-        Ok(resp.traders)
+            .await
     }
 
     pub async fn get_trader_subaccount(

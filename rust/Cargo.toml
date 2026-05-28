@@ -24,6 +24,10 @@ version = { workspace = true }
 [lib]
 path = "sdk/src/lib.rs"
 
+[[test]]
+name = "invite_client_tests"
+path = "sdk/tests/invite_client_tests.rs"
+
 [[example]]
 name              = "cancel_all_conditional_orders"
 path              = "sdk/examples/cancel_all_conditional_orders.rs"
@@ -182,6 +186,7 @@ url                = { workspace = true }
 utoipa             = { workspace = true, optional = true }
 
 [dev-dependencies]
+axum                            = "0.8"
 litesvm                         = "0.7"
 proptest                        = "1.6"
 rand                            = "0.9"
@@ -206,7 +211,7 @@ publish      = true
 readme       = "CRATES.md"
 repository   = "https://github.com/Ellipsis-Labs/rise-public"
 rust-version = "1.84.0"
-version      = "0.1.3"
+version      = "0.1.4"
 
 [workspace.dependencies]
 base64 = "0.22"

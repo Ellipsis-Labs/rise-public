@@ -1,9 +1,10 @@
+import { PhoenixHttpError } from "@/errors";
 import type { HttpTransport } from "@/http/transport";
 import { get, post } from "@/http/transport";
 import type {
   ActivateInviteRequest,
   ActivateInviteResponse,
-  ActivateInviteWithReferralRequest,
+  ActivateReferralRequest,
   CheckWalletResponse,
   ValidateInviteRequest,
   ValidateInviteResponse,
@@ -11,11 +12,38 @@ import type {
 import {
   ActivateInviteRequestSchema,
   ActivateInviteResponseSchema,
-  ActivateInviteWithReferralRequestSchema,
+  ActivateReferralRequestSchema,
   CheckWalletResponseSchema,
   ValidateInviteRequestSchema,
   ValidateInviteResponseSchema,
 } from "./types";
+
+const REFERRAL_ACTIVATION_AUTH_MESSAGE =
+  "Referral activation requires an authenticated user session for the authority wallet. " +
+  "Create the Rise client with auth enabled and sign in as that wallet owner before calling /v1/referral/activate.";
+
+function withReferralActivationAuthContext(error: unknown): never {
+  if (
+    error instanceof PhoenixHttpError &&
+    (error.status === 401 ||
+      error.code === "missing_access_token" ||
+      error.code === "invalid_access_token" ||
+      error.code === "access_token_expired" ||
+      error.code === "session_missing" ||
+      error.code === "no_auth_session" ||
+      error.code === "user_only")
+  ) {
+    throw new PhoenixHttpError(
+      error.status,
+      `${REFERRAL_ACTIVATION_AUTH_MESSAGE}\n${error.message}`,
+      error.code,
+      error.retryAfterSeconds,
+      error.body
+    );
+  }
+
+  throw error;
+}
 
 export class V1InviteClient {
   constructor(private readonly http: HttpTransport) {}
@@ -52,15 +80,20 @@ export class V1InviteClient {
     );
   }
 
-  async activateInviteWithReferral(
-    request: ActivateInviteWithReferralRequest
+  async activateReferral(
+    request: ActivateReferralRequest
   ): Promise<ActivateInviteResponse> {
-    const payload = ActivateInviteWithReferralRequestSchema.parse(request);
-    return post(
-      this.http,
-      "/v1/invite/activate-with-referral",
-      ActivateInviteResponseSchema,
-      payload
-    );
+    const payload = ActivateReferralRequestSchema.parse(request);
+    try {
+      return await post(
+        this.http,
+        "/v1/referral/activate",
+        ActivateInviteResponseSchema,
+        payload,
+        { auth: "required" }
+      );
+    } catch (error) {
+      withReferralActivationAuthContext(error);
+    }
   }
 }

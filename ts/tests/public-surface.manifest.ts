@@ -55,7 +55,12 @@ export const HTTP_RESOURCE_PRESENT_METHODS = {
   orders: [
     "getTraderOrderHistory",
     "cancelConditionalOrder",
+    "placeStopLossOrder",
+    "cancelStopLossOrder",
+    "placeAttachedConditionalOrder",
+    "placePositionConditionalOrder",
     "placeIsolatedLimitOrder",
+    "placeIsolatedLimitOrderWithConditionals",
     "placeIsolatedMarketOrder",
     "getTraderOrderHistoryV2",
   ],

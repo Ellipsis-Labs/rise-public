@@ -5,6 +5,9 @@
 //! --access-code ACCESS123
 //!   cargo run -p phoenix-rise --example register_trader -- AUTHORITY
 //! --ref-code REF123
+//!
+//! Referral activation uses /v1/referral/activate and requires a user auth
+//! session for AUTHORITY.
 
 use std::process;
 use std::str::FromStr;
@@ -18,6 +21,9 @@ const USAGE: &str = r#"Usage:
 Examples:
   cargo run -p phoenix-rise --example register_trader -- AUTHORITY --access-code ACCESS123
   cargo run -p phoenix-rise --example register_trader -- AUTHORITY --ref-code REF123
+
+Note:
+  --ref-code requires a user auth session for AUTHORITY.
 "#;
 
 fn fail(message: &str) -> ! {
@@ -72,10 +78,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let authority = Pubkey::from_str(&authority)?;
 
-    let client = PhoenixHttpClient::new_from_env()?;
     let response = match (access_code, ref_code) {
-        (Some(code), None) => client.invite().activate_invite(&authority, &code).await?,
-        (None, Some(code)) => client.invite().activate_referral(&authority, &code).await?,
+        (Some(code), None) => {
+            let client = PhoenixHttpClient::new_from_env()?;
+            client.invite().activate_invite(&authority, &code).await?
+        }
+        (None, Some(code)) => {
+            let client = PhoenixHttpClient::new_from_env_with_auth()?;
+            client.invite().activate_referral(&authority, &code).await?
+        }
         _ => unreachable!("validated above"),
     };
     println!("{}", response);

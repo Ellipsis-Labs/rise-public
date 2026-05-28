@@ -9,6 +9,7 @@ import { V1MarketsClient } from "@/api/markets";
 import { V1OrdersClient } from "@/api/orders";
 import { V1TradersClient } from "@/api/traders";
 import { V1TradesClient } from "@/api/trades";
+import { PhoenixHttpError } from "@/errors";
 import type { HttpTransport, QueryParams, RequestOptions } from "@/http";
 
 interface RequestRecord {
@@ -16,6 +17,7 @@ interface RequestRecord {
   endpoint: string;
   params?: QueryParams;
   body?: unknown;
+  auth?: RequestOptions["auth"];
 }
 
 const buildRiskActionPriceValidityRules = (
@@ -198,12 +200,16 @@ const createTransport = (
     options?: RequestOptions,
     body?: unknown
   ) => {
-    records.push({
+    const record: RequestRecord = {
       method,
       endpoint,
       params: options?.params,
       body,
-    });
+    };
+    if (options?.auth !== undefined) {
+      record.auth = options.auth;
+    }
+    records.push(record);
 
     return new Response(JSON.stringify(responses.get(endpoint)), {
       status: 200,
@@ -527,7 +533,7 @@ describe("public client route mapping", () => {
           },
         ],
         [
-          "/v1/invite/activate-with-referral",
+          "/v1/referral/activate",
           {
             trader_pda: "trader-pda-123",
           },
@@ -627,7 +633,7 @@ describe("public client route mapping", () => {
       authority: "authority-abc",
       code: "invite-123",
     });
-    await invite.activateInviteWithReferral({
+    await invite.activateReferral({
       authority: "authority-abc",
       referral_code: "ref-789",
     });
@@ -811,14 +817,58 @@ describe("public client route mapping", () => {
       },
       {
         method: "POST",
-        endpoint: "/v1/invite/activate-with-referral",
+        endpoint: "/v1/referral/activate",
         params: undefined,
         body: {
           authority: "authority-abc",
           referral_code: "ref-789",
         },
+        auth: "required",
       },
     ]);
+  });
+
+  it("explains that referral activation requires user auth", async () => {
+    const invite = new V1InviteClient({
+      fetch: async (method, endpoint, options, body) => {
+        expect(method).toBe("POST");
+        expect(endpoint).toBe("/v1/referral/activate");
+        expect(options?.auth).toBe("required");
+        expect(body).toEqual({
+          authority: "authority-abc",
+          referral_code: "ref-789",
+        });
+
+        return new Response(
+          JSON.stringify({
+            error: "missing_access_token",
+            message: "missing access token",
+          }),
+          {
+            status: 401,
+            headers: { "content-type": "application/json" },
+          }
+        );
+      },
+    });
+
+    let error: unknown;
+    try {
+      await invite.activateReferral({
+        authority: "authority-abc",
+        referral_code: "ref-789",
+      });
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect(error).toBeInstanceOf(PhoenixHttpError);
+    const httpError = error as PhoenixHttpError;
+    expect(httpError.status).toBe(401);
+    expect(httpError.code).toBe("missing_access_token");
+    expect(httpError.message).toContain(
+      "Referral activation requires an authenticated user session for the authority wallet"
+    );
   });
 
   it("uses the server-built instruction and invite routes", async () => {
@@ -851,6 +901,86 @@ describe("public client route mapping", () => {
                   pubkey: "11111111111111111111111111111111",
                   isSigner: true,
                   isWritable: true,
+                },
+              ],
+              programId: "11111111111111111111111111111111",
+            },
+          ],
+        ],
+        [
+          "/v1/ix/place-isolated-limit-order-with-conditionals",
+          [
+            {
+              data: [16, 17, 18],
+              keys: [
+                {
+                  pubkey: "11111111111111111111111111111111",
+                  isSigner: true,
+                  isWritable: true,
+                },
+              ],
+              programId: "11111111111111111111111111111111",
+            },
+          ],
+        ],
+        [
+          "/v1/ix/place-stop-loss-order",
+          [
+            {
+              data: [19, 20, 21],
+              keys: [
+                {
+                  pubkey: "11111111111111111111111111111111",
+                  isSigner: true,
+                  isWritable: true,
+                },
+              ],
+              programId: "11111111111111111111111111111111",
+            },
+          ],
+        ],
+        [
+          "/v1/ix/cancel-stop-loss-order",
+          [
+            {
+              data: [22, 23, 24],
+              keys: [
+                {
+                  pubkey: "11111111111111111111111111111111",
+                  isSigner: true,
+                  isWritable: false,
+                },
+              ],
+              programId: "11111111111111111111111111111111",
+            },
+          ],
+        ],
+        [
+          "/v1/ix/place-attached-conditional-order",
+          [
+            {
+              data: [25, 26, 27],
+              keys: [
+                {
+                  pubkey: "11111111111111111111111111111111",
+                  isSigner: false,
+                  isWritable: true,
+                },
+              ],
+              programId: "11111111111111111111111111111111",
+            },
+          ],
+        ],
+        [
+          "/v1/ix/place-position-conditional-order",
+          [
+            {
+              data: [28, 29, 30],
+              keys: [
+                {
+                  pubkey: "11111111111111111111111111111111",
+                  isSigner: false,
+                  isWritable: false,
                 },
               ],
               programId: "11111111111111111111111111111111",
@@ -931,6 +1061,57 @@ describe("public client route mapping", () => {
       side: "sell",
       numBaseLots: 2,
     });
+    const limitWithConditionalsIxs =
+      await orders.placeIsolatedLimitOrderWithConditionals({
+        authority: "authority",
+        symbol: "SOL",
+        side: "buy",
+        price: 100,
+        quantity: 1,
+        greaterTrigger: {
+          side: "sell",
+          triggerPrice: 120,
+          executionPrice: 119,
+          orderKind: "limit",
+        },
+      });
+    const stopLossIxs = await orders.placeStopLossOrder({
+      authority: "authority",
+      traderPdaIndex: 0,
+      symbol: "SOL",
+      side: "sell",
+      stopLossTriggerPrice: 90,
+      stopLossExecutionPrice: 89,
+      orderKind: "ioc",
+    });
+    const cancelStopLossIxs = await orders.cancelStopLossOrder({
+      authority: "authority",
+      traderPdaIndex: 0,
+      symbol: "SOL",
+      executionDirection: "less_than",
+    });
+    const attachedConditionalIxs = await orders.placeAttachedConditionalOrder({
+      authority: "authority",
+      traderPdaIndex: 0,
+      symbol: "SOL",
+      orderSequenceNumber: "42",
+      orderPriceInTicks: 1234,
+      greaterTrigger: {
+        side: "sell",
+        triggerPriceInTicks: 1500,
+      },
+    });
+    const positionConditionalIxs = await orders.placePositionConditionalOrder({
+      authority: "authority",
+      traderPdaIndex: 0,
+      symbol: "SOL",
+      sizePercent: 50,
+      lessTrigger: {
+        side: "buy",
+        triggerPrice: 80,
+        executionPrice: null,
+      },
+    });
     const enhancedLimitResult = await orders.placeIsolatedLimitOrderEnhanced({
       authority: "authority",
       symbol: "SOL",
@@ -954,6 +1135,11 @@ describe("public client route mapping", () => {
 
     expect(limitIxs).toHaveLength(1);
     expect(marketIxs).toHaveLength(1);
+    expect(limitWithConditionalsIxs).toHaveLength(1);
+    expect(stopLossIxs).toHaveLength(1);
+    expect(cancelStopLossIxs).toHaveLength(1);
+    expect(attachedConditionalIxs).toHaveLength(1);
+    expect(positionConditionalIxs).toHaveLength(1);
     expect(enhancedLimitResult.instructions).toHaveLength(1);
     expect(enhancedMarketResult.instructions).toHaveLength(1);
     expect(cancelIxs).toHaveLength(1);
@@ -980,6 +1166,81 @@ describe("public client route mapping", () => {
           symbol: "SOL",
           side: "sell",
           numBaseLots: 2,
+        },
+      },
+      {
+        method: "POST",
+        endpoint: "/v1/ix/place-isolated-limit-order-with-conditionals",
+        params: undefined,
+        body: {
+          authority: "authority",
+          symbol: "SOL",
+          side: "buy",
+          price: 100,
+          quantity: 1,
+          greaterTrigger: {
+            side: "sell",
+            triggerPrice: 120,
+            executionPrice: 119,
+            orderKind: "limit",
+          },
+        },
+      },
+      {
+        method: "POST",
+        endpoint: "/v1/ix/place-stop-loss-order",
+        params: undefined,
+        body: {
+          authority: "authority",
+          traderPdaIndex: 0,
+          symbol: "SOL",
+          side: "sell",
+          stopLossTriggerPrice: 90,
+          stopLossExecutionPrice: 89,
+          orderKind: "ioc",
+        },
+      },
+      {
+        method: "POST",
+        endpoint: "/v1/ix/cancel-stop-loss-order",
+        params: undefined,
+        body: {
+          authority: "authority",
+          traderPdaIndex: 0,
+          symbol: "SOL",
+          executionDirection: "less_than",
+        },
+      },
+      {
+        method: "POST",
+        endpoint: "/v1/ix/place-attached-conditional-order",
+        params: undefined,
+        body: {
+          authority: "authority",
+          traderPdaIndex: 0,
+          symbol: "SOL",
+          orderSequenceNumber: "42",
+          orderPriceInTicks: 1234,
+          greaterTrigger: {
+            side: "sell",
+            triggerPriceInTicks: 1500,
+          },
+        },
+      },
+      {
+        method: "POST",
+        endpoint: "/v1/ix/place-position-conditional-order",
+        params: undefined,
+        body: {
+          authority: "authority",
+          traderPdaIndex: 0,
+          symbol: "SOL",
+          sizePercent: 50,
+          lessTrigger: {
+            side: "buy",
+            triggerPrice: 80,
+            executionPrice: null,
+          },
         },
       },
       {
