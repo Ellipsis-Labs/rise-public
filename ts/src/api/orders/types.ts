@@ -226,32 +226,221 @@ export const PlaceIsolatedOrderEnhancedResponseSchema: z.ZodType<PlaceIsolatedOr
     }));
 
 export interface TpSlOrderConfig {
-  takeProfitTriggerPrice?: number;
-  takeProfitTriggerPriceInTicks?: number;
-  takeProfitExecutionPrice?: number;
-  takeProfitExecutionPriceInTicks?: number;
-  stopLossTriggerPrice?: number;
-  stopLossTriggerPriceInTicks?: number;
-  stopLossExecutionPrice?: number;
-  stopLossExecutionPriceInTicks?: number;
-  orderKind?: string;
-  numBaseLots?: number;
-  quantity?: number;
+  takeProfitTriggerPrice?: number | null;
+  takeProfitTriggerPriceInTicks?: number | null;
+  takeProfitExecutionPrice?: number | null;
+  takeProfitExecutionPriceInTicks?: number | null;
+  stopLossTriggerPrice?: number | null;
+  stopLossTriggerPriceInTicks?: number | null;
+  stopLossExecutionPrice?: number | null;
+  stopLossExecutionPriceInTicks?: number | null;
+  orderKind?: string | null;
+  numBaseLots?: number | null;
+  quantity?: number | null;
 }
 
-export const TpSlOrderConfigSchema: z.ZodType<TpSlOrderConfig> = z.object({
-  takeProfitTriggerPrice: z.number().optional(),
-  takeProfitTriggerPriceInTicks: z.number().int().nonnegative().optional(),
-  takeProfitExecutionPrice: z.number().optional(),
-  takeProfitExecutionPriceInTicks: z.number().int().nonnegative().optional(),
-  stopLossTriggerPrice: z.number().optional(),
-  stopLossTriggerPriceInTicks: z.number().int().nonnegative().optional(),
-  stopLossExecutionPrice: z.number().optional(),
-  stopLossExecutionPriceInTicks: z.number().int().nonnegative().optional(),
-  orderKind: z.string().optional(),
-  numBaseLots: z.number().int().nonnegative().optional(),
-  quantity: z.number().optional(),
+const TpSlOrderConfigObjectSchema = z.object({
+  takeProfitTriggerPrice: z.number().nullable().optional(),
+  takeProfitTriggerPriceInTicks: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .optional(),
+  takeProfitExecutionPrice: z.number().nullable().optional(),
+  takeProfitExecutionPriceInTicks: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .optional(),
+  stopLossTriggerPrice: z.number().nullable().optional(),
+  stopLossTriggerPriceInTicks: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .optional(),
+  stopLossExecutionPrice: z.number().nullable().optional(),
+  stopLossExecutionPriceInTicks: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .optional(),
+  orderKind: z.string().nullable().optional(),
+  numBaseLots: z.number().int().nonnegative().nullable().optional(),
+  quantity: z.number().nullable().optional(),
 });
+
+export const TpSlOrderConfigSchema: z.ZodType<TpSlOrderConfig> =
+  TpSlOrderConfigObjectSchema;
+
+export interface PlaceStopLossOrderRequest extends TpSlOrderConfig {
+  authority: string;
+  positionAuthority?: string | null;
+  traderPdaIndex: number;
+  traderSubaccountIndex?: number | null;
+  isIsolated?: boolean;
+  symbol: string;
+  side: string;
+  feePayer?: string | null;
+  flightBuilderAuthority?: string | null;
+  flightFeeCollectorTrader?: string | null;
+}
+
+export const PlaceStopLossOrderRequestSchema: z.ZodType<PlaceStopLossOrderRequest> =
+  TpSlOrderConfigObjectSchema.extend({
+    authority: z.string(),
+    positionAuthority: z.string().nullable().optional(),
+    traderPdaIndex: z.number().int().nonnegative(),
+    traderSubaccountIndex: z.number().int().nonnegative().nullable().optional(),
+    isIsolated: z.boolean().optional(),
+    symbol: z.string(),
+    side: z.string(),
+    feePayer: z.string().nullable().optional(),
+    flightBuilderAuthority: z.string().nullable().optional(),
+    flightFeeCollectorTrader: z.string().nullable().optional(),
+  });
+
+export type CancelStopLossOrderExecutionDirection =
+  | "greater_than"
+  | "less_than";
+
+export const CancelStopLossOrderExecutionDirectionSchema: z.ZodType<CancelStopLossOrderExecutionDirection> =
+  z.enum(["greater_than", "less_than"]);
+
+export interface CancelStopLossOrderRequest {
+  authority: string;
+  positionAuthority?: string | null;
+  traderPdaIndex: number;
+  traderSubaccountIndex?: number | null;
+  isIsolated?: boolean;
+  symbol: string;
+  executionDirection: CancelStopLossOrderExecutionDirection;
+}
+
+export const CancelStopLossOrderRequestSchema: z.ZodType<CancelStopLossOrderRequest> =
+  z.object({
+    authority: z.string(),
+    positionAuthority: z.string().nullable().optional(),
+    traderPdaIndex: z.number().int().nonnegative(),
+    traderSubaccountIndex: z.number().int().nonnegative().nullable().optional(),
+    isIsolated: z.boolean().optional(),
+    symbol: z.string(),
+    executionDirection: CancelStopLossOrderExecutionDirectionSchema,
+  });
+
+export interface ConditionalTriggerRequest {
+  side: string;
+  orderKind?: string | null;
+  triggerPrice?: number | null;
+  triggerPriceInTicks?: number | null;
+  executionPrice?: number | null;
+  executionPriceInTicks?: number | null;
+}
+
+export const ConditionalTriggerRequestSchema: z.ZodType<ConditionalTriggerRequest> =
+  z.object({
+    side: z.string(),
+    orderKind: z.string().nullable().optional(),
+    triggerPrice: z.number().nullable().optional(),
+    triggerPriceInTicks: z.number().int().nonnegative().nullable().optional(),
+    executionPrice: z.number().nullable().optional(),
+    executionPriceInTicks: z.number().int().nonnegative().nullable().optional(),
+  });
+
+const hasConditionalTrigger = (request: {
+  greaterTrigger?: ConditionalTriggerRequest | null;
+  lessTrigger?: ConditionalTriggerRequest | null;
+}): boolean => request.greaterTrigger != null || request.lessTrigger != null;
+
+const requiresConditionalTrigger = {
+  message: "At least one of greaterTrigger or lessTrigger is required",
+  path: ["greaterTrigger"],
+};
+
+export interface PlaceAttachedConditionalOrderRequest {
+  authority: string;
+  positionAuthority?: string | null;
+  traderPdaIndex: number;
+  traderSubaccountIndex?: number | null;
+  isIsolated?: boolean;
+  symbol: string;
+  feePayer?: string | null;
+  orderSequenceNumber: string;
+  orderPriceInTicks: number;
+  greaterTrigger?: ConditionalTriggerRequest | null;
+  lessTrigger?: ConditionalTriggerRequest | null;
+  flightBuilderAuthority?: string | null;
+  flightFeeCollectorTrader?: string | null;
+}
+
+export const PlaceAttachedConditionalOrderRequestSchema: z.ZodType<PlaceAttachedConditionalOrderRequest> =
+  z
+    .object({
+      authority: z.string(),
+      positionAuthority: z.string().nullable().optional(),
+      traderPdaIndex: z.number().int().nonnegative(),
+      traderSubaccountIndex: z
+        .number()
+        .int()
+        .nonnegative()
+        .nullable()
+        .optional(),
+      isIsolated: z.boolean().optional(),
+      symbol: z.string(),
+      feePayer: z.string().nullable().optional(),
+      orderSequenceNumber: z.string(),
+      orderPriceInTicks: z.number().int().nonnegative(),
+      greaterTrigger: ConditionalTriggerRequestSchema.nullable().optional(),
+      lessTrigger: ConditionalTriggerRequestSchema.nullable().optional(),
+      flightBuilderAuthority: z.string().nullable().optional(),
+      flightFeeCollectorTrader: z.string().nullable().optional(),
+    })
+    .refine(hasConditionalTrigger, requiresConditionalTrigger);
+
+export interface PlacePositionConditionalOrderRequest {
+  authority: string;
+  positionAuthority?: string | null;
+  traderPdaIndex: number;
+  traderSubaccountIndex?: number | null;
+  isIsolated?: boolean;
+  symbol: string;
+  feePayer?: string | null;
+  greaterTrigger?: ConditionalTriggerRequest | null;
+  lessTrigger?: ConditionalTriggerRequest | null;
+  sizePercent?: number | null;
+  numBaseLots?: number | null;
+  quantity?: number | null;
+  flightBuilderAuthority?: string | null;
+  flightFeeCollectorTrader?: string | null;
+}
+
+export const PlacePositionConditionalOrderRequestSchema: z.ZodType<PlacePositionConditionalOrderRequest> =
+  z
+    .object({
+      authority: z.string(),
+      positionAuthority: z.string().nullable().optional(),
+      traderPdaIndex: z.number().int().nonnegative(),
+      traderSubaccountIndex: z
+        .number()
+        .int()
+        .nonnegative()
+        .nullable()
+        .optional(),
+      isIsolated: z.boolean().optional(),
+      symbol: z.string(),
+      feePayer: z.string().nullable().optional(),
+      greaterTrigger: ConditionalTriggerRequestSchema.nullable().optional(),
+      lessTrigger: ConditionalTriggerRequestSchema.nullable().optional(),
+      sizePercent: z.number().int().min(1).max(100).nullable().optional(),
+      numBaseLots: z.number().int().nonnegative().nullable().optional(),
+      quantity: z.number().nullable().optional(),
+      flightBuilderAuthority: z.string().nullable().optional(),
+      flightFeeCollectorTrader: z.string().nullable().optional(),
+    })
+    .refine(hasConditionalTrigger, requiresConditionalTrigger);
 
 export type CancelConditionalOrderExecutionDirection =
   | "greater_than"
@@ -327,6 +516,53 @@ export const PlaceIsolatedLimitOrderRequestSchema: z.ZodType<PlaceIsolatedLimitO
     flightFeeCollectorTrader: z.string().optional(),
     tpSl: TpSlOrderConfigSchema.optional(),
   });
+
+export interface PlaceIsolatedLimitOrderWithConditionalsRequest {
+  authority: string;
+  positionAuthority?: string | null;
+  symbol: string;
+  side: string;
+  priceInTicks?: number | null;
+  price?: number | null;
+  numBaseLots?: number | null;
+  quantity?: number | null;
+  transferAmount?: number;
+  pdaIndex?: number | null;
+  allowCrossAndIsolatedForAsset?: boolean | null;
+  feePayer?: string | null;
+  isPostOnly?: boolean | null;
+  slide?: boolean | null;
+  skipTransferToParent?: boolean | null;
+  greaterTrigger?: ConditionalTriggerRequest | null;
+  lessTrigger?: ConditionalTriggerRequest | null;
+  flightBuilderAuthority?: string | null;
+  flightFeeCollectorTrader?: string | null;
+}
+
+export const PlaceIsolatedLimitOrderWithConditionalsRequestSchema: z.ZodType<PlaceIsolatedLimitOrderWithConditionalsRequest> =
+  z
+    .object({
+      authority: z.string(),
+      positionAuthority: z.string().nullable().optional(),
+      symbol: z.string(),
+      side: z.string(),
+      priceInTicks: z.number().int().nonnegative().nullable().optional(),
+      price: z.number().nullable().optional(),
+      numBaseLots: z.number().int().nonnegative().nullable().optional(),
+      quantity: z.number().nullable().optional(),
+      transferAmount: z.number().int().nonnegative().optional(),
+      pdaIndex: z.number().int().nonnegative().nullable().optional(),
+      allowCrossAndIsolatedForAsset: z.boolean().nullable().optional(),
+      feePayer: z.string().nullable().optional(),
+      isPostOnly: z.boolean().nullable().optional(),
+      slide: z.boolean().nullable().optional(),
+      skipTransferToParent: z.boolean().nullable().optional(),
+      greaterTrigger: ConditionalTriggerRequestSchema.nullable().optional(),
+      lessTrigger: ConditionalTriggerRequestSchema.nullable().optional(),
+      flightBuilderAuthority: z.string().nullable().optional(),
+      flightFeeCollectorTrader: z.string().nullable().optional(),
+    })
+    .refine(hasConditionalTrigger, requiresConditionalTrigger);
 
 export interface PlaceIsolatedMarketOrderRequest {
   authority: string;

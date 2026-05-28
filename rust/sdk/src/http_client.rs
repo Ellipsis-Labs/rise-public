@@ -26,13 +26,16 @@ use crate::auth_lifecycle::{AuthLifecycleError, AuthLifecycleState};
 use crate::env::PhoenixEnv;
 use crate::phoenix_rise_ix::{IsolatedCollateralFlow, Side};
 use crate::phoenix_rise_types::{
-    ApiCandle, CandlesQueryParams, CollateralHistoryQueryParams, CollateralHistoryResponse,
-    ExchangeKeysView, ExchangeMarketConfig, ExchangeResponse, ExchangeSnapshotView,
-    FundingHistoryQueryParams, FundingHistoryResponse, FundingHourlyHistoryResponse,
-    FundingHourlyQuery, FundingRateHistoryQuery, FundingRateHistoryResponse,
-    NextCommodityMarketTransition, OrderHistoryQueryParams, OrderHistoryResponse, PhoenixHttpError,
-    PlaceIsolatedLimitOrderRequest, PlaceIsolatedMarketOrderRequest, PnlPoint, PnlQueryParams,
-    TradeHistoryQueryParams, TradeHistoryResponse, TraderKey, TraderView,
+    ApiCandle, CancelStopLossOrderRequest, CandlesQueryParams, CollateralHistoryQueryParams,
+    CollateralHistoryResponse, ExchangeKeysView, ExchangeMarketConfig, ExchangeResponse,
+    ExchangeSnapshotView, FundingHistoryQueryParams, FundingHistoryResponse,
+    FundingHourlyHistoryResponse, FundingHourlyQuery, FundingRateHistoryQuery,
+    FundingRateHistoryResponse, NextCommodityMarketTransition, OrderHistoryQueryParams,
+    OrderHistoryResponse, PhoenixHttpError, PlaceAttachedConditionalOrderRequest,
+    PlaceIsolatedLimitOrderRequest, PlaceIsolatedLimitOrderWithConditionalsRequest,
+    PlaceIsolatedMarketOrderRequest, PlacePositionConditionalOrderRequest,
+    PlaceStopLossOrderRequest, PnlPoint, PnlQueryParams, TradeHistoryQueryParams,
+    TradeHistoryResponse, TraderKey, TraderStateResponse, TraderView,
 };
 use crate::transport::{PhoenixApiClient, PhoenixApiError};
 
@@ -484,6 +487,14 @@ impl PhoenixHttpClient {
         self.traders().get_trader(authority).await
     }
 
+    pub async fn get_trader_state(
+        &self,
+        authority: &Pubkey,
+        pda_index: u8,
+    ) -> Result<TraderStateResponse, PhoenixHttpError> {
+        self.traders().get_trader_state(authority, pda_index).await
+    }
+
     pub async fn get_collateral_history(
         &self,
         authority: &Pubkey,
@@ -672,6 +683,47 @@ impl PhoenixHttpClient {
     ) -> Result<Vec<Instruction>, PhoenixHttpError> {
         self.orders()
             .build_isolated_limit_order_tx_with_request(request)
+            .await
+    }
+
+    pub async fn place_isolated_limit_order_with_conditionals(
+        &self,
+        request: PlaceIsolatedLimitOrderWithConditionalsRequest,
+    ) -> Result<Vec<Instruction>, PhoenixHttpError> {
+        self.orders()
+            .place_isolated_limit_order_with_conditionals(request)
+            .await
+    }
+
+    pub async fn place_stop_loss_order(
+        &self,
+        request: PlaceStopLossOrderRequest,
+    ) -> Result<Vec<Instruction>, PhoenixHttpError> {
+        self.orders().place_stop_loss_order(request).await
+    }
+
+    pub async fn cancel_stop_loss_order(
+        &self,
+        request: CancelStopLossOrderRequest,
+    ) -> Result<Vec<Instruction>, PhoenixHttpError> {
+        self.orders().cancel_stop_loss_order(request).await
+    }
+
+    pub async fn place_attached_conditional_order(
+        &self,
+        request: PlaceAttachedConditionalOrderRequest,
+    ) -> Result<Vec<Instruction>, PhoenixHttpError> {
+        self.orders()
+            .place_attached_conditional_order(request)
+            .await
+    }
+
+    pub async fn place_position_conditional_order(
+        &self,
+        request: PlacePositionConditionalOrderRequest,
+    ) -> Result<Vec<Instruction>, PhoenixHttpError> {
+        self.orders()
+            .place_position_conditional_order(request)
             .await
     }
 

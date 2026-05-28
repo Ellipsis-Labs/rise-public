@@ -9,22 +9,32 @@ import { resolvePhoenixFlightFeeCollectorTraderAddress } from "@/flight/client";
 import type {
   ApiInstructionResponse,
   CancelConditionalOrderRequest,
+  CancelStopLossOrderRequest,
   OrderHistoryRequest,
   OrderHistoryResponse,
   OrderHistoryV2Request,
   OrderHistoryV2Response,
   PlaceIsolatedOrderEnhancedInstructionsResponse,
   PlaceIsolatedLimitOrderRequest,
+  PlaceIsolatedLimitOrderWithConditionalsRequest,
   PlaceIsolatedMarketOrderRequest,
+  PlaceAttachedConditionalOrderRequest,
+  PlacePositionConditionalOrderRequest,
+  PlaceStopLossOrderRequest,
 } from "./types";
 import {
   ApiInstructionResponseSchema,
   CancelConditionalOrderRequestSchema,
+  CancelStopLossOrderRequestSchema,
   OrderHistoryResponseSchema,
   OrderHistoryV2ResponseSchema,
   PlaceIsolatedOrderEnhancedResponseSchema,
   PlaceIsolatedLimitOrderRequestSchema,
+  PlaceIsolatedLimitOrderWithConditionalsRequestSchema,
   PlaceIsolatedMarketOrderRequestSchema,
+  PlaceAttachedConditionalOrderRequestSchema,
+  PlacePositionConditionalOrderRequestSchema,
+  PlaceStopLossOrderRequestSchema,
 } from "./types";
 
 const buildOrderHistoryQuery = (
@@ -108,8 +118,13 @@ const resolveDefaultFlightFeeCollectorTrader = async (
   );
 };
 
+interface FlightOrderRoutingRequest {
+  flightBuilderAuthority?: string | null;
+  flightFeeCollectorTrader?: string | null;
+}
+
 const withDefaultFlightOrderRouting = async <
-  T extends PlaceIsolatedLimitOrderRequest | PlaceIsolatedMarketOrderRequest,
+  T extends FlightOrderRoutingRequest,
 >(
   request: T,
   defaultFlight: V1OrdersClientConfig["defaultFlight"]
@@ -120,11 +135,13 @@ const withDefaultFlightOrderRouting = async <
 
   const flightBuilderAuthority =
     request.flightBuilderAuthority ?? defaultFlight.config.builderAuthority;
+  const requestFlightBuilderAuthority =
+    request.flightBuilderAuthority ?? undefined;
   const flightFeeCollectorTrader =
     request.flightFeeCollectorTrader ??
     (await resolveDefaultFlightFeeCollectorTrader(
       defaultFlight,
-      request.flightBuilderAuthority as Authority | undefined
+      requestFlightBuilderAuthority as Authority | undefined
     ));
 
   return {
@@ -177,6 +194,70 @@ export class V1OrdersClient {
     ).map(toInstruction);
   }
 
+  async placeStopLossOrder(
+    request: PlaceStopLossOrderRequest
+  ): Promise<InstructionsWithAccountsAndData[]> {
+    const routedRequest = await withDefaultFlightOrderRouting(
+      request,
+      this.config.defaultFlight
+    );
+    return (
+      await post(
+        this.http,
+        "/v1/ix/place-stop-loss-order",
+        ApiInstructionResponseSchema.array(),
+        PlaceStopLossOrderRequestSchema.parse(routedRequest)
+      )
+    ).map(toInstruction);
+  }
+
+  async cancelStopLossOrder(
+    request: CancelStopLossOrderRequest
+  ): Promise<InstructionsWithAccountsAndData[]> {
+    return (
+      await post(
+        this.http,
+        "/v1/ix/cancel-stop-loss-order",
+        ApiInstructionResponseSchema.array(),
+        CancelStopLossOrderRequestSchema.parse(request)
+      )
+    ).map(toInstruction);
+  }
+
+  async placeAttachedConditionalOrder(
+    request: PlaceAttachedConditionalOrderRequest
+  ): Promise<InstructionsWithAccountsAndData[]> {
+    const routedRequest = await withDefaultFlightOrderRouting(
+      request,
+      this.config.defaultFlight
+    );
+    return (
+      await post(
+        this.http,
+        "/v1/ix/place-attached-conditional-order",
+        ApiInstructionResponseSchema.array(),
+        PlaceAttachedConditionalOrderRequestSchema.parse(routedRequest)
+      )
+    ).map(toInstruction);
+  }
+
+  async placePositionConditionalOrder(
+    request: PlacePositionConditionalOrderRequest
+  ): Promise<InstructionsWithAccountsAndData[]> {
+    const routedRequest = await withDefaultFlightOrderRouting(
+      request,
+      this.config.defaultFlight
+    );
+    return (
+      await post(
+        this.http,
+        "/v1/ix/place-position-conditional-order",
+        ApiInstructionResponseSchema.array(),
+        PlacePositionConditionalOrderRequestSchema.parse(routedRequest)
+      )
+    ).map(toInstruction);
+  }
+
   async placeIsolatedLimitOrder(
     request: PlaceIsolatedLimitOrderRequest
   ): Promise<InstructionsWithAccountsAndData[]> {
@@ -190,6 +271,25 @@ export class V1OrdersClient {
         "/v1/ix/place-isolated-limit-order",
         ApiInstructionResponseSchema.array(),
         PlaceIsolatedLimitOrderRequestSchema.parse(routedRequest)
+      )
+    ).map(toInstruction);
+  }
+
+  async placeIsolatedLimitOrderWithConditionals(
+    request: PlaceIsolatedLimitOrderWithConditionalsRequest
+  ): Promise<InstructionsWithAccountsAndData[]> {
+    const routedRequest = await withDefaultFlightOrderRouting(
+      request,
+      this.config.defaultFlight
+    );
+    return (
+      await post(
+        this.http,
+        "/v1/ix/place-isolated-limit-order-with-conditionals",
+        ApiInstructionResponseSchema.array(),
+        PlaceIsolatedLimitOrderWithConditionalsRequestSchema.parse(
+          routedRequest
+        )
       )
     ).map(toInstruction);
   }

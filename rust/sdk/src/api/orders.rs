@@ -5,10 +5,12 @@ use crate::BracketLegOrders;
 use crate::http_client::HttpClientInner;
 use crate::phoenix_rise_ix::{IsolatedCollateralFlow, Side};
 use crate::phoenix_rise_types::{
-    ApiInstructionResponse, CancelConditionalOrderRequest, OrderHistoryQueryParams,
-    OrderHistoryResponse, PhoenixHttpError, PlaceIsolatedLimitOrderEnhancedResponse,
-    PlaceIsolatedLimitOrderRequest, PlaceIsolatedMarketOrderEnhancedResponse,
-    PlaceIsolatedMarketOrderRequest, TraderKey,
+    ApiInstructionResponse, CancelConditionalOrderRequest, CancelStopLossOrderRequest,
+    OrderHistoryQueryParams, OrderHistoryResponse, PhoenixHttpError,
+    PlaceAttachedConditionalOrderRequest, PlaceIsolatedLimitOrderEnhancedResponse,
+    PlaceIsolatedLimitOrderRequest, PlaceIsolatedLimitOrderWithConditionalsRequest,
+    PlaceIsolatedMarketOrderEnhancedResponse, PlaceIsolatedMarketOrderRequest,
+    PlacePositionConditionalOrderRequest, PlaceStopLossOrderRequest, TraderKey,
 };
 
 pub struct OrdersClient<'a> {
@@ -87,11 +89,40 @@ impl OrdersClient<'_> {
         &self,
         request: CancelConditionalOrderRequest,
     ) -> Result<Vec<Instruction>, PhoenixHttpError> {
-        let api_ixs: Vec<ApiInstructionResponse> = self
-            .http
-            .post_json("/v1/ix/cancel-conditional-order", &request)
-            .await?;
-        api_ixs.into_iter().map(try_into_instruction).collect()
+        self.post_instruction_request("/v1/ix/cancel-conditional-order", &request)
+            .await
+    }
+
+    pub async fn place_stop_loss_order(
+        &self,
+        request: PlaceStopLossOrderRequest,
+    ) -> Result<Vec<Instruction>, PhoenixHttpError> {
+        self.post_instruction_request("/v1/ix/place-stop-loss-order", &request)
+            .await
+    }
+
+    pub async fn cancel_stop_loss_order(
+        &self,
+        request: CancelStopLossOrderRequest,
+    ) -> Result<Vec<Instruction>, PhoenixHttpError> {
+        self.post_instruction_request("/v1/ix/cancel-stop-loss-order", &request)
+            .await
+    }
+
+    pub async fn place_attached_conditional_order(
+        &self,
+        request: PlaceAttachedConditionalOrderRequest,
+    ) -> Result<Vec<Instruction>, PhoenixHttpError> {
+        self.post_instruction_request("/v1/ix/place-attached-conditional-order", &request)
+            .await
+    }
+
+    pub async fn place_position_conditional_order(
+        &self,
+        request: PlacePositionConditionalOrderRequest,
+    ) -> Result<Vec<Instruction>, PhoenixHttpError> {
+        self.post_instruction_request("/v1/ix/place-position-conditional-order", &request)
+            .await
     }
 
     pub async fn build_isolated_limit_order_tx_enhanced(
@@ -119,6 +150,17 @@ impl OrdersClient<'_> {
 
         self.build_isolated_limit_order_tx_enhanced_with_request(request)
             .await
+    }
+
+    pub async fn place_isolated_limit_order_with_conditionals(
+        &self,
+        request: PlaceIsolatedLimitOrderWithConditionalsRequest,
+    ) -> Result<Vec<Instruction>, PhoenixHttpError> {
+        self.post_instruction_request(
+            "/v1/ix/place-isolated-limit-order-with-conditionals",
+            &request,
+        )
+        .await
     }
 
     pub async fn build_isolated_limit_order_tx_enhanced_with_request(
@@ -237,6 +279,15 @@ impl OrdersClient<'_> {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok((instructions, enhanced.estimated_liquidation_price_usd))
+    }
+
+    async fn post_instruction_request<B: serde::Serialize>(
+        &self,
+        path: &str,
+        request: &B,
+    ) -> Result<Vec<Instruction>, PhoenixHttpError> {
+        let api_ixs: Vec<ApiInstructionResponse> = self.http.post_json(path, request).await?;
+        api_ixs.into_iter().map(try_into_instruction).collect()
     }
 }
 

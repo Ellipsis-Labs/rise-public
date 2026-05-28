@@ -50,12 +50,12 @@ export const ActivateInviteRequestSchema: z.ZodType<ActivateInviteRequest> =
     code: z.string(),
   });
 
-export interface ActivateInviteWithReferralRequest {
+export interface ActivateReferralRequest {
   authority: string;
   referral_code: string;
 }
 
-export const ActivateInviteWithReferralRequestSchema: z.ZodType<ActivateInviteWithReferralRequest> =
+export const ActivateReferralRequestSchema: z.ZodType<ActivateReferralRequest> =
   z.object({
     authority: z.string(),
     referral_code: z.string(),

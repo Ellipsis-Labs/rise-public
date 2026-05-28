@@ -28,9 +28,13 @@ When you do that:
 - `client.ixs.placeMarketOrder(...)` returns a Flight proxy instruction
 - `client.ixs.placePositionConditionalOrder(...)` returns a Flight proxy
   instruction
-- `client.api.orders().placeIsolatedLimitOrder(...)` and
-  `client.api.orders().placeIsolatedMarketOrder(...)` inherit the same Flight
-  builder defaults
+- `client.api.orders().placeIsolatedLimitOrder(...)`,
+  `client.api.orders().placeIsolatedMarketOrder(...)`,
+  `client.api.orders().placeIsolatedLimitOrderWithConditionals(...)`,
+  `client.api.orders().placeStopLossOrder(...)`,
+  `client.api.orders().placeAttachedConditionalOrder(...)`, and
+  `client.api.orders().placePositionConditionalOrder(...)` inherit the same
+  Flight builder defaults
 
 Post-only orders remain native Phoenix instructions.
 
@@ -169,7 +173,7 @@ const ix = await client.ixs.buildPlaceMarketOrder({
 In this case the builder fee collector trader is derived automatically from the
 configured builder authority and indexes.
 
-## Use The Isolated Order API With Flight Defaults
+## Use The Server-Built Order API With Flight Defaults
 
 If you use the typed API order helpers, the client also injects Flight builder
 defaults automatically when `flight` is configured:
