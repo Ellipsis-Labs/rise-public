@@ -1,9 +1,9 @@
 # Changelog
 
-            Entries are drafted by Phoenix Rise sync PRs. Review and edit each
-            entry in this repo before merging.
+Entries are drafted by Phoenix Rise sync PRs. Review and edit each
+entry in this repo before merging.
 
-            ## v0.4.27 - 2026-06-09
+## v0.4.27 - 2026-06-09
 
 Source Phoenix commit: `32611fa7f803cf601cab67b6ca5dce5d4a70fc75`
 
@@ -13,7 +13,6 @@ Source Phoenix commit: `32611fa7f803cf601cab67b6ca5dce5d4a70fc75`
 
 ### Summary
 
-- Package now publishes to **GitHub Packages** (`https://npm.pkg.github.com`) instead of the public npm registry — most consumers need a registry config change to install this version
 - Flame proxy-deposit flow added for sponsored USDC deposits that bypass user-owned rent accounts
 - Market calendar APIs and per-market public metadata (`name`, `logoUri`, `calendar`, `coinGeckoId`, etc.) are now available in the HTTP client and exchange cache
 - Auth robustness improved: expired sessions are proactively refreshed before WS connect, transient refresh failures retry with backoff, and `auth: "required"` HTTP requests fail immediately without a valid session
