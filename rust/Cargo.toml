@@ -210,7 +210,7 @@ license      = "MIT"
 publish      = true
 readme       = "CRATES.md"
 repository   = "https://github.com/Ellipsis-Labs/rise-public"
-rust-version = "1.84.0"
+rust-version = "1.86.0"
 version      = "0.1.4"
 
 [workspace.dependencies]
