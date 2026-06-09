@@ -112,6 +112,24 @@ class PhoenixExchangeMetadataImpl implements PhoenixExchangeMetadata {
     return this.cacheStore.marketByPubkey(pubkey);
   }
 
+  marketMetadata(symbol: string) {
+    this.ensureStarted();
+    this.rpcSource.maybeScheduleTtlRefresh();
+    return this.cacheStore.marketMetadata(symbol);
+  }
+
+  marketMetadataByAssetId(assetId: number) {
+    this.ensureStarted();
+    this.rpcSource.maybeScheduleTtlRefresh();
+    return this.cacheStore.marketMetadataByAssetId(assetId);
+  }
+
+  marketMetadataByPubkey(pubkey: string) {
+    this.ensureStarted();
+    this.rpcSource.maybeScheduleTtlRefresh();
+    return this.cacheStore.marketMetadataByPubkey(pubkey);
+  }
+
   instructionContext(symbol: string) {
     this.ensureStarted();
     this.rpcSource.maybeScheduleTtlRefresh();

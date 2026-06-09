@@ -33,43 +33,116 @@ const makeSnapshot = (
   };
 };
 
+class MockWebSocket {
+  static instances: MockWebSocket[] = [];
+  onopen: (() => void) | null = null;
+  onmessage: ((evt: { data: string }) => void) | null = null;
+  onclose: ((evt: { code: number; reason?: string }) => void) | null = null;
+  onerror: (() => void) | null = null;
+
+  constructor(
+    public url: string,
+    public protocol?: string | string[]
+  ) {
+    MockWebSocket.instances.push(this);
+    queueMicrotask(() => this.onopen?.());
+  }
+
+  send() {}
+
+  close() {}
+}
+
+const stubWebSocket = () => {
+  vi.stubGlobal("WebSocket", MockWebSocket as unknown as typeof WebSocket);
+};
+
+const stubSuccessfulFetch = () => {
+  const fetchMock = vi.fn(async () => {
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+};
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  MockWebSocket.instances.length = 0;
 });
 
 describe("rise external session control websocket integration", () => {
+  it("waits for an external session update before connecting with expired auth", async () => {
+    vi.useFakeTimers();
+
+    stubWebSocket();
+    const fetchMock = stubSuccessfulFetch();
+
+    const sessionManager = new auth.AuthSessionManager(
+      new auth.MemoryAuthSessionStorage()
+    );
+    await sessionManager.importSnapshot(
+      makeSnapshot({
+        accessToken: makeJwt({
+          sid: "sid-1",
+          jti: "jti-1",
+          exp: Math.floor((Date.now() - 1_000) / 1000),
+        }),
+        expiresAt: Date.now() - 1_000,
+      })
+    );
+
+    const client = createPhoenixClient({
+      baseUrl: "https://example.com",
+      auth: true,
+      authConfig: {
+        sessionManager,
+        sessionControl: "external",
+      },
+      ws: {
+        url: "wss://example.com/v1/ws",
+        connectMode: "eager",
+      },
+    });
+
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(MockWebSocket.instances).toHaveLength(0);
+
+    const nextSnapshot = makeSnapshot({
+      sessionId: "sid-2",
+      accessJti: "jti-2",
+      refreshToken: "refresh-token-2",
+      popKey: Buffer.from(
+        Uint8Array.from({ length: 32 }, (_, index) => index + 1)
+      ).toString("base64url"),
+      expiresAt: Date.now() + 120_000,
+      refreshExpiresAt: Date.now() + 240_000,
+    });
+    await sessionManager.importSnapshot(nextSnapshot);
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(MockWebSocket.instances).toHaveLength(1);
+    expect(MockWebSocket.instances[0].protocol).toEqual([
+      "phoenix-jwt",
+      nextSnapshot.accessToken,
+    ]);
+
+    client.dispose();
+  });
+
   it("waits for an external session update after auth close", async () => {
     vi.useFakeTimers();
 
-    class MockWebSocket {
-      static instances: MockWebSocket[] = [];
-      onopen: (() => void) | null = null;
-      onmessage: ((evt: { data: string }) => void) | null = null;
-      onclose: ((evt: { code: number; reason?: string }) => void) | null = null;
-      onerror: (() => void) | null = null;
-
-      constructor(
-        public url: string,
-        public protocol?: string | string[]
-      ) {
-        MockWebSocket.instances.push(this);
-        queueMicrotask(() => this.onopen?.());
-      }
-
-      send() {}
-
-      close() {}
-    }
-
-    vi.stubGlobal("WebSocket", MockWebSocket as unknown as typeof WebSocket);
-    const fetchMock = vi.fn(async () => {
-      return new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
-    });
-    vi.stubGlobal("fetch", fetchMock);
+    stubWebSocket();
+    const fetchMock = stubSuccessfulFetch();
 
     const sessionManager = new auth.AuthSessionManager(
       new auth.MemoryAuthSessionStorage()
@@ -78,8 +151,9 @@ describe("rise external session control websocket integration", () => {
       accessToken: makeJwt({
         sid: "sid-1",
         jti: "jti-1",
-        exp: Math.floor((Date.now() + 60_000) / 1000),
+        exp: Math.floor((Date.now() + 120_000) / 1000),
       }),
+      expiresAt: Date.now() + 120_000,
     });
     await sessionManager.importSnapshot(initialSnapshot);
 

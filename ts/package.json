@@ -1,15 +1,15 @@
 {
   "name": "@ellipsis-labs/rise",
-  "version": "0.4.19",
+  "version": "0.4.27",
   "packageManager": "bun@1.3.13",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Ellipsis-Labs/rise-public.git",
+    "url": "git+https://github.com/Ellipsis-Labs/phoenix.git",
     "directory": "rise/ts"
   },
   "publishConfig": {
-    "registry": "https://registry.npmjs.org",
-    "access": "public"
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
   },
   "engines": {
     "bun": ">=1.3.13"
@@ -44,9 +44,14 @@
     "prepare": "bun run build",
     "prepublishOnly": "bun run build",
     "test": "vitest run --passWithNoTests",
+    "test:sdk-localnet": "vitest run tests/sdk-localnet-*.test.ts",
+    "test:sdk-localnet:ci": "bun --bun run scripts/run-sdk-localnet-ci.ts",
     "type-check": "bunx tsc --noEmit",
     "type-check:margin-parity": "bunx tsc --noEmit -p scripts/tsconfig.margin-parity.json",
-    "upload:s3-tarball": "bun --bun run scripts/upload-s3-tarball.ts"
+    "upload:s3-tarball": "bun --bun run scripts/upload-s3-tarball.ts",
+    "version:patch": "bun --bun run scripts/version.ts patch",
+    "version:minor": "bun --bun run scripts/version.ts minor",
+    "version:major": "bun --bun run scripts/version.ts major"
   },
   "dependencies": {
     "@noble/hashes": "^2.0.1",
@@ -80,6 +85,6 @@
     "prettier": "^3.8.1",
     "tsdown": "^0.20.0-beta.4",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.8"
   }
 }

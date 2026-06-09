@@ -309,6 +309,7 @@ const toMarkPriceParameters = (
     metadata.oraclePrice.markPrice.spotPriceComponent.staleThreshold,
   bookPriceStaleThreshold:
     metadata.oraclePrice.markPrice.bookPriceComponent.staleThreshold,
+  bookHardStaleMultiplier: 0,
   perpPriceStaleThreshold:
     metadata.oraclePrice.markPrice.perpPriceComponent.staleThreshold,
   riskActionPriceValidityRules: decodeRiskActionPriceValidityRules(
@@ -316,6 +317,7 @@ const toMarkPriceParameters = (
   ),
   oracleDivergenceRadius:
     metadata.oraclePrice.markPrice.oracleParameters.oracleDivergenceRadius,
+  oracleHardStaleMultiplier: 0,
   minOracleResponses:
     metadata.oraclePrice.markPrice.oracleParameters.minOracleResponses,
 });
@@ -474,6 +476,12 @@ const determineMarketChangeKind = (
     stringifyComparable(next.commodityMetadata)
   ) {
     return "commodityMetadata";
+  }
+  if (
+    stringifyComparable(previous.metadata) !==
+    stringifyComparable(next.metadata)
+  ) {
+    return "metadata";
   }
   if (toMarketComparable(previous) !== toMarketComparable(next)) {
     return "status";

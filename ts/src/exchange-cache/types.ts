@@ -2,6 +2,7 @@ import type {
   ExchangeMarketSnapshot,
   ExchangeSnapshotView,
   ExchangeStateSnapshot,
+  MarketPublicMetadata,
 } from "@/api/exchange/types";
 import type { StoreApi } from "zustand/vanilla";
 import type {
@@ -55,7 +56,8 @@ export type ExchangeCacheMarketChangeKind =
   | "upnlRiskFactorForWithdrawals"
   | "fundingParameters"
   | "marketFees"
-  | "commodityMetadata";
+  | "commodityMetadata"
+  | "metadata";
 
 export type ExchangeCacheEvent =
   | {
@@ -159,6 +161,11 @@ export interface PhoenixExchangeStoreState {
   marketsBySymbol: Readonly<Record<string, ExchangeMarketSnapshot>>;
   marketsByAssetId: Readonly<Record<number, ExchangeMarketSnapshot>>;
   marketsByPubkey: Readonly<Record<string, ExchangeMarketSnapshot>>;
+  marketMetadataBySymbol: Readonly<Record<string, MarketPublicMetadata | null>>;
+  marketMetadataByAssetId: Readonly<
+    Record<number, MarketPublicMetadata | null>
+  >;
+  marketMetadataByPubkey: Readonly<Record<string, MarketPublicMetadata | null>>;
   marketSymbols: readonly string[];
   activeMarketSymbols: readonly string[];
   gatedMarketSymbols: readonly string[];
@@ -193,6 +200,13 @@ export interface PhoenixExchangeCacheStore {
   market(symbol: string): ExchangeMarketSnapshot | undefined;
   marketByAssetId(assetId: number): ExchangeMarketSnapshot | undefined;
   marketByPubkey(pubkey: string): ExchangeMarketSnapshot | undefined;
+  marketMetadata(symbol: string): MarketPublicMetadata | null | undefined;
+  marketMetadataByAssetId(
+    assetId: number
+  ): MarketPublicMetadata | null | undefined;
+  marketMetadataByPubkey(
+    pubkey: string
+  ): MarketPublicMetadata | null | undefined;
   instructionContext(symbol: string): ExchangeInstructionContext | undefined;
   onEvent(listener: (event: ExchangeCacheEvent) => void): () => void;
   applySnapshot(
@@ -213,6 +227,13 @@ export interface PhoenixExchangeCache {
   market(symbol: string): ExchangeMarketSnapshot | undefined;
   marketByAssetId(assetId: number): ExchangeMarketSnapshot | undefined;
   marketByPubkey(pubkey: string): ExchangeMarketSnapshot | undefined;
+  marketMetadata(symbol: string): MarketPublicMetadata | null | undefined;
+  marketMetadataByAssetId(
+    assetId: number
+  ): MarketPublicMetadata | null | undefined;
+  marketMetadataByPubkey(
+    pubkey: string
+  ): MarketPublicMetadata | null | undefined;
   instructionContext(symbol: string): ExchangeInstructionContext | undefined;
   source(): PhoenixExchangeMetadataSourceState;
   subscribe(listener: (event: ExchangeCacheEvent) => void): () => void;

@@ -1,0 +1,3502 @@
+{
+  "schemaVersion": 1,
+  "name": "rise-sdk-default-localnet",
+  "keypairBaseSeed": "rise-sdk-localnet-v1",
+  "keypairDerivation": "ed25519 keypair_from_seed(sha256(`${keypairBaseSeed}-${seed}`))",
+  "programs": {
+    "phoenixEternal": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+    "ember": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+    "splToken": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "associatedToken": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+    "system": "11111111111111111111111111111111"
+  },
+  "addresses": {
+    "globalConfig": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+    "logAuthority": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+    "perpAssetMap": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+    "withdrawQueue": "E2PdNFupWRyfTersboFbTKroQ7hLvcZtgzNQ81buCDbT",
+    "globalVault": "99DGXmqavGrSBB67bnHySiAoU8u4aQWxCCFGp45XwRnz",
+    "globalTraderIndex": ["HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK"],
+    "activeTraderBuffer": ["2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok"],
+    "emberState": "6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz",
+    "emberVault": "FKcEb4TdPDTRuMnQDpSEPQBcrm15S73xiUD6Qf8ZLUkq"
+  },
+  "mints": [
+    {
+      "name": "fakeUsdc",
+      "seed": "usdc",
+      "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+      "decimals": 6,
+      "role": "Ember input mint and fake USDC mint authority"
+    },
+    {
+      "name": "phoenixCollateral",
+      "seed": "phoenix-mint",
+      "pubkey": "3Jht9GbHnD4q4jdMuLs9Z4dBBwCkLjugrEBVh8SE2Bfz",
+      "decimals": 6,
+      "role": "Ember output mint used as Phoenix collateral"
+    }
+  ],
+  "signers": [
+    {
+      "name": "payer",
+      "role": "localnet payer",
+      "seed": "payer",
+      "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+      "initialLamports": 1000000000000
+    },
+    {
+      "name": "fakeUsdcMint",
+      "role": "fake USDC mint",
+      "seed": "usdc",
+      "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+      "initialLamports": 0
+    },
+    {
+      "name": "phoenixMint",
+      "role": "Ember output Phoenix collateral mint",
+      "seed": "phoenix-mint",
+      "pubkey": "3Jht9GbHnD4q4jdMuLs9Z4dBBwCkLjugrEBVh8SE2Bfz",
+      "initialLamports": 0
+    },
+    {
+      "name": "perpAssetMap",
+      "role": "Phoenix perp asset map account",
+      "seed": "perp-asset-map",
+      "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+      "initialLamports": 0
+    },
+    {
+      "name": "withdrawQueue",
+      "role": "Phoenix withdraw queue account",
+      "seed": "withdraw-queue",
+      "pubkey": "E2PdNFupWRyfTersboFbTKroQ7hLvcZtgzNQ81buCDbT",
+      "initialLamports": 0
+    },
+    {
+      "name": "priceOracle",
+      "role": "delegated oracle updater",
+      "seed": "price-oracle",
+      "pubkey": "2XR2pqvh94FtCcc8u9SD18wQmN1D7KQwWcPFUT6BiLa3",
+      "initialLamports": 10000000000
+    },
+    {
+      "name": "orderbookTrader",
+      "role": "maker used by orderbook mock actions",
+      "seed": "orderbook-trader",
+      "pubkey": "5JPFZBK5R517q1DLxtWiD5s72YMw2DZXtHpsRxjPxtxu",
+      "initialLamports": 10000000000
+    },
+    {
+      "name": "splineTrader",
+      "role": "spline owner used by spline mock actions",
+      "seed": "spline-trader",
+      "pubkey": "FNb5zCBYbHUCAjZrwDNkZyiJv5JA7S2Wx52Qu7t3gUfD",
+      "initialLamports": 10000000000
+    },
+    {
+      "name": "taker0",
+      "role": "market-order taker",
+      "seed": "taker-0000",
+      "pubkey": "7isfNVgkf2Wz22DRuB1Yipdk7pLz3wVG8vroJCCQpVKX",
+      "initialLamports": 10000000000
+    },
+    {
+      "name": "taker1",
+      "role": "market-order taker",
+      "seed": "taker-0001",
+      "pubkey": "4aGbsgmMxptuj4tKZLReZjh1obsH4fGaayLYa93qa9aR",
+      "initialLamports": 10000000000
+    },
+    {
+      "name": "stopLossTaker",
+      "role": "stop-loss scenario taker",
+      "seed": "stop-loss-taker-0000",
+      "pubkey": "5N3txRuFnHLDom1YUvzuJBngxFUPMPfwkeGoUdtER7go",
+      "initialLamports": 10000000000
+    },
+    {
+      "name": "stopLossExecutor",
+      "role": "stop-loss trigger executor",
+      "seed": "stop-loss-executor",
+      "pubkey": "Ecjw4GkVLMtJrNEtonJB3yxuuUP8vav1bSQ5zPNTEkzr",
+      "initialLamports": 10000000000
+    },
+    {
+      "name": "btcMarket",
+      "role": "BTC orderbook account",
+      "seed": "market-BTC",
+      "pubkey": "FQKqynzMoUZUzNMhbnaQ9tfAJ212FrRE7C95n9hsrp6D",
+      "initialLamports": 0
+    },
+    {
+      "name": "ethMarket",
+      "role": "ETH orderbook account",
+      "seed": "market-ETH",
+      "pubkey": "2BukCb65F4pPa7RjQbvhdsmR2kUNQoEbJR7QdEmn4fuD",
+      "initialLamports": 0
+    },
+    {
+      "name": "solMarket",
+      "role": "SOL orderbook account",
+      "seed": "market-SOL",
+      "pubkey": "CByKdU5zCv8Z6Wf99nv7AbfXiLk1fCptyhAkq7cTJgAD",
+      "initialLamports": 0
+    }
+  ],
+  "markets": [
+    {
+      "symbol": "BTC",
+      "orderbook": "FQKqynzMoUZUzNMhbnaQ9tfAJ212FrRE7C95n9hsrp6D",
+      "spline": "9J7gqEXKXmMKRuME4bgKeR3udrUPJLeP1R2bxyfGkS51",
+      "signerSeed": "market-BTC",
+      "baseLotDecimals": 4,
+      "tickSizeInQuoteLotsPerBaseLot": 100,
+      "initialMarkPriceAtoms": 100000000,
+      "initialSpotPriceAtoms": 100000000,
+      "liquidity": {
+        "bids": [
+          {
+            "priceUsd": "99500",
+            "baseQuantity": "0.04"
+          },
+          {
+            "priceUsd": "99000",
+            "baseQuantity": "0.05"
+          }
+        ],
+        "asks": [
+          {
+            "priceUsd": "100500",
+            "baseQuantity": "0.04"
+          },
+          {
+            "priceUsd": "101000",
+            "baseQuantity": "0.05"
+          }
+        ]
+      }
+    },
+    {
+      "symbol": "ETH",
+      "orderbook": "2BukCb65F4pPa7RjQbvhdsmR2kUNQoEbJR7QdEmn4fuD",
+      "spline": "53kr4wExNMU3goZh1eviGzcqQCnjKKJaosVY1P2UUCq7",
+      "signerSeed": "market-ETH",
+      "baseLotDecimals": 3,
+      "tickSizeInQuoteLotsPerBaseLot": 10,
+      "initialMarkPriceAtoms": 3500000,
+      "initialSpotPriceAtoms": 3500000,
+      "liquidity": {
+        "bids": [
+          {
+            "priceUsd": "3485",
+            "baseQuantity": "1.5"
+          },
+          {
+            "priceUsd": "3475",
+            "baseQuantity": "2.0"
+          }
+        ],
+        "asks": [
+          {
+            "priceUsd": "3515",
+            "baseQuantity": "1.5"
+          },
+          {
+            "priceUsd": "3525",
+            "baseQuantity": "2.0"
+          }
+        ]
+      }
+    },
+    {
+      "symbol": "SOL",
+      "orderbook": "CByKdU5zCv8Z6Wf99nv7AbfXiLk1fCptyhAkq7cTJgAD",
+      "spline": "4NQqRHeBdLx9rcyNUoAfHkFmpk28JDNcAEmdMiTviYsn",
+      "signerSeed": "market-SOL",
+      "baseLotDecimals": 2,
+      "tickSizeInQuoteLotsPerBaseLot": 10,
+      "initialMarkPriceAtoms": 150000,
+      "initialSpotPriceAtoms": 150000,
+      "liquidity": {
+        "bids": [
+          {
+            "priceUsd": "149.5",
+            "baseQuantity": "40"
+          },
+          {
+            "priceUsd": "149",
+            "baseQuantity": "50"
+          }
+        ],
+        "asks": [
+          {
+            "priceUsd": "150.5",
+            "baseQuantity": "40"
+          },
+          {
+            "priceUsd": "151",
+            "baseQuantity": "50"
+          }
+        ]
+      }
+    }
+  ],
+  "actors": [
+    {
+      "name": "orderbookTrader",
+      "signer": "orderbookTrader",
+      "seed": "orderbook-trader",
+      "pubkey": "5JPFZBK5R517q1DLxtWiD5s72YMw2DZXtHpsRxjPxtxu",
+      "traderAccount": "2YeaRXZYxBbfgWLwVz8oLZ7Sz9MSKQDBwapC4yrCDKra",
+      "fakeUsdcTokenAccount": "9g39VLwJVSZxxGpjJmL3gL15DA9KUW7b9AzFeecm5giT",
+      "phoenixTokenAccount": "H7pLzAA2mXhGi2jG3VNjMSPbtqpMKjmouPzzkT5tc1ST",
+      "subaccountIndex": 0,
+      "initialUsdcAtoms": 25000000000000,
+      "phoenixDepositAtoms": 10000000000000,
+      "capabilities": [
+        "placeLimitOrder",
+        "placeMarketOrder",
+        "riskReducingTrade",
+        "riskIncreasingTrade",
+        "depositCollateral",
+        "withdrawCollateral"
+      ]
+    },
+    {
+      "name": "splineTrader",
+      "signer": "splineTrader",
+      "seed": "spline-trader",
+      "pubkey": "FNb5zCBYbHUCAjZrwDNkZyiJv5JA7S2Wx52Qu7t3gUfD",
+      "traderAccount": "A71SHZp8ju4nbmKQviEXvq4eWKKsivV5JMhRutjS3Dr8",
+      "fakeUsdcTokenAccount": "DMwiCfE53LsZ5wKhjL3h69zrjvmLRQXtoyEo3aYEqXg5",
+      "phoenixTokenAccount": "HBVEpjDHtogU3tjAF3HMky2ZKyE2pu5ZQvCssrw9jS9n",
+      "subaccountIndex": 0,
+      "initialUsdcAtoms": 25000000000000,
+      "phoenixDepositAtoms": 10000000000000,
+      "capabilities": [
+        "placeLimitOrder",
+        "placeMarketOrder",
+        "riskReducingTrade",
+        "riskIncreasingTrade",
+        "depositCollateral",
+        "withdrawCollateral"
+      ]
+    },
+    {
+      "name": "taker0",
+      "signer": "taker0",
+      "seed": "taker-0000",
+      "pubkey": "7isfNVgkf2Wz22DRuB1Yipdk7pLz3wVG8vroJCCQpVKX",
+      "traderAccount": "GHkq1eHeZGi96RmGPZ23e3BDEcdfpPzsPwpYdm17SWgc",
+      "fakeUsdcTokenAccount": "3GZzGngsEc9fLD2C8VJuzE57nULwUJUrA2gLhDHy1bSm",
+      "phoenixTokenAccount": "9jWJtznQEpViojse6fpk5dS8Kuo6KUtujbXDk6DYPUGv",
+      "subaccountIndex": 0,
+      "initialUsdcAtoms": 25000000000000,
+      "phoenixDepositAtoms": 10000000000000,
+      "capabilities": [
+        "placeLimitOrder",
+        "placeMarketOrder",
+        "riskReducingTrade",
+        "riskIncreasingTrade",
+        "depositCollateral",
+        "withdrawCollateral"
+      ]
+    },
+    {
+      "name": "taker1",
+      "signer": "taker1",
+      "seed": "taker-0001",
+      "pubkey": "4aGbsgmMxptuj4tKZLReZjh1obsH4fGaayLYa93qa9aR",
+      "traderAccount": "7U4g5JyoqKTAwTYd7D7iAf4jed8R95yMHJ6aZSDwcKHV",
+      "fakeUsdcTokenAccount": "4Z8qmo7fRKXh5dajhGeDjBPn1npB3cG7bqA2kxPa2CL9",
+      "phoenixTokenAccount": "FfvHTV2AEDWSJXkoCpsTuzgSuvpekpfuoRjRddnmUnkr",
+      "subaccountIndex": 0,
+      "initialUsdcAtoms": 25000000000000,
+      "phoenixDepositAtoms": 10000000000000,
+      "capabilities": [
+        "placeLimitOrder",
+        "placeMarketOrder",
+        "riskReducingTrade",
+        "riskIncreasingTrade",
+        "depositCollateral",
+        "withdrawCollateral"
+      ]
+    },
+    {
+      "name": "stopLossTaker",
+      "signer": "stopLossTaker",
+      "seed": "stop-loss-taker-0000",
+      "pubkey": "5N3txRuFnHLDom1YUvzuJBngxFUPMPfwkeGoUdtER7go",
+      "traderAccount": "7CYKZnzpASyxa2nJYbcdfDani85p8VJXNPLRb7pyd4DS",
+      "fakeUsdcTokenAccount": "RRZmShxBsS2QH9YqAnYjKfZ7QqU5JqqVkyxex137ZEv",
+      "phoenixTokenAccount": "3JGabYoe8dcSjuWF9xH7hJr7CQo2dZzJXJZ8CzDXjBDc",
+      "subaccountIndex": 0,
+      "initialUsdcAtoms": 25000000000000,
+      "phoenixDepositAtoms": 10000000000000,
+      "capabilities": [
+        "placeLimitOrder",
+        "placeMarketOrder",
+        "riskReducingTrade",
+        "riskIncreasingTrade",
+        "depositCollateral",
+        "withdrawCollateral"
+      ]
+    }
+  ],
+  "setupTransactions": [
+    {
+      "name": "createFakeUsdcMint",
+      "description": "Create a deterministic fake USDC SPL mint controlled by the payer.",
+      "signerSeeds": ["payer", "usdc"],
+      "instructions": [
+        {
+          "name": "createFakeUsdcMintAccount",
+          "programId": "11111111111111111111111111111111",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": true,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "AAAAAGBNFgAAAAAAUgAAAAAAAAAG3fbh12Whk9nL4UbO63msHLSF7V9bN5E6jPWFfv8AqQ=="
+        },
+        {
+          "name": "initializeFakeUsdcMint",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "accounts": [
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "FAanQmqFfDzviEra9c1ltQ12LmwOUhHDH++ZE7Y5ewI96AA="
+        }
+      ]
+    },
+    {
+      "name": "initializeExchange",
+      "description": "Initialize Ember and Phoenix global exchange state using fake USDC as the Ember input mint.",
+      "signerSeeds": [
+        "payer",
+        "phoenix-mint",
+        "perp-asset-map",
+        "withdraw-queue"
+      ],
+      "instructions": [
+        {
+          "name": "initializeEmber",
+          "programId": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "3Jht9GbHnD4q4jdMuLs9Z4dBBwCkLjugrEBVh8SE2Bfz",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FKcEb4TdPDTRuMnQDpSEPQBcrm15S73xiUD6Qf8ZLUkq",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "3DvP7Gz6L2Q="
+        },
+        {
+          "name": "createPerpAssetMap",
+          "programId": "11111111111111111111111111111111",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": true,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "AAAAAACx9qACAAAAMMAYAAAAAADOcNb7Vo5D6/yWSpAVbDvpVjsIFwZ8q2lOvIPv3bN+hg=="
+        },
+        {
+          "name": "createWithdrawQueue",
+          "programId": "11111111111111111111111111111111",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "E2PdNFupWRyfTersboFbTKroQ7hLvcZtgzNQ81buCDbT",
+              "isSigner": true,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "AAAAAADjeFgAAAAAkEADAAAAAADOcNb7Vo5D6/yWSpAVbDvpVjsIFwZ8q2lOvIPv3bN+hg=="
+        },
+        {
+          "name": "rebirth",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "99DGXmqavGrSBB67bnHySiAoU8u4aQWxCCFGp45XwRnz",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "3Jht9GbHnD4q4jdMuLs9Z4dBBwCkLjugrEBVh8SE2Bfz",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "E2PdNFupWRyfTersboFbTKroQ7hLvcZtgzNQ81buCDbT",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "j/GaT3Ti/5D+fwIAc9EBAEAAAAAAQHoQ81oAAAAQpdToAAAA"
+        },
+        {
+          "name": "setWithdrawCooldown",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "E2PdNFupWRyfTersboFbTKroQ7hLvcZtgzNQ81buCDbT",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "V9HhhFuX+YQBlgAAAAAAAAAAAA=="
+        },
+        {
+          "name": "updateWithdrawRateLimits",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "E2PdNFupWRyfTersboFbTKroQ7hLvcZtgzNQ81buCDbT",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "u/aSto3YJAEBAEB6EPNaAAABABCl1OgAAAA="
+        },
+        {
+          "name": "fundGlobalTraderIndexHeader",
+          "programId": "11111111111111111111111111111111",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "AgAAAAAyCv4QAAAA"
+        },
+        {
+          "name": "fundActiveTraderBufferHeader",
+          "programId": "11111111111111111111111111111111",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "AgAAAIALC/4QAAAA"
+        }
+      ]
+    },
+    {
+      "name": "initializeMarkets",
+      "description": "Create and activate BTC, ETH, and SOL perpetual markets.",
+      "signerSeeds": ["payer", "market-BTC", "market-ETH", "market-SOL"],
+      "instructions": [
+        {
+          "name": "createBTCOrderbook",
+          "programId": "11111111111111111111111111111111",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FQKqynzMoUZUzNMhbnaQ9tfAJ212FrRE7C95n9hsrp6D",
+              "isSigner": true,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "AAAAAADsvOsBAAAAwBUSAAAAAADOcNb7Vo5D6/yWSpAVbDvpVjsIFwZ8q2lOvIPv3bN+hg=="
+        },
+        {
+          "name": "addBTCMarket",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FQKqynzMoUZUzNMhbnaQ9tfAJ212FrRE7C95n9hsrp6D",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "9J7gqEXKXmMKRuME4bgKeR3udrUPJLeP1R2bxyfGkS51",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "KYm5fkWL/jdCVEMAAAAAAAAAAAAAAAAAoIYBAAAAAAAUAAAAAAAAAFgbAAAAAAAAIKEHAAAAAAAKAAAAAAAAAEAfAAAAAAAAQEIPAAAAAAAFAAAAAAAAACgjAAAAAAAAgJaYAAAAAAACAAAAAAAAABAnAAAAAAAAAABkAAAAAAAAAAQBAAAAAAAAABAnAAAAAAAAuAsAAAAAAAAsGogT0AdYG2RFAQAAAAAAoIYBAAAAAABkAAAAAAAAACChBwAAAAAAyAAAAAAAAABAQg8AAAAAACwBAAAAAAAAgJaYAAAAAACQAQAAAAAAAP////8AAAAAdwEAAAAAAADoAwAAAAAAAOgDAAAAAAAAZAAAAAAAAABkAAAAAAAAAGQAAAAAAAAAAQAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB9AEBCgoACgAAAA=="
+        },
+        {
+          "name": "activateBTCMarket",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FQKqynzMoUZUzNMhbnaQ9tfAJ212FrRE7C95n9hsrp6D",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "3X/gKbGRfggB"
+        },
+        {
+          "name": "createETHOrderbook",
+          "programId": "11111111111111111111111111111111",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2BukCb65F4pPa7RjQbvhdsmR2kUNQoEbJR7QdEmn4fuD",
+              "isSigner": true,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "AAAAAADsvOsBAAAAwBUSAAAAAADOcNb7Vo5D6/yWSpAVbDvpVjsIFwZ8q2lOvIPv3bN+hg=="
+        },
+        {
+          "name": "addETHMarket",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2BukCb65F4pPa7RjQbvhdsmR2kUNQoEbJR7QdEmn4fuD",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "53kr4wExNMU3goZh1eviGzcqQCnjKKJaosVY1P2UUCq7",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "KYm5fkWL/jdFVEgAAAAAAAAAAAAAAAAAoIYBAAAAAAAUAAAAAAAAAFgbAAAAAAAAIKEHAAAAAAAKAAAAAAAAAEAfAAAAAAAAQEIPAAAAAAAFAAAAAAAAACgjAAAAAAAAgJaYAAAAAAACAAAAAAAAABAnAAAAAAAAAAAKAAAAAAAAAAMBAAAAAAAAABAnAAAAAAAAuAsAAAAAAACIE9AH6AN8FcgUBQAAAAAAoIYBAAAAAABkAAAAAAAAACChBwAAAAAAyAAAAAAAAABAQg8AAAAAACwBAAAAAAAAgJaYAAAAAACQAQAAAAAAAP////8AAAAAdwEAAAAAAADoAwAAAAAAAOgDAAAAAAAAZAAAAAAAAABkAAAAAAAAAGQAAAAAAAAAAQAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB9AEBCgoACgAAAA=="
+        },
+        {
+          "name": "activateETHMarket",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2BukCb65F4pPa7RjQbvhdsmR2kUNQoEbJR7QdEmn4fuD",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "3X/gKbGRfggB"
+        },
+        {
+          "name": "createSOLOrderbook",
+          "programId": "11111111111111111111111111111111",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CByKdU5zCv8Z6Wf99nv7AbfXiLk1fCptyhAkq7cTJgAD",
+              "isSigner": true,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "AAAAAADsvOsBAAAAwBUSAAAAAADOcNb7Vo5D6/yWSpAVbDvpVjsIFwZ8q2lOvIPv3bN+hg=="
+        },
+        {
+          "name": "addSOLMarket",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CByKdU5zCv8Z6Wf99nv7AbfXiLk1fCptyhAkq7cTJgAD",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "4NQqRHeBdLx9rcyNUoAfHkFmpk28JDNcAEmdMiTviYsn",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "KYm5fkWL/jdTT0wAAAAAAAAAAAAAAAAAoIYBAAAAAAAUAAAAAAAAAFgbAAAAAAAAIKEHAAAAAAAKAAAAAAAAAEAfAAAAAAAAQEIPAAAAAAAFAAAAAAAAACgjAAAAAAAAgJaYAAAAAAACAAAAAAAAABAnAAAAAAAAAAAKAAAAAAAAAAIBAAAAAAAAABAnAAAAAAAAuAsAAAAAAACIE9AH6AN8FUBCDwAAAAAAoIYBAAAAAABkAAAAAAAAACChBwAAAAAAyAAAAAAAAABAQg8AAAAAACwBAAAAAAAAgJaYAAAAAACQAQAAAAAAAP////8AAAAAdwEAAAAAAADoAwAAAAAAAOgDAAAAAAAAZAAAAAAAAABkAAAAAAAAAGQAAAAAAAAAAQAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB9AEBCgoACgAAAA=="
+        },
+        {
+          "name": "activateSOLMarket",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CByKdU5zCv8Z6Wf99nv7AbfXiLk1fCptyhAkq7cTJgAD",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "3X/gKbGRfggB"
+        }
+      ]
+    },
+    {
+      "name": "oracleSetPrices",
+      "description": "Create oracle delegation for the price oracle and set deterministic mark/spot prices.",
+      "signerSeeds": ["payer", "price-oracle"],
+      "instructions": [
+        {
+          "name": "createOraclePermission",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "DamWDo1h7UiDiXd7vSTbeiNGdLV9nSLYCnohi3JBTEQS",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2XR2pqvh94FtCcc8u9SD18wQmN1D7KQwWcPFUT6BiLa3",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "vrYapJzdCAA="
+        },
+        {
+          "name": "setOraclePermission",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "DamWDo1h7UiDiXd7vSTbeiNGdLV9nSLYCnohi3JBTEQS",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2XR2pqvh94FtCcc8u9SD18wQmN1D7KQwWcPFUT6BiLa3",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "Rn4pwvW9gAgBAAAAAAAAAAAA"
+        },
+        {
+          "name": "updateOraclePrices",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2XR2pqvh94FtCcc8u9SD18wQmN1D7KQwWcPFUT6BiLa3",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "DamWDo1h7UiDiXd7vSTbeiNGdLV9nSLYCnohi3JBTEQS",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "pAAO+jrGGRgAsz9xAAAAAAMAAABCVEMAAAAAAAAAAAAAAAAAAQDh9QUAAAAAAwDh9QUAAAAAA0VUSAAAAAAAAAAAAAAAAAAB4Gc1AAAAAAAD4Gc1AAAAAAADU09MAAAAAAAAAAAAAAAAAAHwSQIAAAAAAAPwSQIAAAAAAAMA"
+        }
+      ]
+    },
+    {
+      "name": "seedOrderbookTraderCollateral",
+      "description": "Mint fake USDC to orderbookTrader, deposit through Ember, register the Phoenix trader, and enable all trading capabilities.",
+      "signerSeeds": ["payer", "orderbook-trader"],
+      "instructions": [
+        {
+          "name": "createOrderbookTraderFakeUsdcAta",
+          "programId": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "9g39VLwJVSZxxGpjJmL3gL15DA9KUW7b9AzFeecm5giT",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5JPFZBK5R517q1DLxtWiD5s72YMw2DZXtHpsRxjPxtxu",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "AQ=="
+        },
+        {
+          "name": "mintOrderbookTraderFakeUsdc",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "accounts": [
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "9g39VLwJVSZxxGpjJmL3gL15DA9KUW7b9AzFeecm5giT",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "BwCQHsS8FgAA"
+        },
+        {
+          "name": "createOrderbookTraderPhoenixAta",
+          "programId": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "H7pLzAA2mXhGi2jG3VNjMSPbtqpMKjmouPzzkT5tc1ST",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5JPFZBK5R517q1DLxtWiD5s72YMw2DZXtHpsRxjPxtxu",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "3Jht9GbHnD4q4jdMuLs9Z4dBBwCkLjugrEBVh8SE2Bfz",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "AQ=="
+        },
+        {
+          "name": "emberDepositOrderbookTrader",
+          "programId": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+          "accounts": [
+            {
+              "pubkey": "5JPFZBK5R517q1DLxtWiD5s72YMw2DZXtHpsRxjPxtxu",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "3Jht9GbHnD4q4jdMuLs9Z4dBBwCkLjugrEBVh8SE2Bfz",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "9g39VLwJVSZxxGpjJmL3gL15DA9KUW7b9AzFeecm5giT",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "H7pLzAA2mXhGi2jG3VNjMSPbtqpMKjmouPzzkT5tc1ST",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FKcEb4TdPDTRuMnQDpSEPQBcrm15S73xiUD6Qf8ZLUkq",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "8iPGiVLh8rYAoHJOGAkAAA=="
+        },
+        {
+          "name": "registerOrderbookTraderTrader",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5JPFZBK5R517q1DLxtWiD5s72YMw2DZXtHpsRxjPxtxu",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2YeaRXZYxBbfgWLwVz8oLZ7Sz9MSKQDBwapC4yrCDKra",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "S/PgpwEFMyCAAAAAAAAAAAAA"
+        },
+        {
+          "name": "depositOrderbookTraderPhoenixCollateral",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5JPFZBK5R517q1DLxtWiD5s72YMw2DZXtHpsRxjPxtxu",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "H7pLzAA2mXhGi2jG3VNjMSPbtqpMKjmouPzzkT5tc1ST",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2YeaRXZYxBbfgWLwVz8oLZ7Sz9MSKQDBwapC4yrCDKra",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "99DGXmqavGrSBB67bnHySiAoU8u4aQWxCCFGp45XwRnz",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "yic00zUU+lgAoHJOGAkAAA=="
+        },
+        {
+          "name": "enableOrderbookTraderTraderCapabilities",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2YeaRXZYxBbfgWLwVz8oLZ7Sz9MSKQDBwapC4yrCDKra",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "z6oRFTUjWJcGAAAAAAEBAQMBAgEEAQUB"
+        }
+      ]
+    },
+    {
+      "name": "seedSplineTraderCollateral",
+      "description": "Mint fake USDC to splineTrader, deposit through Ember, register the Phoenix trader, and enable all trading capabilities.",
+      "signerSeeds": ["payer", "spline-trader"],
+      "instructions": [
+        {
+          "name": "createSplineTraderFakeUsdcAta",
+          "programId": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "DMwiCfE53LsZ5wKhjL3h69zrjvmLRQXtoyEo3aYEqXg5",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FNb5zCBYbHUCAjZrwDNkZyiJv5JA7S2Wx52Qu7t3gUfD",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "AQ=="
+        },
+        {
+          "name": "mintSplineTraderFakeUsdc",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "accounts": [
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "DMwiCfE53LsZ5wKhjL3h69zrjvmLRQXtoyEo3aYEqXg5",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "BwCQHsS8FgAA"
+        },
+        {
+          "name": "createSplineTraderPhoenixAta",
+          "programId": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HBVEpjDHtogU3tjAF3HMky2ZKyE2pu5ZQvCssrw9jS9n",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FNb5zCBYbHUCAjZrwDNkZyiJv5JA7S2Wx52Qu7t3gUfD",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "3Jht9GbHnD4q4jdMuLs9Z4dBBwCkLjugrEBVh8SE2Bfz",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "AQ=="
+        },
+        {
+          "name": "emberDepositSplineTrader",
+          "programId": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+          "accounts": [
+            {
+              "pubkey": "FNb5zCBYbHUCAjZrwDNkZyiJv5JA7S2Wx52Qu7t3gUfD",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "3Jht9GbHnD4q4jdMuLs9Z4dBBwCkLjugrEBVh8SE2Bfz",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "DMwiCfE53LsZ5wKhjL3h69zrjvmLRQXtoyEo3aYEqXg5",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HBVEpjDHtogU3tjAF3HMky2ZKyE2pu5ZQvCssrw9jS9n",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FKcEb4TdPDTRuMnQDpSEPQBcrm15S73xiUD6Qf8ZLUkq",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "8iPGiVLh8rYAoHJOGAkAAA=="
+        },
+        {
+          "name": "registerSplineTraderTrader",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FNb5zCBYbHUCAjZrwDNkZyiJv5JA7S2Wx52Qu7t3gUfD",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "A71SHZp8ju4nbmKQviEXvq4eWKKsivV5JMhRutjS3Dr8",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "S/PgpwEFMyCAAAAAAAAAAAAA"
+        },
+        {
+          "name": "depositSplineTraderPhoenixCollateral",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FNb5zCBYbHUCAjZrwDNkZyiJv5JA7S2Wx52Qu7t3gUfD",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "HBVEpjDHtogU3tjAF3HMky2ZKyE2pu5ZQvCssrw9jS9n",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "A71SHZp8ju4nbmKQviEXvq4eWKKsivV5JMhRutjS3Dr8",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "99DGXmqavGrSBB67bnHySiAoU8u4aQWxCCFGp45XwRnz",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "yic00zUU+lgAoHJOGAkAAA=="
+        },
+        {
+          "name": "enableSplineTraderTraderCapabilities",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "A71SHZp8ju4nbmKQviEXvq4eWKKsivV5JMhRutjS3Dr8",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "z6oRFTUjWJcGAAAAAAEBAQMBAgEEAQUB"
+        }
+      ]
+    },
+    {
+      "name": "seedTaker0Collateral",
+      "description": "Mint fake USDC to taker0, deposit through Ember, register the Phoenix trader, and enable all trading capabilities.",
+      "signerSeeds": ["payer", "taker-0000"],
+      "instructions": [
+        {
+          "name": "createTaker0FakeUsdcAta",
+          "programId": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "3GZzGngsEc9fLD2C8VJuzE57nULwUJUrA2gLhDHy1bSm",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "7isfNVgkf2Wz22DRuB1Yipdk7pLz3wVG8vroJCCQpVKX",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "AQ=="
+        },
+        {
+          "name": "mintTaker0FakeUsdc",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "accounts": [
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "3GZzGngsEc9fLD2C8VJuzE57nULwUJUrA2gLhDHy1bSm",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "BwCQHsS8FgAA"
+        },
+        {
+          "name": "createTaker0PhoenixAta",
+          "programId": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "9jWJtznQEpViojse6fpk5dS8Kuo6KUtujbXDk6DYPUGv",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "7isfNVgkf2Wz22DRuB1Yipdk7pLz3wVG8vroJCCQpVKX",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "3Jht9GbHnD4q4jdMuLs9Z4dBBwCkLjugrEBVh8SE2Bfz",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "AQ=="
+        },
+        {
+          "name": "emberDepositTaker0",
+          "programId": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+          "accounts": [
+            {
+              "pubkey": "7isfNVgkf2Wz22DRuB1Yipdk7pLz3wVG8vroJCCQpVKX",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "3Jht9GbHnD4q4jdMuLs9Z4dBBwCkLjugrEBVh8SE2Bfz",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "3GZzGngsEc9fLD2C8VJuzE57nULwUJUrA2gLhDHy1bSm",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "9jWJtznQEpViojse6fpk5dS8Kuo6KUtujbXDk6DYPUGv",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FKcEb4TdPDTRuMnQDpSEPQBcrm15S73xiUD6Qf8ZLUkq",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "8iPGiVLh8rYAoHJOGAkAAA=="
+        },
+        {
+          "name": "registerTaker0Trader",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "7isfNVgkf2Wz22DRuB1Yipdk7pLz3wVG8vroJCCQpVKX",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GHkq1eHeZGi96RmGPZ23e3BDEcdfpPzsPwpYdm17SWgc",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "S/PgpwEFMyCAAAAAAAAAAAAA"
+        },
+        {
+          "name": "depositTaker0PhoenixCollateral",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "7isfNVgkf2Wz22DRuB1Yipdk7pLz3wVG8vroJCCQpVKX",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "9jWJtznQEpViojse6fpk5dS8Kuo6KUtujbXDk6DYPUGv",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "GHkq1eHeZGi96RmGPZ23e3BDEcdfpPzsPwpYdm17SWgc",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "99DGXmqavGrSBB67bnHySiAoU8u4aQWxCCFGp45XwRnz",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "yic00zUU+lgAoHJOGAkAAA=="
+        },
+        {
+          "name": "enableTaker0TraderCapabilities",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "GHkq1eHeZGi96RmGPZ23e3BDEcdfpPzsPwpYdm17SWgc",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "z6oRFTUjWJcGAAAAAAEBAQMBAgEEAQUB"
+        }
+      ]
+    },
+    {
+      "name": "seedTaker1Collateral",
+      "description": "Mint fake USDC to taker1, deposit through Ember, register the Phoenix trader, and enable all trading capabilities.",
+      "signerSeeds": ["payer", "taker-0001"],
+      "instructions": [
+        {
+          "name": "createTaker1FakeUsdcAta",
+          "programId": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "4Z8qmo7fRKXh5dajhGeDjBPn1npB3cG7bqA2kxPa2CL9",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "4aGbsgmMxptuj4tKZLReZjh1obsH4fGaayLYa93qa9aR",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "AQ=="
+        },
+        {
+          "name": "mintTaker1FakeUsdc",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "accounts": [
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "4Z8qmo7fRKXh5dajhGeDjBPn1npB3cG7bqA2kxPa2CL9",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "BwCQHsS8FgAA"
+        },
+        {
+          "name": "createTaker1PhoenixAta",
+          "programId": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FfvHTV2AEDWSJXkoCpsTuzgSuvpekpfuoRjRddnmUnkr",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "4aGbsgmMxptuj4tKZLReZjh1obsH4fGaayLYa93qa9aR",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "3Jht9GbHnD4q4jdMuLs9Z4dBBwCkLjugrEBVh8SE2Bfz",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "AQ=="
+        },
+        {
+          "name": "emberDepositTaker1",
+          "programId": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+          "accounts": [
+            {
+              "pubkey": "4aGbsgmMxptuj4tKZLReZjh1obsH4fGaayLYa93qa9aR",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "3Jht9GbHnD4q4jdMuLs9Z4dBBwCkLjugrEBVh8SE2Bfz",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "4Z8qmo7fRKXh5dajhGeDjBPn1npB3cG7bqA2kxPa2CL9",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FfvHTV2AEDWSJXkoCpsTuzgSuvpekpfuoRjRddnmUnkr",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FKcEb4TdPDTRuMnQDpSEPQBcrm15S73xiUD6Qf8ZLUkq",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "8iPGiVLh8rYAoHJOGAkAAA=="
+        },
+        {
+          "name": "registerTaker1Trader",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "4aGbsgmMxptuj4tKZLReZjh1obsH4fGaayLYa93qa9aR",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "7U4g5JyoqKTAwTYd7D7iAf4jed8R95yMHJ6aZSDwcKHV",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "S/PgpwEFMyCAAAAAAAAAAAAA"
+        },
+        {
+          "name": "depositTaker1PhoenixCollateral",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "4aGbsgmMxptuj4tKZLReZjh1obsH4fGaayLYa93qa9aR",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "FfvHTV2AEDWSJXkoCpsTuzgSuvpekpfuoRjRddnmUnkr",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "7U4g5JyoqKTAwTYd7D7iAf4jed8R95yMHJ6aZSDwcKHV",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "99DGXmqavGrSBB67bnHySiAoU8u4aQWxCCFGp45XwRnz",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "yic00zUU+lgAoHJOGAkAAA=="
+        },
+        {
+          "name": "enableTaker1TraderCapabilities",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "7U4g5JyoqKTAwTYd7D7iAf4jed8R95yMHJ6aZSDwcKHV",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "z6oRFTUjWJcGAAAAAAEBAQMBAgEEAQUB"
+        }
+      ]
+    },
+    {
+      "name": "seedStopLossTakerCollateral",
+      "description": "Mint fake USDC to stopLossTaker, deposit through Ember, register the Phoenix trader, and enable all trading capabilities.",
+      "signerSeeds": ["payer", "stop-loss-taker-0000"],
+      "instructions": [
+        {
+          "name": "createStopLossTakerFakeUsdcAta",
+          "programId": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "RRZmShxBsS2QH9YqAnYjKfZ7QqU5JqqVkyxex137ZEv",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5N3txRuFnHLDom1YUvzuJBngxFUPMPfwkeGoUdtER7go",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "AQ=="
+        },
+        {
+          "name": "mintStopLossTakerFakeUsdc",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "accounts": [
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "RRZmShxBsS2QH9YqAnYjKfZ7QqU5JqqVkyxex137ZEv",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "BwCQHsS8FgAA"
+        },
+        {
+          "name": "createStopLossTakerPhoenixAta",
+          "programId": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+          "accounts": [
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "3JGabYoe8dcSjuWF9xH7hJr7CQo2dZzJXJZ8CzDXjBDc",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5N3txRuFnHLDom1YUvzuJBngxFUPMPfwkeGoUdtER7go",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "3Jht9GbHnD4q4jdMuLs9Z4dBBwCkLjugrEBVh8SE2Bfz",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "AQ=="
+        },
+        {
+          "name": "emberDepositStopLossTaker",
+          "programId": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+          "accounts": [
+            {
+              "pubkey": "5N3txRuFnHLDom1YUvzuJBngxFUPMPfwkeGoUdtER7go",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CN3tY5cGA7CwgEZsgdTW7FaLXkK9NkdtDbb9ix6U11vT",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "3Jht9GbHnD4q4jdMuLs9Z4dBBwCkLjugrEBVh8SE2Bfz",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "RRZmShxBsS2QH9YqAnYjKfZ7QqU5JqqVkyxex137ZEv",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "3JGabYoe8dcSjuWF9xH7hJr7CQo2dZzJXJZ8CzDXjBDc",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FKcEb4TdPDTRuMnQDpSEPQBcrm15S73xiUD6Qf8ZLUkq",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "8iPGiVLh8rYAoHJOGAkAAA=="
+        },
+        {
+          "name": "registerStopLossTakerTrader",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5N3txRuFnHLDom1YUvzuJBngxFUPMPfwkeGoUdtER7go",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "7CYKZnzpASyxa2nJYbcdfDani85p8VJXNPLRb7pyd4DS",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "S/PgpwEFMyCAAAAAAAAAAAAA"
+        },
+        {
+          "name": "depositStopLossTakerPhoenixCollateral",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5N3txRuFnHLDom1YUvzuJBngxFUPMPfwkeGoUdtER7go",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "3JGabYoe8dcSjuWF9xH7hJr7CQo2dZzJXJZ8CzDXjBDc",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "7CYKZnzpASyxa2nJYbcdfDani85p8VJXNPLRb7pyd4DS",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "99DGXmqavGrSBB67bnHySiAoU8u4aQWxCCFGp45XwRnz",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "yic00zUU+lgAoHJOGAkAAA=="
+        },
+        {
+          "name": "enableStopLossTakerTraderCapabilities",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "7CYKZnzpASyxa2nJYbcdfDani85p8VJXNPLRb7pyd4DS",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "z6oRFTUjWJcGAAAAAAEBAQMBAgEEAQUB"
+        }
+      ]
+    },
+    {
+      "name": "registerSplines",
+      "description": "Register the spline trader as spline owner for each market.",
+      "signerSeeds": ["payer"],
+      "instructions": [
+        {
+          "name": "registerBTCSpline",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "9J7gqEXKXmMKRuME4bgKeR3udrUPJLeP1R2bxyfGkS51",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FQKqynzMoUZUzNMhbnaQ9tfAJ212FrRE7C95n9hsrp6D",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "A71SHZp8ju4nbmKQviEXvq4eWKKsivV5JMhRutjS3Dr8",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "HrCgT/x18To="
+        },
+        {
+          "name": "registerETHSpline",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "53kr4wExNMU3goZh1eviGzcqQCnjKKJaosVY1P2UUCq7",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2BukCb65F4pPa7RjQbvhdsmR2kUNQoEbJR7QdEmn4fuD",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "A71SHZp8ju4nbmKQviEXvq4eWKKsivV5JMhRutjS3Dr8",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "HrCgT/x18To="
+        },
+        {
+          "name": "registerSOLSpline",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "4NQqRHeBdLx9rcyNUoAfHkFmpk28JDNcAEmdMiTviYsn",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CByKdU5zCv8Z6Wf99nv7AbfXiLk1fCptyhAkq7cTJgAD",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "A71SHZp8ju4nbmKQviEXvq4eWKKsivV5JMhRutjS3Dr8",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "HrCgT/x18To="
+        }
+      ]
+    },
+    {
+      "name": "orderbookPlaceLevels",
+      "description": "Place deterministic maker bid/ask levels from the orderbook trader.",
+      "signerSeeds": ["orderbook-trader"],
+      "instructions": [
+        {
+          "name": "placeBTCMakerLevels",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5JPFZBK5R517q1DLxtWiD5s72YMw2DZXtHpsRxjPxtxu",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2YeaRXZYxBbfgWLwVz8oLZ7Sz9MSKQDBwapC4yrCDKra",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FQKqynzMoUZUzNMhbnaQ9tfAJ212FrRE7C95n9hsrp6D",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "9J7gqEXKXmMKRuME4bgKeR3udrUPJLeP1R2bxyfGkS51",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "7NDdrI3igVQCAAAArIQBAAAAAACQAQAAAAAAAAC4ggEAAAAAAPQBAAAAAAAAAAIAAACUiAEAAAAAAJABAAAAAAAAAIiKAQAAAAAA9AEAAAAAAAAAAAA="
+        },
+        {
+          "name": "placeETHMakerLevels",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5JPFZBK5R517q1DLxtWiD5s72YMw2DZXtHpsRxjPxtxu",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2YeaRXZYxBbfgWLwVz8oLZ7Sz9MSKQDBwapC4yrCDKra",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2BukCb65F4pPa7RjQbvhdsmR2kUNQoEbJR7QdEmn4fuD",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "53kr4wExNMU3goZh1eviGzcqQCnjKKJaosVY1P2UUCq7",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "7NDdrI3igVQCAAAAVFEFAAAAAADcBQAAAAAAAABsTQUAAAAAANAHAAAAAAAAAAIAAAAMXQUAAAAAANwFAAAAAAAAAPRgBQAAAAAA0AcAAAAAAAAAAAA="
+        },
+        {
+          "name": "placeSOLMakerLevels",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5JPFZBK5R517q1DLxtWiD5s72YMw2DZXtHpsRxjPxtxu",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2YeaRXZYxBbfgWLwVz8oLZ7Sz9MSKQDBwapC4yrCDKra",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CByKdU5zCv8Z6Wf99nv7AbfXiLk1fCptyhAkq7cTJgAD",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "4NQqRHeBdLx9rcyNUoAfHkFmpk28JDNcAEmdMiTviYsn",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "7NDdrI3igVQCAAAA/EcCAAAAAACgDwAAAAAAAAAIRgIAAAAAAIgTAAAAAAAAAAIAAADkSwIAAAAAAKAPAAAAAAAAANhNAgAAAAAAiBMAAAAAAAAAAAA="
+        }
+      ]
+    }
+  ],
+  "actionTemplates": [
+    {
+      "name": "oracleSetPrices",
+      "description": "Update deterministic mark/spot prices with the delegated price oracle.",
+      "signerSeeds": ["price-oracle"],
+      "instructions": [
+        {
+          "name": "updateOraclePrices",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2XR2pqvh94FtCcc8u9SD18wQmN1D7KQwWcPFUT6BiLa3",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "DamWDo1h7UiDiXd7vSTbeiNGdLV9nSLYCnohi3JBTEQS",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "pAAO+jrGGRgAsz9xAAAAAAMAAABCVEMAAAAAAAAAAAAAAAAAAQDh9QUAAAAAAwDh9QUAAAAAA0VUSAAAAAAAAAAAAAAAAAAB4Gc1AAAAAAAD4Gc1AAAAAAADU09MAAAAAAAAAAAAAAAAAAHwSQIAAAAAAAPwSQIAAAAAAAMA"
+        }
+      ]
+    },
+    {
+      "name": "orderbookPlaceLevels",
+      "description": "Place deterministic maker bid/ask levels from the orderbook trader.",
+      "signerSeeds": ["orderbook-trader"],
+      "instructions": [
+        {
+          "name": "placeBTCMakerLevels",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5JPFZBK5R517q1DLxtWiD5s72YMw2DZXtHpsRxjPxtxu",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2YeaRXZYxBbfgWLwVz8oLZ7Sz9MSKQDBwapC4yrCDKra",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FQKqynzMoUZUzNMhbnaQ9tfAJ212FrRE7C95n9hsrp6D",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "9J7gqEXKXmMKRuME4bgKeR3udrUPJLeP1R2bxyfGkS51",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "7NDdrI3igVQCAAAArIQBAAAAAACQAQAAAAAAAAC4ggEAAAAAAPQBAAAAAAAAAAIAAACUiAEAAAAAAJABAAAAAAAAAIiKAQAAAAAA9AEAAAAAAAAAAAA="
+        },
+        {
+          "name": "placeETHMakerLevels",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5JPFZBK5R517q1DLxtWiD5s72YMw2DZXtHpsRxjPxtxu",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2YeaRXZYxBbfgWLwVz8oLZ7Sz9MSKQDBwapC4yrCDKra",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2BukCb65F4pPa7RjQbvhdsmR2kUNQoEbJR7QdEmn4fuD",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "53kr4wExNMU3goZh1eviGzcqQCnjKKJaosVY1P2UUCq7",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "7NDdrI3igVQCAAAAVFEFAAAAAADcBQAAAAAAAABsTQUAAAAAANAHAAAAAAAAAAIAAAAMXQUAAAAAANwFAAAAAAAAAPRgBQAAAAAA0AcAAAAAAAAAAAA="
+        },
+        {
+          "name": "placeSOLMakerLevels",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5JPFZBK5R517q1DLxtWiD5s72YMw2DZXtHpsRxjPxtxu",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2YeaRXZYxBbfgWLwVz8oLZ7Sz9MSKQDBwapC4yrCDKra",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CByKdU5zCv8Z6Wf99nv7AbfXiLk1fCptyhAkq7cTJgAD",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "4NQqRHeBdLx9rcyNUoAfHkFmpk28JDNcAEmdMiTviYsn",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "7NDdrI3igVQCAAAA/EcCAAAAAACgDwAAAAAAAAAIRgIAAAAAAIgTAAAAAAAAAAIAAADkSwIAAAAAAKAPAAAAAAAAANhNAgAAAAAAiBMAAAAAAAAAAAA="
+        }
+      ]
+    },
+    {
+      "name": "orderbookCancelLevels",
+      "description": "Cancel all maker levels owned by the orderbook trader.",
+      "signerSeeds": ["orderbook-trader"],
+      "instructions": [
+        {
+          "name": "cancelBTCMakerLevels",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5JPFZBK5R517q1DLxtWiD5s72YMw2DZXtHpsRxjPxtxu",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2YeaRXZYxBbfgWLwVz8oLZ7Sz9MSKQDBwapC4yrCDKra",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "FQKqynzMoUZUzNMhbnaQ9tfAJ212FrRE7C95n9hsrp6D",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "9J7gqEXKXmMKRuME4bgKeR3udrUPJLeP1R2bxyfGkS51",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "Yr9L3HMoR+0="
+        },
+        {
+          "name": "cancelETHMakerLevels",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5JPFZBK5R517q1DLxtWiD5s72YMw2DZXtHpsRxjPxtxu",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2YeaRXZYxBbfgWLwVz8oLZ7Sz9MSKQDBwapC4yrCDKra",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2BukCb65F4pPa7RjQbvhdsmR2kUNQoEbJR7QdEmn4fuD",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "53kr4wExNMU3goZh1eviGzcqQCnjKKJaosVY1P2UUCq7",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "Yr9L3HMoR+0="
+        },
+        {
+          "name": "cancelSOLMakerLevels",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "5JPFZBK5R517q1DLxtWiD5s72YMw2DZXtHpsRxjPxtxu",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2YeaRXZYxBbfgWLwVz8oLZ7Sz9MSKQDBwapC4yrCDKra",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CByKdU5zCv8Z6Wf99nv7AbfXiLk1fCptyhAkq7cTJgAD",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "4NQqRHeBdLx9rcyNUoAfHkFmpk28JDNcAEmdMiTviYsn",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "Yr9L3HMoR+0="
+        }
+      ]
+    },
+    {
+      "name": "splineUpdatePrices",
+      "description": "Update deterministic spline prices for each market.",
+      "signerSeeds": ["spline-trader"],
+      "instructions": [
+        {
+          "name": "updateBTCSplinePrice",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "FNb5zCBYbHUCAjZrwDNkZyiJv5JA7S2Wx52Qu7t3gUfD",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "A71SHZp8ju4nbmKQviEXvq4eWKKsivV5JMhRutjS3Dr8",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "9J7gqEXKXmMKRuME4bgKeR3udrUPJLeP1R2bxyfGkS51",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "LZvINCXWu4yghgEAAAAAAAAB"
+        },
+        {
+          "name": "updateETHSplinePrice",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "FNb5zCBYbHUCAjZrwDNkZyiJv5JA7S2Wx52Qu7t3gUfD",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "A71SHZp8ju4nbmKQviEXvq4eWKKsivV5JMhRutjS3Dr8",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "53kr4wExNMU3goZh1eviGzcqQCnjKKJaosVY1P2UUCq7",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "LZvINCXWu4wwVwUAAAAAAAAB"
+        },
+        {
+          "name": "updateSOLSplinePrice",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "FNb5zCBYbHUCAjZrwDNkZyiJv5JA7S2Wx52Qu7t3gUfD",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "A71SHZp8ju4nbmKQviEXvq4eWKKsivV5JMhRutjS3Dr8",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "4NQqRHeBdLx9rcyNUoAfHkFmpk28JDNcAEmdMiTviYsn",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "LZvINCXWu4zwSQIAAAAAAAAB"
+        }
+      ]
+    }
+  ]
+}

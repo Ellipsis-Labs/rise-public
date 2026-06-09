@@ -51,8 +51,9 @@ These invite routes are not interchangeable:
 
 - Use `POST /v1/invite/activate` when you have an access code / allowlist code.
   Send that value as `code`.
-- Use `POST /v1/invite/activate-with-referral` when you have a referral code.
-  Send that value as `referral_code`.
+- Use `POST /v1/referral/activate` when you have a referral code. Send that
+  value as `referral_code`. This route requires a user auth session for the
+  same authority wallet being activated.
 
 TypeScript:
 
@@ -61,6 +62,7 @@ import { PhoenixHttpClient } from "@ellipsis-labs/rise";
 
 const client = new PhoenixHttpClient({
   apiUrl: "https://perp-api.phoenix.trade",
+  auth: true,
 });
 
 const authority = "AUTHORITY_PUBKEY";
@@ -70,7 +72,7 @@ const activatedWithAccessCode = await client.invite().activateInvite({
   code: "ACCESS_CODE",
 });
 
-const activatedWithReferral = await client.invite().activateInviteWithReferral({
+const activatedWithReferral = await client.invite().activateReferral({
   authority,
   referral_code: "REF_CODE",
 });
@@ -83,7 +85,7 @@ use phoenix_rise::PhoenixHttpClient;
 use solana_pubkey::Pubkey;
 use std::str::FromStr;
 
-let client = PhoenixHttpClient::new_from_env()?;
+let client = PhoenixHttpClient::new_from_env_with_auth()?;
 let authority = Pubkey::from_str("AUTHORITY_PUBKEY")?;
 
 let trader_from_access = client

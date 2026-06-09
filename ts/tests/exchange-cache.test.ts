@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
   ExchangeCacheSequenceError,
+  ExchangeWireMsgSchema,
   createPhoenixExchangeCache,
   createPhoenixExchangeCacheStore,
   projectExchangeMarket,
+  projectPhoenixExchangeMarketState,
   selectExchangeMarket,
+  selectExchangeMarketMetadata,
   selectExchangeMarketStatus,
+  selectPhoenixExchangeMarketMetadata,
   type ExchangeCacheEvent,
   type ExchangeDeltaMsg,
   type ExchangeMsg,
   type ExchangeSnapshotMsg,
   type ExchangeSnapshotView,
+  type MarketPublicMetadata,
 } from "@/index";
 import { createAsyncQueue, type AsyncQueue } from "@/ws";
 
@@ -314,6 +319,100 @@ const buildCommodityMetadata = (
   ...overrides,
 });
 
+const sampleMarketMetadata = (name = "Solana Perp"): MarketPublicMetadata => ({
+  name,
+  description: "Solana perpetual market",
+  logoUri: "https://example.com/sol.png",
+  coinGeckoId: "solana",
+  coinMarketCapId: 5426,
+  tokensXyzAssetId: "solana",
+  calendar: {
+    id: "cme_commodities",
+    description: "CME commodities",
+    calendarUri: "https://phoenixcdn.trade/calendars/cme_commodities.json",
+    contentSha256:
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    nextMarketTransitionUtc: "2026-04-24T21:00:00Z",
+  },
+  displayColor: "#14f195",
+});
+
+const buildMarketMetadataDelta = (
+  sequenceNumber: bigint,
+  slot: bigint,
+  slotIndex: number,
+  metadata: MarketPublicMetadata | null
+): ExchangeDeltaMsg => ({
+  channel: "exchange",
+  messageType: "delta",
+  version: 1,
+  sequenceNumber,
+  slot,
+  slotIndex,
+  ops: [
+    {
+      kind: "marketMetadataUpdated",
+      symbol: "SOL-PERP",
+      metadata,
+    },
+  ],
+});
+
+const buildUnknownDelta = (
+  sequenceNumber: bigint,
+  slot: bigint,
+  slotIndex: number
+): ExchangeDeltaMsg => {
+  const parsed = ExchangeWireMsgSchema.parse({
+    channel: "exchange",
+    messageType: "delta",
+    version: 1,
+    sequenceNumber,
+    slot,
+    slotIndex,
+    ops: [
+      {
+        kind: "futureMarketThingUpdated",
+        symbol: "SOL-PERP",
+        futureField: true,
+      },
+    ],
+  });
+  if (parsed.messageType !== "delta") {
+    throw new Error("expected delta message");
+  }
+  return parsed;
+};
+
+const buildUnknownMarketParameterDelta = (
+  sequenceNumber: bigint,
+  slot: bigint,
+  slotIndex: number
+): ExchangeDeltaMsg => {
+  const parsed = ExchangeWireMsgSchema.parse({
+    channel: "exchange",
+    messageType: "delta",
+    version: 1,
+    sequenceNumber,
+    slot,
+    slotIndex,
+    ops: [
+      {
+        kind: "marketParameterUpdated",
+        symbol: "SOL-PERP",
+        update: {
+          kind: "futureParameterUpdated",
+          futureField: true,
+        },
+      },
+    ],
+  });
+  if (parsed.messageType !== "delta") {
+    throw new Error("expected delta message");
+  }
+  return parsed;
+};
+
 const buildCommodityMetadataDelta = (
   sequenceNumber: bigint,
   slot: bigint,
@@ -398,11 +497,18 @@ const healthReasons = (
 
 describe("exchange cache", () => {
   it("exposes first-class per-symbol selectors and projections", () => {
-    const store = createPhoenixExchangeCacheStore(buildSnapshot(1n, 0));
+    const metadata = sampleMarketMetadata();
+    const snapshot = buildSnapshot(1n, 0);
+    snapshot.markets[0] = {
+      ...snapshot.markets[0],
+      metadata,
+    };
+    const store = createPhoenixExchangeCacheStore(snapshot);
     const state = store.store.getState();
 
     const market = selectExchangeMarket("sol-perp")(state);
     const status = selectExchangeMarketStatus("sol-perp")(state);
+    const selectedMetadata = selectExchangeMarketMetadata("sol-perp")(state);
 
     expect(market?.symbol).toBe("SOL-PERP");
     expect(status).toEqual({
@@ -413,6 +519,16 @@ describe("exchange cache", () => {
       isGated: false,
       isClosed: false,
     });
+    expect(store.marketMetadata("sol-perp")).toEqual(metadata);
+    expect(store.marketMetadataByAssetId(1)).toEqual(metadata);
+    expect(store.marketMetadataByPubkey("sol-market")).toEqual(metadata);
+    expect(selectedMetadata).toBe(store.marketMetadata("SOL-PERP"));
+    expect(selectPhoenixExchangeMarketMetadata("sol-perp")(state)).toBe(
+      selectedMetadata
+    );
+    expect(projectPhoenixExchangeMarketState(state, "sol-perp").metadata).toBe(
+      selectedMetadata
+    );
 
     const projected = projectExchangeMarket(market!);
     expect(projected.market).toBe(market);
@@ -432,17 +548,46 @@ describe("exchange cache", () => {
   });
 
   it("applies snapshot and delta messages through the standalone store", () => {
+    const liveSnapshot = buildSnapshot(2n, 1);
+    liveSnapshot.markets[0] = {
+      ...liveSnapshot.markets[0],
+      metadata: sampleMarketMetadata(),
+    };
     const store = createPhoenixExchangeCacheStore(buildSnapshot(1n, 0));
     const events: ExchangeCacheEvent[] = [];
     store.onEvent((event) => {
       events.push(event);
     });
 
-    store.applySnapshotMessage(buildSnapshotMsg(10n, buildSnapshot(2n, 1)));
-    store.applyDelta(buildOpenInterestCapDelta(11n, 3n, 2, 7_500n));
+    store.applySnapshotMessage(buildSnapshotMsg(10n, liveSnapshot));
+    const metadataBeforeParameterDelta = store.marketMetadata("sol-perp");
 
-    expect(store.snapshot().sequenceNumber).toBe(11n);
+    store.applyDelta(buildOpenInterestCapDelta(11n, 3n, 2, 7_500n));
+    expect(store.marketMetadata("sol-perp")).toBe(metadataBeforeParameterDelta);
+
+    const updatedMetadata = sampleMarketMetadata("Updated Solana Perp");
+    const parsedMetadataDelta = ExchangeWireMsgSchema.parse(
+      buildMarketMetadataDelta(12n, 4n, 0, updatedMetadata)
+    );
+    if (parsedMetadataDelta.messageType !== "delta") {
+      throw new Error("expected parsed metadata delta");
+    }
+    store.applyDelta(parsedMetadataDelta);
+
+    expect(store.snapshot().sequenceNumber).toBe(12n);
     expect(store.market("sol-perp")?.openInterestCapBaseLots).toBe(7_500n);
+    expect(store.market("sol-perp")?.metadata).toBe(
+      store.marketMetadata("SOL-PERP")
+    );
+    expect(store.marketMetadata("sol-perp")).toEqual(updatedMetadata);
+    expect(store.marketMetadata("sol-perp")?.calendar).toEqual(
+      updatedMetadata.calendar
+    );
+    expect(store.marketMetadata("sol-perp")).not.toBe(
+      metadataBeforeParameterDelta
+    );
+    expect(store.marketMetadataByAssetId(1)).toEqual(updatedMetadata);
+    expect(store.marketMetadataByPubkey("sol-market")).toEqual(updatedMetadata);
     expect(store.marketByAssetId(1)?.symbol).toBe("SOL-PERP");
     expect(store.marketByPubkey("sol-market")?.symbol).toBe("SOL-PERP");
     expect(store.instructionContext("SOL-PERP")?.market.assetId).toBe(1);
@@ -454,6 +599,54 @@ describe("exchange cache", () => {
           event.symbol === "SOL-PERP"
       )
     ).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "marketUpdated" &&
+          event.change === "metadata" &&
+          event.symbol === "SOL-PERP"
+      )
+    ).toBe(true);
+  });
+
+  it("ignores unknown exchange delta ops while advancing sequence", () => {
+    const store = createPhoenixExchangeCacheStore(buildSnapshot(1n, 0));
+    const events: ExchangeCacheEvent[] = [];
+    store.onEvent((event) => {
+      events.push(event);
+    });
+
+    store.applySnapshotMessage(buildSnapshotMsg(10n, buildSnapshot(2n, 1)));
+    events.length = 0;
+    store.applyDelta(buildUnknownDelta(11n, 5n, 0));
+
+    expect(store.snapshot().sequenceNumber).toBe(11n);
+    expect(store.market("sol-perp")?.openInterestCapBaseLots).toBe(5_000n);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      type: "snapshotApplied",
+      source: "websocket",
+    });
+  });
+
+  it("ignores unknown market parameter updates while advancing sequence", () => {
+    const store = createPhoenixExchangeCacheStore(buildSnapshot(1n, 0));
+    const events: ExchangeCacheEvent[] = [];
+    store.onEvent((event) => {
+      events.push(event);
+    });
+
+    store.applySnapshotMessage(buildSnapshotMsg(10n, buildSnapshot(2n, 1)));
+    events.length = 0;
+    store.applyDelta(buildUnknownMarketParameterDelta(11n, 5n, 0));
+
+    expect(store.snapshot().sequenceNumber).toBe(11n);
+    expect(store.market("sol-perp")?.openInterestCapBaseLots).toBe(5_000n);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      type: "snapshotApplied",
+      source: "websocket",
+    });
   });
 
   it("rejects standalone deltas when the sequence baseline is missing or gapped", () => {

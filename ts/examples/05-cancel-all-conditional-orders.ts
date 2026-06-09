@@ -6,7 +6,6 @@
  *
  * Options:
  *   --api-url <url>                     Phoenix API URL
- *   --api-key <key>                     Phoenix API key
  *   --rpc-url <url>                     Solana RPC URL
  *   --keypair-path <path>               Signer keypair path
  *   --position-authority <pubkey>       Optional delegated signer pubkey
@@ -17,7 +16,6 @@
  *
  * Environment fallbacks:
  *   PHOENIX_API_URL
- *   PHOENIX_API_KEY
  *   PHOENIX_RPC_URL / SOLANA_RPC_URL
  *   KEYPAIR_PATH
  */
@@ -56,7 +54,6 @@ import {
 
 type CliArgs = {
   apiUrl: string;
-  apiKey?: string;
   rpcUrl: string;
   keypairPath: string;
   authority: string;
@@ -88,7 +85,6 @@ const usage = `Usage:
 
 Options:
   --api-url <url>                     Phoenix API URL
-  --api-key <key>                     Phoenix API key
   --rpc-url <url>                     Solana RPC URL
   --keypair-path <path>               Signer keypair path
   --position-authority <pubkey>       Optional delegated signer pubkey
@@ -196,7 +192,6 @@ const executionDirectionsForOrder = (
 
 const parseArgs = (argv: string[]): CliArgs => {
   let apiUrl = process.env.PHOENIX_API_URL ?? DEFAULT_API_URL;
-  let apiKey = process.env.PHOENIX_API_KEY;
   let rpcUrl =
     process.env.PHOENIX_RPC_URL ??
     process.env.SOLANA_RPC_URL ??
@@ -214,9 +209,6 @@ const parseArgs = (argv: string[]): CliArgs => {
     switch (arg) {
       case "--api-url":
         apiUrl = argv[++index] ?? fail("Missing value for --api-url");
-        break;
-      case "--api-key":
-        apiKey = argv[++index] ?? fail("Missing value for --api-key");
         break;
       case "--rpc-url":
         rpcUrl = argv[++index] ?? fail("Missing value for --rpc-url");
@@ -267,7 +259,6 @@ const parseArgs = (argv: string[]): CliArgs => {
 
   return {
     apiUrl,
-    apiKey,
     rpcUrl,
     keypairPath,
     authority: positional[0],
@@ -500,7 +491,6 @@ async function main() {
 
   const client = createPhoenixClient({
     apiUrl: args.apiUrl,
-    apiKey: args.apiKey,
   });
 
   try {

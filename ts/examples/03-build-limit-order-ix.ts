@@ -50,7 +50,6 @@ async function main() {
 
   const client = createPhoenixClient({
     apiUrl: process.env.PHOENIX_API_URL ?? "https://perp-api.phoenix.trade",
-    apiKey: process.env.PHOENIX_API_KEY,
     rpcUrl: process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com",
     exchangeMetadata: { stream: false },
   });

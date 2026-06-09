@@ -106,13 +106,18 @@ export const fromSnapshot = (snapshot: AuthSessionSnapshot): AuthSession => {
     throw new Error("Missing sid in access token snapshot");
   }
 
+  const exp = payload.exp;
+  if (typeof exp !== "number") {
+    throw new Error("Missing exp in access token snapshot");
+  }
+
   return {
     sessionId: sid,
     accessToken: snapshot.accessToken,
     refreshToken: snapshot.refreshToken,
     popKeyBytes: Uint8Array.from(base64urlnopad.decode(snapshot.popKey)),
     accessJti: snapshot.accessJti,
-    expiresAt: snapshot.expiresAt,
+    expiresAt: exp * 1000,
     refreshExpiresAt: snapshot.refreshExpiresAt,
     counter: BigInt(snapshot.counter),
   };

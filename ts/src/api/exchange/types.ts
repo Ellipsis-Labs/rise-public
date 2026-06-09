@@ -106,12 +106,52 @@ export const ExchangeRiskFactorsSchema: z.ZodType<ExchangeRiskFactors> =
     cancelOrder: z.number(),
   });
 
+export interface MarketCalendar {
+  id: string;
+  description: string;
+  calendarUri: string;
+  contentSha256: string;
+  nextMarketTransitionUtc?: string | null;
+}
+
+export const MarketCalendarSchema: z.ZodType<MarketCalendar> = z.object({
+  id: z.string(),
+  description: z.string(),
+  calendarUri: z.string(),
+  contentSha256: z.string(),
+  nextMarketTransitionUtc: z.string().nullable().optional(),
+});
+
+export interface MarketPublicMetadata {
+  name?: string | null;
+  description?: string | null;
+  logoUri?: string | null;
+  coinGeckoId?: string | null;
+  coinMarketCapId?: number | null;
+  tokensXyzAssetId?: string | null;
+  calendar?: MarketCalendar | null;
+  displayColor?: string | null;
+}
+
+export const MarketPublicMetadataSchema: z.ZodType<MarketPublicMetadata> =
+  z.object({
+    name: z.string().nullable().optional(),
+    description: z.string().nullable().optional(),
+    logoUri: z.string().nullable().optional(),
+    coinGeckoId: z.string().nullable().optional(),
+    coinMarketCapId: z.number().nullable().optional(),
+    tokensXyzAssetId: z.string().nullable().optional(),
+    calendar: MarketCalendarSchema.nullable().optional(),
+    displayColor: z.string().nullable().optional(),
+  });
+
 export interface ExchangeMarketConfig {
   symbol: string;
   assetId: number;
   marketStatus: string;
   commodityStatus?: string;
   commodityMetadata?: ExchangeViewCommodityMetadata | null;
+  metadata?: MarketPublicMetadata | null;
   marketPubkey: string;
   splinePubkey: string;
   tickSize: number;
@@ -139,6 +179,7 @@ export const ExchangeMarketConfigSchema: z.ZodType<ExchangeMarketConfig> =
       .lazy(() => ExchangeViewCommodityMetadataSchema)
       .nullable()
       .optional(),
+    metadata: MarketPublicMetadataSchema.nullable().optional(),
     marketPubkey: z.string(),
     splinePubkey: z.string(),
     tickSize: z.number(),
@@ -273,9 +314,11 @@ export interface ExchangeWsMarkPriceParameters {
   exchangePerpPriceWeight: bigint;
   spotPriceStaleThreshold: bigint;
   bookPriceStaleThreshold: bigint;
+  bookHardStaleMultiplier?: number;
   perpPriceStaleThreshold: bigint;
   riskActionPriceValidityRules: ExchangeWsRiskActionPriceValidityRules;
   oracleDivergenceRadius: number;
+  oracleHardStaleMultiplier?: number;
   minOracleResponses: number;
 }
 
@@ -295,9 +338,11 @@ export const ExchangeWsMarkPriceParametersSchema: z.ZodType<ExchangeWsMarkPriceP
     exchangePerpPriceWeight: numericBigint("exchangePerpPriceWeight"),
     spotPriceStaleThreshold: numericBigint("spotPriceStaleThreshold"),
     bookPriceStaleThreshold: numericBigint("bookPriceStaleThreshold"),
+    bookHardStaleMultiplier: z.number().default(0),
     perpPriceStaleThreshold: numericBigint("perpPriceStaleThreshold"),
     riskActionPriceValidityRules: ExchangeWsRiskActionPriceValidityRulesSchema,
     oracleDivergenceRadius: z.number(),
+    oracleHardStaleMultiplier: z.number().default(0),
     minOracleResponses: z.number(),
   });
 
@@ -390,6 +435,7 @@ export interface ExchangeMarketSnapshot {
   isolatedOnly: boolean;
   markPriceParameters: ExchangeWsMarkPriceParameters;
   commodityMetadata?: ExchangeWsCommodityMetadata | null;
+  metadata?: MarketPublicMetadata | null;
 }
 
 export const ExchangeMarketSnapshotSchema: z.ZodType<ExchangeMarketSnapshot> =
@@ -411,6 +457,7 @@ export const ExchangeMarketSnapshotSchema: z.ZodType<ExchangeMarketSnapshot> =
     isolatedOnly: z.boolean(),
     markPriceParameters: ExchangeWsMarkPriceParametersSchema,
     commodityMetadata: ExchangeWsCommodityMetadataSchema.nullable().optional(),
+    metadata: MarketPublicMetadataSchema.nullable().optional(),
   });
 
 export type ExchangeSnapshotEncoding = "json" | "base64+zstd";

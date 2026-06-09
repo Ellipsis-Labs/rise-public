@@ -241,11 +241,55 @@ describe("public client route mapping", () => {
         [
           "/v1/market/next-commodity-market-transition",
           {
-            market: "XAU",
+            market: "cme_commodities",
             loadedAt: "2026-04-24T12:00:00Z",
             utcNextTransition: "2026-04-24T21:00:00Z",
             nextMarketState: "afterHours",
             currentState: "open",
+          },
+        ],
+        [
+          "/v1/market/XAU/next-market-calendar-transition",
+          {
+            market: "XAU",
+            marketCalendarId: "cme_commodities",
+            calendarUri:
+              "https://phoenixcdn.trade/calendars/cme_commodities.toml",
+            loadedAt: "2026-04-24T12:00:00Z",
+            utcNextTransition: "2026-04-24T21:00:00Z",
+            nextMarketState: "afterHours",
+            currentState: "open",
+          },
+        ],
+        [
+          "/v1/market/commodity-calendar",
+          {
+            market: "cme_commodities",
+            loadedAt: "2026-04-24T12:00:00Z",
+            rawJson: "{}",
+            calendar: {
+              weeklySchedule: {},
+              dateOverrides: {},
+            },
+          },
+        ],
+        [
+          "/v1/market/XAU/market-calendar",
+          {
+            market: "XAU",
+            marketCalendarId: "cme_commodities",
+            kind: "market",
+            description: "CME commodities",
+            calendarUri:
+              "https://phoenixcdn.trade/calendars/cme_commodities.json",
+            contentSha256:
+              "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            loadedAt: "2026-04-24T12:00:00Z",
+            rawJson: "{}",
+            calendar: {
+              weeklySchedule: {},
+              dateOverrides: {},
+            },
           },
         ],
       ]),
@@ -265,6 +309,9 @@ describe("public client route mapping", () => {
     await markets.getMarket("SOL");
     await markets.getMarketStatsHistory("SOL", { limit: 25 });
     await markets.getNextCommodityMarketTransition();
+    await markets.getNextMarketCalendarTransition("XAU");
+    await markets.getCommodityMarketCalendar();
+    await markets.getMarketCalendar("XAU");
 
     expect(records).toEqual([
       {
@@ -324,6 +371,24 @@ describe("public client route mapping", () => {
       {
         method: "GET",
         endpoint: "/v1/market/next-commodity-market-transition",
+        params: undefined,
+        body: undefined,
+      },
+      {
+        method: "GET",
+        endpoint: "/v1/market/XAU/next-market-calendar-transition",
+        params: undefined,
+        body: undefined,
+      },
+      {
+        method: "GET",
+        endpoint: "/v1/market/commodity-calendar",
+        params: undefined,
+        body: undefined,
+      },
+      {
+        method: "GET",
+        endpoint: "/v1/market/XAU/market-calendar",
         params: undefined,
         body: undefined,
       },

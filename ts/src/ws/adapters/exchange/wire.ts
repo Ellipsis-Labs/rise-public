@@ -9,8 +9,12 @@ import {
   ExchangeWsFundingConfigSchema,
   ExchangeWsLeverageTierSchema,
   ExchangeWsMarkPriceParametersSchema,
+  MarketPublicMetadataSchema,
 } from "@/api/exchange/types";
-import type { ExchangeSnapshotEncoding } from "@/api/exchange/types";
+import type {
+  ExchangeSnapshotEncoding,
+  MarketPublicMetadata,
+} from "@/api/exchange/types";
 
 export type ExchangeSnapshotReason = "snapshot";
 
@@ -63,6 +67,18 @@ export interface MarketDeletedOp {
   kind: "marketDeleted";
   symbol: string;
   assetId: number;
+}
+
+export interface MarketMetadataUpdatedOp {
+  kind: "marketMetadataUpdated";
+  symbol: string;
+  metadata?: MarketPublicMetadata | null;
+}
+
+export interface UnknownExchangeDeltaOp {
+  kind: "unknown";
+  originalKind: string;
+  payload: Record<string, unknown>;
 }
 
 export interface CancelRiskFactorUpdated {
@@ -125,6 +141,12 @@ export interface CommodityMetadataUpdated {
   new: z.infer<typeof ExchangeWsCommodityMetadataSchema>;
 }
 
+export interface UnknownMarketParameterUpdate {
+  kind: "unknown";
+  originalKind: string;
+  payload: Record<string, unknown>;
+}
+
 export type ExchangeMarketParameterUpdate =
   | CancelRiskFactorUpdated
   | IsolatedOnlyUpdated
@@ -135,7 +157,8 @@ export type ExchangeMarketParameterUpdate =
   | UpnlRiskFactorForWithdrawalsUpdated
   | FundingParametersUpdated
   | MarketFeesUpdated
-  | CommodityMetadataUpdated;
+  | CommodityMetadataUpdated
+  | UnknownMarketParameterUpdate;
 
 export interface MarketParameterUpdatedOp {
   kind: "marketParameterUpdated";
@@ -151,7 +174,9 @@ export type ExchangeDeltaOp =
   | MarketClosedOp
   | MarketTombstonedOp
   | MarketDeletedOp
-  | MarketParameterUpdatedOp;
+  | MarketParameterUpdatedOp
+  | MarketMetadataUpdatedOp
+  | UnknownExchangeDeltaOp;
 
 export interface ExchangeSnapshotMsg {
   channel: "exchange";
@@ -190,6 +215,64 @@ export interface ExchangeEncodedSnapshotMsg {
 }
 
 export type ExchangeWireMsg = ExchangeMsg | ExchangeEncodedSnapshotMsg;
+
+const KNOWN_EXCHANGE_DELTA_KINDS = new Set([
+  "exchangeKeysUpdated",
+  "exchangeStatusChanged",
+  "marketAdded",
+  "marketStatusChanged",
+  "marketClosed",
+  "marketTombstoned",
+  "marketDeleted",
+  "marketParameterUpdated",
+  "marketMetadataUpdated",
+]);
+
+const KNOWN_MARKET_PARAMETER_UPDATE_KINDS = new Set([
+  "cancelRiskFactorUpdated",
+  "isolatedOnlyUpdated",
+  "leverageTiersUpdated",
+  "markPriceParametersUpdated",
+  "openInterestCapUpdated",
+  "upnlRiskFactorUpdated",
+  "upnlRiskFactorForWithdrawalsUpdated",
+  "fundingParametersUpdated",
+  "marketFeesUpdated",
+  "commodityMetadataUpdated",
+]);
+
+const normalizeUnknownExchangeDeltaOp = (
+  op: Record<string, unknown>
+): Record<string, unknown> => {
+  const kind = op.kind;
+  if (typeof kind !== "string" || KNOWN_EXCHANGE_DELTA_KINDS.has(kind)) {
+    return op;
+  }
+
+  return {
+    kind: "unknown",
+    originalKind: kind,
+    payload: op,
+  };
+};
+
+const normalizeUnknownMarketParameterUpdate = (
+  update: Record<string, unknown>
+): Record<string, unknown> => {
+  const kind = update.kind;
+  if (
+    typeof kind !== "string" ||
+    KNOWN_MARKET_PARAMETER_UPDATE_KINDS.has(kind)
+  ) {
+    return update;
+  }
+
+  return {
+    kind: "unknown",
+    originalKind: kind,
+    payload: update,
+  };
+};
 
 const normalizeExchangeDeltaOp = (value: unknown): unknown => {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -254,8 +337,19 @@ const normalizeExchangeDeltaOp = (value: unknown): unknown => {
         op.assetId = op.asset_id;
       }
       return op;
-    default:
+    case "marketParameterUpdated":
+      if (
+        op.update &&
+        typeof op.update === "object" &&
+        !Array.isArray(op.update)
+      ) {
+        op.update = normalizeUnknownMarketParameterUpdate({
+          ...(op.update as Record<string, unknown>),
+        });
+      }
       return op;
+    default:
+      return normalizeUnknownExchangeDeltaOp(op);
   }
 };
 
@@ -361,6 +455,11 @@ const exchangeMarketParameterUpdateSchema = z.discriminatedUnion("kind", [
     previous: ExchangeWsCommodityMetadataSchema,
     new: ExchangeWsCommodityMetadataSchema,
   }),
+  z.object({
+    kind: z.literal("unknown"),
+    originalKind: z.string(),
+    payload: z.record(z.string(), z.unknown()),
+  }),
 ]);
 
 export const ExchangeMarketParameterUpdateSchema: z.ZodType<ExchangeMarketParameterUpdate> =
@@ -370,6 +469,18 @@ const MarketParameterUpdatedOpSchema = z.object({
   kind: z.literal("marketParameterUpdated"),
   symbol: z.string(),
   update: exchangeMarketParameterUpdateSchema,
+});
+
+const MarketMetadataUpdatedOpSchema = z.object({
+  kind: z.literal("marketMetadataUpdated"),
+  symbol: z.string(),
+  metadata: MarketPublicMetadataSchema.nullable().optional(),
+});
+
+const UnknownExchangeDeltaOpSchema = z.object({
+  kind: z.literal("unknown"),
+  originalKind: z.string(),
+  payload: z.record(z.string(), z.unknown()),
 });
 
 const exchangeDeltaOpSchema = z.preprocess(
@@ -383,6 +494,8 @@ const exchangeDeltaOpSchema = z.preprocess(
     MarketTombstonedOpSchema,
     MarketDeletedOpSchema,
     MarketParameterUpdatedOpSchema,
+    MarketMetadataUpdatedOpSchema,
+    UnknownExchangeDeltaOpSchema,
   ])
 );
 
