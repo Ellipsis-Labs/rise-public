@@ -46,6 +46,7 @@ export type {
   SPLATAProgramAddress,
   SystemProgramAddress,
   EmberProgramAddress,
+  FlameProgramAddress,
   Authority,
   PerpAssetMapAddress,
   TraderAddress,
@@ -252,6 +253,7 @@ export {
   buildCreateAssociatedTokenAccountIdempotent,
   buildCreateAssociatedTokenAccountIdempotentSync,
   buildSplTokenApprove,
+  buildSplTokenTransfer,
   deriveTraderAddresses,
   fetchRequiredAccounts,
   getActiveTraderBufferAddresses,
@@ -267,6 +269,17 @@ export {
   type RequiredAccounts,
   type SubaccountInfo,
 } from "../core/helpers";
+
+export {
+  FLAME_PROGRAM_ADDRESS,
+  deriveFlameDepositAddress,
+  deriveFlameDepositAddresses,
+  deriveFlameProxyAuthorityAddress,
+  type FlameDepositAddressInput,
+  type FlameDepositAddresses,
+  type FlameProxyAuthorityAddressInput,
+  type ResolveFlameAddressesInput,
+} from "../flame";
 
 export {
   buildCreatePermissionIx,
@@ -325,6 +338,7 @@ export {
 
 export {
   buildDepositFlow,
+  buildFlameDepositFundingFlow,
   buildGrantEscrowPermissionFlow,
   buildPlaceLimitOrderFlow,
   buildPlaceMarketOrderFlow,
@@ -333,6 +347,9 @@ export {
   type DepositFlowInstructions,
   type DepositFlowParams,
   type DepositFlowResult,
+  type FlameDepositFundingFlowInstructions,
+  type FlameDepositFundingFlowParams,
+  type FlameDepositFundingFlowResult,
   type GrantEscrowPermissionFlowInstructions,
   type GrantEscrowPermissionFlowParams,
   type GrantEscrowPermissionFlowResult,

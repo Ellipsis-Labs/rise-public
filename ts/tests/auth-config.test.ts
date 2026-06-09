@@ -21,7 +21,8 @@ const makeSnapshot = (
 ): AuthSessionSnapshot => {
   const sid = overrides.sessionId ?? "sid-1";
   const accessJti = overrides.accessJti ?? "jti-1";
-  const expiresAt = overrides.expiresAt ?? Date.now() + 5 * 60_000;
+  const expiresAt =
+    Math.floor((overrides.expiresAt ?? Date.now() + 5 * 60_000) / 1000) * 1000;
 
   return {
     sessionId: sid,
@@ -168,6 +169,162 @@ describe("rise auth config", () => {
         refreshToken: refreshed.refresh_token,
         accessJti: "jti-new",
       })
+    );
+  });
+
+  it("refreshes expired access before a required authenticated request", async () => {
+    const initialSnapshot = makeSnapshot({
+      accessJti: "jti-old",
+      expiresAt: Date.now() - 1_000,
+    });
+    const refreshed = makeAuthResponse({
+      sid: initialSnapshot.sessionId,
+      jti: "jti-new",
+    });
+
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+
+        if (url.endsWith("/v1/auth/refresh")) {
+          return new Response(JSON.stringify(refreshed), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        }
+
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new PhoenixHttpClient({
+      baseUrl: "https://example.com",
+      auth: true,
+      authConfig: {
+        initialSession: initialSnapshot,
+      },
+    });
+
+    await client.fetch("GET", "/v1/protected", { auth: "required" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      "https://example.com/v1/auth/refresh"
+    );
+    expect(String(fetchMock.mock.calls[1]?.[0])).toBe(
+      "https://example.com/v1/protected"
+    );
+
+    const refreshHeaders = fetchMock.mock.calls[0]?.[1]?.headers as
+      | Record<string, string>
+      | undefined;
+    const protectedHeaders = fetchMock.mock.calls[1]?.[1]?.headers as
+      | Record<string, string>
+      | undefined;
+    expect(refreshHeaders?.Authorization).toBeUndefined();
+    expect(protectedHeaders?.Authorization).toBe(
+      `Bearer ${refreshed.access_token}`
+    );
+  });
+
+  it("sends optional requests anonymously when expired access cannot refresh", async () => {
+    const initialSnapshot = makeSnapshot({
+      accessJti: "jti-old",
+      expiresAt: Date.now() - 1_000,
+    });
+
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+
+        if (url.endsWith("/v1/auth/refresh")) {
+          return new Response(JSON.stringify({ error: "redis_error" }), {
+            status: 500,
+            headers: { "content-type": "application/json" },
+          });
+        }
+
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new PhoenixHttpClient({
+      baseUrl: "https://example.com",
+      auth: true,
+      authConfig: {
+        initialSession: initialSnapshot,
+      },
+    });
+
+    await client.fetch("GET", "/v1/public", { auth: "optional" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      "https://example.com/v1/auth/refresh"
+    );
+    expect(String(fetchMock.mock.calls[1]?.[0])).toBe(
+      "https://example.com/v1/public"
+    );
+
+    const refreshHeaders = fetchMock.mock.calls[0]?.[1]?.headers as
+      | Record<string, string>
+      | undefined;
+    const publicHeaders = fetchMock.mock.calls[1]?.[1]?.headers as
+      | Record<string, string>
+      | undefined;
+    expect(refreshHeaders?.Authorization).toBeUndefined();
+    expect(publicHeaders?.Authorization).toBeUndefined();
+  });
+
+  it("does not send a required authenticated request when expired access cannot refresh", async () => {
+    const initialSnapshot = makeSnapshot({
+      accessJti: "jti-old",
+      expiresAt: Date.now() - 1_000,
+    });
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.endsWith("/v1/auth/refresh")) {
+        return new Response(JSON.stringify({ error: "redis_error" }), {
+          status: 500,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new PhoenixHttpClient({
+      baseUrl: "https://example.com",
+      auth: true,
+      authConfig: {
+        initialSession: initialSnapshot,
+      },
+    });
+
+    await expect(
+      client.fetch("GET", "/v1/protected", { auth: "required" })
+    ).rejects.toMatchObject({
+      name: "PhoenixAuthError",
+      code: "no_auth_session",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      "https://example.com/v1/auth/refresh"
     );
   });
 
@@ -347,6 +504,76 @@ describe("rise auth config", () => {
     expect(protectedHeaders?.Authorization).toBe(
       `Bearer ${snapshot.accessToken}`
     );
+    await expect(client.exportAuthSnapshot()).resolves.toEqual(snapshot);
+  });
+
+  it("sends optional external-session requests anonymously when access is expired", async () => {
+    const sessionManager = new auth.AuthSessionManager(
+      new auth.MemoryAuthSessionStorage()
+    );
+    const snapshot = makeSnapshot({
+      accessJti: "jti-old",
+      expiresAt: Date.now() - 1_000,
+    });
+    await sessionManager.importSnapshot(snapshot);
+
+    const fetchMock = vi.fn(async () => {
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new PhoenixHttpClient({
+      baseUrl: "https://example.com",
+      auth: true,
+      authConfig: {
+        sessionManager,
+        sessionControl: "external",
+      },
+    });
+
+    await client.fetch("GET", "/v1/public", { auth: "optional" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const publicHeaders = fetchMock.mock.calls[0]?.[1]?.headers as
+      | Record<string, string>
+      | undefined;
+    expect(publicHeaders?.Authorization).toBeUndefined();
+    await expect(client.exportAuthSnapshot()).resolves.toEqual(snapshot);
+  });
+
+  it("does not send required external-session requests when access is expired", async () => {
+    const sessionManager = new auth.AuthSessionManager(
+      new auth.MemoryAuthSessionStorage()
+    );
+    const snapshot = makeSnapshot({
+      accessJti: "jti-old",
+      expiresAt: Date.now() - 1_000,
+    });
+    await sessionManager.importSnapshot(snapshot);
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new PhoenixHttpClient({
+      baseUrl: "https://example.com",
+      auth: true,
+      authConfig: {
+        sessionManager,
+        sessionControl: "external",
+      },
+    });
+
+    await expect(
+      client.fetch("GET", "/v1/protected", { auth: "required" })
+    ).rejects.toMatchObject({
+      name: "PhoenixAuthError",
+      code: "no_auth_session",
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
     await expect(client.exportAuthSnapshot()).resolves.toEqual(snapshot);
   });
 

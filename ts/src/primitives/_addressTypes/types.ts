@@ -9,6 +9,7 @@ export type SPLTokenProgramAddress = Branded<Address, "SPLTokenProgram">;
 export type SPLATAProgramAddress = Branded<Address, "SPLATAProgram">;
 export type SystemProgramAddress = Branded<Address, "SystemProgram">;
 export type EmberProgramAddress = Branded<Address, "EmberProgram">;
+export type FlameProgramAddress = Branded<Address, "FlameProgram">;
 
 export type Authority = Branded<Address, "Authority">;
 export type PerpAssetMapAddress = Branded<Address, "PerpAssetMap">;

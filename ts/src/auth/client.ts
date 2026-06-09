@@ -1,7 +1,12 @@
 import { getPhoenixClientHeader } from "@/clientIdentity";
 import { PhoenixAuthError } from "@/errors";
 import type { AuthSessionManager } from "./manager";
-import { resetFromAuthResponse, type AuthSession } from "./session";
+import { shouldClearSessionOnRefreshFailure } from "./refreshErrors";
+import {
+  isAccessExpired,
+  resetFromAuthResponse,
+  type AuthSession,
+} from "./session";
 import { resolvePhoenixApiUrl, type PhoenixApiUrlConfig } from "@/apiUrl";
 import {
   AuthChallengeResponseSchema,
@@ -335,7 +340,7 @@ export class PhoenixAuthClient {
     try {
       const session = await this.sessionManager?.getSession();
       const extraHeaders =
-        session?.accessToken !== undefined
+        session !== undefined && session !== null && !isAccessExpired(session)
           ? { Authorization: `Bearer ${session.accessToken}` }
           : undefined;
 
@@ -351,9 +356,7 @@ export class PhoenixAuthClient {
     } catch (error) {
       if (
         error instanceof PhoenixAuthError &&
-        (error.code === "invalid_refresh_token" ||
-          error.code === "refresh_expired" ||
-          error.code === "session_missing")
+        shouldClearSessionOnRefreshFailure(error)
       ) {
         if (this.shouldPersistSessionState()) {
           await this.sessionManager?.clearSession();

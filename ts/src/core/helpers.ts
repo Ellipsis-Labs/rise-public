@@ -566,19 +566,25 @@ export const buildCreateAssociatedTokenAccountIdempotentSync = (params: {
   };
 };
 
+const buildSplTokenAmountInstructionData = (
+  discriminator: number,
+  amount: bigint
+): Uint8Array => {
+  const amountBytes = new Uint8Array(8);
+  new DataView(amountBytes.buffer).setBigUint64(0, amount, true);
+
+  const data = new Uint8Array(9);
+  data.set([discriminator], 0);
+  data.set(amountBytes, 1);
+  return data;
+};
+
 export const buildSplTokenApprove = (params: {
   owner: Authority;
   tokenAccount: TokenAccountAddress;
   delegate: Authority | EmberStateAddress;
   amount: bigint;
 }): InstructionsWithAccountsAndData => {
-  const amountBytes = new Uint8Array(8);
-  new DataView(amountBytes.buffer).setBigUint64(0, params.amount, true);
-
-  const data = new Uint8Array(9);
-  data.set([4], 0);
-  data.set(amountBytes, 1);
-
   return {
     programAddress: SPL_TOKEN_PROGRAM_ADDRESS,
     accounts: [
@@ -586,7 +592,24 @@ export const buildSplTokenApprove = (params: {
       generateReadonlyAccount(params.delegate),
       generateReadonlySignerAccount(params.owner),
     ] as const,
-    data,
+    data: buildSplTokenAmountInstructionData(4, params.amount),
+  };
+};
+
+export const buildSplTokenTransfer = (params: {
+  owner: Authority;
+  sourceTokenAccount: TokenAccountAddress;
+  destinationTokenAccount: TokenAccountAddress;
+  amount: bigint;
+}): InstructionsWithAccountsAndData => {
+  return {
+    programAddress: SPL_TOKEN_PROGRAM_ADDRESS,
+    accounts: [
+      generateWritableAccount(params.sourceTokenAccount),
+      generateWritableAccount(params.destinationTokenAccount),
+      generateReadonlySignerAccount(params.owner),
+    ] as const,
+    data: buildSplTokenAmountInstructionData(3, params.amount),
   };
 };
 

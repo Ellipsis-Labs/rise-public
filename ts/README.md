@@ -289,6 +289,33 @@ Default behavior:
 For Flight-specific order-routing examples, see
 [src/flight/README.md](./src/flight/README.md).
 
+## Flame Deposit Funding
+
+For sponsored USDC deposits that should avoid creating user-owned rent accounts,
+build a Flame proxy-funding transaction instead of the direct deposit flow:
+
+```ts
+import { buildFlameDepositFundingFlow } from "@ellipsis-labs/rise";
+
+const deposit = await buildFlameDepositFundingFlow(
+  {
+    authority,
+    amount: 1_000_000n,
+    traderPdaIndex: 0,
+    feePayer,
+    sponsorshipToken,
+  },
+  ixClient
+);
+```
+
+The returned instructions create the user's Flame proxy USDC ATA and transfer
+USDC from the user's wallet ATA into that proxy ATA. They do not perform the
+Phoenix collateral deposit directly; the Flame crank/indexer completes that
+asynchronously after the proxy account is funded.
+
+`buildDepositFlow` remains the direct Ember + Phoenix deposit path.
+
 ## Sync Order Packet Builders
 
 If you already have market units in hand, `rise` also exposes synchronous packet

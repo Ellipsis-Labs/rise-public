@@ -1,5 +1,8 @@
 import { createStore, type StoreApi } from "zustand/vanilla";
-import type { ExchangeMarketSnapshot } from "@/api/exchange/types";
+import type {
+  ExchangeMarketSnapshot,
+  MarketPublicMetadata,
+} from "@/api/exchange/types";
 import type {
   ExchangeCacheHealth,
   ExchangeMarketStatusSummary,
@@ -83,6 +86,7 @@ const projectedMarketStateCache = new WeakMap<
 export interface PhoenixExchangeMarketState {
   symbol: string | null;
   market: ExchangeMarketSnapshot | null;
+  metadata: MarketPublicMetadata | null;
   status: ExchangeMarketStatusSummary | null;
   latestChange: ExchangeRelevantChange | null;
   health: ExchangeCacheHealth;
@@ -116,6 +120,9 @@ export const projectPhoenixExchangeMarketState = (
     market: normalizedSymbol
       ? (state.marketsBySymbol[normalizedSymbol] ?? null)
       : null,
+    metadata: normalizedSymbol
+      ? (state.marketMetadataBySymbol[normalizedSymbol] ?? null)
+      : null,
     status: normalizedSymbol
       ? (state.marketStatusBySymbol[normalizedSymbol] ?? null)
       : null,
@@ -146,6 +153,11 @@ export const selectPhoenixExchangeMarketStatus =
   (state: PhoenixExchangeStoreState): ExchangeMarketStatusSummary | null =>
     state.marketStatusBySymbol[normalizeSymbol(symbol)] ?? null;
 
+export const selectPhoenixExchangeMarketMetadata =
+  (symbol: string) =>
+  (state: PhoenixExchangeStoreState): MarketPublicMetadata | null =>
+    state.marketMetadataBySymbol[normalizeSymbol(symbol)] ?? null;
+
 export const selectPhoenixExchangeMarketChange =
   (symbol: string) =>
   (state: PhoenixExchangeStoreState): ExchangeRelevantChange | null =>
@@ -165,6 +177,11 @@ export const selectExchangeMarketStatus =
   (symbol: string) =>
   (state: PhoenixExchangeStoreState): ExchangeMarketStatusSummary | undefined =>
     selectPhoenixExchangeMarketStatus(symbol)(state) ?? undefined;
+
+export const selectExchangeMarketMetadata =
+  (symbol: string) =>
+  (state: PhoenixExchangeStoreState): MarketPublicMetadata | undefined =>
+    selectPhoenixExchangeMarketMetadata(symbol)(state) ?? undefined;
 
 export const projectExchangeMarket = (
   market: ExchangeMarketSnapshot,

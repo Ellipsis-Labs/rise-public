@@ -129,10 +129,222 @@ export const MarketResponseSchema: z.ZodType<MarketResponse> = z.object({
   market: MarketViewSchema,
 });
 
-export type CommodityMarketStateView = "open" | "afterHours";
+export type MarketCalendarStateView = "open" | "afterHours";
+
+export const MarketCalendarStateViewSchema: z.ZodType<MarketCalendarStateView> =
+  z.enum(["open", "afterHours"]);
+
+export interface MarketCalendarHoursRange {
+  start: string;
+  end: string;
+}
+
+export const MarketCalendarHoursRangeSchema: z.ZodType<MarketCalendarHoursRange> =
+  z.object({
+    start: z.string(),
+    end: z.string(),
+  });
+
+export interface MarketCalendarDaySchedule {
+  activeHours: MarketCalendarHoursRange[];
+  inactiveHours: MarketCalendarHoursRange[];
+}
+
+export const MarketCalendarDayScheduleSchema: z.ZodType<MarketCalendarDaySchedule> =
+  z.object({
+    activeHours: z.array(MarketCalendarHoursRangeSchema),
+    inactiveHours: z.array(MarketCalendarHoursRangeSchema),
+  });
+
+export interface MarketCalendarView {
+  weeklySchedule: Record<string, MarketCalendarDaySchedule>;
+  dateOverrides: Record<string, MarketCalendarDaySchedule>;
+}
+
+export const MarketCalendarViewSchema: z.ZodType<MarketCalendarView> = z.object(
+  {
+    weeklySchedule: z.record(z.string(), MarketCalendarDayScheduleSchema),
+    dateOverrides: z.record(z.string(), MarketCalendarDayScheduleSchema),
+  }
+);
+
+export type MarketCalendarKind = string;
+
+export const MarketCalendarKindSchema: z.ZodType<MarketCalendarKind> =
+  z.string();
+
+export interface MarketCalendarResponse {
+  market: string;
+  marketCalendarId: string;
+  kind: MarketCalendarKind;
+  description: string;
+  calendarUri: string;
+  contentSha256: string;
+  loadedAt: string;
+  rawJson: string;
+  calendar?: MarketCalendarView;
+}
+
+export const MarketCalendarResponseSchema: z.ZodType<MarketCalendarResponse> =
+  z.object({
+    market: z.string(),
+    marketCalendarId: z.string(),
+    kind: MarketCalendarKindSchema,
+    description: z.string(),
+    calendarUri: z.string(),
+    contentSha256: z.string(),
+    loadedAt: z.string(),
+    rawJson: z.string(),
+    calendar: MarketCalendarViewSchema.optional(),
+  });
+
+export interface MarketCalendarRecord {
+  marketCalendarId: string;
+  kind: MarketCalendarKind;
+  description: string;
+  s3Path: string;
+  calendarUri: string;
+  contentSha256: string;
+  loadedAt: string;
+  updatedAt: string;
+  rawJson: string;
+  calendar?: MarketCalendarView;
+}
+
+export const MarketCalendarRecordSchema: z.ZodType<MarketCalendarRecord> =
+  z.object({
+    marketCalendarId: z.string(),
+    kind: MarketCalendarKindSchema,
+    description: z.string(),
+    s3Path: z.string(),
+    calendarUri: z.string(),
+    contentSha256: z.string(),
+    loadedAt: z.string(),
+    updatedAt: z.string(),
+    rawJson: z.string(),
+    calendar: MarketCalendarViewSchema.optional(),
+  });
+
+export interface MarketCalendarSummary {
+  marketCalendarId: string;
+  kind: MarketCalendarKind;
+  description: string;
+  s3Path: string;
+  calendarUri: string;
+  contentSha256: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const MarketCalendarSummarySchema: z.ZodType<MarketCalendarSummary> =
+  z.object({
+    marketCalendarId: z.string(),
+    kind: MarketCalendarKindSchema,
+    description: z.string(),
+    s3Path: z.string(),
+    calendarUri: z.string(),
+    contentSha256: z.string(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  });
+
+export interface MarketCalendarListResponse {
+  calendars: MarketCalendarSummary[];
+}
+
+export const MarketCalendarListResponseSchema: z.ZodType<MarketCalendarListResponse> =
+  z.object({
+    calendars: z.array(MarketCalendarSummarySchema),
+  });
+
+export type CommodityMarketStateView = MarketCalendarStateView;
 
 export const CommodityMarketStateViewSchema: z.ZodType<CommodityMarketStateView> =
-  z.enum(["open", "afterHours"]);
+  MarketCalendarStateViewSchema;
+
+export type CommodityMarketHoursRange = MarketCalendarHoursRange;
+
+export const CommodityMarketHoursRangeSchema: z.ZodType<CommodityMarketHoursRange> =
+  MarketCalendarHoursRangeSchema;
+
+/**
+ * A single named session within a {@link CommodityMarketDaySchedule}.
+ *
+ * `mode` is the serialized calendar mode. The API erases the underlying Rust
+ * enum to a plain string, so this stays a `string` for forward compatibility;
+ * known values are the SCREAMING_SNAKE_CASE variants of the futures calendar
+ * (`"EXTERNAL"`, `"INTERNAL"`) and the equities calendar (`"EXTERNAL"`,
+ * `"INTERNAL"`, `"CASH_SESSION"`, `"PRE_MARKET"`, `"POST_MARKET"`,
+ * `"OVERNIGHT"`, `"FUTURES_SESSION"`).
+ */
+export interface CommodityMarketSessionRange {
+  start: string;
+  end: string;
+  mode: string;
+}
+
+export const CommodityMarketSessionRangeSchema: z.ZodType<CommodityMarketSessionRange> =
+  z.object({
+    start: z.string(),
+    end: z.string(),
+    mode: z.string(),
+  });
+
+export interface CommodityMarketDaySchedule {
+  sessions: CommodityMarketSessionRange[];
+}
+
+export const CommodityMarketDayScheduleSchema: z.ZodType<CommodityMarketDaySchedule> =
+  z.object({
+    sessions: z.array(CommodityMarketSessionRangeSchema),
+  });
+
+export interface CommodityMarketCalendarView {
+  weeklySchedule: Record<string, CommodityMarketDaySchedule>;
+  dateOverrides: Record<string, CommodityMarketDaySchedule>;
+}
+
+export const CommodityMarketCalendarViewSchema: z.ZodType<CommodityMarketCalendarView> =
+  z.object({
+    weeklySchedule: z.record(z.string(), CommodityMarketDayScheduleSchema),
+    dateOverrides: z.record(z.string(), CommodityMarketDayScheduleSchema),
+  });
+
+export interface CommodityMarketCalendarResponse {
+  market: string;
+  loadedAt: string;
+  rawJson: string;
+  calendar: CommodityMarketCalendarView;
+}
+
+export const CommodityMarketCalendarResponseSchema: z.ZodType<CommodityMarketCalendarResponse> =
+  z.object({
+    market: z.string(),
+    loadedAt: z.string(),
+    rawJson: z.string(),
+    calendar: CommodityMarketCalendarViewSchema,
+  });
+
+export interface NextMarketCalendarTransition {
+  market: string;
+  marketCalendarId: string;
+  calendarUri: string;
+  loadedAt: string;
+  utcNextTransition?: string | null;
+  nextMarketState?: MarketCalendarStateView | null;
+  currentState: MarketCalendarStateView;
+}
+
+export const NextMarketCalendarTransitionSchema: z.ZodType<NextMarketCalendarTransition> =
+  z.object({
+    market: z.string(),
+    marketCalendarId: z.string(),
+    calendarUri: z.string(),
+    loadedAt: z.string(),
+    utcNextTransition: z.string().nullish(),
+    nextMarketState: MarketCalendarStateViewSchema.nullish(),
+    currentState: MarketCalendarStateViewSchema,
+  });
 
 export interface NextCommodityMarketTransition {
   market: string;

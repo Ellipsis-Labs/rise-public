@@ -2,6 +2,7 @@ import { createStore } from "zustand/vanilla";
 import { describe, expect, it, vi } from "vitest";
 import type {
   ExchangeMarketSnapshot,
+  MarketPublicMetadata,
   PhoenixExchangeStoreState,
 } from "@/index";
 import {
@@ -11,6 +12,7 @@ import {
   projectPhoenixMarketsBySymbol,
   selectPhoenixExchangeMarket,
   selectPhoenixExchangeMarketChange,
+  selectPhoenixExchangeMarketMetadata,
   selectPhoenixExchangeMarketStatus,
 } from "@/index";
 
@@ -85,6 +87,15 @@ const createExchangeStoreState = (
   const marketsByPubkey = Object.fromEntries(
     markets.map((market) => [market.marketPubkey, market])
   );
+  const marketMetadataBySymbol = Object.fromEntries(
+    markets.map((market) => [market.symbol, market.metadata ?? null])
+  );
+  const marketMetadataByAssetId = Object.fromEntries(
+    markets.map((market) => [market.assetId, market.metadata ?? null])
+  );
+  const marketMetadataByPubkey = Object.fromEntries(
+    markets.map((market) => [market.marketPubkey, market.metadata ?? null])
+  );
   const marketStatusBySymbol = Object.fromEntries(
     markets.map((market) => [
       market.symbol,
@@ -139,6 +150,9 @@ const createExchangeStoreState = (
     marketsBySymbol,
     marketsByAssetId,
     marketsByPubkey,
+    marketMetadataBySymbol,
+    marketMetadataByAssetId,
+    marketMetadataByPubkey,
     marketSymbols: markets.map((market) => market.symbol).sort(),
     activeMarketSymbols: markets
       .filter((market) => market.marketStatus === "active")
@@ -162,7 +176,15 @@ const createExchangeStoreState = (
 
 describe("exchange selectors", () => {
   it("projects exchange markets and exposes canonical selectors", async () => {
-    const solMarket = buildMarket("SOL");
+    const solMetadata: MarketPublicMetadata = {
+      name: "Solana",
+      logoUri: "https://example.com/sol.png",
+      coinGeckoId: "solana",
+      displayColor: "#14f195",
+    };
+    const solMarket = buildMarket("SOL", {
+      metadata: solMetadata,
+    });
     const btcMarket = buildMarket("BTC", {
       marketStatus: "paused",
     });
@@ -184,6 +206,9 @@ describe("exchange selectors", () => {
     expect(
       selectPhoenixExchangeMarketChange("sol")(exchangeStore.getState())
     ).toBeNull();
+    expect(
+      selectPhoenixExchangeMarketMetadata("sol")(exchangeStore.getState())
+    ).toBe(solMetadata);
 
     const projectedA = projectPhoenixExchangeMarketState(
       exchangeStore.getState(),
@@ -194,6 +219,7 @@ describe("exchange selectors", () => {
       "SOL"
     );
     expect(projectedA).toBe(projectedB);
+    expect(projectedA.metadata).toBe(solMetadata);
 
     const selection = createPhoenixExchangeMarketSelection(
       exchange as never,

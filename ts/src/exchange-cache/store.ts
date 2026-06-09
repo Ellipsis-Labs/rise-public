@@ -7,6 +7,7 @@ import type {
   ExchangeWsLeverageTier,
   ExchangeWsMarketPriceBand,
   ExchangeWsMarkPriceParameters,
+  MarketPublicMetadata,
 } from "@/api/exchange/types";
 import type {
   ExchangeDeltaMsg,
@@ -38,6 +39,11 @@ type IndexedSnapshot = {
   marketsBySymbol: Readonly<Record<string, ExchangeMarketSnapshot>>;
   marketsByAssetId: Readonly<Record<number, ExchangeMarketSnapshot>>;
   marketsByPubkey: Readonly<Record<string, ExchangeMarketSnapshot>>;
+  marketMetadataBySymbol: Readonly<Record<string, MarketPublicMetadata | null>>;
+  marketMetadataByAssetId: Readonly<
+    Record<number, MarketPublicMetadata | null>
+  >;
+  marketMetadataByPubkey: Readonly<Record<string, MarketPublicMetadata | null>>;
   marketSymbols: readonly string[];
   activeMarketSymbols: readonly string[];
   gatedMarketSymbols: readonly string[];
@@ -53,6 +59,15 @@ const EMPTY_MARKETS_BY_ASSET_ID: Readonly<
 > = {};
 const EMPTY_MARKETS_BY_PUBKEY: Readonly<
   Record<string, ExchangeMarketSnapshot>
+> = {};
+const EMPTY_MARKET_METADATA_BY_SYMBOL: Readonly<
+  Record<string, MarketPublicMetadata | null>
+> = {};
+const EMPTY_MARKET_METADATA_BY_ASSET_ID: Readonly<
+  Record<number, MarketPublicMetadata | null>
+> = {};
+const EMPTY_MARKET_METADATA_BY_PUBKEY: Readonly<
+  Record<string, MarketPublicMetadata | null>
 > = {};
 const EMPTY_MARKET_SYMBOLS: readonly string[] = [];
 const EMPTY_MARKET_STATUS_BY_SYMBOL: Readonly<
@@ -117,6 +132,7 @@ const cloneMarket = (
   fundingConfig: { ...market.fundingConfig },
   markPriceParameters: cloneMarkPriceParameters(market.markPriceParameters),
   commodityMetadata: cloneCommodityMetadata(market.commodityMetadata),
+  metadata: market.metadata ? { ...market.metadata } : market.metadata,
 });
 
 const cloneExchange = (
@@ -192,23 +208,72 @@ const buildMarketStatusSummary = (
 const sortSymbols = (symbols: Iterable<string>): readonly string[] =>
   Array.from(symbols).sort((left, right) => left.localeCompare(right));
 
+const sameMarketPublicMetadata = (
+  left: MarketPublicMetadata | null | undefined,
+  right: MarketPublicMetadata | null | undefined
+): boolean => {
+  const leftCalendar = left?.calendar ?? null;
+  const rightCalendar = right?.calendar ?? null;
+  return (
+    (left?.name ?? null) === (right?.name ?? null) &&
+    (left?.description ?? null) === (right?.description ?? null) &&
+    (left?.logoUri ?? null) === (right?.logoUri ?? null) &&
+    (left?.coinGeckoId ?? null) === (right?.coinGeckoId ?? null) &&
+    (left?.coinMarketCapId ?? null) === (right?.coinMarketCapId ?? null) &&
+    (left?.tokensXyzAssetId ?? null) === (right?.tokensXyzAssetId ?? null) &&
+    (leftCalendar?.id ?? null) === (rightCalendar?.id ?? null) &&
+    (leftCalendar?.description ?? null) ===
+      (rightCalendar?.description ?? null) &&
+    (leftCalendar?.calendarUri ?? null) ===
+      (rightCalendar?.calendarUri ?? null) &&
+    (leftCalendar?.contentSha256 ?? null) ===
+      (rightCalendar?.contentSha256 ?? null) &&
+    (leftCalendar?.nextMarketTransitionUtc ?? null) ===
+      (rightCalendar?.nextMarketTransitionUtc ?? null) &&
+    (left?.displayColor ?? null) === (right?.displayColor ?? null)
+  );
+};
+
 const buildIndexedSnapshot = (
-  snapshot: ExchangeSnapshotView
+  snapshot: ExchangeSnapshotView,
+  previous?: IndexedSnapshot | null
 ): IndexedSnapshot => {
-  const normalized = deepFreeze(normalizeSnapshot(snapshot));
+  const normalized = normalizeSnapshot(snapshot);
+  for (const market of normalized.markets) {
+    const symbol = normalizeSymbol(market.symbol);
+    const previousMetadata = previous?.marketMetadataBySymbol[symbol];
+    if (
+      market.metadata &&
+      previousMetadata &&
+      sameMarketPublicMetadata(market.metadata, previousMetadata)
+    ) {
+      market.metadata = previousMetadata;
+    }
+  }
+  const frozen = deepFreeze(normalized);
   const marketsBySymbol: Record<string, ExchangeMarketSnapshot> = {};
   const marketsByAssetId: Record<number, ExchangeMarketSnapshot> = {};
   const marketsByPubkey: Record<string, ExchangeMarketSnapshot> = {};
+  const marketMetadataBySymbol: Record<string, MarketPublicMetadata | null> =
+    {};
+  const marketMetadataByAssetId: Record<number, MarketPublicMetadata | null> =
+    {};
+  const marketMetadataByPubkey: Record<string, MarketPublicMetadata | null> =
+    {};
   const marketStatusBySymbol: Record<string, ExchangeMarketStatusSummary> = {};
   const activeSymbols: string[] = [];
   const gatedSymbols: string[] = [];
   const closedSymbols: string[] = [];
 
-  for (const market of normalized.markets) {
+  for (const market of frozen.markets) {
     const symbol = normalizeSymbol(market.symbol);
     marketsBySymbol[symbol] = market;
     marketsByAssetId[market.assetId] = market;
     marketsByPubkey[market.marketPubkey] = market;
+    const metadata = market.metadata ?? null;
+    marketMetadataBySymbol[symbol] = metadata;
+    marketMetadataByAssetId[market.assetId] = metadata;
+    marketMetadataByPubkey[market.marketPubkey] = metadata;
 
     const summary = buildMarketStatusSummary(market);
     marketStatusBySymbol[symbol] = summary;
@@ -222,10 +287,13 @@ const buildIndexedSnapshot = (
   }
 
   return {
-    snapshot: normalized,
+    snapshot: frozen,
     marketsBySymbol,
     marketsByAssetId,
     marketsByPubkey,
+    marketMetadataBySymbol,
+    marketMetadataByAssetId,
+    marketMetadataByPubkey,
     marketSymbols: sortSymbols(Object.keys(marketsBySymbol)),
     activeMarketSymbols: sortSymbols(activeSymbols),
     gatedMarketSymbols: sortSymbols(gatedSymbols),
@@ -297,6 +365,12 @@ const buildState = (
   marketsBySymbol: indexed?.marketsBySymbol ?? EMPTY_MARKETS_BY_SYMBOL,
   marketsByAssetId: indexed?.marketsByAssetId ?? EMPTY_MARKETS_BY_ASSET_ID,
   marketsByPubkey: indexed?.marketsByPubkey ?? EMPTY_MARKETS_BY_PUBKEY,
+  marketMetadataBySymbol:
+    indexed?.marketMetadataBySymbol ?? EMPTY_MARKET_METADATA_BY_SYMBOL,
+  marketMetadataByAssetId:
+    indexed?.marketMetadataByAssetId ?? EMPTY_MARKET_METADATA_BY_ASSET_ID,
+  marketMetadataByPubkey:
+    indexed?.marketMetadataByPubkey ?? EMPTY_MARKET_METADATA_BY_PUBKEY,
   marketSymbols: indexed?.marketSymbols ?? EMPTY_MARKET_SYMBOLS,
   activeMarketSymbols: indexed?.activeMarketSymbols ?? EMPTY_MARKET_SYMBOLS,
   gatedMarketSymbols: indexed?.gatedMarketSymbols ?? EMPTY_MARKET_SYMBOLS,
@@ -331,6 +405,9 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
     marketsBySymbol: EMPTY_MARKETS_BY_SYMBOL,
     marketsByAssetId: EMPTY_MARKETS_BY_ASSET_ID,
     marketsByPubkey: EMPTY_MARKETS_BY_PUBKEY,
+    marketMetadataBySymbol: EMPTY_MARKET_METADATA_BY_SYMBOL,
+    marketMetadataByAssetId: EMPTY_MARKET_METADATA_BY_ASSET_ID,
+    marketMetadataByPubkey: EMPTY_MARKET_METADATA_BY_PUBKEY,
     marketSymbols: EMPTY_MARKET_SYMBOLS,
     activeMarketSymbols: EMPTY_MARKET_SYMBOLS,
     gatedMarketSymbols: EMPTY_MARKET_SYMBOLS,
@@ -369,6 +446,24 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
 
   marketByPubkey(pubkey: string): ExchangeMarketSnapshot | undefined {
     return this.store.getState().marketsByPubkey[pubkey];
+  }
+
+  marketMetadata(symbol: string): MarketPublicMetadata | null | undefined {
+    return this.store.getState().marketMetadataBySymbol[
+      normalizeSymbol(symbol)
+    ];
+  }
+
+  marketMetadataByAssetId(
+    assetId: number
+  ): MarketPublicMetadata | null | undefined {
+    return this.store.getState().marketMetadataByAssetId[assetId];
+  }
+
+  marketMetadataByPubkey(
+    pubkey: string
+  ): MarketPublicMetadata | null | undefined {
+    return this.store.getState().marketMetadataByPubkey[pubkey];
   }
 
   instructionContext(symbol: string): ExchangeInstructionContext | undefined {
@@ -540,16 +635,36 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
           });
           break;
         case "marketParameterUpdated":
-          replaceMarket(op.symbol, (market) =>
-            this.applyMarketParameterUpdate(market, op.update)
-          );
+          {
+            const change = this.marketChangeKind(op.update);
+            if (change) {
+              replaceMarket(op.symbol, (market) =>
+                this.applyMarketParameterUpdate(market, op.update)
+              );
+              events.push({
+                type: "marketUpdated",
+                symbol: op.symbol,
+                change,
+                slot: message.slot,
+                slotIndex: message.slotIndex,
+              });
+            }
+          }
+          break;
+        case "marketMetadataUpdated":
+          replaceMarket(op.symbol, (market) => ({
+            ...cloneMarket(market),
+            metadata: op.metadata ? { ...op.metadata } : op.metadata,
+          }));
           events.push({
             type: "marketUpdated",
             symbol: op.symbol,
-            change: this.marketChangeKind(op.update),
+            change: "metadata",
             slot: message.slot,
             slotIndex: message.slotIndex,
           });
+          break;
+        case "unknown":
           break;
       }
     }
@@ -635,7 +750,10 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
     snapshot: ExchangeSnapshotView | Readonly<ExchangeSnapshotView>,
     source: ExchangeCacheSnapshotSource
   ): void {
-    this.indexed = buildIndexedSnapshot(snapshot as ExchangeSnapshotView);
+    this.indexed = buildIndexedSnapshot(
+      snapshot as ExchangeSnapshotView,
+      this.indexed
+    );
     this.store.setState((state) => buildState(this.indexed, state));
     this.emit({
       type: "snapshotApplied",
@@ -648,7 +766,7 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
 
   private marketChangeKind(
     update: ExchangeMarketParameterUpdate
-  ): ExchangeCacheMarketChangeKind {
+  ): ExchangeCacheMarketChangeKind | null {
     switch (update.kind) {
       case "cancelRiskFactorUpdated":
         return "cancelRiskFactor";
@@ -670,6 +788,8 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
         return "marketFees";
       case "commodityMetadataUpdated":
         return "commodityMetadata";
+      case "unknown":
+        return null;
     }
   }
 
@@ -720,6 +840,8 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
       case "commodityMetadataUpdated":
         nextMarket.commodityMetadata = cloneCommodityMetadata(update.new);
         return nextMarket;
+      case "unknown":
+        return market;
     }
   }
 }

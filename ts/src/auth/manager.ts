@@ -5,6 +5,7 @@ import type {
   AuthSessionStorage,
   AuthSessionStorageSubscriber,
 } from "./storage";
+import { shouldClearSessionOnRefreshFailure } from "./refreshErrors";
 
 type StorageWithLock = {
   withLock<T>(fn: () => Promise<T>): Promise<T>;
@@ -30,17 +31,6 @@ const hasStorageSubscription = (
   const candidate = storage as Partial<AuthSessionStorageSubscriber>;
   return typeof candidate.subscribe === "function";
 };
-
-const getErrorCode = (error: unknown): string | undefined => {
-  if (!error || typeof error !== "object") return undefined;
-  const candidate = error as { code?: unknown };
-  return typeof candidate.code === "string" ? candidate.code : undefined;
-};
-
-const shouldClearSessionOnRefreshFailure = (code?: string): boolean =>
-  code === "invalid_refresh_token" ||
-  code === "refresh_expired" ||
-  code === "session_missing";
 
 class AsyncMutex {
   private current: Promise<void> = Promise.resolve();
@@ -187,7 +177,7 @@ export class AuthSessionManager {
           await this.updateSession(next);
           return next;
         } catch (error) {
-          if (shouldClearSessionOnRefreshFailure(getErrorCode(error))) {
+          if (shouldClearSessionOnRefreshFailure(error)) {
             await this.clearSession();
           }
           throw error;

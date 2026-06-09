@@ -77,6 +77,18 @@ class PhoenixExchangeCacheImpl implements PhoenixExchangeCache {
     return this.cacheStore.marketByPubkey(pubkey);
   }
 
+  marketMetadata(symbol: string) {
+    return this.cacheStore.marketMetadata(symbol);
+  }
+
+  marketMetadataByAssetId(assetId: number) {
+    return this.cacheStore.marketMetadataByAssetId(assetId);
+  }
+
+  marketMetadataByPubkey(pubkey: string) {
+    return this.cacheStore.marketMetadataByPubkey(pubkey);
+  }
+
   instructionContext(symbol: string) {
     return this.cacheStore.instructionContext(symbol);
   }

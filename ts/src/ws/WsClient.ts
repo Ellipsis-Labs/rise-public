@@ -4,6 +4,15 @@ import { createMessageHandler } from "./messageHandler";
 import { createDefaultPlugins, createPluginRegistry } from "./plugins";
 import { debugWs } from "./debug";
 import { AuthWsLifecycleController } from "./authLifecycleMachine";
+import {
+  isAccessExpired,
+  isAccessExpiringWithin,
+  isRefreshExpired,
+} from "@/auth/session";
+import {
+  getRefreshRetryAfterMs,
+  isTerminalRefreshError,
+} from "@/auth/refreshErrors";
 import { isExternalSessionControl } from "@/auth/types";
 import type {
   Subscription,
@@ -17,12 +26,20 @@ import type {
 } from "./types";
 
 export const createWsClient = (opts: WsClientOpts): WsClient => {
+  const ACCESS_REFRESH_WINDOW_MS = 60_000;
   const WS_OPEN = 1;
+  const DEFER_CONNECT_FOR_SESSION_OWNER = Symbol(
+    "defer-connect-for-session-owner"
+  );
+  type DeferredSessionOwnerConnect = typeof DEFER_CONNECT_FOR_SESSION_OWNER;
+  type ResolvedProtocol = WsClientConfig["protocol"];
   let ws: WebSocket | undefined;
   let connectInFlight: Promise<void> | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let idleCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  let authRefreshRetryTimer: ReturnType<typeof setTimeout> | null = null;
   let deferredScheduleImmediate = false;
+  let suppressAuthChangeDuringProtocolRefresh = false;
 
   const authMode =
     opts.authMode ?? (opts.sessionManager ? "auto" : "anonymous");
@@ -140,6 +157,12 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
     idleCloseTimer = null;
   };
 
+  const clearAuthRefreshRetryTimer = () => {
+    if (!authRefreshRetryTimer) return;
+    clearTimeout(authRefreshRetryTimer);
+    authRefreshRetryTimer = null;
+  };
+
   const scheduleIdleClose = () => {
     clearIdleCloseTimer();
     if (config.connectMode !== "lazy" || shouldMaintainConnection()) {
@@ -227,6 +250,24 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
 
   const scheduleReconnect = () => requestReconnect("immediate");
 
+  const scheduleAuthRefreshRetry = (
+    error: unknown,
+    retry: () => void
+  ): boolean => {
+    if (isTerminalRefreshError(error)) {
+      return false;
+    }
+    clearReconnectTimer();
+    clearAuthRefreshRetryTimer();
+    const waitMs = getRefreshRetryAfterMs(error) ?? config.backoff.baseMs;
+    authRefreshRetryTimer = setTimeout(() => {
+      authRefreshRetryTimer = null;
+      if (lifecycle.isClosing) return;
+      retry();
+    }, waitMs);
+    return true;
+  };
+
   const awaitExternalSessionChange = () => {
     clearReconnectTimer();
     lifecycle.send({ type: "AWAIT_AUTH" });
@@ -287,10 +328,13 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
     try {
       await sessionManager.refreshWith(opts.refreshFn);
       requestReconnect("immediate");
-    } catch {
+    } catch (error) {
       // `refreshWith` already clears terminal refresh failures. Preserve the
       // current session on transient errors so websocket auth issues do not
       // force a full logout.
+      scheduleAuthRefreshRetry(error, () => {
+        void handleAuthClosePolicy();
+      });
     }
   };
 
@@ -393,14 +437,58 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
     return null;
   };
 
-  const resolveProtocol = async () => {
+  const getSessionForProtocol = async (): Promise<
+    { accessToken: string } | null | DeferredSessionOwnerConnect
+  > => {
+    const sessionManager = opts.sessionManager;
+    if (!sessionManager || authMode === "anonymous") return null;
+
+    const session = await sessionManager.getSession();
+    if (!session) return null;
+
+    if (!isAccessExpiringWithin(session, ACCESS_REFRESH_WINDOW_MS)) {
+      return session;
+    }
+
+    if (sessionIsExternallyManaged) {
+      awaitExternalSessionChange();
+      return DEFER_CONNECT_FOR_SESSION_OWNER;
+    }
+
+    if (!opts.refreshFn || isRefreshExpired(session)) {
+      return isAccessExpired(session) ? null : session;
+    }
+
+    try {
+      suppressAuthChangeDuringProtocolRefresh = true;
+      return await sessionManager.refreshWith(opts.refreshFn);
+    } catch (error) {
+      const willRetry = scheduleAuthRefreshRetry(error, () => {
+        requestReconnect("immediate");
+      });
+      if (willRetry) {
+        return DEFER_CONNECT_FOR_SESSION_OWNER;
+      }
+      return isAccessExpired(session) ? null : session;
+    } finally {
+      suppressAuthChangeDuringProtocolRefresh = false;
+    }
+  };
+
+  const resolveProtocol = async (): Promise<
+    ResolvedProtocol | DeferredSessionOwnerConnect
+  > => {
     if (authMode === "anonymous") return config.protocol;
-    const session = await opts.sessionManager?.getSession();
+    const session = await getSessionForProtocol();
+    if (session === DEFER_CONNECT_FOR_SESSION_OWNER) {
+      return DEFER_CONNECT_FOR_SESSION_OWNER;
+    }
     if (!session) return config.protocol;
     return mergeProtocolToken(config.protocol, session.accessToken);
   };
 
   const handleAuthChange = (session: { accessToken: string } | null) => {
+    if (suppressAuthChangeDuringProtocolRefresh) return;
     lifecycle.send({
       type: "AUTH_SESSION_CHANGED",
       token: session?.accessToken ?? null,
@@ -420,6 +508,9 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
     connectInFlight = (async () => {
       try {
         const protocol = await resolveProtocol();
+        if (protocol === DEFER_CONNECT_FOR_SESSION_OWNER) {
+          return;
+        }
         const protocolToken = extractProtocolToken(protocol);
         lifecycle.send({ type: "AUTH_TOKEN_OBSERVED", token: protocolToken });
 
@@ -604,6 +695,7 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
       lifecycle.send({ type: "CLOSE_CLIENT" });
       clearReconnectTimer();
       clearIdleCloseTimer();
+      clearAuthRefreshRetryTimer();
       sessionUnsub?.();
       ws?.close();
       subscriptionRegistry.clear();

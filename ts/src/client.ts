@@ -17,6 +17,7 @@ import type { PhoenixAuthClient } from "./auth/client";
 import type { AuthSessionSnapshot } from "./auth/session";
 import type { RiseAuthConfig } from "./auth/types";
 import { getPhoenixClientHeader } from "./clientIdentity";
+import { PhoenixAuthError } from "./errors";
 import { debugRise, summarizeDebugError } from "./internal/_debug";
 import {
   createPhoenixWsClient,
@@ -144,8 +145,6 @@ export interface PhoenixHttpClientConfig extends PhoenixApiUrlConfig {
    * PDA cache with LRU eviction.
    */
   pdaCache?: boolean | PhoenixPdaCacheConfig;
-  /** Optional API key sent as x-api-key header */
-  apiKey?: string;
   /** Request timeout in ms (default: 30000) */
   timeout?: number;
   /** Optional additional headers resolved per request. */
@@ -176,7 +175,6 @@ export interface PhoenixHttpClientConfig extends PhoenixApiUrlConfig {
  */
 export class PhoenixHttpClient implements HttpTransport {
   private readonly apiUrl: string;
-  private readonly apiKey?: string;
   private readonly timeout: number;
   private readonly extraHeaders?: PhoenixHttpClientConfig["extraHeaders"];
   private readonly authRuntime?: RiseAuthRuntime;
@@ -195,7 +193,6 @@ export class PhoenixHttpClient implements HttpTransport {
 
   constructor(config: PhoenixHttpClientConfig = {}) {
     this.apiUrl = resolvePhoenixApiUrl(config);
-    this.apiKey = config.apiKey;
     this.timeout = config.timeout ?? DEFAULT_TIMEOUT;
     this.extraHeaders = config.extraHeaders;
     const pdaConfig: PhoenixPdaClientConfig = {
@@ -281,11 +278,18 @@ export class PhoenixHttpClient implements HttpTransport {
     if (options?.params) appendQueryParams(url, options.params);
     const startedAt = Date.now();
 
+    const authMode = options?.auth ?? "optional";
     const authEnabled =
-      options?.auth !== "disabled" && this.authRuntime !== undefined;
+      authMode !== "disabled" && this.authRuntime !== undefined;
     const session = authEnabled
       ? await this.authRuntime?.maybeGetSession()
       : undefined;
+    if (authEnabled && authMode === "required" && !session) {
+      throw new PhoenixAuthError(
+        "Authenticated request requires a valid auth session",
+        "no_auth_session"
+      );
+    }
     const requestBody = body !== undefined ? JSON.stringify(body) : undefined;
 
     const controller = new AbortController();
@@ -295,7 +299,7 @@ export class PhoenixHttpClient implements HttpTransport {
       debugRise("http", "request:start", {
         method: method.toUpperCase(),
         url: url.toString(),
-        auth: options?.auth ?? "optional",
+        auth: authMode,
         hasSession: Boolean(session),
         routeId: options?.routeId,
         params:
@@ -310,7 +314,6 @@ export class PhoenixHttpClient implements HttpTransport {
         ...(await this.resolveExtraHeaders()),
         ...options?.headers,
       };
-      if (this.apiKey) baseHeaders["x-api-key"] = this.apiKey;
       if (requestBody !== undefined) {
         baseHeaders["content-type"] = "application/json";
       }

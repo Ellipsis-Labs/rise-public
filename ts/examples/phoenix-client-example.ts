@@ -32,7 +32,7 @@ async function main() {
   console.log("=== Example 1: Creating a client ===");
   const client = createPhoenixClient();
   // const client = createPhoenixClient({ apiUrl: "https://perp-api.phoenix.trade" });
-  // const client = createPhoenixClient({ apiKey: "your-api-key" });
+  // const client = createPhoenixClient();
   console.log("✓ Client created successfully");
   console.log(
     `  API client: ${client.api ? "initialized" : "not initialized"}`

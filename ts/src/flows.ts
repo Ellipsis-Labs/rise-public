@@ -8,9 +8,12 @@ import {
   type PhoenixInstructionClient,
   type PhoenixMarketDataClient,
 } from "@/core/clientTypes";
+import { OrderFlags, SelfTradeBehavior } from "@/primitives/OrderPacket";
 import {
   buildCreateAssociatedTokenAccountIdempotent,
+  buildCreateAssociatedTokenAccountIdempotentSync,
   buildSplTokenApprove,
+  buildSplTokenTransfer,
   DEFAULT_MARKET_ORDER_SLIPPAGE,
   fetchRequiredAccounts,
   fetchSubaccountForAsset,
@@ -33,15 +36,15 @@ import {
   type Authority,
   MarginType,
   type MarketAddress,
-  OrderFlags,
   quoteLots,
   Side,
   type Symbol,
   type Ticks,
   ticks,
-  SelfTradeBehavior,
   type BaseLots,
+  type QuoteLots,
   type InstructionsWithAccountsAndData,
+  type TokenAccountAddress,
 } from "@/primitives";
 import {
   getPhoenixPermissionAddress,
@@ -49,6 +52,7 @@ import {
   getPhoenixTraderSubaccountAddress,
   getPhoenixTraderTokenAccountAddress,
 } from "@/pdas";
+import { deriveFlameDepositAddresses } from "@/flame";
 import { address, type Address } from "@solana/kit";
 import { buildPlaceLimitOrderIx } from "./core/ixBuilders/PlaceLimitOrder";
 import { buildPlaceMarketOrderIx } from "./core/ixBuilders/PlaceMarketOrder";
@@ -92,6 +96,34 @@ export interface DepositFlowResult {
   instructions: InstructionsWithAccountsAndData[];
   named: DepositFlowInstructions;
 }
+
+export type FlameDepositFundingFlowParams = DepositFlowParams;
+
+export interface FlameDepositFundingFlowInstructions {
+  createProxyAta: InstructionsWithAccountsAndData;
+  transferUsdcToProxy: InstructionsWithAccountsAndData;
+}
+
+export interface FlameDepositFundingFlowResult {
+  instructions: InstructionsWithAccountsAndData[];
+  named: FlameDepositFundingFlowInstructions;
+  proxyAuthority: Authority;
+  depositAddress: TokenAccountAddress;
+  proxyAta: TokenAccountAddress;
+  traderPdaIndex: number;
+}
+
+const resolveFlowPayer = (params: {
+  authority: Authority;
+  feePayer?: Authority | null;
+}): Authority => {
+  const sponsorOverride = process.env.PHOENIX_TEST_SPONSOR_FEE_PAYER;
+  return params.feePayer != null
+    ? sponsorOverride
+      ? (address(sponsorOverride) as Authority)
+      : params.feePayer
+    : params.authority;
+};
 
 interface BaseWithdrawFlowParams {
   authority: Authority;
@@ -166,6 +198,8 @@ export interface PlaceMarketOrderFlowParams {
   pdaIndex?: number;
   isReduceOnly?: boolean;
   priceInTicksLimit?: Ticks;
+  minBaseLotsToFill?: BaseLots;
+  minQuoteLotsToFill?: QuoteLots;
   skipTransferToParent?: boolean;
 }
 
@@ -180,6 +214,33 @@ export interface PlaceMarketOrderFlowResult {
   named: PlaceMarketOrderFlowInstructions;
   subaccountIndex: number;
 }
+
+const validatePlaceMarketOrderFlowMinimums = ({
+  numBaseLots,
+  minBaseLotsToFill,
+  minQuoteLotsToFill,
+}: Pick<
+  PlaceMarketOrderFlowParams,
+  "numBaseLots" | "minBaseLotsToFill" | "minQuoteLotsToFill"
+>) => {
+  if (minBaseLotsToFill !== undefined && minBaseLotsToFill < 0n) {
+    throw new Error(
+      `minBaseLotsToFill must be non-negative, got ${minBaseLotsToFill.toString()}`
+    );
+  }
+
+  if (minQuoteLotsToFill !== undefined && minQuoteLotsToFill < 0n) {
+    throw new Error(
+      `minQuoteLotsToFill must be non-negative, got ${minQuoteLotsToFill.toString()}`
+    );
+  }
+
+  if (minBaseLotsToFill !== undefined && minBaseLotsToFill > numBaseLots) {
+    throw new Error(
+      `minBaseLotsToFill must be <= numBaseLots, got minBaseLotsToFill=${minBaseLotsToFill.toString()} and numBaseLots=${numBaseLots.toString()}`
+    );
+  }
+};
 
 export interface GrantEscrowPermissionFlowParams {
   permissionAuthority: Address;
@@ -223,13 +284,7 @@ export const buildDepositFlow = async (
   const { globalConfiguration } = await fetchRequiredAccounts(client);
   const phoenixMint = globalConfiguration.canonicalTokenMintKey;
 
-  const sponsorOverride = process.env.PHOENIX_TEST_SPONSOR_FEE_PAYER;
-  const payer =
-    params.feePayer != null
-      ? sponsorOverride
-        ? (address(sponsorOverride) as Authority)
-        : params.feePayer
-      : authority;
+  const payer = resolveFlowPayer(params);
 
   const [createAta, emberDeposit, depositFunds] = await Promise.all([
     buildCreateAssociatedTokenAccountIdempotent({
@@ -251,6 +306,50 @@ export const buildDepositFlow = async (
   };
 };
 
+export const buildFlameDepositFundingFlow = async (
+  params: FlameDepositFundingFlowParams,
+  client: PhoenixInstructionClient
+): Promise<FlameDepositFundingFlowResult> => {
+  const { authority, amount, traderPdaIndex = 0 } = params;
+  const payer = resolveFlowPayer(params);
+  const { depositAddress, proxyAuthority, proxyAta } =
+    await deriveFlameDepositAddresses({
+      userAuthority: authority,
+      traderPdaIndex,
+      mintAddress: client.addresses.usdcMintAddress,
+      phoenixProgramAddress: client.addresses.phoenixProgramAddress,
+    });
+  const userUsdcAta = await getPhoenixTraderTokenAccountAddress(
+    authority,
+    client.addresses.usdcMintAddress
+  );
+
+  const createProxyAta = buildCreateAssociatedTokenAccountIdempotentSync({
+    payer,
+    ataAddress: proxyAta,
+    owner: proxyAuthority,
+    mint: client.addresses.usdcMintAddress,
+  });
+  const transferUsdcToProxy = buildSplTokenTransfer({
+    owner: authority,
+    sourceTokenAccount: userUsdcAta,
+    destinationTokenAccount: proxyAta,
+    amount,
+  });
+
+  return {
+    instructions: [createProxyAta, transferUsdcToProxy],
+    named: {
+      createProxyAta,
+      transferUsdcToProxy,
+    },
+    proxyAuthority,
+    depositAddress,
+    proxyAta,
+    traderPdaIndex,
+  };
+};
+
 export const buildWithdrawFlow = async (
   params: WithdrawFlowParams,
   client: PhoenixInstructionClient
@@ -259,13 +358,7 @@ export const buildWithdrawFlow = async (
   const { globalConfiguration } = await fetchRequiredAccounts(client);
   const phoenixMint = globalConfiguration.canonicalTokenMintKey;
 
-  const sponsorOverride = process.env.PHOENIX_TEST_SPONSOR_FEE_PAYER;
-  const payer =
-    params.feePayer != null
-      ? sponsorOverride
-        ? (address(sponsorOverride) as Authority)
-        : params.feePayer
-      : authority;
+  const payer = resolveFlowPayer(params);
 
   const [
     phoenixAta,
@@ -584,8 +677,16 @@ export const buildPlaceMarketOrderFlow = async (
     pdaIndex = 0,
     isReduceOnly,
     priceInTicksLimit,
+    minBaseLotsToFill,
+    minQuoteLotsToFill,
     skipTransferToParent = false,
   } = params;
+
+  validatePlaceMarketOrderFlowMinimums({
+    numBaseLots,
+    minBaseLotsToFill,
+    minQuoteLotsToFill,
+  });
 
   const { globalConfiguration, arenaAddresses, globalTraderIndexAddresses } =
     await fetchRequiredAccounts(client);
@@ -663,8 +764,8 @@ export const buildPlaceMarketOrderFlow = async (
       priceInTicks: resolvedPriceInTicks,
       numBaseLots,
       numQuoteLots: null,
-      minBaseLotsToFill: numBaseLots,
-      minQuoteLotsToFill: quoteLots(1),
+      minBaseLotsToFill: minBaseLotsToFill ?? numBaseLots,
+      minQuoteLotsToFill: minQuoteLotsToFill ?? quoteLots(1),
       selfTradeBehavior: SelfTradeBehavior.Abort,
       matchLimit: null,
       clientOrderId: 0n,

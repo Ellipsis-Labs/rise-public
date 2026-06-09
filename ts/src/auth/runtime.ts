@@ -16,22 +16,13 @@ import {
 } from "./storage";
 import { PhoenixAuthClient } from "./client";
 import { isExternalSessionControl, type RiseAuthConfig } from "./types";
+import { isTerminalRefreshError } from "./refreshErrors";
 
 const ACCESS_REFRESH_WINDOW_MS = 60_000;
 
 const isSnapshot = (
   session: AuthSession | AuthSessionSnapshot
 ): session is AuthSessionSnapshot => "popKey" in session;
-
-const isTerminalRefreshError = (error: unknown): boolean => {
-  if (!error || typeof error !== "object") return false;
-  const code = (error as { code?: unknown }).code;
-  return (
-    code === "invalid_refresh_token" ||
-    code === "refresh_expired" ||
-    code === "session_missing"
-  );
-};
 
 export class RiseAuthRuntime {
   private readonly backoff = new AuthBackoffManager();
@@ -91,7 +82,7 @@ export class RiseAuthRuntime {
     let session = await this.sessionManager.getSession();
 
     if (this.sessionIsExternallyManaged) {
-      if (session) {
+      if (session && !isAccessExpired(session)) {
         return session;
       }
       return null;
