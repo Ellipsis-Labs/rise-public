@@ -1,0 +1,278 @@
+name: Rise Release
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run publish commands in dry-run mode."
+        default: "true"
+        required: true
+        type: choice
+        options:
+          - "true"
+          - "false"
+      package:
+        description: "Package scope to publish."
+        default: "both"
+        required: true
+        type: choice
+        options:
+          - "both"
+          - "typescript"
+          - "rust"
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.plan.outputs.release_tag }}
+      release_title: ${{ steps.plan.outputs.release_title }}
+      rust_name: ${{ steps.plan.outputs.rust_name }}
+      rust_version: ${{ steps.plan.outputs.rust_version }}
+      ts_name: ${{ steps.plan.outputs.ts_name }}
+      ts_version: ${{ steps.plan.outputs.ts_version }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Plan release
+        id: plan
+        run: uv run --script scripts/release_plan.py
+
+  publish-typescript:
+    needs: plan
+    if: >
+      github.event_name != 'workflow_dispatch' ||
+      inputs.package == 'both' ||
+      inputs.package == 'typescript'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: ts
+    env:
+      DRY_RUN: ${{ inputs.dry_run || 'false' }}
+      NPM_PUBLISH_ACCESS: ${{ vars.NPM_PUBLISH_ACCESS || 'public' }}
+      NPM_REGISTRY_URL: ${{ vars.NPM_REGISTRY_URL || 'https://registry.npmjs.org' }}
+      PUBLISH_ENABLED: ${{ vars.RISE_RELEASE_PUBLISH_ENABLED || 'false' }}
+      TS_NAME: ${{ needs.plan.outputs.ts_name }}
+      TS_VERSION: ${{ needs.plan.outputs.ts_version }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.13"
+
+      - name: Configure npm registry
+        run: |
+          set -euo pipefail
+          printf 'registry=%s\n@ellipsis-labs:registry=%s\n' \
+            "${NPM_REGISTRY_URL}" \
+            "${NPM_REGISTRY_URL}" > .npmrc
+
+      - name: Check npm version
+        id: npm-status
+        run: |
+          set -euo pipefail
+          package_ref="${TS_NAME}@${TS_VERSION}"
+          output_file="$(mktemp)"
+          error_file="$(mktemp)"
+          trap 'rm -f "${output_file}" "${error_file}"' EXIT
+
+          if npm view "${package_ref}" version \
+            --registry "${NPM_REGISTRY_URL}" >"${output_file}" 2>"${error_file}"; then
+            echo "publish=false" >> "${GITHUB_OUTPUT}"
+            echo "${package_ref} is already published"
+            exit 0
+          fi
+
+          registry_output="$(cat "${error_file}" "${output_file}" | tr '[:upper:]' '[:lower:]')"
+          if grep -Eq 'e404|404 not found|is not in the npm registry|does not exist in this registry|no version of' <<<"${registry_output}"; then
+            echo "publish=true" >> "${GITHUB_OUTPUT}"
+            echo "${package_ref} is not yet published"
+            exit 0
+          fi
+
+          cat "${error_file}" >&2
+          cat "${output_file}" >&2
+          exit 1
+
+      - name: Install dependencies
+        if: steps.npm-status.outputs.publish == 'true'
+        run: bun install --frozen-lockfile
+
+      - name: Type-check
+        if: steps.npm-status.outputs.publish == 'true'
+        run: bun run check
+
+      - name: Test
+        if: steps.npm-status.outputs.publish == 'true'
+        run: bun run test
+
+      - name: Build
+        if: steps.npm-status.outputs.publish == 'true'
+        run: bun run build
+
+      - name: Publish npm package
+        if: >
+          steps.npm-status.outputs.publish == 'true' &&
+          (env.DRY_RUN == 'true' || env.PUBLISH_ENABLED == 'true')
+        run: |
+          set -euo pipefail
+          args=(
+            --registry "${NPM_REGISTRY_URL}"
+            --access "${NPM_PUBLISH_ACCESS}"
+            --provenance
+          )
+          if [[ "${DRY_RUN}" == "true" ]]; then
+            args+=(--dry-run)
+          fi
+          npm publish "${args[@]}"
+
+      - name: Report disabled npm publish
+        if: >
+          steps.npm-status.outputs.publish == 'true' &&
+          env.DRY_RUN != 'true' &&
+          env.PUBLISH_ENABLED != 'true'
+        run: echo "RISE_RELEASE_PUBLISH_ENABLED is not true; skipping npm publish"
+
+  publish-rust:
+    needs: plan
+    if: >
+      github.event_name != 'workflow_dispatch' ||
+      inputs.package == 'both' ||
+      inputs.package == 'rust'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: rust
+    env:
+      DRY_RUN: ${{ inputs.dry_run || 'false' }}
+      PUBLISH_ENABLED: ${{ vars.RISE_RELEASE_PUBLISH_ENABLED || 'false' }}
+      RUST_NAME: ${{ needs.plan.outputs.rust_name }}
+      RUST_VERSION: ${{ needs.plan.outputs.rust_version }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        run: rustup toolchain install 1.84.0 --profile minimal
+
+      - name: Check crates.io version
+        id: crate-status
+        run: |
+          set -euo pipefail
+          status="$(
+            curl \
+              -sS \
+              -o /tmp/crate-version.json \
+              -w '%{http_code}' \
+              -H 'User-Agent: Ellipsis-Labs/rise-release-ci' \
+              "https://crates.io/api/v1/crates/${RUST_NAME}/${RUST_VERSION}"
+          )"
+
+          case "${status}" in
+            200)
+              echo "publish=false" >> "${GITHUB_OUTPUT}"
+              echo "${RUST_NAME} ${RUST_VERSION} is already published"
+              ;;
+            404)
+              echo "publish=true" >> "${GITHUB_OUTPUT}"
+              echo "${RUST_NAME} ${RUST_VERSION} is not yet published"
+              ;;
+            *)
+              cat /tmp/crate-version.json >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Test
+        if: steps.crate-status.outputs.publish == 'true'
+        run: cargo +1.84.0 test --locked
+
+      - name: Authenticate to crates.io
+        if: >
+          steps.crate-status.outputs.publish == 'true' &&
+          env.DRY_RUN != 'true' &&
+          env.PUBLISH_ENABLED == 'true'
+        id: cargo-auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish crate
+        if: >
+          steps.crate-status.outputs.publish == 'true' &&
+          (env.DRY_RUN == 'true' || env.PUBLISH_ENABLED == 'true')
+        run: |
+          set -euo pipefail
+          args=(--locked)
+          if [[ "${DRY_RUN}" == "true" ]]; then
+            args+=(--dry-run)
+          fi
+          cargo +1.84.0 publish "${args[@]}"
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.cargo-auth.outputs.token }}
+
+      - name: Report disabled crate publish
+        if: >
+          steps.crate-status.outputs.publish == 'true' &&
+          env.DRY_RUN != 'true' &&
+          env.PUBLISH_ENABLED != 'true'
+        run: echo "RISE_RELEASE_PUBLISH_ENABLED is not true; skipping crates.io publish"
+
+  release:
+    needs:
+      - plan
+      - publish-typescript
+      - publish-rust
+    if: |
+      always()
+      && needs.plan.result == 'success'
+      && (needs.publish-typescript.result == 'success' || needs.publish-typescript.result == 'skipped')
+      && (needs.publish-rust.result == 'success' || needs.publish-rust.result == 'skipped')
+      && vars.RISE_RELEASE_PUBLISH_ENABLED == 'true'
+      && (github.event_name != 'workflow_dispatch' || inputs.dry_run == 'false')
+      && (github.event_name != 'workflow_dispatch' || inputs.package == 'both')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.plan.outputs.release_tag }}
+      RELEASE_TITLE: ${{ needs.plan.outputs.release_title }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Build release notes
+        run: uv run --script scripts/release_plan.py --release-notes release-notes.md
+
+      - name: Create GitHub release
+        run: |
+          set -euo pipefail
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "Release ${RELEASE_TAG} already exists"
+            exit 0
+          fi
+
+          gh release create "${RELEASE_TAG}" \
+            --target "${GITHUB_SHA}" \
+            --title "${RELEASE_TITLE}" \
+            --notes-file release-notes.md
