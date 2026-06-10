@@ -152,7 +152,7 @@ fn main() {
         results.insert("PlaceStopLoss".to_string(), hex_encode(&ix.data));
     }
 
-    // 6. CreateConditionalOrdersAccount
+    // 7. CreateConditionalOrdersAccount
     {
         let params = CreateConditionalOrdersAccountParams::builder()
             .payer(pubkeys[0])
@@ -170,7 +170,7 @@ fn main() {
         );
     }
 
-    // 7. PlacePositionConditionalOrder
+    // 8. PlacePositionConditionalOrder
     {
         let params = PlacePositionConditionalOrderParams::builder()
             .payer(pubkeys[0])
@@ -201,7 +201,7 @@ fn main() {
         );
     }
 
-    // 8. PlaceAttachedConditionalOrder
+    // 9. PlaceAttachedConditionalOrder
     {
         let params = PlaceAttachedConditionalOrderParams::builder()
             .trader_account(pubkeys[1])
@@ -233,7 +233,7 @@ fn main() {
         );
     }
 
-    // 9. PlaceLimitOrderWithConditionals
+    // 10. PlaceLimitOrderWithConditionals
     {
         let order_packet = OrderPacket::limit(
             Side::Bid,
@@ -282,7 +282,7 @@ fn main() {
         );
     }
 
-    // 10. CancelConditionalOrder
+    // 11. CancelConditionalOrder
     {
         let params = CancelConditionalOrderParams::builder()
             .trader_account(pubkeys[1])
@@ -299,7 +299,7 @@ fn main() {
         results.insert("CancelConditionalOrder".to_string(), hex_encode(&ix.data));
     }
 
-    // 11. DepositFunds
+    // 12. DepositFunds
     {
         let params = DepositFundsParams::builder()
             .trader(pubkeys[0])
@@ -317,7 +317,7 @@ fn main() {
         results.insert("DepositFunds".to_string(), hex_encode(&ix.data));
     }
 
-    // 12. WithdrawFunds
+    // 13. WithdrawFunds
     {
         let params = WithdrawFundsParams::builder()
             .trader(pubkeys[0])
@@ -336,7 +336,7 @@ fn main() {
         results.insert("WithdrawFunds".to_string(), hex_encode(&ix.data));
     }
 
-    // 13. RegisterTrader
+    // 14. RegisterTrader
     {
         let params = RegisterTraderParams::builder()
             .payer(pubkeys[0])
@@ -352,7 +352,7 @@ fn main() {
         results.insert("RegisterTrader".to_string(), hex_encode(&ix.data));
     }
 
-    // 14. EmberDeposit
+    // 15. EmberDeposit
     {
         let params = EmberDepositParams::builder()
             .trader(pubkeys[0])
@@ -368,7 +368,7 @@ fn main() {
         results.insert("EmberDeposit".to_string(), hex_encode(&ix.data));
     }
 
-    // 15. EmberWithdraw
+    // 16. EmberWithdraw
     {
         let params = EmberWithdrawParams::builder()
             .trader(pubkeys[0])
@@ -384,7 +384,7 @@ fn main() {
         results.insert("EmberWithdraw".to_string(), hex_encode(&ix.data));
     }
 
-    // 16. TransferCollateral
+    // 17. TransferCollateral
     {
         let params = TransferCollateralParams::builder()
             .trader(pubkeys[0])
@@ -401,7 +401,7 @@ fn main() {
         results.insert("TransferCollateral".to_string(), hex_encode(&ix.data));
     }
 
-    // 17. TransferCollateralChildToParent
+    // 18. TransferCollateralChildToParent
     {
         let params = TransferCollateralChildToParentParams::builder()
             .trader(pubkeys[0])
@@ -420,7 +420,7 @@ fn main() {
         );
     }
 
-    // 18. SyncParentToChild
+    // 19. SyncParentToChild
     {
         let params = SyncParentToChildParams::builder()
             .trader_wallet(pubkeys[0])
@@ -434,7 +434,22 @@ fn main() {
         results.insert("SyncParentToChild".to_string(), hex_encode(&ix.data));
     }
 
-    // 15. Flight RegisterBuilder
+    // 20. OnboardTraderDelegated
+    {
+        let params = OnboardTraderDelegatedParams::builder()
+            .authority(pubkeys[0])
+            .permission_account(pubkeys[1])
+            .trader_account(pubkeys[2])
+            .global_trader_index(vec2(3, 4))
+            .active_trader_buffer(vec2(5, 6))
+            .build()
+            .unwrap();
+
+        let ix = create_onboard_trader_delegated_ix(params).unwrap();
+        results.insert("OnboardTraderDelegated".to_string(), hex_encode(&ix.data));
+    }
+
+    // 21. Flight RegisterBuilder
     {
         let trader_account = derive_trader_account_pda(pubkeys[0], 0, 0);
         let params = phoenix_rise_ix::flight::RegisterBuilderParams::builder()
@@ -450,7 +465,7 @@ fn main() {
         results.insert("RegisterBuilder".to_string(), hex_encode(&ix.data));
     }
 
-    // 16. Flight UpdateFee
+    // 22. Flight UpdateFee
     {
         let params = phoenix_rise_ix::flight::UpdateFeeParams::builder()
             .trader_authority(pubkeys[0])
@@ -462,7 +477,7 @@ fn main() {
         results.insert("UpdateFee".to_string(), hex_encode(&ix.data));
     }
 
-    // 17. Flight ProxyInstruction (wrapping a deterministic PlaceLimitOrder)
+    // 23. Flight ProxyInstruction (wrapping a deterministic PlaceLimitOrder)
     {
         let inner_params = LimitOrderParams::builder()
             .trader(pubkeys[0])
@@ -491,7 +506,7 @@ fn main() {
         results.insert("ProxyInstruction".to_string(), hex_encode(&ix.data));
     }
 
-    // 18. Flight client wrapper for deterministic Flight-supported instructions.
+    // 24. Flight client wrapper for deterministic Flight-supported instructions.
     {
         let flight_client = PhoenixFlightClient::new(pubkeys[9], 0, 0);
 

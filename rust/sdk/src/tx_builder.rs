@@ -1706,6 +1706,7 @@ mod tests {
             symbol: symbol.to_string(),
             asset_id: 1,
             market_status: MarketStatus::Active,
+            metadata: None,
             market_pubkey: Pubkey::new_unique().to_string(),
             spline_pubkey: Pubkey::new_unique().to_string(),
             tick_size: 1_000_000,

@@ -1,7 +1,8 @@
 use crate::http_client::HttpClientInner;
 use crate::phoenix_rise_types::{
-    ExchangeMarketConfig, MarkPriceResponse, NextCommodityMarketTransition, OrderbookView,
-    PhoenixHttpError,
+    CommodityMarketCalendarResponse, ExchangeMarketConfig, MarkPriceResponse,
+    MarketCalendarResponse, NextCommodityMarketTransition, NextMarketCalendarTransition,
+    OrderbookView, PhoenixHttpError,
 };
 
 pub struct MarketsClient<'a> {
@@ -39,12 +40,41 @@ impl MarketsClient<'_> {
             .await
     }
 
+    pub async fn get_next_market_calendar_transition(
+        &self,
+        symbol: &str,
+    ) -> Result<NextMarketCalendarTransition, PhoenixHttpError> {
+        let symbol_upper = symbol.to_ascii_uppercase();
+        self.http
+            .get_json(&format!(
+                "/v1/market/{}/next-market-calendar-transition",
+                symbol_upper
+            ))
+            .await
+    }
+
     pub async fn get_next_commodity_market_transition(
         &self,
     ) -> Result<NextCommodityMarketTransition, PhoenixHttpError> {
         self.http
             .get_json("/v1/market/next-commodity-market-transition")
             .await
+    }
+
+    pub async fn get_market_calendar(
+        &self,
+        symbol: &str,
+    ) -> Result<MarketCalendarResponse, PhoenixHttpError> {
+        let symbol_upper = symbol.to_ascii_uppercase();
+        self.http
+            .get_json(&format!("/v1/market/{}/market-calendar", symbol_upper))
+            .await
+    }
+
+    pub async fn get_commodity_market_calendar(
+        &self,
+    ) -> Result<CommodityMarketCalendarResponse, PhoenixHttpError> {
+        self.http.get_json("/v1/market/commodity-calendar").await
     }
 
     pub async fn get_mark_price(

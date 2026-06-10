@@ -27,10 +27,11 @@ use crate::env::PhoenixEnv;
 use crate::phoenix_rise_ix::{IsolatedCollateralFlow, Side};
 use crate::phoenix_rise_types::{
     ApiCandle, CancelStopLossOrderRequest, CandlesQueryParams, CollateralHistoryQueryParams,
-    CollateralHistoryResponse, ExchangeKeysView, ExchangeMarketConfig, ExchangeResponse,
-    ExchangeSnapshotView, FundingHistoryQueryParams, FundingHistoryResponse,
-    FundingHourlyHistoryResponse, FundingHourlyQuery, FundingRateHistoryQuery,
-    FundingRateHistoryResponse, NextCommodityMarketTransition, OrderHistoryQueryParams,
+    CollateralHistoryResponse, CommodityMarketCalendarResponse, ExchangeKeysView,
+    ExchangeMarketConfig, ExchangeResponse, ExchangeSnapshotView, FundingHistoryQueryParams,
+    FundingHistoryResponse, FundingHourlyHistoryResponse, FundingHourlyQuery,
+    FundingRateHistoryQuery, FundingRateHistoryResponse, MarketCalendarResponse,
+    NextCommodityMarketTransition, NextMarketCalendarTransition, OrderHistoryQueryParams,
     OrderHistoryResponse, PhoenixHttpError, PlaceAttachedConditionalOrderRequest,
     PlaceIsolatedLimitOrderRequest, PlaceIsolatedLimitOrderWithConditionalsRequest,
     PlaceIsolatedMarketOrderRequest, PlacePositionConditionalOrderRequest,
@@ -400,6 +401,22 @@ impl PhoenixHttpClient {
         &self.inner.rate_limit_retry
     }
 
+    /// GET a typed JSON response using the client's configured rate-limit
+    /// retry behavior.
+    pub async fn get_json<T: DeserializeOwned>(&self, path: &str) -> Result<T, PhoenixHttpError> {
+        self.inner.get_json(path).await
+    }
+
+    /// GET a typed JSON response with query parameters using the client's
+    /// configured rate-limit retry behavior.
+    pub async fn get_json_with_query<T: DeserializeOwned, Q: Serialize>(
+        &self,
+        path: &str,
+        query: &Q,
+    ) -> Result<T, PhoenixHttpError> {
+        self.inner.get_json_with_query(path, query).await
+    }
+
     /// Returns the optional shared auth client when auth was enabled for this
     /// HTTP client.
     pub fn auth(&self) -> Option<&PhoenixServiceAuthClient> {
@@ -466,10 +483,32 @@ impl PhoenixHttpClient {
         self.markets().get_market(symbol).await
     }
 
+    pub async fn get_next_market_calendar_transition(
+        &self,
+        symbol: &str,
+    ) -> Result<NextMarketCalendarTransition, PhoenixHttpError> {
+        self.markets()
+            .get_next_market_calendar_transition(symbol)
+            .await
+    }
+
     pub async fn get_next_commodity_market_transition(
         &self,
     ) -> Result<NextCommodityMarketTransition, PhoenixHttpError> {
         self.markets().get_next_commodity_market_transition().await
+    }
+
+    pub async fn get_market_calendar(
+        &self,
+        symbol: &str,
+    ) -> Result<MarketCalendarResponse, PhoenixHttpError> {
+        self.markets().get_market_calendar(symbol).await
+    }
+
+    pub async fn get_commodity_market_calendar(
+        &self,
+    ) -> Result<CommodityMarketCalendarResponse, PhoenixHttpError> {
+        self.markets().get_commodity_market_calendar().await
     }
 
     pub async fn get_exchange(&self) -> Result<ExchangeResponse, PhoenixHttpError> {

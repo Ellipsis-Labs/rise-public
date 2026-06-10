@@ -5,6 +5,7 @@
 
 use std::collections::HashMap;
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::types::js_safe_ints::JsSafeU64;
@@ -77,6 +78,38 @@ pub struct ExchangeRiskFactors {
     pub cancel_order: f64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketCalendar {
+    pub id: String,
+    pub description: String,
+    pub calendar_uri: String,
+    pub content_sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_market_transition_utc: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketPublicMetadata {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub logo_uri: Option<String>,
+    #[serde(default)]
+    pub coin_gecko_id: Option<String>,
+    #[serde(default)]
+    pub coin_market_cap_id: Option<i64>,
+    #[serde(default)]
+    pub tokens_xyz_asset_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calendar: Option<MarketCalendar>,
+    #[serde(default)]
+    pub display_color: Option<String>,
+}
+
 // ============================================================================
 // Exchange Configuration
 // ============================================================================
@@ -89,6 +122,8 @@ pub struct ExchangeMarketConfig {
     pub symbol: String,
     pub asset_id: u32,
     pub market_status: MarketStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<MarketPublicMetadata>,
     /// The orderbook account pubkey (base58 encoded).
     pub market_pubkey: String,
     /// The spline collection PDA (derived from market_pubkey).
@@ -200,6 +235,7 @@ mod tests {
             symbol: "SOL".to_string(),
             asset_id: 0,
             market_status: MarketStatus::Active,
+            metadata: None,
             market_pubkey: "test".to_string(),
             spline_pubkey: "test".to_string(),
             tick_size: 1,
@@ -229,6 +265,7 @@ mod tests {
                 symbol: "SOL".to_string(),
                 asset_id: 0,
                 market_status: MarketStatus::Active,
+                metadata: None,
                 market_pubkey: "test".to_string(),
                 spline_pubkey: "test".to_string(),
                 tick_size: 1,
