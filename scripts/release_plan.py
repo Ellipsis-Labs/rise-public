@@ -245,7 +245,7 @@ def main() -> None:
         return
 
     tag = f"rise-{selected.spec.key}-v{selected.version}"
-    title = f"Rise {selected.spec.title_label}"
+    title = f"Rise {selected.spec.title_label} v{selected.version}"
     changelog = latest_changelog_entry(selected.spec.changelog_path, source_ref)
     notes = "\n\n".join(
         [
