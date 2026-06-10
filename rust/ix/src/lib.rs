@@ -39,6 +39,7 @@ pub mod flight;
 mod limit_order;
 mod market_order;
 mod multi_limit_order;
+mod onboard_trader_delegated;
 mod order_packet;
 mod place_stop_loss;
 mod register_trader;
@@ -72,6 +73,9 @@ pub use market_order::{
 };
 pub use multi_limit_order::{
     MultiLimitOrderParams, MultiLimitOrderParamsBuilder, create_place_multi_limit_order_ix,
+};
+pub use onboard_trader_delegated::{
+    OnboardTraderDelegatedParams, create_onboard_trader_delegated_ix,
 };
 pub use order_packet::{
     CondensedOrder, MultipleOrderPacket, OrderPacket, client_order_id_to_bytes,

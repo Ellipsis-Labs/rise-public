@@ -242,14 +242,17 @@ impl PhoenixApiClient {
         body: Option<Vec<u8>>,
         allow_auth_retry: bool,
     ) -> Result<reqwest::Response, PhoenixApiError> {
-        let _ = self.maybe_refresh_before_request().await;
+        self.maybe_refresh_before_request().await?;
         let mut allow_auth_retry = allow_auth_retry;
         let mut allow_store_reload = allow_auth_retry;
 
         loop {
             let session = self.current_auth_session()?;
+            let valid_session = session
+                .as_ref()
+                .filter(|session| !access_expires_at_is_expired(session));
             let response = self
-                .send_request_once(method.clone(), url.clone(), body.clone(), session.as_ref())
+                .send_request_once(method.clone(), url.clone(), body.clone(), valid_session)
                 .await?;
 
             if response.status().is_success() {
@@ -264,7 +267,7 @@ impl PhoenixApiClient {
                 .unwrap_or_else(|_| "Unknown error".to_string());
             let error_code = parse_error_code(&message);
 
-            let can_retry_auth = session.is_some()
+            let can_retry_auth = valid_session.is_some()
                 || self.auth_session_store.is_some()
                 || self.auth_signer.is_some();
 
@@ -305,7 +308,11 @@ impl PhoenixApiClient {
             return Ok(());
         }
 
-        self.refresh_session().await
+        match self.refresh_session().await {
+            Ok(()) => Ok(()),
+            Err(error) if access_expires_at_is_expired(&session) => Err(error),
+            Err(_) => Ok(()),
+        }
     }
 
     async fn send_request_once(
@@ -386,14 +393,16 @@ impl PhoenixApiClient {
 
         let url = self.base_url.join("v1/auth/refresh")?;
         let url_string = url.to_string();
-        let request = self
+        let mut request = self
             .client
             .post(url)
-            .header(
+            .json(&RefreshRequestBody { refresh_token });
+        if !access_expires_at_is_expired(&session) {
+            request = request.header(
                 reqwest::header::AUTHORIZATION,
                 format!("Bearer {}", session.access_token()),
-            )
-            .json(&RefreshRequestBody { refresh_token });
+            );
+        }
 
         let response = match request.send().await {
             Ok(response) => response,
@@ -416,7 +425,9 @@ impl PhoenixApiClient {
                 .unwrap_or_else(|_| "Unknown error".to_string());
             let error_code = parse_error_code(&message);
             let reason = match error_code.as_deref() {
-                Some("invalid_refresh_token") => AuthLifecycleErrorReason::InvalidRefreshToken,
+                Some("invalid_refresh_token") | Some("session_missing") => {
+                    AuthLifecycleErrorReason::InvalidRefreshToken
+                }
                 Some("refresh_expired") => AuthLifecycleErrorReason::RefreshExpired,
                 _ => AuthLifecycleErrorReason::RefreshFailed,
             };
@@ -574,6 +585,13 @@ fn sessions_match_for_reload(current_session: &AuthSession, loaded_session: &Aut
     current_snapshot == loaded_snapshot
 }
 
+fn access_expires_at_is_expired(session: &AuthSession) -> bool {
+    session
+        .access_expires_at()
+        .map(|expires_at| expires_at <= Instant::now())
+        .unwrap_or(false)
+}
+
 impl PhoenixApiClientBuilder {
     fn new(api_url: impl Into<String>) -> Self {
         Self {
@@ -709,4 +727,186 @@ fn body_preview(body: &str, max_chars: usize) -> String {
         preview.push_str("...");
     }
     preview
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::sync::Arc;
+    use std::thread;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+    use base64::Engine as _;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+    use parking_lot::Mutex;
+    use serde_json::json;
+
+    use super::*;
+
+    fn future_unix_secs(offset: Duration) -> u64 {
+        SystemTime::now()
+            .checked_add(offset)
+            .and_then(|timestamp| timestamp.duration_since(UNIX_EPOCH).ok())
+            .expect("future timestamp should be after epoch")
+            .as_secs()
+    }
+
+    fn past_unix_secs(offset: Duration) -> u64 {
+        SystemTime::now()
+            .checked_sub(offset)
+            .and_then(|timestamp| timestamp.duration_since(UNIX_EPOCH).ok())
+            .expect("past timestamp should be after epoch")
+            .as_secs()
+    }
+
+    fn test_jwt(jti: &str, exp: u64) -> String {
+        let header = URL_SAFE_NO_PAD.encode(r#"{"alg":"none"}"#);
+        let payload = URL_SAFE_NO_PAD.encode(format!(r#"{{"jti":"{jti}","exp":{exp}}}"#));
+        format!("{header}.{payload}.sig")
+    }
+
+    fn response(status: &str, body: String, extra_headers: &[(&str, &str)]) -> String {
+        let mut headers = format!(
+            "HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\n",
+            body.len()
+        );
+        for (name, value) in extra_headers {
+            headers.push_str(name);
+            headers.push_str(": ");
+            headers.push_str(value);
+            headers.push_str("\r\n");
+        }
+        headers.push_str("\r\n");
+        headers.push_str(&body);
+        headers
+    }
+
+    #[derive(Clone, Copy)]
+    enum RefreshResponse {
+        Success,
+        RateLimited,
+    }
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct TestRequest {
+        path: String,
+        authorization: Option<String>,
+    }
+
+    fn spawn_auth_test_server(
+        refresh_response: RefreshResponse,
+        max_requests: usize,
+    ) -> (String, Arc<Mutex<Vec<TestRequest>>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("test server should bind");
+        let base_url = format!("http://{}", listener.local_addr().unwrap());
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let requests_for_thread = requests.clone();
+
+        thread::spawn(move || {
+            for stream in listener.incoming().take(max_requests) {
+                let mut stream = stream.expect("test request should connect");
+                let mut buffer = [0_u8; 4096];
+                let read = stream.read(&mut buffer).expect("request should read");
+                let request = String::from_utf8_lossy(&buffer[..read]);
+                let path = request
+                    .lines()
+                    .next()
+                    .and_then(|line| line.split_whitespace().nth(1))
+                    .unwrap_or("/")
+                    .to_string();
+                let authorization = request.lines().find_map(|line| {
+                    line.strip_prefix("authorization: ")
+                        .or_else(|| line.strip_prefix("Authorization: "))
+                        .map(str::to_string)
+                });
+                requests_for_thread.lock().push(TestRequest {
+                    path: path.clone(),
+                    authorization,
+                });
+
+                let response = match (path.as_str(), refresh_response) {
+                    ("/v1/auth/refresh", RefreshResponse::Success) => {
+                        let access_token =
+                            test_jwt("fresh-jti", future_unix_secs(Duration::from_secs(900)));
+                        response(
+                            "200 OK",
+                            json!({
+                                "token_type": "Bearer",
+                                "access_token": access_token,
+                                "expires_in": 900,
+                                "refresh_token": "refresh-token-2",
+                                "refresh_expires_in": 3600,
+                                "pop_key": URL_SAFE_NO_PAD.encode(b"pop-key-2"),
+                            })
+                            .to_string(),
+                            &[],
+                        )
+                    }
+                    ("/v1/auth/refresh", RefreshResponse::RateLimited) => response(
+                        "429 Too Many Requests",
+                        json!({ "error": "rate_limited" }).to_string(),
+                        &[("retry-after", "2")],
+                    ),
+                    _ => response("200 OK", json!({ "ok": true }).to_string(), &[]),
+                };
+                stream
+                    .write_all(response.as_bytes())
+                    .expect("response should write");
+            }
+        });
+
+        (base_url, requests)
+    }
+
+    fn expired_session() -> AuthSession {
+        AuthSession::from_tokens(
+            test_jwt("expired-jti", past_unix_secs(Duration::from_secs(30))),
+            Some("refresh-token-1".to_string()),
+            URL_SAFE_NO_PAD.encode(b"pop-key-1"),
+            None,
+            Some(3600),
+        )
+        .expect("test session should parse")
+    }
+
+    #[tokio::test]
+    async fn expired_access_refreshes_before_request() {
+        let (base_url, requests) = spawn_auth_test_server(RefreshResponse::Success, 2);
+        let client = PhoenixApiClient::builder(base_url)
+            .with_auth_session(expired_session())
+            .build()
+            .expect("client should build");
+
+        let value: serde_json::Value = client
+            .get_json_typed("/v1/view/markets")
+            .await
+            .expect("protected request should succeed after refresh");
+
+        assert_eq!(value, json!({ "ok": true }));
+        let requests = requests.lock();
+        assert_eq!(requests[0].path, "/v1/auth/refresh");
+        assert_eq!(requests[0].authorization, None);
+        assert_eq!(requests[1].path, "/v1/view/markets");
+        assert!(requests[1].authorization.is_some());
+    }
+
+    #[tokio::test]
+    async fn expired_access_does_not_send_request_when_refresh_fails() {
+        let (base_url, requests) = spawn_auth_test_server(RefreshResponse::RateLimited, 1);
+        let client = PhoenixApiClient::builder(base_url)
+            .with_auth_session(expired_session())
+            .build()
+            .expect("client should build");
+
+        let error = client
+            .get_json_typed::<serde_json::Value>("/v1/view/markets")
+            .await
+            .expect_err("refresh failure should stop the protected request");
+
+        assert!(matches!(error, PhoenixApiError::RateLimited { .. }));
+        let requests = requests.lock();
+        assert_eq!(requests[0].path, "/v1/auth/refresh");
+        assert_eq!(requests[0].authorization, None);
+    }
 }

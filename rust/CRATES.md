@@ -35,6 +35,7 @@ Examples that use a local Solana keypair require `solana-keypair`:
 
 ```bash
 cargo run -p phoenix-rise --example subscribe_trader_state --features solana-keypair
+cargo run -p phoenix-rise --example onboard_trader_delegated --features solana-keypair -- <TRADER_AUTHORITY>
 ```
 
 Examples that do not need that feature can be run directly:

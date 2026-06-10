@@ -4,7 +4,8 @@ use thiserror::Error;
 
 use crate::phoenix_rise_types::{
     ExchangeDeltaMessage, ExchangeDeltaOp, ExchangeMarketParameterUpdate, ExchangeMarketSnapshot,
-    ExchangeSnapshotMessage, ExchangeSnapshotView, ExchangeStateSnapshot, MarketStatus,
+    ExchangeSnapshotMessage, ExchangeSnapshotView, ExchangeStateSnapshot, MarketPublicMetadata,
+    MarketStatus,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,6 +35,7 @@ pub enum ExchangeCacheMarketChangeKind {
     FundingParameters,
     MarketFees,
     CommodityMetadata,
+    Metadata,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -116,6 +118,21 @@ impl PhoenixExchangeCacheStore {
         self.markets_by_pubkey
             .get(pubkey)
             .and_then(|index| self.snapshot.markets.get(*index))
+    }
+
+    pub fn market_metadata(&self, symbol: &str) -> Option<&MarketPublicMetadata> {
+        self.market(symbol)
+            .and_then(|market| market.metadata.as_ref())
+    }
+
+    pub fn market_metadata_by_asset_id(&self, asset_id: u32) -> Option<&MarketPublicMetadata> {
+        self.market_by_asset_id(asset_id)
+            .and_then(|market| market.metadata.as_ref())
+    }
+
+    pub fn market_metadata_by_pubkey(&self, pubkey: &str) -> Option<&MarketPublicMetadata> {
+        self.market_by_pubkey(pubkey)
+            .and_then(|market| market.metadata.as_ref())
     }
 
     pub fn instruction_context(&self, symbol: &str) -> Option<ExchangeInstructionContext<'_>> {
@@ -261,16 +278,30 @@ impl PhoenixExchangeCacheStore {
                     });
                 }
                 ExchangeDeltaOp::MarketParameterUpdated { symbol, update } => {
+                    if let Some(change) = market_change_kind(update) {
+                        if let Some(market) = find_market_mut(&mut next_snapshot.markets, symbol) {
+                            apply_market_parameter_update(market, update);
+                        }
+                        events.push(ExchangeCacheEvent::MarketUpdated {
+                            symbol: symbol.clone(),
+                            change,
+                            slot: delta.slot,
+                            slot_index: delta.slot_index,
+                        });
+                    }
+                }
+                ExchangeDeltaOp::MarketMetadataUpdated { symbol, metadata } => {
                     if let Some(market) = find_market_mut(&mut next_snapshot.markets, symbol) {
-                        apply_market_parameter_update(market, update);
+                        market.metadata = metadata.clone();
                     }
                     events.push(ExchangeCacheEvent::MarketUpdated {
                         symbol: symbol.clone(),
-                        change: market_change_kind(update),
+                        change: ExchangeCacheMarketChangeKind::Metadata,
                         slot: delta.slot,
                         slot_index: delta.slot_index,
                     });
                 }
+                ExchangeDeltaOp::Unknown => {}
             }
         }
 
@@ -349,41 +380,45 @@ fn apply_market_parameter_update(
         ExchangeMarketParameterUpdate::CommodityMetadataUpdated { new, .. } => {
             market.commodity_metadata = Some(new.clone());
         }
+        ExchangeMarketParameterUpdate::Unknown => {}
     }
 }
 
-fn market_change_kind(update: &ExchangeMarketParameterUpdate) -> ExchangeCacheMarketChangeKind {
+fn market_change_kind(
+    update: &ExchangeMarketParameterUpdate,
+) -> Option<ExchangeCacheMarketChangeKind> {
     match update {
         ExchangeMarketParameterUpdate::CancelRiskFactorUpdated { .. } => {
-            ExchangeCacheMarketChangeKind::CancelRiskFactor
+            Some(ExchangeCacheMarketChangeKind::CancelRiskFactor)
         }
         ExchangeMarketParameterUpdate::IsolatedOnlyUpdated { .. } => {
-            ExchangeCacheMarketChangeKind::IsolatedOnly
+            Some(ExchangeCacheMarketChangeKind::IsolatedOnly)
         }
         ExchangeMarketParameterUpdate::LeverageTiersUpdated { .. } => {
-            ExchangeCacheMarketChangeKind::LeverageTiers
+            Some(ExchangeCacheMarketChangeKind::LeverageTiers)
         }
         ExchangeMarketParameterUpdate::MarkPriceParametersUpdated { .. } => {
-            ExchangeCacheMarketChangeKind::MarkPriceParameters
+            Some(ExchangeCacheMarketChangeKind::MarkPriceParameters)
         }
         ExchangeMarketParameterUpdate::OpenInterestCapUpdated { .. } => {
-            ExchangeCacheMarketChangeKind::OpenInterestCap
+            Some(ExchangeCacheMarketChangeKind::OpenInterestCap)
         }
         ExchangeMarketParameterUpdate::UpnlRiskFactorUpdated { .. } => {
-            ExchangeCacheMarketChangeKind::UpnlRiskFactor
+            Some(ExchangeCacheMarketChangeKind::UpnlRiskFactor)
         }
         ExchangeMarketParameterUpdate::UpnlRiskFactorForWithdrawalsUpdated { .. } => {
-            ExchangeCacheMarketChangeKind::UpnlRiskFactorForWithdrawals
+            Some(ExchangeCacheMarketChangeKind::UpnlRiskFactorForWithdrawals)
         }
         ExchangeMarketParameterUpdate::FundingParametersUpdated { .. } => {
-            ExchangeCacheMarketChangeKind::FundingParameters
+            Some(ExchangeCacheMarketChangeKind::FundingParameters)
         }
         ExchangeMarketParameterUpdate::MarketFeesUpdated { .. } => {
-            ExchangeCacheMarketChangeKind::MarketFees
+            Some(ExchangeCacheMarketChangeKind::MarketFees)
         }
         ExchangeMarketParameterUpdate::CommodityMetadataUpdated { .. } => {
-            ExchangeCacheMarketChangeKind::CommodityMetadata
+            Some(ExchangeCacheMarketChangeKind::CommodityMetadata)
         }
+        ExchangeMarketParameterUpdate::Unknown => None,
     }
 }
 
@@ -430,7 +465,7 @@ mod tests {
         ExchangeSnapshotMessage, ExchangeWsCommodityMetadata, ExchangeWsFundingConfig,
         ExchangeWsLeverageTier, ExchangeWsMarkPriceParameters, ExchangeWsMarketPriceBand,
         ExchangeWsMarketPriceBand as MarketPriceBand, ExchangeWsRiskActionPriceValidityRules,
-        ExchangeWsValidationRule, JsSafeU64,
+        ExchangeWsValidationRule, JsSafeU64, MarketCalendar,
     };
 
     fn decimal(value: i64, decimals: i8, ui: &str) -> Decimal {
@@ -479,6 +514,7 @@ mod tests {
                 symbol: "SOL-PERP".to_string(),
                 asset_id: 1,
                 market_status: MarketStatus::Active,
+                metadata: None,
                 market_pubkey: "sol-market".to_string(),
                 spline_pubkey: "sol-spline".to_string(),
                 tick_size: 100,
@@ -517,9 +553,11 @@ mod tests {
                     exchange_perp_price_weight: 4_000_u64.into(),
                     spot_price_stale_threshold: 120_u64.into(),
                     book_price_stale_threshold: 15_u64.into(),
+                    book_hard_stale_multiplier: 0,
                     perp_price_stale_threshold: 15_u64.into(),
                     risk_action_price_validity_rules: sample_risk_action_price_validity_rules(),
                     oracle_divergence_radius: 500,
+                    oracle_hard_stale_multiplier: 0,
                     min_oracle_responses: 1,
                 },
                 commodity_metadata: Some(ExchangeWsCommodityMetadata {
@@ -581,6 +619,72 @@ mod tests {
         }
     }
 
+    fn sample_public_metadata(name: &str) -> MarketPublicMetadata {
+        MarketPublicMetadata {
+            name: Some(name.to_string()),
+            description: Some("Solana perpetual market".to_string()),
+            logo_uri: Some("https://example.com/sol.png".to_string()),
+            coin_gecko_id: Some("solana".to_string()),
+            coin_market_cap_id: Some(5426),
+            tokens_xyz_asset_id: Some("solana".to_string()),
+            calendar: Some(MarketCalendar {
+                id: "cme_commodities".to_string(),
+                description: "CME commodities".to_string(),
+                calendar_uri: "https://phoenixcdn.trade/calendars/cme_commodities.json".to_string(),
+                content_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                    .to_string(),
+                next_market_transition_utc: Some(
+                    chrono::DateTime::parse_from_rfc3339("2026-04-24T21:00:00Z")
+                        .expect("fixture timestamp")
+                        .with_timezone(&chrono::Utc),
+                ),
+            }),
+            display_color: Some("#14f195".to_string()),
+        }
+    }
+
+    fn build_market_metadata_delta(
+        sequence_number: u64,
+        metadata: Option<MarketPublicMetadata>,
+    ) -> ExchangeDeltaMessage {
+        ExchangeDeltaMessage {
+            channel: "exchange".to_string(),
+            version: 1,
+            sequence_number: sequence_number.into(),
+            slot: 4,
+            slot_index: 0,
+            ops: vec![ExchangeDeltaOp::MarketMetadataUpdated {
+                symbol: "SOL-PERP".to_string(),
+                metadata,
+            }],
+        }
+    }
+
+    fn build_unknown_delta(sequence_number: u64) -> ExchangeDeltaMessage {
+        ExchangeDeltaMessage {
+            channel: "exchange".to_string(),
+            version: 1,
+            sequence_number: sequence_number.into(),
+            slot: 5,
+            slot_index: 0,
+            ops: vec![ExchangeDeltaOp::Unknown],
+        }
+    }
+
+    fn build_unknown_market_parameter_delta(sequence_number: u64) -> ExchangeDeltaMessage {
+        ExchangeDeltaMessage {
+            channel: "exchange".to_string(),
+            version: 1,
+            sequence_number: sequence_number.into(),
+            slot: 5,
+            slot_index: 0,
+            ops: vec![ExchangeDeltaOp::MarketParameterUpdated {
+                symbol: "SOL-PERP".to_string(),
+                update: ExchangeMarketParameterUpdate::Unknown,
+            }],
+        }
+    }
+
     #[test]
     fn applies_snapshot_then_delta_updates() {
         let mut cache = PhoenixExchangeCacheStore::new(build_snapshot(1, 0));
@@ -611,6 +715,90 @@ mod tests {
             delta_events.get(1),
             Some(ExchangeCacheEvent::MarketUpdated {
                 change: ExchangeCacheMarketChangeKind::OpenInterestCap,
+                ..
+            })
+        ));
+
+        let metadata = sample_public_metadata("Updated Solana Perp");
+        let metadata_events = cache
+            .apply_delta(&build_market_metadata_delta(12, Some(metadata.clone())))
+            .expect("metadata delta should apply");
+        assert_eq!(
+            cache.snapshot().sequence_number.map(JsSafeU64::into_inner),
+            Some(12)
+        );
+        assert_eq!(cache.market_metadata("sol-perp"), Some(&metadata));
+        assert_eq!(cache.market_metadata_by_asset_id(1), Some(&metadata));
+        assert_eq!(
+            cache.market_metadata_by_pubkey("sol-market"),
+            Some(&metadata)
+        );
+        assert!(matches!(
+            metadata_events.get(1),
+            Some(ExchangeCacheEvent::MarketUpdated {
+                change: ExchangeCacheMarketChangeKind::Metadata,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn ignores_unknown_delta_ops_while_advancing_sequence() {
+        let mut cache = PhoenixExchangeCacheStore::new(build_snapshot(1, 0));
+        cache.apply_snapshot_message(&build_snapshot_message(10));
+
+        let events = cache
+            .apply_delta(&build_unknown_delta(11))
+            .expect("unknown delta op should not reject the delta message");
+
+        assert_eq!(
+            cache.snapshot().sequence_number.map(JsSafeU64::into_inner),
+            Some(11)
+        );
+        assert_eq!(
+            cache
+                .market("sol-perp")
+                .expect("market")
+                .open_interest_cap_base_lots
+                .into_inner(),
+            5_000
+        );
+        assert_eq!(events.len(), 1);
+        assert!(matches!(
+            events.first(),
+            Some(ExchangeCacheEvent::SnapshotApplied {
+                source: ExchangeCacheSnapshotSource::Websocket,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn ignores_unknown_market_parameter_updates_while_advancing_sequence() {
+        let mut cache = PhoenixExchangeCacheStore::new(build_snapshot(1, 0));
+        cache.apply_snapshot_message(&build_snapshot_message(10));
+
+        let events = cache
+            .apply_delta(&build_unknown_market_parameter_delta(11))
+            .expect("unknown market parameter update should not reject the delta message");
+
+        assert_eq!(
+            cache.snapshot().sequence_number.map(JsSafeU64::into_inner),
+            Some(11)
+        );
+        assert_eq!(
+            cache
+                .market("sol-perp")
+                .expect("market")
+                .open_interest_cap_base_lots
+                .into_inner(),
+            5_000
+        );
+        assert_eq!(events.len(), 1);
+        assert!(matches!(
+            events.first(),
+            Some(ExchangeCacheEvent::SnapshotApplied {
+                source: ExchangeCacheSnapshotSource::Websocket,
                 ..
             })
         ));

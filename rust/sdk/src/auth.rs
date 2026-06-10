@@ -304,16 +304,18 @@ type ChallengeResponseBody = ChallengeResponse;
 
 impl AuthSession {
     pub(crate) fn from_auth_response(response: AuthResponseBody) -> Result<Self, AuthError> {
-        let access_jti = parse_jti(&response.access_token)?;
-
-        let access_expires_at = Some(Instant::now() + Duration::from_secs(response.expires_in));
+        let access_claims = parse_jwt_claims(&response.access_token)?;
+        let access_expires_at = access_expires_at_from_jwt_exp_or_expires_in(
+            access_claims.exp,
+            Some(response.expires_in),
+        );
         let refresh_expires_at =
             Some(Instant::now() + Duration::from_secs(response.refresh_expires_in));
 
         Ok(Self::from_parts(
             response.access_token,
             Some(response.refresh_token),
-            access_jti,
+            access_claims.jti,
             response.pop_key,
             access_expires_at,
             refresh_expires_at,
@@ -328,15 +330,16 @@ impl AuthSession {
         expires_in: Option<u64>,
         refresh_expires_in: Option<u64>,
     ) -> Result<Self, AuthError> {
-        let access_jti = parse_jti(&access_token)?;
-        let access_expires_at = expires_in.map(|secs| Instant::now() + Duration::from_secs(secs));
+        let access_claims = parse_jwt_claims(&access_token)?;
+        let access_expires_at =
+            access_expires_at_from_jwt_exp_or_expires_in(access_claims.exp, expires_in);
         let refresh_expires_at =
             refresh_expires_in.map(|secs| Instant::now() + Duration::from_secs(secs));
 
         Ok(Self::from_parts(
             access_token,
             refresh_token,
-            access_jti,
+            access_claims.jti,
             pop_key,
             access_expires_at,
             refresh_expires_at,
@@ -345,14 +348,17 @@ impl AuthSession {
     }
 
     pub fn from_snapshot(snapshot: AuthSessionSnapshot) -> Result<Self, AuthError> {
-        let access_jti = parse_jti(&snapshot.access_token)?;
-        let access_expires_at = snapshot.access_expires_at.map(instant_from_unix_secs);
+        let access_claims = parse_jwt_claims(&snapshot.access_token)?;
+        let access_expires_at = access_expires_at_from_jwt_exp_or_unix_secs(
+            access_claims.exp,
+            snapshot.access_expires_at,
+        );
         let refresh_expires_at = snapshot.refresh_expires_at.map(instant_from_unix_secs);
 
         Ok(Self::from_parts(
             snapshot.access_token,
             snapshot.refresh_token,
-            access_jti,
+            access_claims.jti,
             snapshot.pop_key,
             access_expires_at,
             refresh_expires_at,
@@ -471,13 +477,16 @@ impl AuthSession {
     }
 
     pub fn update_from_snapshot(&self, snapshot: AuthSessionSnapshot) -> Result<(), AuthError> {
-        let access_jti = parse_jti(&snapshot.access_token)?;
-        let access_expires_at = snapshot.access_expires_at.map(instant_from_unix_secs);
+        let access_claims = parse_jwt_claims(&snapshot.access_token)?;
+        let access_expires_at = access_expires_at_from_jwt_exp_or_unix_secs(
+            access_claims.exp,
+            snapshot.access_expires_at,
+        );
         let refresh_expires_at = snapshot.refresh_expires_at.map(instant_from_unix_secs);
 
         *self.inner.access_token.write() = snapshot.access_token;
         *self.inner.refresh_token.write() = snapshot.refresh_token;
-        *self.inner.access_jti.write() = access_jti;
+        *self.inner.access_jti.write() = access_claims.jti;
         *self.inner.pop_key.write() = snapshot.pop_key;
         *self.inner.access_expires_at.write() = access_expires_at;
         *self.inner.refresh_expires_at.write() = refresh_expires_at;
@@ -490,14 +499,17 @@ impl AuthSession {
         &self,
         response: AuthResponseBody,
     ) -> Result<(), AuthError> {
-        let access_jti = parse_jti(&response.access_token)?;
+        let access_claims = parse_jwt_claims(&response.access_token)?;
+        let access_expires_at = access_expires_at_from_jwt_exp_or_expires_in(
+            access_claims.exp,
+            Some(response.expires_in),
+        );
 
         *self.inner.access_token.write() = response.access_token;
         *self.inner.refresh_token.write() = Some(response.refresh_token);
-        *self.inner.access_jti.write() = access_jti;
+        *self.inner.access_jti.write() = access_claims.jti;
         *self.inner.pop_key.write() = response.pop_key;
-        *self.inner.access_expires_at.write() =
-            Some(Instant::now() + Duration::from_secs(response.expires_in));
+        *self.inner.access_expires_at.write() = access_expires_at;
         *self.inner.refresh_expires_at.write() =
             Some(Instant::now() + Duration::from_secs(response.refresh_expires_in));
         self.inner.counter.store(0, Ordering::SeqCst);
@@ -830,7 +842,7 @@ impl PhoenixServiceAuthClient {
         })?;
 
         let response: AuthResponseBody = self
-            .post_json_with_bearer(
+            .post_json_with_bearer_when_access_valid(
                 "/v1/auth/refresh",
                 &RefreshRequestBody { refresh_token },
                 &session,
@@ -899,7 +911,7 @@ impl PhoenixServiceAuthClient {
             .await
     }
 
-    async fn post_json_with_bearer<T: DeserializeOwned, B: Serialize>(
+    async fn post_json_with_bearer_when_access_valid<T: DeserializeOwned, B: Serialize>(
         &self,
         path: &str,
         body: &B,
@@ -908,15 +920,13 @@ impl PhoenixServiceAuthClient {
     ) -> Result<T, PhoenixApiError> {
         let url = self.base_url.join(path.trim_start_matches('/'))?;
         let url_str = url.to_string();
-        let access_token = session.access_token();
-        let request = self
-            .client
-            .post(url)
-            .header(
+        let mut request = self.client.post(url).json(body);
+        if !access_expires_at_is_expired(session) {
+            request = request.header(
                 reqwest::header::AUTHORIZATION,
-                format!("Bearer {access_token}"),
-            )
-            .json(body);
+                format!("Bearer {}", session.access_token()),
+            );
+        }
         self.execute_json_request(request, url_str, context).await
     }
 
@@ -1054,7 +1064,12 @@ pub fn default_auth_session_store_path() -> Result<PathBuf, AuthError> {
     default_path_from_relative(DEFAULT_AUTH_SESSION_RELATIVE_PATH)
 }
 
-fn parse_jti(token: &str) -> Result<String, AuthError> {
+struct JwtClaims {
+    jti: String,
+    exp: Option<u64>,
+}
+
+fn parse_jwt_claims(token: &str) -> Result<JwtClaims, AuthError> {
     let mut parts = token.split('.');
     let _header = parts.next().ok_or(AuthError::InvalidJwtFormat)?;
     let payload = parts.next().ok_or(AuthError::InvalidJwtFormat)?;
@@ -1067,7 +1082,33 @@ fn parse_jti(token: &str) -> Result<String, AuthError> {
         .get("jti")
         .and_then(|value| value.as_str())
         .ok_or(AuthError::MissingJti)?;
-    Ok(jti.to_string())
+    let exp = payload_json.get("exp").and_then(|value| value.as_u64());
+    Ok(JwtClaims {
+        jti: jti.to_string(),
+        exp,
+    })
+}
+
+fn access_expires_at_from_jwt_exp_or_expires_in(
+    exp: Option<u64>,
+    expires_in: Option<u64>,
+) -> Option<Instant> {
+    exp.map(instant_from_unix_secs)
+        .or_else(|| expires_in.map(|secs| Instant::now() + Duration::from_secs(secs)))
+}
+
+fn access_expires_at_from_jwt_exp_or_unix_secs(
+    exp: Option<u64>,
+    fallback_unix_secs: Option<u64>,
+) -> Option<Instant> {
+    exp.or(fallback_unix_secs).map(instant_from_unix_secs)
+}
+
+fn access_expires_at_is_expired(session: &AuthSession) -> bool {
+    session
+        .access_expires_at()
+        .map(|expires_at| expires_at <= Instant::now())
+        .unwrap_or(false)
 }
 
 fn unix_secs_from_instant(instant: Instant) -> Option<u64> {
@@ -1193,7 +1234,81 @@ fn expand_home_path(path: PathBuf) -> Result<PathBuf, AuthError> {
 
 #[cfg(test)]
 mod tests {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::sync::Arc;
+    use std::thread;
+
+    use parking_lot::Mutex;
+    use serde_json::json;
+
     use super::*;
+
+    fn future_unix_secs(offset: Duration) -> u64 {
+        SystemTime::now()
+            .checked_add(offset)
+            .and_then(|timestamp| timestamp.duration_since(UNIX_EPOCH).ok())
+            .expect("future timestamp should be after epoch")
+            .as_secs()
+    }
+
+    fn past_unix_secs(offset: Duration) -> u64 {
+        SystemTime::now()
+            .checked_sub(offset)
+            .and_then(|timestamp| timestamp.duration_since(UNIX_EPOCH).ok())
+            .expect("past timestamp should be after epoch")
+            .as_secs()
+    }
+
+    fn test_jwt(jti: &str, exp: u64) -> String {
+        let header = URL_SAFE_NO_PAD.encode(r#"{"alg":"none"}"#);
+        let payload = URL_SAFE_NO_PAD.encode(format!(r#"{{"jti":"{jti}","exp":{exp}}}"#));
+        format!("{header}.{payload}.sig")
+    }
+
+    fn response(status: &str, body: String) -> String {
+        format!(
+            "HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: \
+             {}\r\n\r\n{body}",
+            body.len()
+        )
+    }
+
+    fn spawn_refresh_test_server() -> (String, Arc<Mutex<Vec<Option<String>>>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("test server should bind");
+        let base_url = format!("http://{}", listener.local_addr().unwrap());
+        let authorizations = Arc::new(Mutex::new(Vec::new()));
+        let authorizations_for_thread = authorizations.clone();
+
+        thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("test request should connect");
+            let mut buffer = [0_u8; 4096];
+            let read = stream.read(&mut buffer).expect("request should read");
+            let request = String::from_utf8_lossy(&buffer[..read]);
+            let authorization = request.lines().find_map(|line| {
+                line.strip_prefix("authorization: ")
+                    .or_else(|| line.strip_prefix("Authorization: "))
+                    .map(str::to_string)
+            });
+            authorizations_for_thread.lock().push(authorization);
+
+            let access_token = test_jwt("fresh-jti", future_unix_secs(Duration::from_secs(900)));
+            let body = json!({
+                "token_type": "Bearer",
+                "access_token": access_token,
+                "expires_in": 900,
+                "refresh_token": "refresh-token-2",
+                "refresh_expires_in": 3600,
+                "pop_key": URL_SAFE_NO_PAD.encode(b"pop-key-2"),
+            })
+            .to_string();
+            stream
+                .write_all(response("200 OK", body).as_bytes())
+                .expect("response should write");
+        });
+
+        (base_url, authorizations)
+    }
 
     #[test]
     fn default_auth_session_store_path_uses_home_directory() {
@@ -1203,5 +1318,65 @@ mod tests {
             path,
             PathBuf::from("/tmp/test-home/.config/phoenix/access_token.json")
         );
+    }
+
+    #[test]
+    fn auth_session_prefers_jwt_exp_for_access_expiry() {
+        let token = test_jwt("test-jti", future_unix_secs(Duration::from_secs(30)));
+        let session = AuthSession::from_tokens(
+            token,
+            Some("refresh".to_string()),
+            URL_SAFE_NO_PAD.encode(b"pop-key"),
+            Some(900),
+            Some(900),
+        )
+        .expect("session should parse jwt exp");
+
+        assert!(session.should_refresh_within(Duration::from_secs(60)));
+    }
+
+    #[test]
+    fn auth_session_snapshot_prefers_jwt_exp_for_access_expiry() {
+        let token = test_jwt("test-jti", future_unix_secs(Duration::from_secs(30)));
+        let stale_snapshot_exp = future_unix_secs(Duration::from_secs(900));
+        let session = AuthSession::from_snapshot(AuthSessionSnapshot {
+            access_token: token,
+            refresh_token: Some("refresh".to_string()),
+            pop_key: URL_SAFE_NO_PAD.encode(b"pop-key"),
+            access_expires_at: Some(stale_snapshot_exp),
+            refresh_expires_at: Some(stale_snapshot_exp),
+            counter: 0,
+        })
+        .expect("session should parse jwt exp from snapshot");
+
+        assert!(session.should_refresh_within(Duration::from_secs(60)));
+    }
+
+    #[tokio::test]
+    async fn service_auth_refresh_omits_expired_access_token() {
+        let store = Arc::new(MemoryAuthSessionStore::new());
+        let session = AuthSession::from_tokens(
+            test_jwt("expired-jti", past_unix_secs(Duration::from_secs(30))),
+            Some("refresh-token-1".to_string()),
+            URL_SAFE_NO_PAD.encode(b"pop-key-1"),
+            None,
+            Some(3600),
+        )
+        .expect("test session should parse");
+        store
+            .store_session(&session)
+            .expect("test session should store");
+
+        let (base_url, authorizations) = spawn_refresh_test_server();
+        let client =
+            PhoenixServiceAuthClient::new(&base_url, store).expect("client should construct");
+
+        let refreshed = client
+            .refresh_session()
+            .await
+            .expect("refresh should succeed");
+
+        assert_eq!(refreshed.access_jti(), "fresh-jti");
+        assert_eq!(authorizations.lock().as_slice(), &[None]);
     }
 }

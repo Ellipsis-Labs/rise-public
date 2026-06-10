@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::types::core::Decimal;
 use crate::types::exchange::{
     AuthoritySetView, ExchangeKeysView, ExchangeLeverageTier, ExchangeMarketConfig,
-    ExchangeResponse, ExchangeRiskFactors,
+    ExchangeResponse, ExchangeRiskFactors, MarketPublicMetadata,
 };
 use crate::types::js_safe_ints::JsSafeU64;
 use crate::types::market::MarketStatus;
@@ -58,9 +58,13 @@ pub struct ExchangeWsMarkPriceParameters {
     pub exchange_perp_price_weight: JsSafeU64,
     pub spot_price_stale_threshold: JsSafeU64,
     pub book_price_stale_threshold: JsSafeU64,
+    #[serde(default)]
+    pub book_hard_stale_multiplier: u8,
     pub perp_price_stale_threshold: JsSafeU64,
     pub risk_action_price_validity_rules: ExchangeWsRiskActionPriceValidityRules,
     pub oracle_divergence_radius: u16,
+    #[serde(default)]
+    pub oracle_hard_stale_multiplier: u8,
     pub min_oracle_responses: u8,
 }
 
@@ -148,6 +152,8 @@ pub struct ExchangeMarketSnapshot {
     pub mark_price_parameters: ExchangeWsMarkPriceParameters,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub commodity_metadata: Option<ExchangeWsCommodityMetadata>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<MarketPublicMetadata>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -269,6 +275,8 @@ pub enum ExchangeMarketParameterUpdate {
         previous: ExchangeWsCommodityMetadata,
         new: ExchangeWsCommodityMetadata,
     },
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -315,6 +323,12 @@ pub enum ExchangeDeltaOp {
         symbol: String,
         update: ExchangeMarketParameterUpdate,
     },
+    MarketMetadataUpdated {
+        symbol: String,
+        metadata: Option<MarketPublicMetadata>,
+    },
+    #[serde(other)]
+    Unknown,
 }
 
 impl ExchangeSnapshotView {
@@ -400,6 +414,7 @@ impl From<&ExchangeMarketSnapshot> for ExchangeMarketConfig {
             symbol: market.symbol.clone(),
             asset_id: market.asset_id,
             market_status: market.market_status,
+            metadata: market.metadata.clone(),
             market_pubkey: market.market_pubkey.clone(),
             spline_pubkey: market.spline_pubkey.clone(),
             tick_size: market.tick_size,
@@ -457,9 +472,11 @@ mod tests {
             exchange_perp_price_weight: 4_000_u64.into(),
             spot_price_stale_threshold: 120_u64.into(),
             book_price_stale_threshold: 15_u64.into(),
+            book_hard_stale_multiplier: 0,
             perp_price_stale_threshold: 15_u64.into(),
             risk_action_price_validity_rules: [[[ExchangeWsValidationRule::Ignore; 8]; 4]; 8],
             oracle_divergence_radius: 500,
+            oracle_hard_stale_multiplier: 0,
             min_oracle_responses: 1,
         }
     }
@@ -490,6 +507,7 @@ mod tests {
                 symbol: "SOL-PERP".to_string(),
                 asset_id: 1,
                 market_status: MarketStatus::Active,
+                metadata: None,
                 market_pubkey: "sol-market".to_string(),
                 spline_pubkey: "sol-spline".to_string(),
                 tick_size: 100,
@@ -539,6 +557,57 @@ mod tests {
                 .funding_config
                 .max_funding_rate_per_interval,
             2_500
+        );
+    }
+
+    #[test]
+    fn deserializes_unknown_exchange_delta_ops_as_unknown() {
+        let value = serde_json::json!({
+            "channel": "exchange",
+            "version": 1,
+            "sequenceNumber": 11,
+            "slot": 43,
+            "slotIndex": 0,
+            "ops": [
+                {
+                    "kind": "futureMarketThingUpdated",
+                    "symbol": "SOL-PERP",
+                    "futureField": true
+                }
+            ]
+        });
+
+        let decoded: ExchangeDeltaMessage = serde_json::from_value(value).unwrap();
+        assert_eq!(decoded.ops, vec![ExchangeDeltaOp::Unknown]);
+    }
+
+    #[test]
+    fn deserializes_unknown_exchange_market_parameter_updates_as_unknown() {
+        let value = serde_json::json!({
+            "channel": "exchange",
+            "version": 1,
+            "sequenceNumber": 11,
+            "slot": 43,
+            "slotIndex": 0,
+            "ops": [
+                {
+                    "kind": "marketParameterUpdated",
+                    "symbol": "SOL-PERP",
+                    "update": {
+                        "kind": "futureParameterUpdated",
+                        "futureField": true
+                    }
+                }
+            ]
+        });
+
+        let decoded: ExchangeDeltaMessage = serde_json::from_value(value).unwrap();
+        assert_eq!(
+            decoded.ops,
+            vec![ExchangeDeltaOp::MarketParameterUpdated {
+                symbol: "SOL-PERP".to_string(),
+                update: ExchangeMarketParameterUpdate::Unknown,
+            }]
         );
     }
 

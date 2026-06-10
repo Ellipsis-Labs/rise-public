@@ -17,7 +17,7 @@ license = "MIT"
 name = "phoenix-rise"
 publish = { workspace = true }
 readme = "CRATES.md"
-repository = { workspace = true }
+repository = "https://github.com/Ellipsis-Labs/rise-public"
 rust-version = { workspace = true }
 version = { workspace = true }
 
@@ -63,6 +63,11 @@ path = "sdk/examples/fetch_on_chain_accounts.rs"
 [[example]]
 name = "http_client"
 path = "sdk/examples/http_client.rs"
+
+[[example]]
+name              = "onboard_trader_delegated"
+path              = "sdk/examples/onboard_trader_delegated.rs"
+required-features = ["solana-keypair"]
 
 [[example]]
 name              = "isolated_limit_order"
@@ -209,9 +214,9 @@ homepage     = "https://docs.phoenix.trade/"
 license      = "MIT"
 publish      = true
 readme       = "CRATES.md"
-repository   = "https://github.com/Ellipsis-Labs/rise-public"
-rust-version = "1.86.0"
-version      = "0.1.4"
+repository   = "https://github.com/Ellipsis-Labs/rise"
+rust-version = "1.84.0"
+version      = "0.1.5"
 
 [workspace.dependencies]
 base64 = "0.22"

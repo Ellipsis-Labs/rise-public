@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct CreateServiceAccountRequest {
     pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     pub client_id: String,
     #[serde(default)]
     pub role: String,
@@ -46,6 +48,7 @@ pub struct CreateServiceKeyRequest {
 pub struct ServiceAccountDto {
     pub id: i64,
     pub name: String,
+    pub description: Option<String>,
     pub client_id: String,
     pub role: String,
     pub scopes: Vec<String>,

@@ -172,7 +172,7 @@ Use `rise/rust/sdk/examples/` as the main reference set:
   `subscribe_candles.rs`, `subscribe_trades.rs`, `ws_debug_cli.rs`
 - Transaction building and trading: `send_limit_order.rs`,
   `send_market_order.rs`, `send_flight_market_order.rs`, `cancel_order.rs`,
-  `cancel_stop_loss.rs`, `deposit_funds.rs`
+  `cancel_stop_loss.rs`, `deposit_funds.rs`, `onboard_trader_delegated.rs`
 - Isolated flows: `isolated_limit_order.rs`,
   `isolated_market_order_client.rs`, `isolated_market_order_server.rs`
 - Broader reference flows: `phoenix_client.rs`, `market_maker.rs`,

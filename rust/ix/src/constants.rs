@@ -195,6 +195,11 @@ pub fn sync_parent_to_child_discriminant() -> [u8; 8] {
     compute_discriminant("global:sync_parent_to_child")
 }
 
+/// Instruction discriminant for set_trader_capabilities_delegated.
+pub fn set_trader_capabilities_delegated_discriminant() -> [u8; 8] {
+    compute_discriminant("global:set_trader_capabilities_delegated")
+}
+
 /// Instruction discriminant for place_multi_limit_order.
 pub fn place_multi_limit_order_discriminant() -> [u8; 8] {
     compute_discriminant("global:place_multi_limit_order")
@@ -258,6 +263,22 @@ pub fn get_conditional_orders_address(trader_account: &Pubkey) -> Pubkey {
     let program_id = *PHOENIX_PROGRAM_ID;
     let (pda, _bump) = Pubkey::find_program_address(
         &[b"conditional_orders", trader_account.as_ref()],
+        &program_id,
+    );
+    pda
+}
+
+/// Derives the permission PDA for an authority and delegated signer.
+///
+/// Seeds: ["permission", permission_authority, delegated_key]
+pub fn get_permission_address(permission_authority: &Pubkey, delegated_key: &Pubkey) -> Pubkey {
+    let program_id = *PHOENIX_PROGRAM_ID;
+    let (pda, _bump) = Pubkey::find_program_address(
+        &[
+            b"permission",
+            permission_authority.as_ref(),
+            delegated_key.as_ref(),
+        ],
         &program_id,
     );
     pda
@@ -462,6 +483,23 @@ mod tests {
         // Different trader should produce different PDA
         let trader2 = Pubkey::new_unique();
         let pda4 = get_stop_loss_address(&trader2, asset_id);
+        assert_ne!(pda1, pda4);
+    }
+
+    #[test]
+    fn test_permission_pda_derivation() {
+        let permission_authority = Pubkey::new_unique();
+        let delegated_key = Pubkey::new_unique();
+        let pda1 = get_permission_address(&permission_authority, &delegated_key);
+        let pda2 = get_permission_address(&permission_authority, &delegated_key);
+        assert_eq!(pda1, pda2);
+
+        let other_authority = Pubkey::new_unique();
+        let pda3 = get_permission_address(&other_authority, &delegated_key);
+        assert_ne!(pda1, pda3);
+
+        let other_delegated_key = Pubkey::new_unique();
+        let pda4 = get_permission_address(&permission_authority, &other_delegated_key);
         assert_ne!(pda1, pda4);
     }
 
