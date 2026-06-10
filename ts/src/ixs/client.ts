@@ -37,6 +37,7 @@ const IX_METHOD_NAMES = [
   "buildCreateConditionalOrdersAccount",
   "buildCreateEscrowRequest",
   "buildDelegateTrader",
+  "buildOnboardTraderDelegated",
   "buildPlaceAttachedConditionalOrder",
   "buildPlaceLimitOrder",
   "buildPlaceLimitOrderWithConditionals",
@@ -70,6 +71,7 @@ const summarizeIxParams = (params: unknown): Record<string, unknown> => {
   for (const key of [
     "symbol",
     "authority",
+    "traderAuthority",
     "positionAuthority",
     "permissionAuthority",
     "delegatedKey",

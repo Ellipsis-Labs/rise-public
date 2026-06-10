@@ -6,6 +6,7 @@ import {
   decodeOrderbook,
   decodeOrderbookHeader,
   decodePerpAssetMap,
+  decodePermission,
   decodeSplineCollection,
   decodeStopLosses,
   decodeTokenAccount,
@@ -58,6 +59,11 @@ const writeU64LE = (bytes: Uint8Array, offset: number, value: bigint): void => {
   view.setBigUint64(offset, value, true);
 };
 
+const writeI64LE = (bytes: Uint8Array, offset: number, value: bigint): void => {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  view.setBigInt64(offset, value, true);
+};
+
 const writeAddress = (
   bytes: Uint8Array,
   offset: number,
@@ -91,6 +97,18 @@ const createTokenAccountBytes = (): Uint8Array => {
   writeU64LE(bytes, 121, 13n);
   writeU32LE(bytes, 129, 1);
   writeAddress(bytes, 133, 6);
+  return bytes;
+};
+
+const createPermissionAccountBytes = (): Uint8Array => {
+  const bytes = new Uint8Array(168);
+  bytes.set([180, 172, 109, 215, 129, 165, 97, 38], 0);
+  writeAddress(bytes, 8, 7);
+  writeAddress(bytes, 40, 9);
+  bytes[72] = 254;
+  writeU64LE(bytes, 80, 16n);
+  writeI64LE(bytes, 88, 1_775_000_000n);
+  writeI64LE(bytes, 96, -1n);
   return bytes;
 };
 
@@ -372,6 +390,16 @@ describe("raw account parsing", () => {
       delegatedAmount: 13n,
       closeAuthorityOption: 1,
       closeAuthority: addressFromFill(6),
+    });
+  });
+
+  it("decodes PermissionAccount accounts", () => {
+    expect(decodePermission(createPermissionAccountBytes())).toEqual({
+      permissionAuthority: addressFromFill(7),
+      delegatedKey: addressFromFill(9),
+      permission: 16n,
+      expiresAtTimestamp: 1_775_000_000n,
+      allowedSignerActions: -1n,
     });
   });
 

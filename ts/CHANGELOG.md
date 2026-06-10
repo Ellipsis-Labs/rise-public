@@ -34,3 +34,29 @@ Source Phoenix commit: `32611fa7f803cf601cab67b6ca5dce5d4a70fc75`
 - **`PlaceMarketOrderFlowParams` gains optional `minBaseLotsToFill` and `minQuoteLotsToFill`** for fill-size guarantees on market orders. Omitting them preserves existing behavior (no minimum enforced).
 - **`buildSplTokenTransfer`** is now exported for building raw SPL token transfer instructions.
 - **Unknown WebSocket delta ops** are now normalized to `{ kind: "unknown", originalKind, payload }` instead of throwing, so clients survive new server-side delta kinds without crashing.
+
+## v0.4.28 - 2026-06-10
+
+Source Phoenix commit: `f0c4a154e63048a8517e72e8a6a8b806e3768cd0`
+
+- Package: `@ellipsis-labs/rise`
+- Target repo version: 0.4.27
+- Phoenix version: 0.4.27 -> 0.4.28
+
+### Summary
+
+- **New `OnboardTraderDelegated` instruction**: Adds `buildOnboardTraderDelegatedIx`, `buildOnboardTraderDelegated`, and `buildOnboardTraderDelegatedIxResolved` to the public surface. A delegated onboarder keypair can now onboard a trader (optionally registering the account first) without the risk authority signing directly.
+- **New client method**: `client.ixs.buildOnboardTraderDelegated({ authority, traderAuthority, permissionAccount, traderPdaIndex?, traderSubaccountIndex? })` is available on all `PhoenixIxClient` instances.
+- **`PERMISSION_ACCOUNT` discriminant corrected**: The on-chain discriminant for permission accounts changed from `"account:permission"` to `"account:permission_account"`. `decodePermission` will now correctly parse real on-chain permission accounts.
+- **New example**: `examples/07-onboard-trader-delegated.ts` demonstrates the full delegated onboarding flow, including permission validation and conditional trader registration.
+
+### Breaking Changes
+
+- **npm registry moved**: `publishConfig` changed from `registry.npmjs.org` (public) to `npm.pkg.github.com` (restricted/private). Consumers must reconfigure their package manager to authenticate against GitHub Packages and update any `.npmrc` or `bunfig.toml` that points to the public registry.
+- **`PERMISSION_ACCOUNT` discriminant changed**: If your code calls `decodePermission` or checks `ACCOUNT_DISCRIMINANTS.PERMISSION_ACCOUNT` directly, the underlying hash value has changed. Accounts parsed with the old discriminant (`sha2("account:permission")`) will no longer decode correctly — re-fetch and decode permission accounts after upgrading.
+
+### Consumer Notes
+
+- The `TraderCapabilityToggleTarget` enum and internal `buildSetTraderCapabilitiesDelegated*` names are intentionally absent from the public surface; use `buildOnboardTraderDelegated` instead.
+- Delegated onboarding always enables all six trader capabilities (limit orders, market orders, risk-increasing and risk-reducing trades, deposit, and withdrawal) in a single instruction — there is no partial-capability variant in this release.
+- The `permissionAccount` address must be derived from the current risk authority and the onboarder's key; see the new example for the full derivation pattern using `client.pda.getPermissionAddress`.

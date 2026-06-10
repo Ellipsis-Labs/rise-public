@@ -326,6 +326,7 @@ export {
   buildPlacePositionConditionalOrder,
   buildPlaceStopLoss,
   buildRegisterTrader,
+  buildOnboardTraderDelegated,
   registerTrader,
   buildSyncParentToChild,
   buildTransferCollateral,

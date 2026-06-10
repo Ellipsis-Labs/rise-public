@@ -103,6 +103,10 @@ export const ROOT_ABSENT_PROPERTIES = [
   "resolvePublicApiPath",
   "RISE_ROUTE_CATALOG",
   "getRiseRouteMeta",
+  "buildSetTraderCapabilitiesDelegated",
+  "buildSetTraderCapabilitiesDelegatedIx",
+  "buildSetTraderCapabilitiesDelegatedIxResolved",
+  "TraderCapabilityToggleTarget",
 ] as const;
 
 export const ROOT_PRESENT_PROPERTIES = [
@@ -143,6 +147,8 @@ export const ROOT_PRESENT_PROPERTIES = [
   "buildPlaceStopLoss",
   "buildPlaceStopLossIxResolved",
   "buildRegisterTraderIxResolved",
+  "buildOnboardTraderDelegated",
+  "buildOnboardTraderDelegatedIxResolved",
   "buildSyncParentToChildIxResolved",
   "deriveFlameDepositAddress",
   "deriveFlameDepositAddresses",
@@ -197,6 +203,7 @@ export const ROOT_PRESENT_PROPERTIES = [
 export const MIGRATED_INSTRUCTION_BUILDERS = [
   "buildCancelUpToIx",
   "buildPlaceMultiLimitOrderIx",
+  "buildOnboardTraderDelegatedIx",
   "buildPlaceStopLossIx",
   "buildUpdateTraderStateIx",
 ] as const;
@@ -236,6 +243,7 @@ export const PHOENIX_IX_PROPERTIES = [
   "buildPlacePositionConditionalOrder",
   "buildPlaceStopLoss",
   "buildRegisterTrader",
+  "buildOnboardTraderDelegated",
   "buildSyncParentToChild",
   "placeLimitOrder",
   "placeMarketOrder",
