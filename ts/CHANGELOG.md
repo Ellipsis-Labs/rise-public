@@ -49,10 +49,6 @@ Source Phoenix commit: `f0c4a154e63048a8517e72e8a6a8b806e3768cd0`
 - **`PERMISSION_ACCOUNT` discriminant corrected**: The on-chain discriminant for permission accounts changed from `"account:permission"` to `"account:permission_account"`. `decodePermission` will now correctly parse real on-chain permission accounts.
 - **New example**: `examples/07-onboard-trader-delegated.ts` demonstrates the full delegated onboarding flow, including permission validation and conditional trader registration.
 
-### Breaking Changes
-
-- **`PERMISSION_ACCOUNT` discriminant changed**: If your code calls `decodePermission` or checks `ACCOUNT_DISCRIMINANTS.PERMISSION_ACCOUNT` directly, the underlying hash value has changed. Accounts parsed with the old discriminant (`sha2("account:permission")`) will no longer decode correctly — re-fetch and decode permission accounts after upgrading.
-
 ### Consumer Notes
 
 - The `TraderCapabilityToggleTarget` enum and internal `buildSetTraderCapabilitiesDelegated*` names are intentionally absent from the public surface; use `buildOnboardTraderDelegated` instead.
