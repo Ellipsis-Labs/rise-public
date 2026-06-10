@@ -16,11 +16,11 @@ on:
           - "false"
       package:
         description: "Package scope to publish."
-        default: "both"
+        default: "changed"
         required: true
         type: choice
         options:
-          - "both"
+          - "changed"
           - "typescript"
           - "rust"
 
@@ -31,6 +31,9 @@ jobs:
   plan:
     runs-on: ubuntu-latest
     outputs:
+      should_release: ${{ steps.plan.outputs.should_release }}
+      package_key: ${{ steps.plan.outputs.package_key }}
+      package_scope: ${{ steps.plan.outputs.package_scope }}
       release_tag: ${{ steps.plan.outputs.release_tag }}
       release_title: ${{ steps.plan.outputs.release_title }}
       rust_name: ${{ steps.plan.outputs.rust_name }}
@@ -39,20 +42,23 @@ jobs:
       ts_version: ${{ steps.plan.outputs.ts_version }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
 
       - uses: astral-sh/setup-uv@v7
 
       - name: Plan release
         id: plan
-        run: uv run --script scripts/release_plan.py
+        env:
+          PACKAGE_SCOPE: ${{ inputs.package || 'changed' }}
+        run: uv run --script scripts/release_plan.py --package "${PACKAGE_SCOPE}"
 
   publish-typescript:
     needs: plan
-    if: >
-      github.event_name != 'workflow_dispatch' ||
-      inputs.package == 'both' ||
-      inputs.package == 'typescript'
+    if: needs.plan.outputs.should_release == 'true' && needs.plan.outputs.package_key == 'ts'
     runs-on: ubuntu-latest
+    outputs:
+      package_published: ${{ steps.publish-state.outputs.package_published }}
     permissions:
       contents: read
       id-token: write
@@ -151,13 +157,24 @@ jobs:
           env.PUBLISH_ENABLED != 'true'
         run: echo "RISE_RELEASE_PUBLISH_ENABLED is not true; skipping npm publish"
 
+      - name: Report npm publish result
+        id: publish-state
+        if: always()
+        env:
+          PACKAGE_NEEDS_PUBLISH: ${{ steps.npm-status.outputs.publish || 'false' }}
+        run: |
+          if [[ "${PACKAGE_NEEDS_PUBLISH}" == "true" && "${DRY_RUN}" != "true" && "${PUBLISH_ENABLED}" == "true" ]]; then
+            echo "package_published=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "package_published=false" >> "${GITHUB_OUTPUT}"
+          fi
+
   publish-rust:
     needs: plan
-    if: >
-      github.event_name != 'workflow_dispatch' ||
-      inputs.package == 'both' ||
-      inputs.package == 'rust'
+    if: needs.plan.outputs.should_release == 'true' && needs.plan.outputs.package_key == 'rust'
     runs-on: ubuntu-latest
+    outputs:
+      package_published: ${{ steps.publish-state.outputs.package_published }}
     permissions:
       contents: read
       id-token: write
@@ -236,6 +253,18 @@ jobs:
           env.PUBLISH_ENABLED != 'true'
         run: echo "RISE_RELEASE_PUBLISH_ENABLED is not true; skipping crates.io publish"
 
+      - name: Report crate publish result
+        id: publish-state
+        if: always()
+        env:
+          PACKAGE_NEEDS_PUBLISH: ${{ steps.crate-status.outputs.publish || 'false' }}
+        run: |
+          if [[ "${PACKAGE_NEEDS_PUBLISH}" == "true" && "${DRY_RUN}" != "true" && "${PUBLISH_ENABLED}" == "true" ]]; then
+            echo "package_published=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "package_published=false" >> "${GITHUB_OUTPUT}"
+          fi
+
   release:
     needs:
       - plan
@@ -244,16 +273,18 @@ jobs:
     if: |
       always()
       && needs.plan.result == 'success'
+      && needs.plan.outputs.should_release == 'true'
       && (needs.publish-typescript.result == 'success' || needs.publish-typescript.result == 'skipped')
       && (needs.publish-rust.result == 'success' || needs.publish-rust.result == 'skipped')
+      && (needs.publish-typescript.outputs.package_published == 'true' || needs.publish-rust.outputs.package_published == 'true')
       && vars.RISE_RELEASE_PUBLISH_ENABLED == 'true'
       && (github.event_name != 'workflow_dispatch' || inputs.dry_run == 'false')
-      && (github.event_name != 'workflow_dispatch' || inputs.package == 'both')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
+      PACKAGE_SCOPE: ${{ needs.plan.outputs.package_scope }}
       RELEASE_TAG: ${{ needs.plan.outputs.release_tag }}
       RELEASE_TITLE: ${{ needs.plan.outputs.release_title }}
     steps:
@@ -262,7 +293,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
 
       - name: Build release notes
-        run: uv run --script scripts/release_plan.py --release-notes release-notes.md
+        run: uv run --script scripts/release_plan.py --package "${PACKAGE_SCOPE}" --release-notes release-notes.md
 
       - name: Create GitHub release
         run: |
