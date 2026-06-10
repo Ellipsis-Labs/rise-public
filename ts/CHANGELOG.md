@@ -19,7 +19,6 @@ Source Phoenix commit: `32611fa7f803cf601cab67b6ca5dce5d4a70fc75`
 
 ### Breaking Changes
 
-- **Registry moved to GitHub Packages**: `publishConfig.registry` is now `https://npm.pkg.github.com` with `access: restricted`. Add `@ellipsis-labs:registry=https://npm.pkg.github.com` to your `.npmrc` and authenticate with a GitHub token.
 - **`apiKey` removed** from `PhoenixHttpClientConfig` and `createPhoenixClient`. Any call site passing `apiKey` will now fail to compile; remove the field.
 - **`activateInviteWithReferral` renamed to `activateReferral`** on the invite client. The backing route changed from `POST /v1/invite/activate-with-referral` to `POST /v1/referral/activate`, which now requires an active auth session for the same authority wallet.
 - **`fromSnapshot` now reads `expiresAt` from the JWT `exp` claim** (not the snapshot's `expiresAt` field) and throws if `exp` is absent. Access tokens lacking `exp` are no longer accepted.
@@ -52,7 +51,6 @@ Source Phoenix commit: `f0c4a154e63048a8517e72e8a6a8b806e3768cd0`
 
 ### Breaking Changes
 
-- **npm registry moved**: `publishConfig` changed from `registry.npmjs.org` (public) to `npm.pkg.github.com` (restricted/private). Consumers must reconfigure their package manager to authenticate against GitHub Packages and update any `.npmrc` or `bunfig.toml` that points to the public registry.
 - **`PERMISSION_ACCOUNT` discriminant changed**: If your code calls `decodePermission` or checks `ACCOUNT_DISCRIMINANTS.PERMISSION_ACCOUNT` directly, the underlying hash value has changed. Accounts parsed with the old discriminant (`sha2("account:permission")`) will no longer decode correctly — re-fetch and decode permission accounts after upgrading.
 
 ### Consumer Notes
