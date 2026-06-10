@@ -21,6 +21,7 @@ export * from "./PlacePostOnlyOrder";
 export * from "./PlacePositionConditionalOrder";
 export * from "./PlaceStopLoss";
 export * from "./RegisterTrader";
+export * from "./OnboardTraderDelegated";
 export * from "./SyncParentToChild";
 export * from "./TransferCollateral";
 export * from "./TransferCollateralChildToParent";

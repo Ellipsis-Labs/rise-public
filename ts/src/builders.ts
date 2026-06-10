@@ -72,6 +72,7 @@ import { type PlacePostOnlyOrderIx } from "./core/ixBuilders/PlacePostOnlyOrder"
 import { type PlacePositionConditionalOrderIx } from "./core/ixBuilders/PlacePositionConditionalOrder";
 import { type PlaceStopLossIx } from "./core/ixBuilders/PlaceStopLoss";
 import { type RegisterTraderIx } from "./core/ixBuilders/RegisterTrader";
+import type { OnboardTraderDelegatedIx } from "./core/ixBuilders/OnboardTraderDelegated";
 import { type SyncParentToChildIx } from "./core/ixBuilders/SyncParentToChild";
 import { type TransferCollateralChildToParentIx } from "./core/ixBuilders/TransferCollateralChildToParent";
 import { type TransferCollateralIx } from "./core/ixBuilders/TransferCollateral";
@@ -816,6 +817,18 @@ export const buildRegisterTrader = async (
   client: PhoenixInstructionClient & PhoenixAccountExistenceClient
 ): Promise<RegisterTraderIx> =>
   createLegacyPhoenixIxOperations(client).buildRegisterTrader(params);
+
+export const buildOnboardTraderDelegated = async (
+  params: {
+    authority: Authority;
+    traderAuthority: Authority;
+    permissionAccount: Address;
+    traderPdaIndex?: number;
+    traderSubaccountIndex?: number;
+  },
+  client: PhoenixInstructionClient
+): Promise<OnboardTraderDelegatedIx> =>
+  createLegacyPhoenixIxOperations(client).buildOnboardTraderDelegated(params);
 
 export const registerTrader = async (
   client: PhoenixInstructionClient &

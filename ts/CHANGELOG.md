@@ -19,7 +19,6 @@ Source Phoenix commit: `32611fa7f803cf601cab67b6ca5dce5d4a70fc75`
 
 ### Breaking Changes
 
-- **Registry moved to GitHub Packages**: `publishConfig.registry` is now `https://npm.pkg.github.com` with `access: restricted`. Add `@ellipsis-labs:registry=https://npm.pkg.github.com` to your `.npmrc` and authenticate with a GitHub token.
 - **`apiKey` removed** from `PhoenixHttpClientConfig` and `createPhoenixClient`. Any call site passing `apiKey` will now fail to compile; remove the field.
 - **`activateInviteWithReferral` renamed to `activateReferral`** on the invite client. The backing route changed from `POST /v1/invite/activate-with-referral` to `POST /v1/referral/activate`, which now requires an active auth session for the same authority wallet.
 - **`fromSnapshot` now reads `expiresAt` from the JWT `exp` claim** (not the snapshot's `expiresAt` field) and throws if `exp` is absent. Access tokens lacking `exp` are no longer accepted.
@@ -34,3 +33,23 @@ Source Phoenix commit: `32611fa7f803cf601cab67b6ca5dce5d4a70fc75`
 - **`PlaceMarketOrderFlowParams` gains optional `minBaseLotsToFill` and `minQuoteLotsToFill`** for fill-size guarantees on market orders. Omitting them preserves existing behavior (no minimum enforced).
 - **`buildSplTokenTransfer`** is now exported for building raw SPL token transfer instructions.
 - **Unknown WebSocket delta ops** are now normalized to `{ kind: "unknown", originalKind, payload }` instead of throwing, so clients survive new server-side delta kinds without crashing.
+
+## v0.4.28 - 2026-06-10
+
+Source Phoenix commit: `f0c4a154e63048a8517e72e8a6a8b806e3768cd0`
+
+- Package: `@ellipsis-labs/rise`
+- Target repo version: 0.4.27
+- Phoenix version: 0.4.27 -> 0.4.28
+
+### Summary
+
+- **New `OnboardTraderDelegated` instruction**: Adds `buildOnboardTraderDelegatedIx`, `buildOnboardTraderDelegated`, and `buildOnboardTraderDelegatedIxResolved` to the public surface. A delegated onboarder keypair can now onboard a trader (optionally registering the account first) without the risk authority signing directly.
+- **New client method**: `client.ixs.buildOnboardTraderDelegated({ authority, traderAuthority, permissionAccount, traderPdaIndex?, traderSubaccountIndex? })` is available on all `PhoenixIxClient` instances.
+- **New example**: `examples/07-onboard-trader-delegated.ts` demonstrates the full delegated onboarding flow, including permission validation and conditional trader registration.
+
+### Consumer Notes
+
+- The `TraderCapabilityToggleTarget` enum and internal `buildSetTraderCapabilitiesDelegated*` names are intentionally absent from the public surface; use `buildOnboardTraderDelegated` instead.
+- Delegated onboarding always enables all six trader capabilities (limit orders, market orders, risk-increasing and risk-reducing trades, deposit, and withdrawal) in a single instruction — there is no partial-capability variant in this release.
+- The `permissionAccount` address must be derived from the current risk authority and the onboarder's key; see the new example for the full derivation pattern using `client.pda.getPermissionAddress`.

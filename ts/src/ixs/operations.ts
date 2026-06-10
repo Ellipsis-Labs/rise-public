@@ -65,6 +65,7 @@ import {
 import {
   buildCancelStopLossIxResolved,
   buildDelegateTraderIxResolved,
+  buildOnboardTraderDelegatedIxResolved,
   buildRegisterTraderIxResolved,
   buildSyncParentToChildIxResolved,
 } from "./trader";
@@ -77,6 +78,7 @@ import type {
   ClientCreateEscrowRequestInput,
   ClientDepositInput,
   ClientDelegateTraderInput,
+  ClientOnboardTraderDelegatedInput,
   ClientPlaceAttachedConditionalOrderInput,
   ClientPlaceLimitOrderWithConditionalsInput,
   ClientPlaceOrderInput,
@@ -535,6 +537,33 @@ export const createPhoenixIxOperations = (
         },
         newPositionAuthority: params.newPositionAuthority,
       }),
+    buildOnboardTraderDelegated: async (
+      params: ClientOnboardTraderDelegatedInput
+    ) => {
+      const exchangeAccounts =
+        await context.resolveExchangeInstructionAccounts();
+      const traderAccount = await context.resolveTraderAccount({
+        authority: params.traderAuthority,
+        traderPdaIndex: params.traderPdaIndex,
+        traderSubaccountIndex: params.traderSubaccountIndex,
+      });
+
+      return buildOnboardTraderDelegatedIxResolved({
+        exchange: {
+          phoenixProgramAddress: exchangeAccounts.phoenixProgramAddress,
+          logAuthorityAddress: exchangeAccounts.logAuthorityAddress,
+          globalConfigurationAddress:
+            exchangeAccounts.globalConfigurationAddress,
+          globalTraderIndex: exchangeAccounts.globalTraderIndex,
+          activeTraderBuffer: exchangeAccounts.activeTraderBuffer,
+        },
+        trader: {
+          authority: params.authority,
+          permissionAccount: params.permissionAccount,
+          traderAccount,
+        },
+      });
+    },
     buildPlaceLimitOrder: buildWrappedLimitOrder,
     buildPlaceMarketOrder: buildWrappedMarketOrder,
     buildPlacePositionConditionalOrder: buildWrappedPositionConditionalOrder,

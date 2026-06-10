@@ -12,6 +12,10 @@ import {
   type RegisterTraderIx,
 } from "@/core/ixBuilders/RegisterTrader";
 import {
+  buildOnboardTraderDelegatedIx,
+  type OnboardTraderDelegatedIx,
+} from "@/core/ixBuilders/OnboardTraderDelegated";
+import {
   buildSyncParentToChildIx,
   type SyncParentToChildIx,
 } from "@/core/ixBuilders/SyncParentToChild";
@@ -19,6 +23,7 @@ import type {
   ResolvedCancelStopLossIxInput,
   ResolvedDelegateTraderIxInput,
   ResolvedRegisterTraderIxInput,
+  ResolvedOnboardTraderDelegatedIxInput,
   ResolvedSyncParentToChildIxInput,
 } from "./types";
 
@@ -71,6 +76,22 @@ export const buildRegisterTraderIxResolved = (
     maxPositions: params.maxPositions,
     traderPdaIndex: params.traderPdaIndex,
     traderSubaccountIndex: params.traderSubaccountIndex,
+  });
+
+export const buildOnboardTraderDelegatedIxResolved = (
+  params: ResolvedOnboardTraderDelegatedIxInput
+): OnboardTraderDelegatedIx =>
+  buildOnboardTraderDelegatedIx({
+    ...phoenixInstructionAddresses({
+      phoenixProgramAddress: params.exchange.phoenixProgramAddress,
+      logAuthorityAddress: params.exchange.logAuthorityAddress,
+      globalConfigurationAddress: params.exchange.globalConfigurationAddress,
+    }),
+    authority: params.trader.authority,
+    permissionAccount: params.trader.permissionAccount,
+    traderAccount: params.trader.traderAccount,
+    globalTraderIndex: params.exchange.globalTraderIndex,
+    activeTraderBuffer: params.exchange.activeTraderBuffer,
   });
 
 export const buildSyncParentToChildIxResolved = (

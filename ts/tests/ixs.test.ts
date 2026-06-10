@@ -19,6 +19,7 @@ import {
   buildPlacePostOnlyOrderIxResolved,
   buildPlaceStopLossIxResolved,
   buildRegisterTraderIxResolved,
+  buildOnboardTraderDelegatedIxResolved,
   buildSyncParentToChildIxResolved,
   buildTransferCollateralChildToParentIxResolved,
   buildTransferCollateralIxResolved,
@@ -476,6 +477,35 @@ describe("resolved ix builders", () => {
     expect(ix.accounts[3]?.address).toBe("fee-payer");
     expect(ix.accounts[4]?.address).toBe("trader-authority");
     expect(ix.accounts[5]?.address).toBe("trader-account");
+  });
+
+  it("builds a resolved delegated trader-onboarding ix synchronously", () => {
+    const ix = buildOnboardTraderDelegatedIxResolved({
+      exchange: {
+        phoenixProgramAddress: "phoenix-program" as never,
+        logAuthorityAddress: "log-authority" as never,
+        globalConfigurationAddress: "global-config" as never,
+        globalTraderIndex: ["gti-0", "gti-1"] as never,
+        activeTraderBuffer: ["atb-0", "atb-1"] as never,
+      },
+      trader: {
+        authority: "delegated-authority" as never,
+        permissionAccount: "permission-account" as never,
+        traderAccount: "trader-account" as never,
+      },
+    });
+
+    expect(ix.programAddress).toBe("phoenix-program");
+    expect(ix.accounts[3]?.address).toBe("delegated-authority");
+    expect(ix.accounts[3]?.role).toBe(AccountRole.READONLY_SIGNER);
+    expect(ix.accounts[4]?.address).toBe("permission-account");
+    expect(ix.accounts[4]?.role).toBe(AccountRole.WRITABLE);
+    expect(ix.accounts[5]?.address).toBe("trader-account");
+    expect(ix.accounts[6]?.address).toBe("gti-0");
+    expect(ix.accounts[8]?.address).toBe("atb-0");
+    expect(Array.from(ix.data.slice(8))).toEqual([
+      6, 0, 0, 0, 0, 1, 1, 1, 3, 1, 2, 1, 4, 1, 5, 1,
+    ]);
   });
 
   it("builds a resolved sync-parent-to-child ix synchronously", () => {

@@ -260,6 +260,16 @@ export {
 } from "../core/ixBuilders/RegisterTrader";
 
 export {
+  buildOnboardTraderDelegatedIx,
+  getOnboardTraderDelegatedCodec,
+  getOnboardTraderDelegatedDecoder,
+  getOnboardTraderDelegatedEncoder,
+  type OnboardTraderDelegatedAccounts,
+  type OnboardTraderDelegatedIx,
+  type OnboardTraderDelegatedParams,
+} from "../core/ixBuilders/OnboardTraderDelegated";
+
+export {
   buildSyncParentToChildIx,
   getSyncParentToChildCodec,
   getSyncParentToChildDecoder,

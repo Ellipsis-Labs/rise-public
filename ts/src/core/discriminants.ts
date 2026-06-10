@@ -19,6 +19,9 @@ export const DISCRIMINANTS: DiscriminantMap = {
   WITHDRAW_FUNDS: sha2_const("global:withdraw_funds"),
   REGISTER_TRADER: sha2_const("global:register_trader"),
   DELEGATE_TRADER: sha2_const("global:delegate_trader"),
+  SET_TRADER_CAPABILITIES_DELEGATED: sha2_const(
+    "global:set_trader_capabilities_delegated"
+  ),
   TRANSFER_COLLATERAL: sha2_const("global:transfer_collateral"),
   TRANSFER_COLLATERAL_CHILD_TO_PARENT: sha2_const(
     "global:transfer_collateral_child_to_parent"
@@ -71,7 +74,7 @@ export const ACCOUNT_DISCRIMINANTS: DiscriminantMap = {
   TRADER: sha2_const("account:trader"),
   DYNAMIC_TRADER: sha2_const("account:dynamic_trader"),
   PERP_ASSET_MAP: sha2_const("account:perp_asset_map"),
-  PERMISSION_ACCOUNT: sha2_const("account:permission"),
+  PERMISSION_ACCOUNT: sha2_const("account:permission_account"),
   STOP_LOSSES: sha2_const("account:stop_losses"),
   WITHDRAW_QUEUE_HEADER: sha2_const("account:withdraw_queue"),
 };

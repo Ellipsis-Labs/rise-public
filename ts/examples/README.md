@@ -74,6 +74,19 @@ also submits it.
 bun examples/06-flight-market-order.ts <BUILDER_AUTHORITY> <TRADER_AUTHORITY> <SYMBOL> <bid|ask> <NUM_BASE_LOTS> [PRICE_LIMIT_TICKS]
 ```
 
+### 07-onboard-trader-delegated.ts
+
+Loads a trader-onboarder keypair, derives its permission PDA from the current
+risk authority, registers the target trader account if needed, and submits the
+delegated onboarding instruction.
+
+```bash
+bun examples/07-onboard-trader-delegated.ts <TRADER_AUTHORITY> [options]
+```
+
+Running this example with no arguments prints safety guidance instead of
+submitting live transactions.
+
 ## Larger Demos
 
 ### phoenix-client-example.ts

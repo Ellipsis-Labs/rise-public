@@ -16,6 +16,7 @@ import type { PlaceMarketOrderIx } from "@/core/ixBuilders/PlaceMarketOrder";
 import type { PlacePostOnlyOrderIx } from "@/core/ixBuilders/PlacePostOnlyOrder";
 import type { PlaceStopLossIx } from "@/core/ixBuilders/PlaceStopLoss";
 import type { RegisterTraderIx } from "@/core/ixBuilders/RegisterTrader";
+import type { OnboardTraderDelegatedIx } from "@/core/ixBuilders/OnboardTraderDelegated";
 import type { SyncParentToChildIx } from "@/core/ixBuilders/SyncParentToChild";
 import type { TransferCollateralChildToParentIx } from "@/core/ixBuilders/TransferCollateralChildToParent";
 import type { TransferCollateralIx } from "@/core/ixBuilders/TransferCollateral";
@@ -154,6 +155,16 @@ export interface ClientDelegateTraderInput {
   traderPdaIndex: number;
   traderSubaccountIndex: number;
   newPositionAuthority: Address;
+}
+
+export interface ClientOnboardTraderDelegatedInput {
+  /** Delegated onboarder signer. */
+  authority: Authority;
+  /** Trader authority whose trader account will be onboarded. */
+  traderAuthority: Authority;
+  permissionAccount: Address;
+  traderPdaIndex?: number;
+  traderSubaccountIndex?: number;
 }
 
 export interface ClientCreateConditionalOrdersAccountInput {
@@ -348,6 +359,21 @@ export interface ResolvedRegisterTraderIxInput {
   maxPositions: bigint;
   traderPdaIndex: number;
   traderSubaccountIndex: number;
+}
+
+export interface ResolvedOnboardTraderDelegatedIxInput {
+  exchange: {
+    phoenixProgramAddress: PhoenixProgramAddress;
+    logAuthorityAddress: LogAuthorityAddress;
+    globalConfigurationAddress: GlobalConfigurationAddress;
+    globalTraderIndex: GlobalTraderIndexAddressArray;
+    activeTraderBuffer: ActiveTraderBufferAddressArray;
+  };
+  trader: {
+    authority: Authority;
+    permissionAccount: Address;
+    traderAccount: TraderAddress;
+  };
 }
 
 export interface ResolvedSyncParentToChildIxInput {
@@ -554,6 +580,9 @@ export interface PhoenixIxClient {
   buildDelegateTrader(
     params: ClientDelegateTraderInput
   ): Promise<DelegateTraderIx>;
+  buildOnboardTraderDelegated(
+    params: ClientOnboardTraderDelegatedInput
+  ): Promise<OnboardTraderDelegatedIx>;
   buildPlaceLimitOrder(
     params: ClientPlaceOrderInput<LimitOrderPacket>
   ): Promise<PlaceLimitOrderIx>;

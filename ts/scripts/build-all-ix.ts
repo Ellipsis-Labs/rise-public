@@ -22,6 +22,7 @@ import {
   buildTransferCollateralIx,
   buildTransferCollateralChildToParentIx,
   buildSyncParentToChildIx,
+  buildOnboardTraderDelegatedIx,
   Side,
   SelfTradeBehavior,
   OrderFlags,
@@ -207,7 +208,7 @@ try {
     results["PlaceStopLoss"] = hexEncode(ix.data);
   }
 
-  // 6. CreateConditionalOrdersAccount
+  // 7. CreateConditionalOrdersAccount
   {
     const ix = buildCreateConditionalOrdersAccountIx({
       payer: p(0),
@@ -219,7 +220,7 @@ try {
     results["CreateConditionalOrdersAccount"] = hexEncode(ix.data);
   }
 
-  // 7. PlacePositionConditionalOrder
+  // 8. PlacePositionConditionalOrder
   {
     const ix = buildPlacePositionConditionalOrderIx({
       payer: p(0),
@@ -246,7 +247,7 @@ try {
     results["PlacePositionConditionalOrder"] = hexEncode(ix.data);
   }
 
-  // 8. PlaceAttachedConditionalOrder
+  // 9. PlaceAttachedConditionalOrder
   {
     const ix = buildPlaceAttachedConditionalOrderIx({
       traderAccount: p(1),
@@ -273,7 +274,7 @@ try {
     results["PlaceAttachedConditionalOrder"] = hexEncode(ix.data);
   }
 
-  // 9. PlaceLimitOrderWithConditionals
+  // 10. PlaceLimitOrderWithConditionals
   {
     const ix = buildPlaceLimitOrderWithConditionalsIx({
       traderWallet: p(2),
@@ -316,7 +317,7 @@ try {
     results["PlaceLimitOrderWithConditionals"] = hexEncode(ix.data);
   }
 
-  // 10. CancelConditionalOrder
+  // 11. CancelConditionalOrder
   {
     const ix = buildCancelConditionalOrderIx({
       traderAccount: p(1),
@@ -330,7 +331,7 @@ try {
     results["CancelConditionalOrder"] = hexEncode(ix.data);
   }
 
-  // 11. DepositFunds
+  // 12. DepositFunds
   {
     const ix = buildDepositFundsIx({
       trader: p(0),
@@ -345,7 +346,7 @@ try {
     results["DepositFunds"] = hexEncode(ix.data);
   }
 
-  // 12. WithdrawFunds
+  // 13. WithdrawFunds
   {
     const ix = buildWithdrawFundsIx({
       trader: p(0),
@@ -362,7 +363,7 @@ try {
     results["WithdrawFunds"] = hexEncode(ix.data);
   }
 
-  // 13. RegisterTrader
+  // 14. RegisterTrader
   {
     const ix = buildRegisterTraderIx({
       payer: p(0),
@@ -375,7 +376,7 @@ try {
     results["RegisterTrader"] = hexEncode(ix.data);
   }
 
-  // 14. EmberDeposit
+  // 15. EmberDeposit
   {
     const ix = buildEmberDepositIx({
       owner: p(0),
@@ -390,7 +391,7 @@ try {
     results["EmberDeposit"] = hexEncode(ix.data);
   }
 
-  // 15. EmberWithdraw
+  // 16. EmberWithdraw
   {
     const ix = buildEmberWithdrawIx({
       owner: p(0),
@@ -405,7 +406,7 @@ try {
     results["EmberWithdraw"] = hexEncode(ix.data);
   }
 
-  // 16. TransferCollateral
+  // 17. TransferCollateral
   {
     const ix = buildTransferCollateralIx({
       trader: p(0),
@@ -419,7 +420,7 @@ try {
     results["TransferCollateral"] = hexEncode(ix.data);
   }
 
-  // 17. TransferCollateralChildToParent
+  // 18. TransferCollateralChildToParent
   {
     const ix = buildTransferCollateralChildToParentIx({
       trader: p(0),
@@ -432,7 +433,7 @@ try {
     results["TransferCollateralChildToParent"] = hexEncode(ix.data);
   }
 
-  // 18. SyncParentToChild
+  // 19. SyncParentToChild
   {
     const ix = buildSyncParentToChildIx({
       traderWallet: p(0),
@@ -443,7 +444,19 @@ try {
     results["SyncParentToChild"] = hexEncode(ix.data);
   }
 
-  // 15. Flight RegisterBuilder
+  // 20. OnboardTraderDelegated
+  {
+    const ix = buildOnboardTraderDelegatedIx({
+      authority: p(0),
+      permissionAccount: p(1),
+      traderAccount: p(2),
+      globalTraderIndex: vec2(3, 4),
+      activeTraderBuffer: vec2(5, 6),
+    });
+    results["OnboardTraderDelegated"] = hexEncode(ix.data);
+  }
+
+  // 21. Flight RegisterBuilder
   {
     const ix = await flight.buildRegisterBuilderIx({
       traderAuthority: p(0),
@@ -454,7 +467,7 @@ try {
     results["RegisterBuilder"] = hexEncode(ix.data);
   }
 
-  // 16. Flight UpdateFee
+  // 22. Flight UpdateFee
   {
     const ix = await flight.buildUpdateFeeIx({
       traderAuthority: p(0),
@@ -463,7 +476,7 @@ try {
     results["UpdateFee"] = hexEncode(ix.data);
   }
 
-  // 17. Flight ProxyInstruction (wrapping a deterministic PlaceLimitOrder)
+  // 23. Flight ProxyInstruction (wrapping a deterministic PlaceLimitOrder)
   {
     const inner = buildPlaceLimitOrderIx({
       trader: p(0),
@@ -495,7 +508,7 @@ try {
     results["ProxyInstruction"] = hexEncode(ix.data);
   }
 
-  // 18. Flight client wrapper for deterministic Flight-supported instructions
+  // 24. Flight client wrapper for deterministic Flight-supported instructions
   {
     const flightClient = new flight.PhoenixFlightClient(
       {
