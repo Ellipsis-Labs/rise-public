@@ -1,9 +1,9 @@
 # Changelog
 
-            Entries are drafted by Phoenix Rise sync PRs. Review and edit each
-            entry in this repo before merging.
+Entries are drafted by Phoenix Rise sync PRs. Review and edit each
+entry in this repo before merging.
 
-            ## v0.1.5 - 2026-06-10
+## v0.1.5 - 2026-06-10
 
 Source Phoenix commit: `f0c4a154e63048a8517e72e8a6a8b806e3768cd0`
 
