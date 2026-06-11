@@ -58,6 +58,7 @@ import {
   buildCancelAllIxResolved,
   buildCancelOrdersByIdIxResolved,
   buildPlaceLimitOrderIxResolved,
+  buildPlaceMarketOrderDelegatedIxResolved,
   buildPlaceMarketOrderIxResolved,
   buildPlacePostOnlyOrderIxResolved,
   buildPlaceStopLossIxResolved,
@@ -81,6 +82,7 @@ import type {
   ClientOnboardTraderDelegatedInput,
   ClientPlaceAttachedConditionalOrderInput,
   ClientPlaceLimitOrderWithConditionalsInput,
+  ClientPlaceMarketOrderDelegatedInput,
   ClientPlaceOrderInput,
   ClientPlacePositionConditionalOrderInput,
   ClientPlaceStopLossInput,
@@ -192,20 +194,20 @@ export const createPhoenixIxOperations = (
       | LimitOrderPacket
       | ImmediateOrCancelOrderPacket
       | PostOnlyOrderPacket,
+    TInput extends ClientPlaceOrderInput<TPacket>,
     TIx extends InstructionsWithAccountsAndData,
   >(
-    params: ClientPlaceOrderInput<TPacket>,
+    params: TInput,
     buildInstruction: (
-      input: ResolvedPlaceOrderContext & { orderPacket: TPacket }
+      input: ResolvedPlaceOrderContext & { orderPacket: TPacket } & TInput
     ) => TIx
-  ): Promise<TIx> =>
-    context.maybeWrapOrderIx(
-      buildInstruction({
-        ...(await context.resolvePlaceOrderContext(params)),
-        orderPacket: params.orderPacket,
-      }),
-      params.authority
-    );
+  ): Promise<TIx> => {
+    const input = {
+      ...(await context.resolvePlaceOrderContext(params)),
+      ...params,
+    };
+    return context.maybeWrapOrderIx(buildInstruction(input), params.authority);
+  };
 
   const buildWrappedLimitOrder = (
     params: ClientPlaceOrderInput<LimitOrderPacket>
@@ -214,6 +216,10 @@ export const createPhoenixIxOperations = (
   const buildWrappedMarketOrder = (
     params: ClientPlaceOrderInput<ImmediateOrCancelOrderPacket>
   ) => buildWrappedOrder(params, buildPlaceMarketOrderIxResolved);
+
+  const buildWrappedMarketOrderDelegated = (
+    params: ClientPlaceMarketOrderDelegatedInput
+  ) => buildWrappedOrder(params, buildPlaceMarketOrderDelegatedIxResolved);
 
   const buildWrappedPostOnlyOrder = (
     params: ClientPlaceOrderInput<PostOnlyOrderPacket>
@@ -566,6 +572,7 @@ export const createPhoenixIxOperations = (
     },
     buildPlaceLimitOrder: buildWrappedLimitOrder,
     buildPlaceMarketOrder: buildWrappedMarketOrder,
+    buildPlaceMarketOrderDelegated: buildWrappedMarketOrderDelegated,
     buildPlacePositionConditionalOrder: buildWrappedPositionConditionalOrder,
     buildPlaceAttachedConditionalOrder: buildWrappedAttachedConditionalOrder,
     buildPlaceLimitOrderWithConditionals:
@@ -573,6 +580,7 @@ export const createPhoenixIxOperations = (
     buildPlacePostOnlyOrder: buildWrappedPostOnlyOrder,
     placeLimitOrder: buildWrappedLimitOrder,
     placeMarketOrder: buildWrappedMarketOrder,
+    placeMarketOrderDelegated: buildWrappedMarketOrderDelegated,
     placePositionConditionalOrder: buildWrappedPositionConditionalOrder,
     placePostOnlyOrder: buildWrappedPostOnlyOrder,
     buildDepositFunds: async (params: ClientDepositInput) => {

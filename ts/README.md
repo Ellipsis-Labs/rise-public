@@ -409,7 +409,9 @@ const client = createPhoenixClient({
 
 const exchange = await client.api.exchange().getExchange();
 const market = await client.api.markets().getMarket("SOL");
-const traderState = await client.api.traders().getTraderState("AUTHORITY");
+const traderState = await client.api
+  .traders()
+  .getTraderStateSnapshot("AUTHORITY");
 const fills = await client.api.trades().getMarketFills("SOL");
 const funding = await client.api.funding().getFundingRateHistory("SOL");
 ```

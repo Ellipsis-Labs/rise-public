@@ -223,12 +223,12 @@ describe("public client route mapping", () => {
     const records: RequestRecord[] = [];
     const transport = createTransport(
       new Map<string, unknown>([
-        ["/exchange", EXCHANGE_CONFIG_RESPONSE],
+        ["/v1/view/exchange", EXCHANGE_CONFIG_RESPONSE],
         ["/v1/exchange/snapshot", EXCHANGE_SNAPSHOT_RESPONSE],
-        ["/exchange/market/SOL", EXCHANGE_MARKET_RESPONSE],
-        ["/exchange/status", { active: true, gated: false }],
-        ["/exchange/keys", EXCHANGE_CONFIG_RESPONSE.keys],
-        ["/exchange/markets", [EXCHANGE_MARKET_RESPONSE]],
+        ["/v1/view/exchange/market/SOL", EXCHANGE_MARKET_RESPONSE],
+        ["/v1/view/exchange/status", { active: true, gated: false }],
+        ["/v1/view/exchange/keys", EXCHANGE_CONFIG_RESPONSE.keys],
+        ["/v1/view/exchange/markets", [EXCHANGE_MARKET_RESPONSE]],
         [
           "/v1/market/SOL/stats",
           {
@@ -316,7 +316,7 @@ describe("public client route mapping", () => {
     expect(records).toEqual([
       {
         method: "GET",
-        endpoint: "/exchange",
+        endpoint: "/v1/view/exchange",
         params: undefined,
         body: undefined,
       },
@@ -328,37 +328,37 @@ describe("public client route mapping", () => {
       },
       {
         method: "GET",
-        endpoint: "/exchange/market/SOL",
+        endpoint: "/v1/view/exchange/market/SOL",
         params: undefined,
         body: undefined,
       },
       {
         method: "GET",
-        endpoint: "/exchange/status",
+        endpoint: "/v1/view/exchange/status",
         params: undefined,
         body: undefined,
       },
       {
         method: "GET",
-        endpoint: "/exchange/keys",
+        endpoint: "/v1/view/exchange/keys",
         params: undefined,
         body: undefined,
       },
       {
         method: "GET",
-        endpoint: "/exchange/markets",
+        endpoint: "/v1/view/exchange/markets",
         params: undefined,
         body: undefined,
       },
       {
         method: "GET",
-        endpoint: "/exchange/markets",
+        endpoint: "/v1/view/exchange/markets",
         params: undefined,
         body: undefined,
       },
       {
         method: "GET",
-        endpoint: "/exchange/market/SOL",
+        endpoint: "/v1/view/exchange/market/SOL",
         params: undefined,
         body: undefined,
       },
@@ -401,16 +401,6 @@ describe("public client route mapping", () => {
       new Map<string, unknown>([
         ["/v1/view/trader/trader-pubkey", TRADER_VIEW_RESPONSE],
         ["/v1/view/trader-capabilities", { capabilities: [] }],
-        [
-          "/trader/authority/state",
-          {
-            slot: 1,
-            slotIndex: 2,
-            authority: "authority",
-            pdaIndex: 0,
-            traders: [TRADER_VIEW_RESPONSE],
-          },
-        ],
         [
           "/v1/trader/state/authority",
           {
@@ -457,7 +447,7 @@ describe("public client route mapping", () => {
           },
         ],
         [
-          "/trader/authority/pnl",
+          "/v1/users/authority/pnl",
           [
             {
               timestamp: 1,
@@ -471,7 +461,7 @@ describe("public client route mapping", () => {
           ],
         ],
         [
-          "/trader/authority/collateral-history",
+          "/v1/traders/trader-pubkey/collateral-history",
           { data: [], nextCursor: null, prevCursor: null, hasMore: false },
         ],
         [
@@ -479,7 +469,11 @@ describe("public client route mapping", () => {
           { data: [], nextCursor: null, prevCursor: null, hasMore: false },
         ],
         [
-          "/trader/authority/funding-history",
+          "/v1/users/user-pubkey/liquidation-history",
+          { data: [], nextCursor: null, prevCursor: null, hasMore: false },
+        ],
+        [
+          "/v1/trader/authority/funding-history",
           { events: [], nextCursor: null, prevCursor: null, hasMore: false },
         ],
         [
@@ -487,7 +481,7 @@ describe("public client route mapping", () => {
           { events: [], nextCursor: null, prevCursor: null, hasMore: false },
         ],
         [
-          "/trader/authority/order-history",
+          "/v1/trader/authority/order-history",
           { data: [], nextCursor: null, prevCursor: null, hasMore: false },
         ],
         [
@@ -495,11 +489,11 @@ describe("public client route mapping", () => {
           { data: [], nextCursor: null, prevCursor: null, hasMore: false },
         ],
         [
-          "/trader/authority/trades-history",
+          "/v1/trader/authority/trades-history",
           { data: [], nextCursor: null, prevCursor: null, hasMore: false },
         ],
         [
-          "/market/SOL/fills",
+          "/v1/trades/SOL/fills",
           {
             data: [
               {
@@ -617,16 +611,21 @@ describe("public client route mapping", () => {
 
     const traderView = await traders.getTrader("trader-pubkey");
     await traders.getTraderCapabilities();
-    await traders.getTraderState("authority", { pdaIndex: 0 });
     await traders.getTraderStateSnapshot("authority", { traderPdaIndex: 0 });
     await traders.getTraderPnl("authority", { resolution: "1h", limit: 10 });
-    await collateral.getTraderCollateralHistory("authority", {
-      pdaIndex: 0,
+    await collateral.getTraderPdaCollateralHistory("trader-pubkey", {
       limit: 10,
     });
     await collateral.getUserCollateralHistory("user-pubkey", {
       limit: 5,
       nextCursor: "next-cursor",
+    });
+    await trades.getUserLiquidationHistory("user-pubkey", {
+      pdaIndex: 1,
+      subaccountIndex: 2,
+      symbol: "SOL-PERP",
+      limit: 25,
+      cursor: "liq-cursor",
     });
     await funding.getTraderFundingHistory("authority", {
       pdaIndex: 0,
@@ -721,26 +720,20 @@ describe("public client route mapping", () => {
       },
       {
         method: "GET",
-        endpoint: "/trader/authority/state",
-        params: { pdaIndex: 0 },
-        body: undefined,
-      },
-      {
-        method: "GET",
         endpoint: "/v1/trader/state/authority",
         params: { traderPdaIndex: 0 },
         body: undefined,
       },
       {
         method: "GET",
-        endpoint: "/trader/authority/pnl",
+        endpoint: "/v1/users/authority/pnl",
         params: { resolution: "1h", limit: 10 },
         body: undefined,
       },
       {
         method: "GET",
-        endpoint: "/trader/authority/collateral-history",
-        params: { pdaIndex: 0, limit: 10 },
+        endpoint: "/v1/traders/trader-pubkey/collateral-history",
+        params: { limit: 10 },
         body: undefined,
       },
       {
@@ -751,7 +744,19 @@ describe("public client route mapping", () => {
       },
       {
         method: "GET",
-        endpoint: "/trader/authority/funding-history",
+        endpoint: "/v1/users/user-pubkey/liquidation-history",
+        params: {
+          pdaIndex: 1,
+          subaccountIndex: 2,
+          symbol: "SOL-PERP",
+          limit: 25,
+          cursor: "liq-cursor",
+        },
+        body: undefined,
+      },
+      {
+        method: "GET",
+        endpoint: "/v1/trader/authority/funding-history",
         params: { traderPdaIndex: 0, symbol: "SOL", limit: 10 },
         body: undefined,
       },
@@ -788,7 +793,7 @@ describe("public client route mapping", () => {
       },
       {
         method: "GET",
-        endpoint: "/trader/authority/order-history",
+        endpoint: "/v1/trader/authority/order-history",
         params: {
           traderPdaIndex: 0,
           marketSymbol: "SOL",
@@ -811,13 +816,13 @@ describe("public client route mapping", () => {
       },
       {
         method: "GET",
-        endpoint: "/trader/authority/trades-history",
+        endpoint: "/v1/trader/authority/trades-history",
         params: { pdaIndex: 0, marketSymbol: "SOL", limit: 10 },
         body: undefined,
       },
       {
         method: "GET",
-        endpoint: "/market/SOL/fills",
+        endpoint: "/v1/trades/SOL/fills",
         params: {
           limit: 3,
           cursor: "fills-cursor",
@@ -889,6 +894,117 @@ describe("public client route mapping", () => {
           referral_code: "ref-789",
         },
         auth: "required",
+      },
+    ]);
+  });
+
+  it("uses the Phoenix-compatible market fills route", async () => {
+    const records: RequestRecord[] = [];
+    const transport = createTransport(
+      new Map<string, unknown>([
+        [
+          "/v1/trades/SILVER/fills",
+          { data: [], nextCursor: null, prevCursor: null, hasMore: false },
+        ],
+      ]),
+      records
+    );
+
+    const trades = new V1TradesClient(transport);
+
+    await trades.getMarketFills("SILVER", { limit: 250 });
+
+    expect(records).toEqual([
+      {
+        method: "GET",
+        endpoint: "/v1/trades/SILVER/fills",
+        params: { limit: 250 },
+        body: undefined,
+      },
+    ]);
+  });
+
+  it("keeps legacy authority-based trader collateral history calls working", async () => {
+    const records: RequestRecord[] = [];
+    const transport = createTransport(
+      new Map<string, unknown>([
+        [
+          "/v1/trader/authority/collateral-history",
+          { data: [], nextCursor: null, prevCursor: null, hasMore: false },
+        ],
+      ]),
+      records
+    );
+
+    const collateral = new V1CollateralClient(transport);
+
+    await collateral.getTraderCollateralHistory("authority", {
+      pdaIndex: 0,
+      limit: 25,
+    });
+
+    expect(records).toEqual([
+      {
+        method: "GET",
+        endpoint: "/v1/trader/authority/collateral-history",
+        params: { pdaIndex: 0, limit: 25 },
+        body: undefined,
+      },
+    ]);
+  });
+
+  it("keeps default legacy trader collateral history calls authority-based", async () => {
+    const records: RequestRecord[] = [];
+    const transport = createTransport(
+      new Map<string, unknown>([
+        [
+          "/v1/trader/authority/collateral-history",
+          { data: [], nextCursor: null, prevCursor: null, hasMore: false },
+        ],
+      ]),
+      records
+    );
+
+    const collateral = new V1CollateralClient(transport);
+
+    await collateral.getTraderCollateralHistory("authority", {
+      limit: 25,
+    });
+
+    expect(records).toEqual([
+      {
+        method: "GET",
+        endpoint: "/v1/trader/authority/collateral-history",
+        params: { limit: 25 },
+        body: undefined,
+      },
+    ]);
+  });
+
+  it("uses the explicit trader-PDA collateral history route", async () => {
+    const records: RequestRecord[] = [];
+    const transport = createTransport(
+      new Map<string, unknown>([
+        [
+          "/v1/traders/trader-pubkey/collateral-history",
+          { data: [], nextCursor: null, prevCursor: null, hasMore: false },
+        ],
+      ]),
+      records
+    );
+
+    const collateral = new V1CollateralClient(transport);
+
+    await collateral.getTraderPdaCollateralHistory("trader-pubkey", {
+      limit: 25,
+    });
+
+    expect(records).toEqual([
+      {
+        method: "GET",
+        endpoint: "/v1/traders/trader-pubkey/collateral-history",
+        params: { limit: 25 },
+        body: undefined,
       },
     ]);
   });

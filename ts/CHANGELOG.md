@@ -77,3 +77,31 @@ Source Phoenix commit: `7b0e722849fbc44d2d34d481d208db0ea951b78e`
 
 - The legacy percentage-scale fields on `ExchangeRiskFactors` (`maintenance`, `backstop`, etc.) remain present for backwards compatibility with older API responses; prefer the new `*Bps` fields when available.
 - WS consumers parsing `cancelRiskFactorUpdated`, `upnlRiskFactorUpdated`, or `upnlRiskFactorForWithdrawalsUpdated` events can now read `newBps`/`previousBps` directly; the wire adapter normalizes snake_case `new_bps`/`previous_bps` from the server automatically.
+
+## v0.4.33 - 2026-06-11
+
+Source Phoenix commit: `d1c6f3dea8582f451d616bc42b1a083f9fa04000`
+
+- Package: `@ellipsis-labs/rise`
+- Target repo version: 0.4.30
+- Phoenix version: 0.4.32 -> 0.4.33
+
+### Summary
+
+- **New `PlaceMarketOrderDelegated` instruction** — adds `buildPlaceMarketOrderDelegatedIx`, `buildPlaceMarketOrderDelegated`, and `placeMarketOrderDelegated` exports (plus `buildPlaceMarketOrderDelegatedIxResolved` and associated types). The instruction is Flight-routable. When `traderWallet` is omitted it falls back to `positionAuthority` then `authority`.
+- **New `getUserLiquidationHistory`** on `V1TradesClient` — fetches per-user liquidation events (market-order, backstop, ADL) from `/v1/users/{pubkey}/liquidation-history`. Typed discriminated union `UserLiquidationHistoryPoint` and supporting schemas are now public exports.
+- **New trader-PDA collateral history methods** — `getTraderPdaCollateralHistory` and `getAllTraderPdaCollateralHistory` on `V1CollateralClient` fetch via `/v1/traders/{pubkey}/collateral-history`, keyed on the trader's public key rather than an authority + PDA index.
+- **HTTP endpoints migrated to `/v1/` prefix** — exchange, market fills, trades history, PnL, funding, order history, and collateral history now call versioned paths. The SDK handles this transparently; see Breaking Changes if you use a custom transport.
+
+### Breaking Changes
+
+- **`V1TradersClient.getTraderState` removed** — the method and its `TraderStateRequest`/`TraderStateResponse` types have been deleted. Migrate to `getTraderStateSnapshot` (`/v1/trader/state/{authority}`), which returns a structured snapshot response including `traderPdaIndex` and `snapshot.subaccounts`.
+- **`V1ExchangeClient` and `V1MarketsClient` now call `/v1/view/exchange*` paths** — `getExchange`, `getMarket`, `getMarkets`, `getStatus`, and `getKeys` no longer hit the bare `/exchange/*` routes. Custom transports or mock servers that intercept exact endpoint strings must be updated.
+- **`V1TradesClient.getMarketFills` now calls `/v1/trades/{symbol}/fills`** (was `/market/{symbol}/fills`). Same requirement for custom transports.
+- **Several `V1TradersClient` and `V1TradesClient` history methods moved to `/v1/` prefix** — affects `getTraderPnl` (`/v1/users/{authority}/pnl`), `getTraderTradesHistory` (`/v1/trader/{authority}/trades-history`), `getTraderFundingHistory` (`/v1/trader/{authority}/funding-history`), and `getTraderOrderHistory` (`/v1/trader/{authority}/order-history`).
+
+### Consumer Notes
+
+- `buildPlaceMarketOrderDelegated` / `placeMarketOrderDelegated` accept an optional `traderWallet` and `permissionAccount`; when both are omitted the resolved `positionAuthority` (or `authority`) is used for both, matching the primary-position-authority signing pattern.
+- `getTraderPdaCollateralHistory` takes the trader's **public key** directly (no `pdaIndex`); the existing `getTraderCollateralHistory(authority, { pdaIndex })` remains available for legacy authority-based lookups at its new `/v1/trader/…` path.
+- All `UserLiquidationHistoryPoint` variants normalise `slot`, `slotIndex`, `eventIndex`, `timestamp`, and `subaccountIndex` to `number` regardless of whether the API returns them as strings or numbers.

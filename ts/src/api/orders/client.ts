@@ -163,7 +163,7 @@ export class V1OrdersClient {
   ): Promise<OrderHistoryResponse> {
     return get(
       this.http,
-      `/trader/${encodeURIComponent(authority)}/order-history`,
+      `/v1/trader/${encodeURIComponent(authority)}/order-history`,
       OrderHistoryResponseSchema,
       { params: buildOrderHistoryQuery(request) }
     );

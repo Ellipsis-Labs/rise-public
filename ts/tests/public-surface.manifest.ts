@@ -74,7 +74,6 @@ export const HTTP_RESOURCE_PRESENT_METHODS = {
   ],
   traders: [
     "getTrader",
-    "getTraderState",
     "getTraderStateSnapshot",
     "getTraderPnl",
     "getTraderCapabilities",
@@ -83,6 +82,7 @@ export const HTTP_RESOURCE_PRESENT_METHODS = {
     "getTraderMarketPnl",
   ],
   trades: [
+    "getUserLiquidationHistory",
     "getTraderTradesHistory",
     "getMarketFills",
     "getTraderTradeHistoryV2",
@@ -141,7 +141,10 @@ export const ROOT_PRESENT_PROPERTIES = [
   "buildPlaceAttachedConditionalOrder",
   "buildPlaceLimitOrderIxResolved",
   "buildPlaceLimitOrderWithConditionals",
+  "buildPlaceMarketOrderDelegated",
+  "buildPlaceMarketOrderDelegatedIxResolved",
   "buildPlaceMarketOrderIxResolved",
+  "placeMarketOrderDelegated",
   "buildPlacePostOnlyOrderIxResolved",
   "buildPlacePositionConditionalOrder",
   "buildPlaceStopLoss",
@@ -245,8 +248,10 @@ export const PHOENIX_IX_PROPERTIES = [
   "buildRegisterTrader",
   "buildOnboardTraderDelegated",
   "buildSyncParentToChild",
+  "buildPlaceMarketOrderDelegated",
   "placeLimitOrder",
   "placeMarketOrder",
+  "placeMarketOrderDelegated",
   "placePositionConditionalOrder",
   "placePostOnlyOrder",
 ] as const;

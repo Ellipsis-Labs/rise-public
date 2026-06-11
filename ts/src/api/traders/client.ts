@@ -9,7 +9,6 @@ import type {
   TraderCapabilitiesMetadata,
   TraderMarketPnLQueryParams,
   TraderMarketPnLSeries,
-  TraderStateResponse,
   TraderView,
 } from "./types";
 import {
@@ -17,7 +16,6 @@ import {
   PortfolioValueDataPointSchema,
   TraderCapabilitiesMetadataSchema,
   TraderMarketPnLSeriesSchema,
-  TraderStateResponseSchema,
   TraderViewSchema,
 } from "./types";
 import { TraderStateSnapshotResponseSchema } from "./traderState";
@@ -42,32 +40,11 @@ const buildHistoricalValuesQuery = (
   return params;
 };
 
-export interface TraderStateRequest {
-  pdaIndex?: number;
-}
-
 export class V1TradersClient {
   constructor(private http: HttpTransport) {}
 
   async getTrader(pubkey: string): Promise<TraderView> {
     return get(this.http, `/v1/view/trader/${pubkey}`, TraderViewSchema);
-  }
-
-  async getTraderState(
-    authority: string,
-    request?: TraderStateRequest
-  ): Promise<TraderStateResponse> {
-    const params: Record<string, ParamValue> | undefined =
-      request?.pdaIndex !== undefined
-        ? { pdaIndex: request.pdaIndex }
-        : undefined;
-
-    return get(
-      this.http,
-      `/trader/${encodeURIComponent(authority)}/state`,
-      TraderStateResponseSchema,
-      { params }
-    );
   }
 
   async getTraderStateSnapshot(
@@ -93,7 +70,7 @@ export class V1TradersClient {
   ): Promise<PnlDataPoint[]> {
     return get(
       this.http,
-      `/trader/${encodeURIComponent(authority)}/pnl`,
+      `/v1/users/${encodeURIComponent(authority)}/pnl`,
       PnlDataPointSchema.array(),
       { params: buildHistoricalValuesQuery(request) }
     );

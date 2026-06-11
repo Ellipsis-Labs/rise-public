@@ -16,6 +16,10 @@ import {
   type PlaceMarketOrderIx,
 } from "@/core/ixBuilders/PlaceMarketOrder";
 import {
+  buildPlaceMarketOrderDelegatedIx,
+  type PlaceMarketOrderDelegatedIx,
+} from "@/core/ixBuilders/PlaceMarketOrderDelegated";
+import {
   buildPlacePostOnlyOrderIx,
   type PlacePostOnlyOrderIx,
 } from "@/core/ixBuilders/PlacePostOnlyOrder";
@@ -27,6 +31,7 @@ import type {
   BuildCancelAllIxResolvedInput,
   BuildCancelOrdersByIdIxResolvedInput,
   BuildPlaceLimitOrderIxResolvedInput,
+  BuildPlaceMarketOrderDelegatedIxResolvedInput,
   BuildPlaceMarketOrderIxResolvedInput,
   BuildPlacePostOnlyOrderIxResolvedInput,
   BuildPlaceStopLossIxResolvedInput,
@@ -69,6 +74,31 @@ export const buildPlaceMarketOrderIxResolved = (
     splineCollection: params.market.splineCollection,
     orderPacket: params.orderPacket,
   });
+
+export const buildPlaceMarketOrderDelegatedIxResolved = (
+  params: BuildPlaceMarketOrderDelegatedIxResolvedInput
+): PlaceMarketOrderDelegatedIx => {
+  const traderWallet =
+    params.traderWallet ??
+    params.trader.positionAuthority ??
+    params.trader.authority;
+  return buildPlaceMarketOrderDelegatedIx({
+    ...phoenixInstructionAddresses({
+      phoenixProgramAddress: params.exchange.phoenixProgramAddress,
+      logAuthorityAddress: params.exchange.logAuthorityAddress,
+      globalConfigurationAddress: params.exchange.globalConfigurationAddress,
+    }),
+    traderWallet,
+    permissionAccount: params.permissionAccount ?? traderWallet,
+    traderAccount: params.trader.traderAccount,
+    perpAssetMap: params.exchange.perpAssetMap,
+    globalTraderIndex: params.exchange.globalTraderIndex,
+    activeTraderBuffer: params.exchange.activeTraderBuffer,
+    orderbook: params.market.marketAddress,
+    splineCollection: params.market.splineCollection,
+    orderPacket: params.orderPacket,
+  });
+};
 
 export const buildPlacePostOnlyOrderIxResolved = (
   params: BuildPlacePostOnlyOrderIxResolvedInput

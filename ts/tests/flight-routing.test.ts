@@ -22,6 +22,7 @@ describe("flight instruction routing", () => {
 
     for (const discriminant of [
       DISCRIMINANTS.PLACE_MARKET_ORDER,
+      DISCRIMINANTS.PLACE_MARKET_ORDER_DELEGATED,
       DISCRIMINANTS.PLACE_LIMIT_ORDER,
       DISCRIMINANTS.PLACE_STOP_LOSS,
       DISCRIMINANTS.PLACE_POSITION_CONDITIONAL_ORDER,
@@ -50,7 +51,7 @@ describe("flight instruction routing", () => {
       );
     }
 
-    expect(resolveFeeCollectorTraderAddress).toHaveBeenCalledTimes(6);
+    expect(resolveFeeCollectorTraderAddress).toHaveBeenCalledTimes(7);
   });
 
   it("leaves unsupported instructions unchanged", async () => {

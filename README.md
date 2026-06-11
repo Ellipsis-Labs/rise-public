@@ -112,8 +112,8 @@ The HTTP surface is intentionally split by what kind of state you want:
 - `exchange().getMarket(symbol)`: one market's fees, risk, funding cadence, and
   configuration
 - `orderbook().getOrderbook(symbol)`: an HTTP L2 snapshot for one market
-- `traders().getTraderStateSnapshot(...)` in TypeScript or `traders().get_trader(...)`
-  in Rust: a trader-centric view of collateral, positions, orders, and triggers
+- `traders().getTraderStateSnapshot(...)` in TypeScript: a trader-centric view
+  of collateral, positions, orders, and triggers
 - `markets().getMarketStatsHistory(...)` and `funding().getFundingRateHistory(...)`:
   time-series data for frontends, vault products, and analytics
 
@@ -149,7 +149,7 @@ let authority = Pubkey::from_str("AUTHORITY_PUBKEY")?;
 
 let snapshot = client.exchange().get_snapshot().await?;
 let market = client.markets().get_market("SOL").await?;
-let trader_subaccounts = client.traders().get_trader(&authority).await?;
+let pnl = client.traders().get_trader_pnl(&authority, Default::default()).await?;
 ```
 
 For broader TypeScript walkthroughs, see

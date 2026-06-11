@@ -19,7 +19,7 @@ export class V1ExchangeClient {
   constructor(private http: HttpTransport) {}
 
   async getExchange(): Promise<ExchangeConfig> {
-    return get(this.http, "/exchange", ExchangeConfigSchema);
+    return get(this.http, "/v1/view/exchange", ExchangeConfigSchema);
   }
 
   async getSnapshot(): Promise<ExchangeSnapshotView> {
@@ -29,23 +29,23 @@ export class V1ExchangeClient {
   async getMarket(symbol: string): Promise<ExchangeMarketConfig> {
     return get(
       this.http,
-      `/exchange/market/${encodeURIComponent(symbol)}`,
+      `/v1/view/exchange/market/${encodeURIComponent(symbol)}`,
       ExchangeMarketConfigSchema
     );
   }
 
   async getStatus(): Promise<ExchangeStatusView> {
-    return get(this.http, "/exchange/status", ExchangeStatusViewSchema);
+    return get(this.http, "/v1/view/exchange/status", ExchangeStatusViewSchema);
   }
 
   async getKeys(): Promise<ExchangeKeys> {
-    return get(this.http, "/exchange/keys", ExchangeKeysSchema);
+    return get(this.http, "/v1/view/exchange/keys", ExchangeKeysSchema);
   }
 
   async getMarkets(): Promise<ExchangeMarketConfig[]> {
     return get(
       this.http,
-      "/exchange/markets",
+      "/v1/view/exchange/markets",
       ExchangeMarketConfigSchema.array()
     );
   }

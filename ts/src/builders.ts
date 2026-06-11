@@ -68,6 +68,7 @@ import { type PlaceLimitOrderIx } from "./core/ixBuilders/PlaceLimitOrder";
 import { type PlaceAttachedConditionalOrderIx } from "./core/ixBuilders/PlaceAttachedConditionalOrder";
 import { type PlaceLimitOrderWithConditionalsIx } from "./core/ixBuilders/PlaceLimitOrderWithConditionals";
 import { type PlaceMarketOrderIx } from "./core/ixBuilders/PlaceMarketOrder";
+import { type PlaceMarketOrderDelegatedIx } from "./core/ixBuilders/PlaceMarketOrderDelegated";
 import { type PlacePostOnlyOrderIx } from "./core/ixBuilders/PlacePostOnlyOrder";
 import { type PlacePositionConditionalOrderIx } from "./core/ixBuilders/PlacePositionConditionalOrder";
 import { type PlaceStopLossIx } from "./core/ixBuilders/PlaceStopLoss";
@@ -594,6 +595,25 @@ export const buildPlaceMarketOrder = async (
     traderSubaccountIndex,
   });
 
+export const buildPlaceMarketOrderDelegated = async (
+  params: {
+    authority: Authority;
+    positionAuthority?: Authority;
+    traderWallet?: Authority;
+    permissionAccount?: Address;
+    symbol: Symbol;
+    orderPacket: ImmediateOrCancelOrderPacket;
+  },
+  client: PhoenixInstructionClient,
+  traderPdaIndex = 0,
+  traderSubaccountIndex = 0
+): Promise<PlaceMarketOrderDelegatedIx> =>
+  createLegacyPhoenixIxOperations(client).buildPlaceMarketOrderDelegated({
+    ...params,
+    traderPdaIndex,
+    traderSubaccountIndex,
+  });
+
 export const placeMarketOrder = async (
   client: PhoenixInstructionClient & PhoenixTransactionClient,
   params: {
@@ -611,6 +631,33 @@ export const placeMarketOrder = async (
   sendBuiltInstruction(
     client,
     buildPlaceMarketOrder(
+      params,
+      client,
+      options.traderPdaIndex ?? 0,
+      options.traderSubaccountIndex ?? 0
+    ),
+    options
+  );
+
+export const placeMarketOrderDelegated = async (
+  client: PhoenixInstructionClient & PhoenixTransactionClient,
+  params: {
+    authority: Authority;
+    positionAuthority?: Authority;
+    traderWallet?: Authority;
+    permissionAccount?: Address;
+    symbol: Symbol;
+    orderPacket: ImmediateOrCancelOrderPacket;
+  },
+  options: {
+    traderPdaIndex?: number;
+    traderSubaccountIndex?: number;
+    commitment?: Commitment;
+  } = {}
+): Promise<Signature> =>
+  sendBuiltInstruction(
+    client,
+    buildPlaceMarketOrderDelegated(
       params,
       client,
       options.traderPdaIndex ?? 0,

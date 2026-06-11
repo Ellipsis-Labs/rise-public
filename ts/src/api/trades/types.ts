@@ -20,6 +20,21 @@ const requireField = <T>(value: T | null | undefined, fieldName: string): T => {
   return value;
 };
 
+const requireNumberField = (value: unknown, fieldName: string): number =>
+  toNumber(requireField(value, fieldName), fieldName);
+
+const requireLiquidationType = (
+  actual: UserLiquidationHistoryType,
+  expected: UserLiquidationHistoryType,
+  fieldName: string
+): void => {
+  if (actual !== expected) {
+    throw new Error(
+      `Invalid ${fieldName} in history response: expected ${expected}, received ${actual}`
+    );
+  }
+};
+
 export interface TradeHistoryRequest {
   pdaIndex?: number;
   marketSymbol?: string;
@@ -27,6 +42,300 @@ export interface TradeHistoryRequest {
   cursor?: string;
   privyId?: string;
 }
+
+export interface UserLiquidationHistoryRequest {
+  pdaIndex?: number;
+  subaccountIndex?: number;
+  symbol?: string;
+  /** Number of items to return (max 100, API default 100). */
+  limit?: number;
+  cursor?: string;
+}
+
+export type UserLiquidationHistoryKind = "market_order" | "adl" | "backstop";
+
+export type UserLiquidationHistoryType = "market" | "adl" | "backstop";
+
+export type UserLiquidationHistoryRole =
+  | "liquidatee"
+  | "backstop_liquidatee"
+  | "adl_closed_short"
+  | "adl_closed_long"
+  | "adl_in_profit"
+  | "adl_caller";
+
+export interface UserLiquidationHistoryBasePoint {
+  ixName: string;
+  role: UserLiquidationHistoryRole;
+  slot: number;
+  slotIndex: number;
+  eventIndex: number;
+  timestamp: number;
+  signature: string | null;
+  symbol: string;
+  market: string;
+  subaccountIndex: number | null;
+}
+
+export interface UserMarketLiquidationHistoryPoint extends UserLiquidationHistoryBasePoint {
+  kind: "market_order";
+  type: "market";
+  liquidatee: string;
+  liquidator: string;
+  side: "LONG" | "SHORT";
+  size: string;
+  price: string;
+  positionClosed: boolean;
+  baseLotsFilled: string;
+  quoteLotsFilled: string;
+}
+
+export interface UserBackstopLiquidationHistoryPoint extends UserLiquidationHistoryBasePoint {
+  kind: "backstop";
+  type: "backstop";
+  liquidatee: string;
+  liquidator: string;
+  size: string;
+  quoteSize: string;
+  haircutRateBps: number;
+  liquidateeCollateralChange: string;
+  liquidatorCollateralChange: string;
+}
+
+export interface UserAdlLiquidationHistoryPoint extends UserLiquidationHistoryBasePoint {
+  kind: "adl";
+  type: "adl";
+  caller: string;
+  closedShort: string;
+  closedLong: string;
+  inProfitAccount: string;
+  size: string;
+  atLossCloseValue: string;
+  inProfitCloseValue: string;
+  atLossCollateralChange: string;
+  inProfitCollateralChange: string;
+}
+
+export type UserLiquidationHistoryPoint =
+  | UserMarketLiquidationHistoryPoint
+  | UserBackstopLiquidationHistoryPoint
+  | UserAdlLiquidationHistoryPoint;
+
+const RawUserLiquidationHistoryPointSchema = z
+  .object({
+    kind: z.enum(["market_order", "adl", "backstop"]),
+    type: z.enum(["market", "adl", "backstop"]),
+    ixName: z.string(),
+    role: z.enum([
+      "liquidatee",
+      "backstop_liquidatee",
+      "adl_closed_short",
+      "adl_closed_long",
+      "adl_in_profit",
+      "adl_caller",
+    ]),
+    slot: z.union([z.number(), z.string()]),
+    slotIndex: z.union([z.number(), z.string()]),
+    eventIndex: z.union([z.number(), z.string()]),
+    timestamp: z.union([z.number(), z.string()]),
+    signature: z.string().nullable().optional(),
+    symbol: z.string(),
+    market: z.string(),
+    subaccountIndex: z.union([z.number(), z.string()]).nullable().optional(),
+    liquidatee: z.string().optional(),
+    liquidator: z.string().optional(),
+    side: z.enum(["LONG", "SHORT"]).optional(),
+    size: z.string().optional(),
+    price: z.string().optional(),
+    positionClosed: z.boolean().optional(),
+    baseLotsFilled: z.string().optional(),
+    quoteLotsFilled: z.string().optional(),
+    quoteSize: z.string().optional(),
+    haircutRateBps: z.union([z.number(), z.string()]).optional(),
+    liquidateeCollateralChange: z.string().optional(),
+    liquidatorCollateralChange: z.string().optional(),
+    caller: z.string().optional(),
+    closedShort: z.string().optional(),
+    closedLong: z.string().optional(),
+    inProfitAccount: z.string().optional(),
+    atLossCloseValue: z.string().optional(),
+    inProfitCloseValue: z.string().optional(),
+    atLossCollateralChange: z.string().optional(),
+    inProfitCollateralChange: z.string().optional(),
+  })
+  .loose();
+
+export const UserLiquidationHistoryPointSchema: z.ZodType<UserLiquidationHistoryPoint> =
+  RawUserLiquidationHistoryPointSchema.transform((raw) => {
+    const common: UserLiquidationHistoryBasePoint = {
+      ixName: requireField(raw.ixName, "userLiquidationHistoryPoint.ixName"),
+      role: requireField(raw.role, "userLiquidationHistoryPoint.role"),
+      slot: toNumber(raw.slot, "userLiquidationHistoryPoint.slot"),
+      slotIndex: toNumber(
+        raw.slotIndex,
+        "userLiquidationHistoryPoint.slotIndex"
+      ),
+      eventIndex: toNumber(
+        raw.eventIndex,
+        "userLiquidationHistoryPoint.eventIndex"
+      ),
+      timestamp: toNumber(
+        raw.timestamp,
+        "userLiquidationHistoryPoint.timestamp"
+      ),
+      signature: raw.signature ?? null,
+      symbol: requireField(raw.symbol, "userLiquidationHistoryPoint.symbol"),
+      market: requireField(raw.market, "userLiquidationHistoryPoint.market"),
+      subaccountIndex:
+        raw.subaccountIndex === null || raw.subaccountIndex === undefined
+          ? null
+          : toNumber(
+              raw.subaccountIndex,
+              "userLiquidationHistoryPoint.subaccountIndex"
+            ),
+    };
+
+    switch (raw.kind) {
+      case "market_order":
+        requireLiquidationType(
+          raw.type,
+          "market",
+          "userLiquidationHistoryPoint.type"
+        );
+        return {
+          ...common,
+          kind: "market_order",
+          type: "market",
+          liquidatee: requireField(
+            raw.liquidatee,
+            "userLiquidationHistoryPoint.liquidatee"
+          ),
+          liquidator: requireField(
+            raw.liquidator,
+            "userLiquidationHistoryPoint.liquidator"
+          ),
+          side: requireField(raw.side, "userLiquidationHistoryPoint.side"),
+          size: requireField(raw.size, "userLiquidationHistoryPoint.size"),
+          price: requireField(raw.price, "userLiquidationHistoryPoint.price"),
+          positionClosed: requireField(
+            raw.positionClosed,
+            "userLiquidationHistoryPoint.positionClosed"
+          ),
+          baseLotsFilled: requireField(
+            raw.baseLotsFilled,
+            "userLiquidationHistoryPoint.baseLotsFilled"
+          ),
+          quoteLotsFilled: requireField(
+            raw.quoteLotsFilled,
+            "userLiquidationHistoryPoint.quoteLotsFilled"
+          ),
+        };
+      case "backstop":
+        requireLiquidationType(
+          raw.type,
+          "backstop",
+          "userLiquidationHistoryPoint.type"
+        );
+        return {
+          ...common,
+          kind: "backstop",
+          type: "backstop",
+          liquidatee: requireField(
+            raw.liquidatee,
+            "userLiquidationHistoryPoint.liquidatee"
+          ),
+          liquidator: requireField(
+            raw.liquidator,
+            "userLiquidationHistoryPoint.liquidator"
+          ),
+          size: requireField(raw.size, "userLiquidationHistoryPoint.size"),
+          quoteSize: requireField(
+            raw.quoteSize,
+            "userLiquidationHistoryPoint.quoteSize"
+          ),
+          haircutRateBps: requireNumberField(
+            raw.haircutRateBps,
+            "userLiquidationHistoryPoint.haircutRateBps"
+          ),
+          liquidateeCollateralChange: requireField(
+            raw.liquidateeCollateralChange,
+            "userLiquidationHistoryPoint.liquidateeCollateralChange"
+          ),
+          liquidatorCollateralChange: requireField(
+            raw.liquidatorCollateralChange,
+            "userLiquidationHistoryPoint.liquidatorCollateralChange"
+          ),
+        };
+      case "adl":
+        requireLiquidationType(
+          raw.type,
+          "adl",
+          "userLiquidationHistoryPoint.type"
+        );
+        return {
+          ...common,
+          kind: "adl",
+          type: "adl",
+          caller: requireField(
+            raw.caller,
+            "userLiquidationHistoryPoint.caller"
+          ),
+          closedShort: requireField(
+            raw.closedShort,
+            "userLiquidationHistoryPoint.closedShort"
+          ),
+          closedLong: requireField(
+            raw.closedLong,
+            "userLiquidationHistoryPoint.closedLong"
+          ),
+          inProfitAccount: requireField(
+            raw.inProfitAccount,
+            "userLiquidationHistoryPoint.inProfitAccount"
+          ),
+          size: requireField(raw.size, "userLiquidationHistoryPoint.size"),
+          atLossCloseValue: requireField(
+            raw.atLossCloseValue,
+            "userLiquidationHistoryPoint.atLossCloseValue"
+          ),
+          inProfitCloseValue: requireField(
+            raw.inProfitCloseValue,
+            "userLiquidationHistoryPoint.inProfitCloseValue"
+          ),
+          atLossCollateralChange: requireField(
+            raw.atLossCollateralChange,
+            "userLiquidationHistoryPoint.atLossCollateralChange"
+          ),
+          inProfitCollateralChange: requireField(
+            raw.inProfitCollateralChange,
+            "userLiquidationHistoryPoint.inProfitCollateralChange"
+          ),
+        };
+    }
+  });
+
+export interface UserLiquidationHistoryResponse {
+  data: UserLiquidationHistoryPoint[];
+  prevCursor: string | null;
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+const RawUserLiquidationHistoryResponseSchema = z
+  .object({
+    data: z.array(RawUserLiquidationHistoryPointSchema),
+    prevCursor: z.string().nullable().optional(),
+    nextCursor: z.string().nullable().optional(),
+    hasMore: z.boolean(),
+  })
+  .loose();
+
+export const UserLiquidationHistoryResponseSchema: z.ZodType<UserLiquidationHistoryResponse> =
+  RawUserLiquidationHistoryResponseSchema.transform((raw) => ({
+    data: raw.data.map((item) => UserLiquidationHistoryPointSchema.parse(item)),
+    prevCursor: raw.prevCursor ?? null,
+    nextCursor: raw.nextCursor ?? null,
+    hasMore: requireField(raw.hasMore, "userLiquidationHistory.hasMore"),
+  }));
 
 export interface MarketTradeHistoryRequest {
   limit?: number;
@@ -36,7 +345,7 @@ export interface MarketTradeHistoryRequest {
 }
 
 // ---------------------------------------------------------------------------
-// Market Fill Record types for /market/{symbol}/fills
+// Market Fill Record types for /v1/trades/{symbol}/fills
 // ---------------------------------------------------------------------------
 
 export interface MarketFillRecord {
@@ -106,7 +415,7 @@ export const MarketFillsResponseSchema: z.ZodType<MarketFillsResponse> =
   }));
 
 // ---------------------------------------------------------------------------
-// Trade History Record types for /trader/{authority}/trades-history
+// Trade History Record types for /v1/trader/{authority}/trades-history
 // ---------------------------------------------------------------------------
 
 export interface FillRecord {

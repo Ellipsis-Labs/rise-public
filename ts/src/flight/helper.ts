@@ -22,6 +22,10 @@ export const isFlightRoutableInstruction = (
   instruction: Instruction
 ): boolean =>
   hasDiscriminant(instruction.data, DISCRIMINANTS.PLACE_MARKET_ORDER) ||
+  hasDiscriminant(
+    instruction.data,
+    DISCRIMINANTS.PLACE_MARKET_ORDER_DELEGATED
+  ) ||
   hasDiscriminant(instruction.data, DISCRIMINANTS.PLACE_LIMIT_ORDER) ||
   hasDiscriminant(instruction.data, DISCRIMINANTS.PLACE_STOP_LOSS) ||
   hasDiscriminant(

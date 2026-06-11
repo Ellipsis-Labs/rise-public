@@ -4,6 +4,7 @@
 
 import {
   buildPlaceLimitOrderIx,
+  buildPlaceMarketOrderDelegatedIx,
   buildPlaceMarketOrderIx,
   buildPlaceMultiLimitOrderIx,
   buildCancelOrdersByIdIx,
@@ -651,6 +652,63 @@ try {
       );
     results["FlightPlaceLimitOrderWithConditionals"] = hexEncode(
       wrappedLimitWithConditionalsIx.data
+    );
+  }
+
+  // 19. PlaceMarketOrderDelegated
+  {
+    console.error("Building PlaceMarketOrderDelegated...");
+    const delegatedIx = buildPlaceMarketOrderDelegatedIx({
+      traderWallet: p(9),
+      permissionAccount: p(10),
+      traderAccount: p(1),
+      perpAssetMap: p(2),
+      orderbook: p(3),
+      splineCollection: p(4),
+      globalTraderIndex: vec2(5, 6),
+      activeTraderBuffer: vec2(7, 8),
+      orderPacket: {
+        side: Side.Ask,
+        priceInTicks: null,
+        numBaseLots: baseLots(100n),
+        numQuoteLots: null,
+        minBaseLotsToFill: baseLots(0n),
+        minQuoteLotsToFill: quoteLots(0n),
+        selfTradeBehavior: SelfTradeBehavior.Abort,
+        matchLimit: null,
+        clientOrderId: 0n,
+        lastValidSlot: null,
+        orderFlags: OrderFlags.None,
+        cancelExisting: false,
+      },
+    });
+    results["PlaceMarketOrderDelegated"] = hexEncode(delegatedIx.data);
+
+    // 20. Flight wrapper for PlaceMarketOrderDelegated
+    console.error("Building FlightPlaceMarketOrderDelegated...");
+    const flightClient = new flight.PhoenixFlightClient(
+      {
+        addresses: {
+          phoenixProgramAddress: PHOENIX_PROGRAM_ADDRESS,
+          logAuthorityAddress: PHOENIX_LOG_AUTHORITY_ADDRESS,
+          globalConfigurationAddress: PHOENIX_GLOBAL_CONFIGURATION_ADDRESS,
+          usdcMintAddress: USDC_MINT_ADDRESS,
+          emberStateAddress: p(11),
+        },
+        fetchAccount: async () => ({ data: new Uint8Array() }),
+      } as any,
+      {
+        builderAuthority: p(9),
+        builderPdaIndex: 0,
+        builderSubaccountIndex: 0,
+      }
+    );
+    const wrappedDelegatedIx = await flightClient.tryWrapFlightInstruction(
+      delegatedIx,
+      p(0)
+    );
+    results["FlightPlaceMarketOrderDelegated"] = hexEncode(
+      wrappedDelegatedIx.data
     );
   }
 

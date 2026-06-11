@@ -376,6 +376,18 @@ export {
   TradeHistoryV2ItemSchema,
   type TradeHistoryV2Response,
   TradeHistoryV2ResponseSchema,
+  type UserAdlLiquidationHistoryPoint,
+  type UserBackstopLiquidationHistoryPoint,
+  type UserLiquidationHistoryBasePoint,
+  type UserLiquidationHistoryKind,
+  type UserMarketLiquidationHistoryPoint,
+  type UserLiquidationHistoryPoint,
+  UserLiquidationHistoryPointSchema,
+  type UserLiquidationHistoryRequest,
+  type UserLiquidationHistoryResponse,
+  UserLiquidationHistoryResponseSchema,
+  type UserLiquidationHistoryRole,
+  type UserLiquidationHistoryType,
 } from "../api/trades/types";
 
 export {

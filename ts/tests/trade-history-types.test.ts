@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { FillRecordSchema, TradeHistoryV2ItemSchema } from "@/api/trades/types";
+import {
+  FillRecordSchema,
+  TradeHistoryV2ItemSchema,
+  UserLiquidationHistoryPointSchema,
+} from "@/api/trades/types";
 
 describe("trade history types", () => {
   it("parses fillId for the legacy trades-history endpoint", () => {
@@ -95,5 +99,35 @@ describe("trade history types", () => {
 
     expect(withFillId.fillId).toBe("661ed5ff-f768-3699-ae86-1480171513ca");
     expect(withoutFillId.fillId).toBeNull();
+  });
+
+  it("parses user liquidation history type and ixName fields", () => {
+    const parsed = UserLiquidationHistoryPointSchema.parse({
+      kind: "market_order",
+      type: "market",
+      ixName: "LiquidateViaMarketOrder",
+      role: "liquidatee",
+      slot: "10",
+      slotIndex: 2,
+      eventIndex: 1,
+      timestamp: "1700000000",
+      signature: "signature",
+      symbol: "SOL-PERP",
+      market: "SOL-PERP",
+      subaccountIndex: 0,
+      liquidatee: "liquidatee",
+      liquidator: "liquidator",
+      side: "LONG",
+      size: "1",
+      price: "150",
+      positionClosed: true,
+      baseLotsFilled: "1",
+      quoteLotsFilled: "150",
+    });
+
+    expect(parsed.type).toBe("market");
+    expect(parsed.ixName).toBe("LiquidateViaMarketOrder");
+    expect(parsed.kind).toBe("market_order");
+    expect(parsed.size).toBe("1");
   });
 });
