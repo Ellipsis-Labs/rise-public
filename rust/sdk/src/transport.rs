@@ -768,7 +768,13 @@ mod tests {
 
     fn response(status: &str, body: String, extra_headers: &[(&str, &str)]) -> String {
         let mut headers = format!(
-            "HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\n",
+            concat!(
+                "HTTP/1.1 {}\r\n",
+                "content-type: application/json\r\n",
+                "connection: close\r\n",
+                "content-length: {}\r\n",
+            ),
+            status,
             body.len()
         );
         for (name, value) in extra_headers {

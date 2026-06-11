@@ -216,7 +216,7 @@ publish      = true
 readme       = "CRATES.md"
 repository   = "https://github.com/Ellipsis-Labs/rise"
 rust-version = "1.84.0"
-version      = "0.1.5"
+version      = "0.1.6"
 
 [workspace.dependencies]
 base64 = "0.22"

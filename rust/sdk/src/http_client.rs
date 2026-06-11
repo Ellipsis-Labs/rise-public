@@ -37,6 +37,7 @@ use crate::phoenix_rise_types::{
     PlaceIsolatedMarketOrderRequest, PlacePositionConditionalOrderRequest,
     PlaceStopLossOrderRequest, PnlPoint, PnlQueryParams, TradeHistoryQueryParams,
     TradeHistoryResponse, TraderKey, TraderStateResponse, TraderView,
+    UserLiquidationHistoryQueryParams, UserLiquidationHistoryResponse,
 };
 use crate::transport::{PhoenixApiClient, PhoenixApiError};
 
@@ -636,6 +637,16 @@ impl PhoenixHttpClient {
     ) -> Result<TradeHistoryResponse, PhoenixHttpError> {
         self.trades()
             .get_user_trade_history(authority, params)
+            .await
+    }
+
+    pub async fn get_user_liquidation_history(
+        &self,
+        authority: &Pubkey,
+        params: UserLiquidationHistoryQueryParams,
+    ) -> Result<UserLiquidationHistoryResponse, PhoenixHttpError> {
+        self.trades()
+            .get_user_liquidation_history(authority, params)
             .await
     }
 

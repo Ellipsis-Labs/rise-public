@@ -104,10 +104,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n  Risk Factors:");
     println!(
         "    Maintenance:     {:.2}%",
-        market.risk_factors.maintenance
+        market.risk_factors.maintenance / 100.0
     );
-    println!("    Backstop:        {:.2}%", market.risk_factors.backstop);
-    println!("    High Risk:       {:.2}%", market.risk_factors.high_risk);
+    println!(
+        "    Backstop:        {:.2}%",
+        market.risk_factors.backstop / 100.0
+    );
+    println!(
+        "    High Risk:       {:.2}%",
+        market.risk_factors.high_risk / 100.0
+    );
 
     println!("\n  Caps:");
     println!(
@@ -382,9 +388,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         println!("    Isolated Only: {}", market.isolated_only);
         println!("    Risk Factors:");
-        println!("      Maintenance: {:.2}%", market.risk_factors.maintenance);
-        println!("      Backstop: {:.2}%", market.risk_factors.backstop);
-        println!("      High Risk: {:.2}%", market.risk_factors.high_risk);
+        println!(
+            "      Maintenance: {:.2}%",
+            market.risk_factors.maintenance / 100.0
+        );
+        println!(
+            "      Backstop: {:.2}%",
+            market.risk_factors.backstop / 100.0
+        );
+        println!(
+            "      High Risk: {:.2}%",
+            market.risk_factors.high_risk / 100.0
+        );
     }
     println!();
 

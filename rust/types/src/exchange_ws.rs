@@ -238,6 +238,10 @@ pub enum ExchangeMarketParameterUpdate {
     CancelRiskFactorUpdated {
         previous: f64,
         new: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        previous_bps: Option<u16>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        new_bps: Option<u16>,
     },
     IsolatedOnlyUpdated {
         previous: bool,
@@ -258,10 +262,18 @@ pub enum ExchangeMarketParameterUpdate {
     UpnlRiskFactorUpdated {
         previous: f64,
         new: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        previous_bps: Option<u16>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        new_bps: Option<u16>,
     },
     UpnlRiskFactorForWithdrawalsUpdated {
         previous: f64,
         new: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        previous_bps: Option<u16>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        new_bps: Option<u16>,
     },
     FundingParametersUpdated {
         previous: ExchangeWsFundingConfig,
@@ -404,6 +416,7 @@ impl From<&ExchangeWsLeverageTier> for ExchangeLeverageTier {
             max_leverage: tier.max_leverage as f64,
             max_size_base_lots: tier.max_size_base_lots.into_inner(),
             limit_order_risk_factor: tier.limit_order_risk_factor as f64 / 100.0,
+            limit_order_risk_factor_bps: Some(tier.limit_order_risk_factor),
         }
     }
 }
@@ -521,11 +534,17 @@ mod tests {
                 }],
                 risk_factors: ExchangeRiskFactors {
                     maintenance: 5.0,
+                    maintenance_bps: Some(500),
                     backstop: 8.0,
+                    backstop_bps: Some(800),
                     high_risk: 12.0,
+                    high_risk_bps: Some(1_200),
                     upnl: 90.0,
+                    upnl_bps: Some(9_000),
                     upnl_for_withdrawals: 80.0,
+                    upnl_for_withdrawals_bps: Some(8_000),
                     cancel_order: 2.5,
+                    cancel_order_bps: Some(250),
                 },
                 funding_config: ExchangeWsFundingConfig {
                     funding_interval_seconds: 3_600,
@@ -623,6 +642,11 @@ mod tests {
             response.markets[0].leverage_tiers[0].limit_order_risk_factor,
             25.0
         );
+        assert_eq!(
+            response.markets[0].leverage_tiers[0].limit_order_risk_factor_bps,
+            Some(2_500)
+        );
+        assert_eq!(response.markets[0].risk_factors.maintenance_bps, Some(500));
         assert_eq!(response.markets[0].funding_interval_seconds, 3_600);
     }
 }

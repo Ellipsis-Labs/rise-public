@@ -54,6 +54,30 @@ Source Phoenix commit: `f0c4a154e63048a8517e72e8a6a8b806e3768cd0`
 - Delegated onboarding always enables all six trader capabilities (limit orders, market orders, risk-increasing and risk-reducing trades, deposit, and withdrawal) in a single instruction — there is no partial-capability variant in this release.
 - The `permissionAccount` address must be derived from the current risk authority and the onboarder's key; see the new example for the full derivation pattern using `client.pda.getPermissionAddress`.
 
+## v0.4.30 - 2026-06-11
+
+Source Phoenix commit: `7b0e722849fbc44d2d34d481d208db0ea951b78e`
+
+- Package: `@ellipsis-labs/rise`
+- Target repo version: 0.4.28
+- Phoenix version: 0.4.28 -> 0.4.30
+
+### Summary
+
+- **Risk factor values in `RiskFactors` are now in basis points.** `PhoenixProjectedMarket.riskFactors` fields (`maintenance`, `backstop`, `highRisk`, `upnl`, `upnlForWithdrawals`, `cancelOrder`) now carry bps values (e.g. `5000` = 50%) instead of the previous percentage scale (e.g. `5` = 5%). The cache store, projected-market selector, and margin params builder all consistently prefer the new bps representation.
+- **Optional `*Bps` sibling fields added to `ExchangeRiskFactors` and `ExchangeLeverageTier`.** `maintenanceBps`, `backstopBps`, `highRiskBps`, `upnlBps`, `upnlForWithdrawalsBps`, `cancelOrderBps`, and `limitOrderRiskFactorBps` are now available on the HTTP API types; where present they take precedence over the legacy percentage fields.
+- **WebSocket risk-factor update events carry optional bps deltas.** `cancelRiskFactorUpdated`, `upnlRiskFactorUpdated`, and `upnlRiskFactorForWithdrawalsUpdated` now include `previousBps`/`newBps` (normalized from server snake_case `previous_bps`/`new_bps`).
+- **`buildMarketParamsFromSummary` now validates risk factor inputs strictly.** Passing a non-finite, negative, non-integer, or >10 000 bps value throws an explicit error instead of silently stringifying it.
+
+### Breaking Changes
+
+- **`buildMarketParamsFromSummary` can now throw.** If a `MarketSummary` contains risk factor values that are non-finite, negative, non-integer bps, or exceed 10 000 bps, the function throws instead of returning a params object. Callers that previously relied on unconditional success should wrap the call or validate inputs first.
+
+### Consumer Notes
+
+- The legacy percentage-scale fields on `ExchangeRiskFactors` (`maintenance`, `backstop`, etc.) remain present for backwards compatibility with older API responses; prefer the new `*Bps` fields when available.
+- WS consumers parsing `cancelRiskFactorUpdated`, `upnlRiskFactorUpdated`, or `upnlRiskFactorForWithdrawalsUpdated` events can now read `newBps`/`previousBps` directly; the wire adapter normalizes snake_case `new_bps`/`previous_bps` from the server automatically.
+
 ## v0.4.31 - 2026-06-11
 
 Source Phoenix commit: `443ff8dfd64a9e7d35960b8b1946b3248d6681e5`

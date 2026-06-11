@@ -2529,7 +2529,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -2574,7 +2574,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-sdk-cli"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "clap",
  "phoenix-rise",
