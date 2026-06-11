@@ -32,6 +32,7 @@ export const MarketFeesSchema: z.ZodType<MarketFees> = z.object({
 export interface MarketLeverageTier {
   maxLeverage: number;
   maxSizeBaseLots: number;
+  /** Limit order risk factor in basis points (e.g. 6000 = 60%). */
   limitOrderRiskFactor: number;
 }
 
@@ -43,11 +44,17 @@ export const LeverageTierSchema: z.ZodType<MarketLeverageTier> = z.object({
 });
 
 export interface RiskFactors {
+  /** Maintenance margin risk factor in basis points (e.g. 5000 = 50%). */
   maintenance: number;
+  /** Backstop liquidation risk factor in basis points. */
   backstop: number;
+  /** High-risk threshold in basis points. */
   highRisk: number;
+  /** Positive unrealized PnL discount factor in basis points. */
   upnl: number;
+  /** Positive unrealized PnL discount factor for withdrawals in basis points. */
   upnlForWithdrawals: number;
+  /** Cancel-order risk factor in basis points. */
   cancelOrder: number;
 }
 

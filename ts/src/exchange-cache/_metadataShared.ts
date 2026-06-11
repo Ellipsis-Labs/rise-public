@@ -354,13 +354,21 @@ const toMarketSnapshot = async (
     })),
     riskFactors: {
       maintenance: metadata.riskParams.riskFactors[0] ?? 0,
+      maintenanceBps: metadata.riskParams.riskFactors[0] ?? 0,
       backstop: metadata.riskParams.riskFactors[1] ?? 0,
+      backstopBps: metadata.riskParams.riskFactors[1] ?? 0,
       highRisk: metadata.riskParams.riskFactors[2] ?? 0,
+      highRiskBps: metadata.riskParams.riskFactors[2] ?? 0,
       upnl: Number(metadata.riskParams.upnlRiskFactor),
+      upnlBps: Number(metadata.riskParams.upnlRiskFactor),
       upnlForWithdrawals: Number(
         metadata.riskParams.upnlRiskFactorForWithdrawals
       ),
+      upnlForWithdrawalsBps: Number(
+        metadata.riskParams.upnlRiskFactorForWithdrawals
+      ),
       cancelOrder: metadata.riskParams.cancelOrderRiskFactor,
+      cancelOrderBps: metadata.riskParams.cancelOrderRiskFactor,
     },
     fundingConfig: {
       fundingIntervalSeconds: Number(

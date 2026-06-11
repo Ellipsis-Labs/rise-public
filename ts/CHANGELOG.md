@@ -53,3 +53,30 @@ Source Phoenix commit: `f0c4a154e63048a8517e72e8a6a8b806e3768cd0`
 - The `TraderCapabilityToggleTarget` enum and internal `buildSetTraderCapabilitiesDelegated*` names are intentionally absent from the public surface; use `buildOnboardTraderDelegated` instead.
 - Delegated onboarding always enables all six trader capabilities (limit orders, market orders, risk-increasing and risk-reducing trades, deposit, and withdrawal) in a single instruction — there is no partial-capability variant in this release.
 - The `permissionAccount` address must be derived from the current risk authority and the onboarder's key; see the new example for the full derivation pattern using `client.pda.getPermissionAddress`.
+
+## v0.4.31 - 2026-06-11
+
+Source Phoenix commit: `443ff8dfd64a9e7d35960b8b1946b3248d6681e5`
+
+- Package: `@ellipsis-labs/rise`
+- Target repo version: 0.4.28
+- Phoenix version: 0.4.30 -> 0.4.31
+
+### Summary
+
+- Added `V1TradesClient.getUserLiquidationHistory(userPubkey, request?)` — a new paginated endpoint (`GET /v1/users/{pubkey}/liquidation-history`) returning typed liquidation events for three kinds: `market_order`, `backstop`, and `adl`.
+- All `RiskFactors` fields (`maintenance`, `backstop`, `highRisk`, `upnl`, `upnlForWithdrawals`, `cancelOrder`) now carry **basis-point values** (e.g. `5000` = 50%) throughout the projected-market and margin layers; previously they held percentage values.
+- `ExchangeRiskFactors` and `ExchangeLeverageTier` gain optional `*Bps` companion fields populated by the exchange cache and WebSocket store; the legacy percentage fields remain present.
+- WebSocket risk-factor update events (`cancelRiskFactorUpdated`, `upnlRiskFactorUpdated`, `upnlRiskFactorForWithdrawalsUpdated`) gain optional `previousBps`/`newBps` fields, normalized from server snake_case.
+
+### Breaking Changes
+
+- **Package registry changed**: `publishConfig.registry` moved from `registry.npmjs.org` (public) to `npm.pkg.github.com` (GitHub Packages, `access: restricted`). Consumers must authenticate to GitHub Packages to install or update this package.
+- **`RiskFactors` semantic change**: `RiskFactors.maintenance`, `.backstop`, `.highRisk`, `.upnl`, `.upnlForWithdrawals`, and `.cancelOrder` (from `types/market.ts`) now hold basis-point values (`5000` = 50%) instead of percentage values (`50` = 50%). Any code reading `projectedMarket.riskFactors.*` or constructing `MarketSummary.riskFactors` for `buildMarketParamsFromSummary` must be updated to use bps-scale values.
+- **`buildMarketParamsFromSummary` validation**: Risk factor inputs are now validated as whole-number bps values in `[0, 10_000]`; non-finite, negative, fractional, or out-of-range values throw at runtime instead of silently converting.
+
+### Consumer Notes
+
+- New liquidation history types (`UserLiquidationHistoryPoint` and subtypes `UserMarketLiquidationHistoryPoint`, `UserBackstopLiquidationHistoryPoint`, `UserAdlLiquidationHistoryPoint`) are exported from the public surface; narrow on the `kind` discriminant to access type-specific fields.
+- `ExchangeRiskFactors` percentage fields remain for backward compatibility on the exchange config/snapshot layer; prefer the new `*Bps` variants when present.
+- Limit of 100 items per `getUserLiquidationHistory` request; use `nextCursor`/`prevCursor` for pagination.

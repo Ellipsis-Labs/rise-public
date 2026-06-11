@@ -1,90 +1,90 @@
 {
-    "name": "@ellipsis-labs/rise",
-    "version": "0.4.28",
-    "packageManager": "bun@1.3.13",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/Ellipsis-Labs/rise-public.git",
-        "directory": "rise/ts"
+  "name": "@ellipsis-labs/rise",
+  "version": "0.4.31",
+  "packageManager": "bun@1.3.13",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ellipsis-Labs/phoenix.git",
+    "directory": "rise/ts"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
+  "engines": {
+    "bun": ">=1.3.13"
+  },
+  "license": "MIT",
+  "description": "Rise SDK - Phoenix HTTP client",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
-    "publishConfig": {
-        "registry": "https://registry.npmjs.org",
-        "access": "public"
-    },
-    "engines": {
-        "bun": ">=1.3.13"
-    },
-    "license": "MIT",
-    "description": "Rise SDK - Phoenix HTTP client",
-    "type": "module",
-    "files": [
-        "dist"
-    ],
-    "main": "./dist/index.js",
-    "module": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "exports": {
-        ".": {
-            "types": "./dist/index.d.ts",
-            "default": "./dist/index.js"
-        },
-        "./package.json": "./package.json"
-    },
-    "scripts": {
-        "audit": "bun audit",
-        "build": "bun --bun run tsdown",
-        "check": "bun run type-check",
-        "circular-check": "bun --bun run madge --circular src/index.ts",
-        "dev": "bun --bun run tsdown --watch",
-        "fmt": "bun --bun run prettier --write .",
-        "fmt:check": "bun --bun run prettier --check .",
-        "lint": "bun --bun run eslint src --ext .ts",
-        "lint:fix": "bun --bun run eslint src --ext .ts --fix",
-        "publish:alpha": "bun --bun run scripts/publish-alpha.ts",
-        "prepare": "bun run build",
-        "prepublishOnly": "bun run build",
-        "test": "vitest run --passWithNoTests",
-        "test:sdk-localnet": "vitest run tests/sdk-localnet-*.test.ts",
-        "test:sdk-localnet:ci": "bun --bun run scripts/run-sdk-localnet-ci.ts",
-        "type-check": "bunx tsc --noEmit",
-        "type-check:margin-parity": "bunx tsc --noEmit -p scripts/tsconfig.margin-parity.json",
-        "upload:s3-tarball": "bun --bun run scripts/upload-s3-tarball.ts",
-        "version:patch": "bun --bun run scripts/version.ts patch",
-        "version:minor": "bun --bun run scripts/version.ts minor",
-        "version:major": "bun --bun run scripts/version.ts major"
-    },
-    "dependencies": {
-        "@noble/hashes": "^2.0.1",
-        "@scure/base": "^2.0.0",
-        "@solana/kit": "^4.0.0",
-        "fzstd": "^0.1.1",
-        "xstate": "^5.28.0",
-        "zod": "^4.3.6",
-        "zustand": "^5.0.12"
-    },
-    "overrides": {
-        "brace-expansion": ">=5.0.6",
-        "defu": "6.1.6",
-        "flatted": "3.4.2",
-        "minimatch": ">=10.2.3",
-        "postcss": ">=8.5.10",
-        "picomatch": ">=4.0.4",
-        "vite": "7.3.2",
-        "ws": ">=8.20.1"
-    },
-    "devDependencies": {
-        "@eslint/js": "^10.0.1",
-        "@solana/signers": "^4.0.0",
-        "@types/node": "^22.15.21",
-        "@typescript-eslint/eslint-plugin": "^8.56.1",
-        "@typescript-eslint/parser": "^8.56.1",
-        "eslint": "^10.0.2",
-        "eslint-plugin-unused-imports": "^4.4.1",
-        "litesvm": "1.0.0",
-        "madge": "^8.0.0",
-        "prettier": "^3.8.1",
-        "tsdown": "^0.20.0-beta.4",
-        "typescript": "^5.9.3",
-        "vitest": "^4.1.8"
-    }
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "audit": "bun audit",
+    "build": "bun --bun run tsdown",
+    "check": "bun run type-check",
+    "circular-check": "bun --bun run madge --circular src/index.ts",
+    "dev": "bun --bun run tsdown --watch",
+    "fmt": "bun --bun run prettier --write .",
+    "fmt:check": "bun --bun run prettier --check .",
+    "lint": "bun --bun run eslint src --ext .ts",
+    "lint:fix": "bun --bun run eslint src --ext .ts --fix",
+    "publish:alpha": "bun --bun run scripts/publish-alpha.ts",
+    "prepare": "bun run build",
+    "prepublishOnly": "bun run build",
+    "test": "vitest run --passWithNoTests",
+    "test:sdk-localnet": "vitest run tests/sdk-localnet-*.test.ts",
+    "test:sdk-localnet:ci": "bun --bun run scripts/run-sdk-localnet-ci.ts",
+    "type-check": "bunx tsc --noEmit",
+    "type-check:margin-parity": "bunx tsc --noEmit -p scripts/tsconfig.margin-parity.json",
+    "upload:s3-tarball": "bun --bun run scripts/upload-s3-tarball.ts",
+    "version:patch": "bun --bun run scripts/version.ts patch",
+    "version:minor": "bun --bun run scripts/version.ts minor",
+    "version:major": "bun --bun run scripts/version.ts major"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.0.1",
+    "@scure/base": "^2.0.0",
+    "@solana/kit": "^4.0.0",
+    "fzstd": "^0.1.1",
+    "xstate": "^5.28.0",
+    "zod": "^4.3.6",
+    "zustand": "^5.0.12"
+  },
+  "overrides": {
+    "brace-expansion": ">=5.0.6",
+    "defu": "6.1.6",
+    "flatted": "3.4.2",
+    "minimatch": ">=10.2.3",
+    "postcss": ">=8.5.10",
+    "picomatch": ">=4.0.4",
+    "vite": "7.3.2",
+    "ws": ">=8.20.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@solana/signers": "^4.0.0",
+    "@types/node": "^22.15.21",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "eslint": "^10.0.2",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "litesvm": "1.0.0",
+    "madge": "^8.0.0",
+    "prettier": "^3.8.1",
+    "tsdown": "^0.20.0-beta.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.8"
+  }
 }

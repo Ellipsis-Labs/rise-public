@@ -479,6 +479,10 @@ describe("public client route mapping", () => {
           { data: [], nextCursor: null, prevCursor: null, hasMore: false },
         ],
         [
+          "/v1/users/user-pubkey/liquidation-history",
+          { data: [], nextCursor: null, prevCursor: null, hasMore: false },
+        ],
+        [
           "/trader/authority/funding-history",
           { events: [], nextCursor: null, prevCursor: null, hasMore: false },
         ],
@@ -628,6 +632,13 @@ describe("public client route mapping", () => {
       limit: 5,
       nextCursor: "next-cursor",
     });
+    await trades.getUserLiquidationHistory("user-pubkey", {
+      pdaIndex: 1,
+      subaccountIndex: 2,
+      symbol: "SOL-PERP",
+      limit: 25,
+      cursor: "liq-cursor",
+    });
     await funding.getTraderFundingHistory("authority", {
       pdaIndex: 0,
       limit: 10,
@@ -747,6 +758,18 @@ describe("public client route mapping", () => {
         method: "GET",
         endpoint: "/v1/users/user-pubkey/collateral-history",
         params: { limit: 5, nextCursor: "next-cursor" },
+        body: undefined,
+      },
+      {
+        method: "GET",
+        endpoint: "/v1/users/user-pubkey/liquidation-history",
+        params: {
+          pdaIndex: 1,
+          subaccountIndex: 2,
+          symbol: "SOL-PERP",
+          limit: 25,
+          cursor: "liq-cursor",
+        },
         body: undefined,
       },
       {
