@@ -10,6 +10,9 @@ type DiscriminantMap = Record<string, Uint8Array>;
 
 export const DISCRIMINANTS: DiscriminantMap = {
   PLACE_MARKET_ORDER: sha2_const("global:place_market_order"),
+  PLACE_MARKET_ORDER_DELEGATED: sha2_const(
+    "global:place_market_order_delegated"
+  ),
   PLACE_LIMIT_ORDER: sha2_const("global:place_limit_order"),
   PLACE_MULTI_LIMIT_ORDER: sha2_const("global:place_multi_limit_order"),
   CANCEL_ORDERS_BY_ID: sha2_const("global:cancel_orders_by_id"),

@@ -98,3 +98,25 @@ Source Phoenix commit: `443ff8dfd64a9e7d35960b8b1946b3248d6681e5`
 - New liquidation history types (`UserLiquidationHistoryPoint` and subtypes `UserMarketLiquidationHistoryPoint`, `UserBackstopLiquidationHistoryPoint`, `UserAdlLiquidationHistoryPoint`) are exported from the public surface; narrow on the `kind` discriminant to access type-specific fields.
 - `ExchangeRiskFactors` percentage fields remain for backward compatibility on the exchange config/snapshot layer; prefer the new `*Bps` variants when present.
 - Limit of 100 items per `getUserLiquidationHistory` request; use `nextCursor`/`prevCursor` for pagination.
+
+## v0.4.32 - 2026-06-11
+
+Source Phoenix commit: `3506fd24b235813df18d1897c9ff076417c19ee8`
+
+- Package: `@ellipsis-labs/rise`
+- Target repo version: 0.4.31
+- Phoenix version: 0.4.31 -> 0.4.32
+
+### Summary
+
+- **New `PlaceMarketOrderDelegated` instruction**: `buildPlaceMarketOrderDelegatedIx`, `buildPlaceMarketOrderDelegated`, `placeMarketOrderDelegated`, and `buildPlaceMarketOrderDelegatedIxResolved` are now exported. The instruction accepts an explicit `traderWallet` signer and `permissionAccount`; when omitted, both default to the trader's position authority. The Flight routing layer now wraps delegated market orders the same way it wraps regular market orders.
+- **New public exports**: `ClientPlaceMarketOrderDelegatedInput`, `BuildPlaceMarketOrderDelegatedIxResolvedInput`, `PlaceMarketOrderDelegatedParams`/`Accounts`/`Ix`, and codec helpers (`getPlaceMarketOrderDelegatedEncoder`, `getPlaceMarketOrderDelegatedDecoder`, `getPlaceMarketOrderDelegatedCodec`).
+
+### Breaking Changes
+
+- **`PhoenixIxClient` interface extended**: `buildPlaceMarketOrderDelegated` and `placeMarketOrderDelegated` are now required members. Any downstream code that directly implements `PhoenixIxClient` (rather than consuming the SDK's built-in implementation) must add both methods or it will fail to compile.
+
+### Consumer Notes
+
+- `traderWallet` and `permissionAccount` are both optional on `ClientPlaceMarketOrderDelegatedInput` and `BuildPlaceMarketOrderDelegatedIxResolvedInput`. When omitted, the SDK resolves them to `positionAuthority` (or `authority` as fallback), so existing trader setups work without changes.
+- `placeMarketOrderDelegated` can use the same Flight builder-fee configuration as regular market orders, so integrations can delegate signing authority without losing Flight routing behavior.
