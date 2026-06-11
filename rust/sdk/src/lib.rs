@@ -160,6 +160,9 @@ pub use crate::phoenix_rise_types::{
     SubscriptionKey, Timeframe, TpSlOrderConfig, TradeEvent, TradeHistoryItem,
     TradeHistoryQueryParams, TradeHistoryResponse, Trader, TraderKey, TraderStateDelta,
     TraderStatePayload, TraderStateResponse, TraderStateRowChangeKind, TraderStateServerMessage,
-    TraderStateSnapshot, TraderView, TradesMessage, TradesSubscriptionRequest, WalletNonceResponse,
+    TraderStateSnapshot, TraderView, TradesMessage, TradesSubscriptionRequest,
+    UserLiquidationHistoryKind, UserLiquidationHistoryPoint, UserLiquidationHistoryQueryParams,
+    UserLiquidationHistoryResponse, UserLiquidationHistoryRole, UserLiquidationHistoryType,
+    WalletNonceResponse,
 };
 pub use crate::types::conversions::*;

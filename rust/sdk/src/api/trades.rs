@@ -3,6 +3,7 @@ use solana_pubkey::Pubkey;
 use crate::http_client::HttpClientInner;
 use crate::phoenix_rise_types::{
     PhoenixHttpError, TradeHistoryQueryParams, TradeHistoryResponse, TraderKey,
+    UserLiquidationHistoryQueryParams, UserLiquidationHistoryResponse,
 };
 
 #[derive(serde::Serialize)]
@@ -21,6 +22,19 @@ pub struct TradesClient<'a> {
 }
 
 impl TradesClient<'_> {
+    pub async fn get_user_liquidation_history(
+        &self,
+        authority: &Pubkey,
+        params: UserLiquidationHistoryQueryParams,
+    ) -> Result<UserLiquidationHistoryResponse, PhoenixHttpError> {
+        self.http
+            .get_json_with_query(
+                &format!("/v1/users/{authority}/liquidation-history"),
+                &params,
+            )
+            .await
+    }
+
     pub async fn get_user_trade_history(
         &self,
         authority: &Pubkey,

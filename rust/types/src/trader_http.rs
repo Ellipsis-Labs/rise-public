@@ -66,6 +66,176 @@ pub struct OrderHistoryItem {
 /// Response from the order history endpoint.
 pub type OrderHistoryResponse = crate::types::core::PaginatedResponse<Vec<OrderHistoryItem>>;
 
+// ============================================================================
+// User Liquidation History Types
+// ============================================================================
+
+/// Query parameters for fetching user-scoped liquidation, backstop, and ADL
+/// history.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserLiquidationHistoryQueryParams {
+    /// Trader PDA index to scope history. Defaults to 0.
+    #[serde(default, alias = "pdaIndex", alias = "pda_index")]
+    pub pda_index: i32,
+    /// Optional subaccount index. If omitted, all subaccounts under the PDA are
+    /// included.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subaccount_index: Option<i32>,
+    /// Optional market symbol filter.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub symbol: Option<String>,
+    /// Number of items to return (max 100, API default 100).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+    /// Optional cursor for older or newer pagination.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+impl Default for UserLiquidationHistoryQueryParams {
+    fn default() -> Self {
+        Self {
+            pda_index: 0,
+            subaccount_index: None,
+            symbol: None,
+            limit: None,
+            cursor: None,
+        }
+    }
+}
+
+impl UserLiquidationHistoryQueryParams {
+    /// Creates new query params with API defaults.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Sets the PDA index.
+    pub fn with_pda_index(mut self, pda_index: i32) -> Self {
+        self.pda_index = pda_index;
+        self
+    }
+
+    /// Sets the subaccount index.
+    pub fn with_subaccount_index(mut self, subaccount_index: i32) -> Self {
+        self.subaccount_index = Some(subaccount_index);
+        self
+    }
+
+    /// Sets the market symbol filter.
+    pub fn with_symbol(mut self, symbol: impl Into<String>) -> Self {
+        self.symbol = Some(symbol.into());
+        self
+    }
+
+    /// Sets the result limit.
+    pub fn with_limit(mut self, limit: i64) -> Self {
+        self.limit = Some(limit);
+        self
+    }
+
+    /// Sets the pagination cursor.
+    pub fn with_cursor(mut self, cursor: impl Into<String>) -> Self {
+        self.cursor = Some(cursor.into());
+        self
+    }
+}
+
+/// User-scoped liquidation history event kind.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum UserLiquidationHistoryKind {
+    MarketOrder,
+    Adl,
+    Backstop,
+}
+
+/// High-level liquidation-related event type.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum UserLiquidationHistoryType {
+    Market,
+    Adl,
+    Backstop,
+}
+
+/// Role the requested user played in a liquidation-related event.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum UserLiquidationHistoryRole {
+    Liquidatee,
+    BackstopLiquidatee,
+    AdlClosedShort,
+    AdlClosedLong,
+    AdlInProfit,
+    AdlCaller,
+}
+
+/// Normalized user-scoped liquidation, backstop, or ADL history point.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserLiquidationHistoryPoint {
+    pub kind: UserLiquidationHistoryKind,
+    pub r#type: UserLiquidationHistoryType,
+    pub ix_name: String,
+    pub role: UserLiquidationHistoryRole,
+    pub slot: i64,
+    pub slot_index: i32,
+    pub event_index: i32,
+    pub timestamp: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+    pub symbol: String,
+    pub market: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subaccount_index: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub liquidatee: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub liquidator: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub side: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub price: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub position_closed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_lots_filled: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quote_lots_filled: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quote_size: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub haircut_rate_bps: Option<i16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub liquidatee_collateral_change: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub liquidator_collateral_change: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub caller: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub closed_short: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub closed_long: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub in_profit_account: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub at_loss_close_value: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub in_profit_close_value: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub at_loss_collateral_change: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub in_profit_collateral_change: Option<String>,
+}
+
+/// Response from the user liquidation history endpoint.
+pub type UserLiquidationHistoryResponse =
+    crate::types::core::PaginatedResponse<Vec<UserLiquidationHistoryPoint>>;
+
 /// Query parameters for fetching order history.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
