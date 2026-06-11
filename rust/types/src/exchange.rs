@@ -56,6 +56,9 @@ pub struct ExchangeLeverageTier {
     pub max_size_base_lots: u64,
     /// The limit order risk factor as a percentage (e.g., 60.0 = 60%).
     pub limit_order_risk_factor: f64,
+    /// The limit order risk factor in basis points (e.g., 6000 = 60%).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit_order_risk_factor_bps: Option<u16>,
 }
 
 /// Risk factors as f64 percentages.
@@ -65,17 +68,36 @@ pub struct ExchangeLeverageTier {
 pub struct ExchangeRiskFactors {
     /// Maintenance margin risk factor as a percentage (e.g., 50.0 = 50%).
     pub maintenance: f64,
+    /// Maintenance margin risk factor in basis points (e.g., 5000 = 50%).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub maintenance_bps: Option<u16>,
     /// Backstop liquidation risk factor as a percentage.
     pub backstop: f64,
+    /// Backstop liquidation risk factor in basis points.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backstop_bps: Option<u16>,
     /// High risk threshold as a percentage.
     pub high_risk: f64,
+    /// High risk threshold in basis points.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub high_risk_bps: Option<u16>,
     /// Risk factor for positive unrealized PnL penalty as a percentage.
     pub upnl: f64,
+    /// Risk factor for positive unrealized PnL penalty in basis points.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upnl_bps: Option<u16>,
     /// Risk factor for positive unrealized PnL penalty during withdrawals as a
     /// percentage.
     pub upnl_for_withdrawals: f64,
+    /// Risk factor for positive unrealized PnL penalty during withdrawals in
+    /// basis points.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upnl_for_withdrawals_bps: Option<u16>,
     /// Cancel order risk factor as a percentage.
     pub cancel_order: f64,
+    /// Cancel order risk factor in basis points.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cancel_order_bps: Option<u16>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

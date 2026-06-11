@@ -351,6 +351,12 @@ mod tests {
         assert_eq!(view.markets[0].symbol, "ETH");
         assert_eq!(view.markets[0].asset_id, 2);
         assert_eq!(view.markets[0].market_status, MarketStatus::Active);
+        assert_eq!(
+            view.markets[0].leverage_tiers[0].limit_order_risk_factor,
+            6000
+        );
+        assert_eq!(view.markets[0].risk_factors.maintenance, 5000);
+        assert_eq!(view.markets[0].risk_factors.upnl_for_withdrawals, 100);
         assert!(!view.markets[0].isolated_only);
     }
 }

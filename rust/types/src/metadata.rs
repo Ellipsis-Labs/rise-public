@@ -133,15 +133,38 @@ fn perp_asset_metadata_from_exchange_config(
     let leverage_tiers = convert_leverage_tiers(&config.leverage_tiers)?;
 
     let risk_factors = [
-        (config.risk_factors.maintenance * 100.0) as u16,
-        (config.risk_factors.backstop * 100.0) as u16,
-        (config.risk_factors.high_risk * 100.0) as u16,
+        risk_factor_bps_or_percent_to_bps(
+            config.risk_factors.maintenance_bps,
+            config.risk_factors.maintenance,
+            "maintenance",
+        )?,
+        risk_factor_bps_or_percent_to_bps(
+            config.risk_factors.backstop_bps,
+            config.risk_factors.backstop,
+            "backstop",
+        )?,
+        risk_factor_bps_or_percent_to_bps(
+            config.risk_factors.high_risk_bps,
+            config.risk_factors.high_risk,
+            "high_risk",
+        )?,
     ];
 
-    let cancel_order_risk_factor = (config.risk_factors.cancel_order * 100.0) as u16;
-    let upnl_risk_factor = (config.risk_factors.upnl * 100.0) as u16;
-    let upnl_risk_factor_for_withdrawals =
-        (config.risk_factors.upnl_for_withdrawals * 100.0) as u16;
+    let cancel_order_risk_factor = risk_factor_bps_or_percent_to_bps(
+        config.risk_factors.cancel_order_bps,
+        config.risk_factors.cancel_order,
+        "cancel_order",
+    )?;
+    let upnl_risk_factor = risk_factor_bps_or_percent_to_bps(
+        config.risk_factors.upnl_bps,
+        config.risk_factors.upnl,
+        "upnl",
+    )?;
+    let upnl_risk_factor_for_withdrawals = risk_factor_bps_or_percent_to_bps(
+        config.risk_factors.upnl_for_withdrawals_bps,
+        config.risk_factors.upnl_for_withdrawals,
+        "upnl_for_withdrawals",
+    )?;
 
     let tick_size = QuoteLotsPerBaseLotPerTick::new(config.tick_size);
 
@@ -168,22 +191,202 @@ fn convert_leverage_tiers(api_tiers: &[ExchangeLeverageTier]) -> Result<Leverage
         ));
     }
 
-    let convert_tier = |tier: &ExchangeLeverageTier| -> LeverageTier {
-        LeverageTier {
+    let convert_tier = |tier: &ExchangeLeverageTier| -> Result<LeverageTier, String> {
+        Ok(LeverageTier {
             upper_bound_size: BaseLots::new(tier.max_size_base_lots),
             max_leverage: Constant::new(tier.max_leverage as u64),
-            limit_order_risk_factor: BasisPoints::new(
-                (tier.limit_order_risk_factor * 100.0) as u64,
-            ),
-        }
+            limit_order_risk_factor: BasisPoints::new(risk_factor_bps_or_percent_to_bps(
+                tier.limit_order_risk_factor_bps,
+                tier.limit_order_risk_factor,
+                "leverage_tier.limit_order_risk_factor",
+            )? as u64),
+        })
     };
 
     let tiers: [LeverageTier; 4] = [
-        convert_tier(&api_tiers[0]),
-        convert_tier(&api_tiers[1]),
-        convert_tier(&api_tiers[2]),
-        convert_tier(&api_tiers[3]),
+        convert_tier(&api_tiers[0])?,
+        convert_tier(&api_tiers[1])?,
+        convert_tier(&api_tiers[2])?,
+        convert_tier(&api_tiers[3])?,
     ];
 
     LeverageTiers::new(tiers).map_err(|e| e.to_string())
+}
+
+fn risk_factor_bps_or_percent_to_bps(
+    value_bps: Option<u16>,
+    value_percent: f64,
+    field: &str,
+) -> Result<u16, String> {
+    if let Some(value_bps) = value_bps {
+        if value_bps > 10_000 {
+            return Err(format!(
+                "{field} risk factor must be at most 10000 bps, got {value_bps}",
+            ));
+        }
+        return Ok(value_bps);
+    }
+
+    risk_factor_percent_to_bps(value_percent, field)
+}
+
+fn risk_factor_percent_to_bps(value: f64, field: &str) -> Result<u16, String> {
+    if !value.is_finite() {
+        return Err(format!("{field} risk factor is not finite"));
+    }
+    if value < 0.0 || value > 100.0 {
+        return Err(format!(
+            "{field} risk factor must be between 0 and 100 percent, got {value}",
+        ));
+    }
+
+    let basis_points = value * 100.0;
+    let rounded = basis_points.round();
+    if (rounded - basis_points).abs() > 1e-9 {
+        return Err(format!(
+            "{field} risk factor must resolve to an integer basis point value, got {value}",
+        ));
+    }
+
+    Ok(rounded as u16)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{ExchangeRiskFactors, MarketStatus};
+
+    fn market_config() -> ExchangeMarketConfig {
+        ExchangeMarketConfig {
+            symbol: "SOL-PERP".to_string(),
+            asset_id: 1,
+            market_status: MarketStatus::Active,
+            metadata: None,
+            market_pubkey: "market".to_string(),
+            spline_pubkey: "spline".to_string(),
+            tick_size: 1,
+            base_lots_decimals: 0,
+            taker_fee: 0.0,
+            maker_fee: 0.0,
+            leverage_tiers: vec![
+                ExchangeLeverageTier {
+                    max_leverage: 20.0,
+                    max_size_base_lots: 1_000,
+                    limit_order_risk_factor: 60.0,
+                    limit_order_risk_factor_bps: Some(6_000),
+                },
+                ExchangeLeverageTier {
+                    max_leverage: 10.0,
+                    max_size_base_lots: 2_000,
+                    limit_order_risk_factor: 70.0,
+                    limit_order_risk_factor_bps: Some(7_000),
+                },
+                ExchangeLeverageTier {
+                    max_leverage: 5.0,
+                    max_size_base_lots: 3_000,
+                    limit_order_risk_factor: 80.0,
+                    limit_order_risk_factor_bps: Some(8_000),
+                },
+                ExchangeLeverageTier {
+                    max_leverage: 2.0,
+                    max_size_base_lots: 4_000,
+                    limit_order_risk_factor: 100.0,
+                    limit_order_risk_factor_bps: Some(10_000),
+                },
+            ],
+            risk_factors: ExchangeRiskFactors {
+                maintenance: 50.0,
+                maintenance_bps: Some(5_000),
+                backstop: 20.0,
+                backstop_bps: Some(2_000),
+                high_risk: 10.0,
+                high_risk_bps: Some(1_000),
+                upnl: 100.0,
+                upnl_bps: Some(10_000),
+                upnl_for_withdrawals: 1.0,
+                upnl_for_withdrawals_bps: Some(100),
+                cancel_order: 70.0,
+                cancel_order_bps: Some(7_000),
+            },
+            funding_interval_seconds: 3_600,
+            funding_period_seconds: 86_400,
+            max_funding_rate_per_interval: 0.0,
+            open_interest_cap_base_lots: 1_000_000_u64.into(),
+            max_liquidation_size_base_lots: 10_000_u64.into(),
+            isolated_only: false,
+        }
+    }
+
+    fn market_stats() -> MarketStatsUpdate {
+        MarketStatsUpdate {
+            symbol: "SOL-PERP".to_string(),
+            open_interest: 0.0,
+            mark_price: 121.0,
+            mid_price: 121.0,
+            oracle_price: 121.0,
+            prev_day_mark_price: 121.0,
+            day_volume_usd: 0.0,
+            funding_rate: 0.0,
+        }
+    }
+
+    #[test]
+    fn exchange_config_risk_factors_convert_percentages_to_basis_points() {
+        let config = market_config();
+        let calc = MarketCalculator::new(
+            config.base_lots_decimals,
+            QuoteLotsPerBaseLotPerTick::new(config.tick_size),
+        );
+        let metadata =
+            perp_asset_metadata_from_exchange_config(&config, &market_stats(), &calc).unwrap();
+
+        assert_eq!(metadata.risk_factors, [5_000, 2_000, 1_000]);
+        assert_eq!(metadata.cancel_order_risk_factor, 7_000);
+        assert_eq!(metadata.upnl_risk_factor, 10_000);
+        assert_eq!(metadata.upnl_risk_factor_for_withdrawals, 100);
+        assert_eq!(
+            metadata
+                .leverage_tiers()
+                .get_limit_order_risk_factor(BaseLots::new(1)),
+            BasisPoints::new(6_000)
+        );
+    }
+
+    #[test]
+    fn rejects_out_of_range_risk_factor_values() {
+        let mut config = market_config();
+        config.risk_factors.maintenance_bps = None;
+        config.risk_factors.maintenance = 500.0;
+        let calc = MarketCalculator::new(
+            config.base_lots_decimals,
+            QuoteLotsPerBaseLotPerTick::new(config.tick_size),
+        );
+        let err =
+            perp_asset_metadata_from_exchange_config(&config, &market_stats(), &calc).unwrap_err();
+
+        assert!(err.contains("maintenance risk factor must be between 0 and 100 percent"));
+    }
+
+    #[test]
+    fn exchange_config_prefers_basis_point_risk_factors() {
+        let mut config = market_config();
+        config.risk_factors.maintenance = 0.5;
+        config.risk_factors.maintenance_bps = Some(5_000);
+        config.leverage_tiers[0].limit_order_risk_factor = 0.6;
+        config.leverage_tiers[0].limit_order_risk_factor_bps = Some(6_000);
+        let calc = MarketCalculator::new(
+            config.base_lots_decimals,
+            QuoteLotsPerBaseLotPerTick::new(config.tick_size),
+        );
+        let metadata =
+            perp_asset_metadata_from_exchange_config(&config, &market_stats(), &calc).unwrap();
+
+        assert_eq!(metadata.risk_factors[0], 5_000);
+        assert_eq!(
+            metadata
+                .leverage_tiers()
+                .get_limit_order_risk_factor(BaseLots::new(1)),
+            BasisPoints::new(6_000)
+        );
+    }
 }

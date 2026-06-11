@@ -349,8 +349,10 @@ fn apply_market_parameter_update(
     update: &ExchangeMarketParameterUpdate,
 ) {
     match update {
-        ExchangeMarketParameterUpdate::CancelRiskFactorUpdated { new, .. } => {
+        ExchangeMarketParameterUpdate::CancelRiskFactorUpdated { new, new_bps, .. } => {
             market.risk_factors.cancel_order = *new;
+            market.risk_factors.cancel_order_bps =
+                (*new_bps).or_else(|| percent_to_basis_points(*new));
         }
         ExchangeMarketParameterUpdate::IsolatedOnlyUpdated { new, .. } => {
             market.isolated_only = *new;
@@ -364,11 +366,16 @@ fn apply_market_parameter_update(
         ExchangeMarketParameterUpdate::OpenInterestCapUpdated { new_base_lots, .. } => {
             market.open_interest_cap_base_lots = *new_base_lots;
         }
-        ExchangeMarketParameterUpdate::UpnlRiskFactorUpdated { new, .. } => {
+        ExchangeMarketParameterUpdate::UpnlRiskFactorUpdated { new, new_bps, .. } => {
             market.risk_factors.upnl = *new;
+            market.risk_factors.upnl_bps = (*new_bps).or_else(|| percent_to_basis_points(*new));
         }
-        ExchangeMarketParameterUpdate::UpnlRiskFactorForWithdrawalsUpdated { new, .. } => {
+        ExchangeMarketParameterUpdate::UpnlRiskFactorForWithdrawalsUpdated {
+            new, new_bps, ..
+        } => {
             market.risk_factors.upnl_for_withdrawals = *new;
+            market.risk_factors.upnl_for_withdrawals_bps =
+                (*new_bps).or_else(|| percent_to_basis_points(*new));
         }
         ExchangeMarketParameterUpdate::FundingParametersUpdated { new, .. } => {
             market.funding_config = new.clone();
@@ -382,6 +389,17 @@ fn apply_market_parameter_update(
         }
         ExchangeMarketParameterUpdate::Unknown => {}
     }
+}
+
+fn percent_to_basis_points(value: f64) -> Option<u16> {
+    if !value.is_finite() || value < 0.0 {
+        return None;
+    }
+    let bps = value * 100.0;
+    if bps > u16::MAX as f64 {
+        return None;
+    }
+    Some(bps.round() as u16)
 }
 
 fn market_change_kind(
@@ -527,12 +545,18 @@ mod tests {
                     limit_order_risk_factor: 2_500,
                 }],
                 risk_factors: crate::phoenix_rise_types::ExchangeRiskFactors {
-                    maintenance: 5.0,
-                    backstop: 8.0,
-                    high_risk: 12.0,
-                    upnl: 90.0,
-                    upnl_for_withdrawals: 80.0,
-                    cancel_order: 2.5,
+                    maintenance: 5_000.0,
+                    maintenance_bps: Some(5_000),
+                    backstop: 4_000.0,
+                    backstop_bps: Some(4_000),
+                    high_risk: 3_000.0,
+                    high_risk_bps: Some(3_000),
+                    upnl: 10_000.0,
+                    upnl_bps: Some(10_000),
+                    upnl_for_withdrawals: 100.0,
+                    upnl_for_withdrawals_bps: Some(100),
+                    cancel_order: 5_500.0,
+                    cancel_order_bps: Some(5_500),
                 },
                 funding_config: ExchangeWsFundingConfig {
                     funding_interval_seconds: 3600,
