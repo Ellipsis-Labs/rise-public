@@ -82,13 +82,32 @@ const toUnits = (market: ExchangeMarketSnapshot): MarketUnits => ({
   tickSizeInQuoteLotsPerBaseLot: market.tickSize,
 });
 
+const riskFactorPercentToBps = (value: number): number => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.round(value * 100);
+};
+
 const toRiskFactors = (market: ExchangeMarketSnapshot): RiskFactors => ({
-  maintenance: market.riskFactors.maintenance,
-  backstop: market.riskFactors.backstop,
-  highRisk: market.riskFactors.highRisk,
-  upnl: market.riskFactors.upnl,
-  upnlForWithdrawals: market.riskFactors.upnlForWithdrawals,
-  cancelOrder: market.riskFactors.cancelOrder,
+  maintenance:
+    market.riskFactors.maintenanceBps ??
+    riskFactorPercentToBps(market.riskFactors.maintenance),
+  backstop:
+    market.riskFactors.backstopBps ??
+    riskFactorPercentToBps(market.riskFactors.backstop),
+  highRisk:
+    market.riskFactors.highRiskBps ??
+    riskFactorPercentToBps(market.riskFactors.highRisk),
+  upnl:
+    market.riskFactors.upnlBps ??
+    riskFactorPercentToBps(market.riskFactors.upnl),
+  upnlForWithdrawals:
+    market.riskFactors.upnlForWithdrawalsBps ??
+    riskFactorPercentToBps(market.riskFactors.upnlForWithdrawals),
+  cancelOrder:
+    market.riskFactors.cancelOrderBps ??
+    riskFactorPercentToBps(market.riskFactors.cancelOrder),
 });
 
 export interface PhoenixProjectedMarket {

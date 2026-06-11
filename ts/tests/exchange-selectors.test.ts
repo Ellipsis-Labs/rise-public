@@ -38,11 +38,17 @@ const buildMarket = (
   ],
   riskFactors: {
     maintenance: 5,
+    maintenanceBps: 500,
     backstop: 8,
+    backstopBps: 800,
     highRisk: 12,
+    highRiskBps: 1200,
     upnl: 90,
+    upnlBps: 9000,
     upnlForWithdrawals: 80,
+    upnlForWithdrawalsBps: 8000,
     cancelOrder: 2.5,
+    cancelOrderBps: 250,
   },
   fundingConfig: {
     fundingIntervalSeconds: 3600,
@@ -265,7 +271,22 @@ describe("exchange selectors", () => {
   });
 
   it("projects normalized market display fields from exchange snapshots", () => {
-    const market = buildMarket("SOL");
+    const market = buildMarket("SOL", {
+      riskFactors: {
+        maintenance: 0.5,
+        maintenanceBps: 5_000,
+        backstop: 0.2,
+        backstopBps: 2_000,
+        highRisk: 0.1,
+        highRiskBps: 1_000,
+        upnl: 1,
+        upnlBps: 10_000,
+        upnlForWithdrawals: 0.01,
+        upnlForWithdrawalsBps: 100,
+        cancelOrder: 0.7,
+        cancelOrderBps: 7_000,
+      },
+    });
 
     const projectedA = projectPhoenixMarket(market);
     const projectedB = projectPhoenixMarket(market);
@@ -285,6 +306,14 @@ describe("exchange selectors", () => {
       maxLeverage: 20,
       maxSizeBaseLots: 1000,
       limitOrderRiskFactor: 250,
+    });
+    expect(projectedA.riskFactors).toEqual({
+      maintenance: 5_000,
+      backstop: 2_000,
+      highRisk: 1_000,
+      upnl: 10_000,
+      upnlForWithdrawals: 100,
+      cancelOrder: 7_000,
     });
 
     const projectedBySymbolA = projectPhoenixMarketsBySymbol({

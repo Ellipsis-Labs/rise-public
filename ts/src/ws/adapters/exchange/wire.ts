@@ -85,6 +85,8 @@ export interface CancelRiskFactorUpdated {
   kind: "cancelRiskFactorUpdated";
   previous: number;
   new: number;
+  previousBps?: number;
+  newBps?: number;
 }
 
 export interface IsolatedOnlyUpdated {
@@ -115,12 +117,16 @@ export interface UpnlRiskFactorUpdated {
   kind: "upnlRiskFactorUpdated";
   previous: number;
   new: number;
+  previousBps?: number;
+  newBps?: number;
 }
 
 export interface UpnlRiskFactorForWithdrawalsUpdated {
   kind: "upnlRiskFactorForWithdrawalsUpdated";
   previous: number;
   new: number;
+  previousBps?: number;
+  newBps?: number;
 }
 
 export interface FundingParametersUpdated {
@@ -274,6 +280,18 @@ const normalizeUnknownMarketParameterUpdate = (
   };
 };
 
+const normalizeRiskFactorUpdateCoordinates = (
+  update: Record<string, unknown>
+): Record<string, unknown> => {
+  if (update.previousBps === undefined) {
+    update.previousBps = update.previous_bps;
+  }
+  if (update.newBps === undefined) {
+    update.newBps = update.new_bps;
+  }
+  return update;
+};
+
 const normalizeExchangeDeltaOp = (value: unknown): unknown => {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return value;
@@ -343,9 +361,18 @@ const normalizeExchangeDeltaOp = (value: unknown): unknown => {
         typeof op.update === "object" &&
         !Array.isArray(op.update)
       ) {
-        op.update = normalizeUnknownMarketParameterUpdate({
+        const update = normalizeUnknownMarketParameterUpdate({
           ...(op.update as Record<string, unknown>),
         });
+        if (
+          update.kind === "cancelRiskFactorUpdated" ||
+          update.kind === "upnlRiskFactorUpdated" ||
+          update.kind === "upnlRiskFactorForWithdrawalsUpdated"
+        ) {
+          op.update = normalizeRiskFactorUpdateCoordinates(update);
+        } else {
+          op.update = update;
+        }
       }
       return op;
     default:
@@ -409,6 +436,8 @@ const exchangeMarketParameterUpdateSchema = z.discriminatedUnion("kind", [
     kind: z.literal("cancelRiskFactorUpdated"),
     previous: z.number(),
     new: z.number(),
+    previousBps: z.number().optional(),
+    newBps: z.number().optional(),
   }),
   z.object({
     kind: z.literal("isolatedOnlyUpdated"),
@@ -434,11 +463,15 @@ const exchangeMarketParameterUpdateSchema = z.discriminatedUnion("kind", [
     kind: z.literal("upnlRiskFactorUpdated"),
     previous: z.number(),
     new: z.number(),
+    previousBps: z.number().optional(),
+    newBps: z.number().optional(),
   }),
   z.object({
     kind: z.literal("upnlRiskFactorForWithdrawalsUpdated"),
     previous: z.number(),
     new: z.number(),
+    previousBps: z.number().optional(),
+    newBps: z.number().optional(),
   }),
   z.object({
     kind: z.literal("fundingParametersUpdated"),

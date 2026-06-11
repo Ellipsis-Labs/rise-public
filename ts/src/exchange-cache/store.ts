@@ -145,6 +145,13 @@ const cloneExchange = (
   exchangeStatusFeatures: [...exchange.exchangeStatusFeatures],
 });
 
+const riskFactorPercentToBps = (value: number): number => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.round(value * 100);
+};
+
 const sortMarkets = (markets: ExchangeMarketSnapshot[]): void => {
   markets.sort(
     (left, right) =>
@@ -804,6 +811,7 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
         nextMarket.riskFactors = {
           ...nextMarket.riskFactors,
           cancelOrder: update.new,
+          cancelOrderBps: update.newBps ?? riskFactorPercentToBps(update.new),
         };
         return nextMarket;
       case "isolatedOnlyUpdated":
@@ -822,12 +830,15 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
         nextMarket.riskFactors = {
           ...nextMarket.riskFactors,
           upnl: update.new,
+          upnlBps: update.newBps ?? riskFactorPercentToBps(update.new),
         };
         return nextMarket;
       case "upnlRiskFactorForWithdrawalsUpdated":
         nextMarket.riskFactors = {
           ...nextMarket.riskFactors,
           upnlForWithdrawals: update.new,
+          upnlForWithdrawalsBps:
+            update.newBps ?? riskFactorPercentToBps(update.new),
         };
         return nextMarket;
       case "fundingParametersUpdated":
