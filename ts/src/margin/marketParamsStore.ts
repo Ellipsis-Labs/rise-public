@@ -55,6 +55,7 @@ export interface MarginMarketParamsStoreOptions<
 const DEFAULT_TTL_MS = 30_000;
 
 const MICRO_USD = 1_000_000n;
+const RISK_FACTOR_BPS_MAX = 10_000;
 
 const resolveMarketsClient = (client: MarginClient): MarginMarketsClient => {
   if ("markets" in client) {
@@ -151,6 +152,29 @@ export const priceUsdToTicks = (
   return (numerator / denominator).toString();
 };
 
+const riskFactorBpsToMarginBps = (value: number, field: string): string => {
+  if (!Number.isFinite(value)) {
+    throw new Error(`${field} risk factor is not finite`);
+  }
+  if (value < 0) {
+    throw new Error(`${field} risk factor must be non-negative`);
+  }
+
+  const basisPoints = value;
+  if (basisPoints > RISK_FACTOR_BPS_MAX) {
+    throw new Error(
+      `${field} risk factor must be at most ${RISK_FACTOR_BPS_MAX} bps`
+    );
+  }
+
+  const rounded = Math.round(basisPoints);
+  if (Math.abs(rounded - basisPoints) > 1e-9) {
+    throw new Error(`${field} risk factor must resolve to whole bps`);
+  }
+
+  return rounded.toString();
+};
+
 export const buildMarketParamsFromSummary = (
   market: MarketSummary,
   markPriceUsd: number | string | null | undefined,
@@ -178,17 +202,34 @@ export const buildMarketParamsFromSummary = (
     leverageTiers: market.leverageTiers.map((tier) => ({
       upperBoundSize: tier.maxSizeBaseLots.toString(),
       maxLeverage: tier.maxLeverage.toString(),
-      limitOrderRiskFactorBps: tier.limitOrderRiskFactor.toString(),
+      limitOrderRiskFactorBps: riskFactorBpsToMarginBps(
+        tier.limitOrderRiskFactor,
+        "leverage_tier.limit_order_risk_factor"
+      ),
     })),
     riskFactors: {
-      maintenanceMarginFactorBps: market.riskFactors.maintenance.toString(),
-      backstopMarginFactorBps: market.riskFactors.backstop.toString(),
-      highRiskMarginFactorBps: market.riskFactors.highRisk.toString(),
+      maintenanceMarginFactorBps: riskFactorBpsToMarginBps(
+        market.riskFactors.maintenance,
+        "maintenance"
+      ),
+      backstopMarginFactorBps: riskFactorBpsToMarginBps(
+        market.riskFactors.backstop,
+        "backstop"
+      ),
+      highRiskMarginFactorBps: riskFactorBpsToMarginBps(
+        market.riskFactors.highRisk,
+        "high_risk"
+      ),
     },
-    cancelOrderRiskFactorBps: market.riskFactors.cancelOrder.toString(),
-    upnlRiskFactor: market.riskFactors.upnl.toString(),
-    upnlRiskFactorForWithdrawals:
-      market.riskFactors.upnlForWithdrawals.toString(),
+    cancelOrderRiskFactorBps: riskFactorBpsToMarginBps(
+      market.riskFactors.cancelOrder,
+      "cancel_order"
+    ),
+    upnlRiskFactor: riskFactorBpsToMarginBps(market.riskFactors.upnl, "upnl"),
+    upnlRiskFactorForWithdrawals: riskFactorBpsToMarginBps(
+      market.riskFactors.upnlForWithdrawals,
+      "upnl_for_withdrawals"
+    ),
     isolatedOnly: market.isolatedOnly,
   };
 };

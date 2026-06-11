@@ -77,7 +77,10 @@ export const ExchangeStatusViewSchema: z.ZodType<ExchangeStatusView> = z.object(
 export interface ExchangeLeverageTier {
   maxLeverage: number;
   maxSizeBaseLots: number;
+  /** Limit order risk factor as a percentage (e.g. 60 = 60%). */
   limitOrderRiskFactor: number;
+  /** Limit order risk factor in basis points (e.g. 6000 = 60%). */
+  limitOrderRiskFactorBps?: number;
 }
 
 export const ExchangeLeverageTierSchema: z.ZodType<ExchangeLeverageTier> =
@@ -85,25 +88,50 @@ export const ExchangeLeverageTierSchema: z.ZodType<ExchangeLeverageTier> =
     maxLeverage: z.number(),
     maxSizeBaseLots: z.number(),
     limitOrderRiskFactor: z.number(),
+    limitOrderRiskFactorBps: z.number().optional(),
   });
 
 export interface ExchangeRiskFactors {
+  /** Maintenance margin risk factor as a percentage (e.g. 50 = 50%). */
   maintenance: number;
+  /** Maintenance margin risk factor in basis points (e.g. 5000 = 50%). */
+  maintenanceBps?: number;
+  /** Backstop liquidation risk factor as a percentage. */
   backstop: number;
+  /** Backstop liquidation risk factor in basis points. */
+  backstopBps?: number;
+  /** High-risk threshold as a percentage. */
   highRisk: number;
+  /** High-risk threshold in basis points. */
+  highRiskBps?: number;
+  /** Positive unrealized PnL discount factor as a percentage. */
   upnl: number;
+  /** Positive unrealized PnL discount factor in basis points. */
+  upnlBps?: number;
+  /** Positive unrealized PnL discount factor for withdrawals as a percentage. */
   upnlForWithdrawals: number;
+  /** Positive unrealized PnL discount factor for withdrawals in basis points. */
+  upnlForWithdrawalsBps?: number;
+  /** Cancel-order risk factor as a percentage. */
   cancelOrder: number;
+  /** Cancel-order risk factor in basis points. */
+  cancelOrderBps?: number;
 }
 
 export const ExchangeRiskFactorsSchema: z.ZodType<ExchangeRiskFactors> =
   z.object({
     maintenance: z.number(),
+    maintenanceBps: z.number().optional(),
     backstop: z.number(),
+    backstopBps: z.number().optional(),
     highRisk: z.number(),
+    highRiskBps: z.number().optional(),
     upnl: z.number(),
+    upnlBps: z.number().optional(),
     upnlForWithdrawals: z.number(),
+    upnlForWithdrawalsBps: z.number().optional(),
     cancelOrder: z.number(),
+    cancelOrderBps: z.number().optional(),
   });
 
 export interface MarketCalendar {
@@ -258,6 +286,7 @@ export const ExchangeConfigSchema: z.ZodType<ExchangeConfig> = z.object({
 export interface ExchangeWsLeverageTier {
   maxLeverage: number;
   maxSizeBaseLots: bigint;
+  /** Limit order risk factor in basis points (e.g. 6000 = 60%). */
   limitOrderRiskFactor: number;
 }
 
