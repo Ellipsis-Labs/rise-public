@@ -71,8 +71,6 @@ Source Phoenix commit: `7b0e722849fbc44d2d34d481d208db0ea951b78e`
 
 ### Breaking Changes
 
-- **`RiskFactors` scale changed — downstream reads will be ~100× off.** Any code that reads `projectedMarket.riskFactors.*` and treats the value as a percentage (e.g. multiplying by 100 to convert, or comparing against a threshold like `> 50`) must be updated to expect bps (e.g. `> 5000`). TypeScript types compile unchanged because the field names are the same.
-- **Package registry moved to GitHub Packages (restricted).** The `publishConfig` registry changed from `registry.npmjs.org` (public) to `npm.pkg.github.com` (restricted). Consumers must add a scoped registry entry for `@ellipsis-labs` in their `.npmrc` and authenticate with a GitHub token that has `read:packages` scope.
 - **`buildMarketParamsFromSummary` can now throw.** If a `MarketSummary` contains risk factor values that are non-finite, negative, non-integer bps, or exceed 10 000 bps, the function throws instead of returning a params object. Callers that previously relied on unconditional success should wrap the call or validate inputs first.
 
 ### Consumer Notes
