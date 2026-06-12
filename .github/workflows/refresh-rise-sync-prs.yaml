@@ -1,0 +1,49 @@
+name: Refresh Rise Sync PRs
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Package queue to refresh."
+        default: "all"
+        required: true
+        type: choice
+        options:
+          - "all"
+          - "ts"
+          - "rust"
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    env:
+      BASE_BRANCH: ${{ vars.RISE_SYNC_BASE_BRANCH || 'master' }}
+      GH_TOKEN: ${{ secrets.RISE_SYNC_DISPATCH_TOKEN }}
+      PACKAGE: ${{ inputs.package || 'all' }}
+      PHOENIX_REPO: ${{ vars.RISE_SYNC_PHOENIX_REPO || 'Ellipsis-Labs/phoenix' }}
+      TARGET_REPO: ${{ vars.RISE_SYNC_TARGET_REPO || github.repository }}
+    steps:
+      - name: Dispatch Phoenix refresh
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::warning::RISE_SYNC_DISPATCH_TOKEN is not configured; skipping Phoenix refresh dispatch."
+            exit 0
+          fi
+
+          gh api "repos/${PHOENIX_REPO}/dispatches" \
+            -f event_type="rise-public-master-updated" \
+            -f "client_payload[operation]=refresh_next_sync_pr" \
+            -f "client_payload[target_repo]=${TARGET_REPO}" \
+            -f "client_payload[base_branch]=${BASE_BRANCH}" \
+            -f "client_payload[package]=${PACKAGE}" \
+            -f "client_payload[source_repo]=${GITHUB_REPOSITORY}" \
+            -f "client_payload[source_sha]=${GITHUB_SHA}" \
+            -f "client_payload[source_event]=${GITHUB_EVENT_NAME}"
