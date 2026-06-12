@@ -93,12 +93,6 @@ Source Phoenix commit: `443ff8dfd64a9e7d35960b8b1946b3248d6681e5`
 - `ExchangeRiskFactors` and `ExchangeLeverageTier` gain optional `*Bps` companion fields populated by the exchange cache and WebSocket store; the legacy percentage fields remain present.
 - WebSocket risk-factor update events (`cancelRiskFactorUpdated`, `upnlRiskFactorUpdated`, `upnlRiskFactorForWithdrawalsUpdated`) gain optional `previousBps`/`newBps` fields, normalized from server snake_case.
 
-### Breaking Changes
-
-- **Package registry changed**: `publishConfig.registry` moved from `registry.npmjs.org` (public) to `npm.pkg.github.com` (GitHub Packages, `access: restricted`). Consumers must authenticate to GitHub Packages to install or update this package.
-- **`RiskFactors` semantic change**: `RiskFactors.maintenance`, `.backstop`, `.highRisk`, `.upnl`, `.upnlForWithdrawals`, and `.cancelOrder` (from `types/market.ts`) now hold basis-point values (`5000` = 50%) instead of percentage values (`50` = 50%). Any code reading `projectedMarket.riskFactors.*` or constructing `MarketSummary.riskFactors` for `buildMarketParamsFromSummary` must be updated to use bps-scale values.
-- **`buildMarketParamsFromSummary` validation**: Risk factor inputs are now validated as whole-number bps values in `[0, 10_000]`; non-finite, negative, fractional, or out-of-range values throw at runtime instead of silently converting.
-
 ### Consumer Notes
 
 - New liquidation history types (`UserLiquidationHistoryPoint` and subtypes `UserMarketLiquidationHistoryPoint`, `UserBackstopLiquidationHistoryPoint`, `UserAdlLiquidationHistoryPoint`) are exported from the public surface; narrow on the `kind` discriminant to access type-specific fields.
