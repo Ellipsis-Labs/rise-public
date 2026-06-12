@@ -83,6 +83,7 @@ export const HTTP_RESOURCE_PRESENT_METHODS = {
     "getTraderMarketPnl",
   ],
   trades: [
+    "getUserLiquidationHistory",
     "getTraderTradesHistory",
     "getMarketFills",
     "getTraderTradeHistoryV2",
