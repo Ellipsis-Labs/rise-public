@@ -163,3 +163,20 @@ Source Phoenix commit: `0499d27df18bb2694c5489a9395bec0a58d1d141`
 
 - The encoded size of add-market instructions has changed to 345 bytes to accommodate the new after-hours radius field. If your code hard-codes or validates the byte length of these instruction payloads, update it accordingly.
 - The after-hours radius defaults to `0n` (disabled), so existing integrations that do not set this field should continue to work without modification.
+
+## v0.4.36 - 2026-06-15
+
+Source Phoenix commit: `8809c4d39c7070f6430c20dd5fe670ad86032523`
+
+### Summary
+
+- Version bumped from `0.4.35` to `0.4.36`.
+- No functional code, API, or type changes are included in this sync — the diff contains only the version field update in `package.json`.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- None identified in the synced diff.
