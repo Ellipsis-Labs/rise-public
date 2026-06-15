@@ -66,18 +66,10 @@ async function main() {
     try {
       const traderState = await client.api
         .traders()
-        .getTraderState(traderPubkey);
-      console.log("✓ Trader state fetched");
-      if (traderState.traders.length > 0) {
-        const traderView = traderState.traders[0];
-        console.log(
-          `  First trader view: ${JSON.stringify(traderView).substring(0, 80)}...`
-        );
-        const capabilitiesValid = traderView.verifyCapabilities();
-        console.log(`  Capabilities valid: ${capabilitiesValid}`);
-      } else {
-        console.log("  No traders in state");
-      }
+        .getTraderStateSnapshot(traderPubkey);
+      console.log("✓ Trader state snapshot fetched");
+      console.log(`  Trader PDA index: ${traderState.traderPdaIndex}`);
+      console.log(`  Subaccounts: ${traderState.snapshot.subaccounts.length}`);
     } catch (error) {
       console.log(
         `⚠ Could not fetch trader state: ${(error as Error).message}`

@@ -27,7 +27,7 @@ export class V1MarketsClient {
   async getMarkets(): Promise<ExchangeMarketConfig[]> {
     return get(
       this.http,
-      "/exchange/markets",
+      "/v1/view/exchange/markets",
       ExchangeMarketConfigSchema.array()
     );
   }
@@ -35,7 +35,7 @@ export class V1MarketsClient {
   async getMarket(symbol: string): Promise<ExchangeMarketConfig> {
     return get(
       this.http,
-      `/exchange/market/${encodeURIComponent(symbol)}`,
+      `/v1/view/exchange/market/${encodeURIComponent(symbol)}`,
       ExchangeMarketConfigSchema
     );
   }

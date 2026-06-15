@@ -74,7 +74,6 @@ export const HTTP_RESOURCE_PRESENT_METHODS = {
   ],
   traders: [
     "getTrader",
-    "getTraderState",
     "getTraderStateSnapshot",
     "getTraderPnl",
     "getTraderCapabilities",

@@ -345,7 +345,7 @@ export interface MarketTradeHistoryRequest {
 }
 
 // ---------------------------------------------------------------------------
-// Market Fill Record types for /market/{symbol}/fills
+// Market Fill Record types for /v1/trades/{symbol}/fills
 // ---------------------------------------------------------------------------
 
 export interface MarketFillRecord {
@@ -415,7 +415,7 @@ export const MarketFillsResponseSchema: z.ZodType<MarketFillsResponse> =
   }));
 
 // ---------------------------------------------------------------------------
-// Trade History Record types for /trader/{authority}/trades-history
+// Trade History Record types for /v1/trader/{authority}/trades-history
 // ---------------------------------------------------------------------------
 
 export interface FillRecord {

@@ -101,7 +101,7 @@ export class V1TradesClient {
   ): Promise<FillsResponse> {
     return get(
       this.http,
-      `/trader/${encodeURIComponent(authority)}/trades-history`,
+      `/v1/trader/${encodeURIComponent(authority)}/trades-history`,
       FillsResponseSchema,
       { params: buildTradeHistoryQuery(request) }
     );
@@ -125,7 +125,7 @@ export class V1TradesClient {
   ): Promise<MarketFillsResponse> {
     return get(
       this.http,
-      `/market/${encodeURIComponent(symbol)}/fills`,
+      `/v1/trades/${encodeURIComponent(symbol)}/fills`,
       MarketFillsResponseSchema,
       { params: buildMarketTradeHistoryQuery(request) }
     );

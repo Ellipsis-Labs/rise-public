@@ -5,7 +5,7 @@ import z from "zod";
 // ---------------------------------------------------------------------------
 
 export interface CollateralHistoryRequest {
-  /** Trader PDA index (default 0) */
+  /** Trader PDA index for legacy authority-based collateral history calls. */
   pdaIndex?: number;
   /** Number of items to return (max 1000) */
   limit?: number;
