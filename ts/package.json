@@ -5,7 +5,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Ellipsis-Labs/rise-public.git",
-    "directory": "rise/ts"
+    "directory": "ts"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
