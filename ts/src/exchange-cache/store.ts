@@ -785,6 +785,8 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
         return "markPriceParameters";
       case "openInterestCapUpdated":
         return "openInterestCap";
+      case "maxLiquidationSizeUpdated":
+        return "maxLiquidationSize";
       case "upnlRiskFactorUpdated":
         return "upnlRiskFactor";
       case "upnlRiskFactorForWithdrawalsUpdated":
@@ -825,6 +827,9 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
         return nextMarket;
       case "openInterestCapUpdated":
         nextMarket.openInterestCapBaseLots = update.newBaseLots;
+        return nextMarket;
+      case "maxLiquidationSizeUpdated":
+        nextMarket.maxLiquidationSizeBaseLots = update.newBaseLots;
         return nextMarket;
       case "upnlRiskFactorUpdated":
         nextMarket.riskFactors = {
