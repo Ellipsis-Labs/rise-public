@@ -1,11 +1,11 @@
 {
   "name": "@ellipsis-labs/rise",
-  "version": "0.4.32",
+  "version": "0.4.33",
   "packageManager": "bun@1.3.13",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Ellipsis-Labs/rise-public.git",
-    "directory": "rise/ts"
+    "directory": "ts"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",

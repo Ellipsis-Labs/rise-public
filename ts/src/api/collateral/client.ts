@@ -44,7 +44,19 @@ export class V1CollateralClient {
   ): Promise<CollateralHistoryResponse> {
     return get(
       this.http,
-      `/trader/${encodeURIComponent(authority)}/collateral-history`,
+      `/v1/trader/${encodeURIComponent(authority)}/collateral-history`,
+      CollateralHistoryResponseSchema,
+      { params: buildCollateralHistoryQuery(request) }
+    );
+  }
+
+  async getTraderPdaCollateralHistory(
+    traderPubkey: string,
+    request?: Omit<CollateralHistoryRequest, "pdaIndex">
+  ): Promise<CollateralHistoryResponse> {
+    return get(
+      this.http,
+      `/v1/traders/${encodeURIComponent(traderPubkey)}/collateral-history`,
       CollateralHistoryResponseSchema,
       { params: buildCollateralHistoryQuery(request) }
     );
@@ -88,6 +100,33 @@ export class V1CollateralClient {
 
     while (hasMore) {
       const response = await this.getTraderCollateralHistory(authority, {
+        ...request,
+        limit: pageSize,
+        nextCursor: cursor,
+      });
+
+      allEvents.push(...response.data);
+      hasMore = response.hasMore;
+      cursor = response.nextCursor ?? undefined;
+    }
+
+    return allEvents;
+  }
+
+  async getAllTraderPdaCollateralHistory(
+    traderPubkey: string,
+    pageSize = 1000,
+    request?: Omit<
+      CollateralHistoryRequest,
+      "limit" | "nextCursor" | "pdaIndex"
+    >
+  ): Promise<CollateralHistoryResponse["data"]> {
+    const allEvents: CollateralHistoryResponse["data"] = [];
+    let cursor: string | undefined;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await this.getTraderPdaCollateralHistory(traderPubkey, {
         ...request,
         limit: pageSize,
         nextCursor: cursor,

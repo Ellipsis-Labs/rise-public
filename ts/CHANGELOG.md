@@ -7,10 +7,6 @@ entry in this repo before merging.
 
 Source Phoenix commit: `32611fa7f803cf601cab67b6ca5dce5d4a70fc75`
 
-- Package: `@ellipsis-labs/rise`
-- Target repo version: 0.4.19
-- Phoenix version: unknown -> 0.4.27
-
 ### Summary
 
 - Flame proxy-deposit flow added for sponsored USDC deposits that bypass user-owned rent accounts
@@ -38,10 +34,6 @@ Source Phoenix commit: `32611fa7f803cf601cab67b6ca5dce5d4a70fc75`
 
 Source Phoenix commit: `f0c4a154e63048a8517e72e8a6a8b806e3768cd0`
 
-- Package: `@ellipsis-labs/rise`
-- Target repo version: 0.4.27
-- Phoenix version: 0.4.27 -> 0.4.28
-
 ### Summary
 
 - **New `OnboardTraderDelegated` instruction**: Adds `buildOnboardTraderDelegatedIx`, `buildOnboardTraderDelegated`, and `buildOnboardTraderDelegatedIxResolved` to the public surface. A delegated onboarder keypair can now onboard a trader (optionally registering the account first) without the risk authority signing directly.
@@ -57,10 +49,6 @@ Source Phoenix commit: `f0c4a154e63048a8517e72e8a6a8b806e3768cd0`
 ## v0.4.30 - 2026-06-11
 
 Source Phoenix commit: `7b0e722849fbc44d2d34d481d208db0ea951b78e`
-
-- Package: `@ellipsis-labs/rise`
-- Target repo version: 0.4.28
-- Phoenix version: 0.4.28 -> 0.4.30
 
 ### Summary
 
@@ -82,10 +70,6 @@ Source Phoenix commit: `7b0e722849fbc44d2d34d481d208db0ea951b78e`
 
 Source Phoenix commit: `443ff8dfd64a9e7d35960b8b1946b3248d6681e5`
 
-- Package: `@ellipsis-labs/rise`
-- Target repo version: 0.4.28
-- Phoenix version: 0.4.30 -> 0.4.31
-
 ### Summary
 
 - Added `V1TradesClient.getUserLiquidationHistory(userPubkey, request?)` — a new paginated endpoint (`GET /v1/users/{pubkey}/liquidation-history`) returning typed liquidation events for three kinds: `market_order`, `backstop`, and `adl`.
@@ -103,10 +87,6 @@ Source Phoenix commit: `443ff8dfd64a9e7d35960b8b1946b3248d6681e5`
 
 Source Phoenix commit: `3506fd24b235813df18d1897c9ff076417c19ee8`
 
-- Package: `@ellipsis-labs/rise`
-- Target repo version: 0.4.31
-- Phoenix version: unknown -> 0.4.32
-
 ### Summary
 
 - Added a new `PlaceMarketOrderDelegated` instruction that allows placing market orders signed by a delegated wallet distinct from the trader account authority. Supports both an explicit `traderWallet`/`permissionAccount` pair and a default fallback to the position authority.
@@ -123,3 +103,25 @@ Source Phoenix commit: `3506fd24b235813df18d1897c9ff076417c19ee8`
 - When `traderWallet` and `permissionAccount` are omitted from `ClientPlaceMarketOrderDelegatedInput`, the SDK defaults both to `positionAuthority` (falling back to `authority`), so the method works as a drop-in for the primary position authority signing flow.
 - The `traderWallet` account is encoded as `READONLY_SIGNER` (account index 3) and `permissionAccount` as writable (account index 4) — relevant if you inspect raw account lists.
 - `buildPlaceMarketOrderDelegated` and `placeMarketOrderDelegated` are available on both the root package export and the `PhoenixIxClient` / `PhoenixIxOperations` client objects.
+
+## v0.4.33 - 2026-06-15
+
+Source Phoenix commit: `d1c6f3dea8582f451d616bc42b1a083f9fa04000`
+
+### Summary
+
+- `V1TradersClient.getTraderState()` has been removed; the replacement `getTraderStateSnapshot()` is the only trader state method going forward.
+- Two new collateral history methods added to `V1CollateralClient`: `getTraderPdaCollateralHistory()` for single-page lookups by trader PDA pubkey, and `getAllTraderPdaCollateralHistory()` for auto-paginated full history.
+- All internal HTTP routes have been updated to versioned `/v1/` prefixes; existing method call signatures are unchanged for consumers using the SDK client normally.
+
+### Breaking Changes
+
+- **`V1TradersClient.getTraderState(authority, request?)` removed** along with the `TraderStateRequest` interface and `TraderStateResponse`/`TraderStateResponseSchema` exports. Migrate to `getTraderStateSnapshot(authority, { traderPdaIndex })`, which returns a `TraderStateSnapshotResponse` with `traderPdaIndex` and `snapshot.subaccounts`.
+- **Exchange endpoints migrated** from `/exchange/*` to `/v1/view/exchange/*`. Consumers building mock HTTP interceptors, test transports, or calling the API directly (bypassing the SDK client) must update these paths: `getExchange`, `getMarket`, `getStatus`, `getKeys`, and `getMarkets`.
+- **Market fills endpoint** changed from `/market/{symbol}/fills` to `/v1/trades/{symbol}/fills`; **trader PnL endpoint** changed from `/trader/{authority}/pnl` to `/v1/users/{authority}/pnl`. Same impact scope as above.
+
+### Consumer Notes
+
+- `getTraderCollateralHistory(authority, { pdaIndex? })` continues to work for authority-based lookups via `/v1/trader/{authority}/collateral-history` (path now carries the `v1` prefix internally, but the method signature is unchanged).
+- New `getTraderPdaCollateralHistory(traderPubkey, request?)` targets `/v1/traders/{traderPubkey}/collateral-history` — use this when you have the trader PDA pubkey directly rather than the authority.
+- New `getAllTraderPdaCollateralHistory(traderPubkey, pageSize?, request?)` auto-paginates until `hasMore` is false and returns the flat event array; the default page size is 1000.

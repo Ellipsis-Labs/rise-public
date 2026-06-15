@@ -96,7 +96,7 @@ export class V1FundingClient {
 
     return get(
       this.http,
-      `/trader/${encodeURIComponent(authority)}/funding-history`,
+      `/v1/trader/${encodeURIComponent(authority)}/funding-history`,
       TraderFundingHistoryResponseSchema,
       { params: Object.keys(params).length > 0 ? params : undefined }
     );
