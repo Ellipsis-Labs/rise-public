@@ -201,3 +201,19 @@ Source Phoenix commit: `5a524ada417b9cce3f94096900c59b4ec5fc17ec`
 - No public TypeScript API changes in this release — types, exports, and runtime behavior are unchanged.
 - If your project uses Vite and this package's `vite` override propagates into your lock file, you will be upgraded to Vite 8. Review the [Vite 8 migration guide](https://vite.dev/guide/migration) for `rollupOptions` and plugin compatibility.
 - `lightningcss` is now a first-class dependency of Vite 8 (no longer an optional peer); CSS processing behavior may differ subtly from esbuild's CSS pipeline.
+
+## v0.4.38 - 2026-06-15
+
+Source Phoenix commit: `978cab228c047f8e511a8075621846c679d331d5`
+
+### Summary
+
+- Bumped `ws` peer dependency minimum from `>=8.20.1` to `>=8.21.0`.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- If you pin `ws` to an exact version below `8.21.0`, you may see peer dependency warnings or conflicts. Update your lockfile or pin to `ws@8.21.0` or later.
