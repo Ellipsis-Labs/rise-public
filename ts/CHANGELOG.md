@@ -7,10 +7,6 @@ entry in this repo before merging.
 
 Source Phoenix commit: `32611fa7f803cf601cab67b6ca5dce5d4a70fc75`
 
-- Package: `@ellipsis-labs/rise`
-- Target repo version: 0.4.19
-- Phoenix version: unknown -> 0.4.27
-
 ### Summary
 
 - Flame proxy-deposit flow added for sponsored USDC deposits that bypass user-owned rent accounts
@@ -38,10 +34,6 @@ Source Phoenix commit: `32611fa7f803cf601cab67b6ca5dce5d4a70fc75`
 
 Source Phoenix commit: `f0c4a154e63048a8517e72e8a6a8b806e3768cd0`
 
-- Package: `@ellipsis-labs/rise`
-- Target repo version: 0.4.27
-- Phoenix version: 0.4.27 -> 0.4.28
-
 ### Summary
 
 - **New `OnboardTraderDelegated` instruction**: Adds `buildOnboardTraderDelegatedIx`, `buildOnboardTraderDelegated`, and `buildOnboardTraderDelegatedIxResolved` to the public surface. A delegated onboarder keypair can now onboard a trader (optionally registering the account first) without the risk authority signing directly.
@@ -57,10 +49,6 @@ Source Phoenix commit: `f0c4a154e63048a8517e72e8a6a8b806e3768cd0`
 ## v0.4.30 - 2026-06-11
 
 Source Phoenix commit: `7b0e722849fbc44d2d34d481d208db0ea951b78e`
-
-- Package: `@ellipsis-labs/rise`
-- Target repo version: 0.4.28
-- Phoenix version: 0.4.28 -> 0.4.30
 
 ### Summary
 
@@ -82,10 +70,6 @@ Source Phoenix commit: `7b0e722849fbc44d2d34d481d208db0ea951b78e`
 
 Source Phoenix commit: `443ff8dfd64a9e7d35960b8b1946b3248d6681e5`
 
-- Package: `@ellipsis-labs/rise`
-- Target repo version: 0.4.28
-- Phoenix version: 0.4.30 -> 0.4.31
-
 ### Summary
 
 - Added `V1TradesClient.getUserLiquidationHistory(userPubkey, request?)` — a new paginated endpoint (`GET /v1/users/{pubkey}/liquidation-history`) returning typed liquidation events for three kinds: `market_order`, `backstop`, and `adl`.
@@ -102,10 +86,6 @@ Source Phoenix commit: `443ff8dfd64a9e7d35960b8b1946b3248d6681e5`
 ## v0.4.32 - 2026-06-15
 
 Source Phoenix commit: `3506fd24b235813df18d1897c9ff076417c19ee8`
-
-- Package: `@ellipsis-labs/rise`
-- Target repo version: 0.4.31
-- Phoenix version: unknown -> 0.4.32
 
 ### Summary
 
