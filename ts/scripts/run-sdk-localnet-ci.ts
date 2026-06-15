@@ -14,7 +14,7 @@ const targets: readonly Target[] = [
   {
     file: "tests/sdk-localnet-fixture.test.ts",
     label: "SDK localnet fixture",
-    expectedPassed: 5,
+    expectedPassed: 7,
   },
   {
     file: "tests/sdk-localnet-vm.test.ts",

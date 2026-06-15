@@ -122,6 +122,27 @@ describe("SDK localnet fixture", () => {
     }
   });
 
+  test("encodes add-market setup payloads with after-hours radius", () => {
+    const initializeMarkets = getSdkLocalnetTransaction(
+      defaultSdkLocalnetFixture,
+      "initializeMarkets"
+    );
+
+    for (const market of defaultSdkLocalnetFixture.markets) {
+      const instruction = initializeMarkets.instructions.find(
+        (candidate) => candidate.name === `add${market.symbol}Market`
+      );
+      expect(instruction, market.symbol).toBeDefined();
+      if (!instruction) {
+        throw new Error(`Missing add-market instruction for ${market.symbol}`);
+      }
+
+      const data = Buffer.from(instruction.dataBase64, "base64");
+      expect(data.length).toBe(345);
+      expect(data.readBigUInt64LE(data.length - 8)).toBe(0n);
+    }
+  });
+
   test("preserves signer roles while decoding account metas", () => {
     const exchange = getSdkLocalnetTransaction(
       defaultSdkLocalnetFixture,
