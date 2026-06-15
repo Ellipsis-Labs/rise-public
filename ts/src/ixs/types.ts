@@ -13,6 +13,7 @@ import type { PlaceLimitOrderIx } from "@/core/ixBuilders/PlaceLimitOrder";
 import type { PlaceLimitOrderWithConditionalsIx } from "@/core/ixBuilders/PlaceLimitOrderWithConditionals";
 import type { PlacePositionConditionalOrderIx } from "@/core/ixBuilders/PlacePositionConditionalOrder";
 import type { PlaceMarketOrderIx } from "@/core/ixBuilders/PlaceMarketOrder";
+import type { PlaceMarketOrderDelegatedIx } from "@/core/ixBuilders/PlaceMarketOrderDelegated";
 import type { PlacePostOnlyOrderIx } from "@/core/ixBuilders/PlacePostOnlyOrder";
 import type { PlaceStopLossIx } from "@/core/ixBuilders/PlaceStopLoss";
 import type { RegisterTraderIx } from "@/core/ixBuilders/RegisterTrader";
@@ -87,6 +88,12 @@ export interface BuildPlaceMarketOrderIxResolvedInput extends ResolvedPlaceOrder
   orderPacket: ImmediateOrCancelOrderPacket;
 }
 
+export interface BuildPlaceMarketOrderDelegatedIxResolvedInput extends ResolvedPlaceOrderContext {
+  orderPacket: ImmediateOrCancelOrderPacket;
+  traderWallet?: Authority;
+  permissionAccount?: Address;
+}
+
 export interface BuildPlacePostOnlyOrderIxResolvedInput extends ResolvedPlaceOrderContext {
   orderPacket: PostOnlyOrderPacket;
 }
@@ -113,6 +120,11 @@ export interface ClientPlaceOrderInput<TPacket> {
   orderPacket: TPacket;
   traderPdaIndex?: number;
   traderSubaccountIndex?: number;
+}
+
+export interface ClientPlaceMarketOrderDelegatedInput extends ClientPlaceOrderInput<ImmediateOrCancelOrderPacket> {
+  traderWallet?: Authority;
+  permissionAccount?: Address;
 }
 
 export interface ClientCancelAllInput {
@@ -589,6 +601,9 @@ export interface PhoenixIxClient {
   buildPlaceMarketOrder(
     params: ClientPlaceOrderInput<ImmediateOrCancelOrderPacket>
   ): Promise<PlaceMarketOrderIx>;
+  buildPlaceMarketOrderDelegated(
+    params: ClientPlaceMarketOrderDelegatedInput
+  ): Promise<PlaceMarketOrderDelegatedIx>;
   buildPlacePositionConditionalOrder(
     params: ClientPlacePositionConditionalOrderInput
   ): Promise<PlacePositionConditionalOrderIx>;
@@ -607,6 +622,9 @@ export interface PhoenixIxClient {
   placeMarketOrder(
     params: ClientPlaceOrderInput<ImmediateOrCancelOrderPacket>
   ): Promise<PlaceMarketOrderIx>;
+  placeMarketOrderDelegated(
+    params: ClientPlaceMarketOrderDelegatedInput
+  ): Promise<PlaceMarketOrderDelegatedIx>;
   placePositionConditionalOrder(
     params: ClientPlacePositionConditionalOrderInput
   ): Promise<PlacePositionConditionalOrderIx>;

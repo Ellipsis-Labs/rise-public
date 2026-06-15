@@ -98,3 +98,28 @@ Source Phoenix commit: `443ff8dfd64a9e7d35960b8b1946b3248d6681e5`
 - New liquidation history types (`UserLiquidationHistoryPoint` and subtypes `UserMarketLiquidationHistoryPoint`, `UserBackstopLiquidationHistoryPoint`, `UserAdlLiquidationHistoryPoint`) are exported from the public surface; narrow on the `kind` discriminant to access type-specific fields.
 - `ExchangeRiskFactors` percentage fields remain for backward compatibility on the exchange config/snapshot layer; prefer the new `*Bps` variants when present.
 - Limit of 100 items per `getUserLiquidationHistory` request; use `nextCursor`/`prevCursor` for pagination.
+
+## v0.4.32 - 2026-06-15
+
+Source Phoenix commit: `3506fd24b235813df18d1897c9ff076417c19ee8`
+
+- Package: `@ellipsis-labs/rise`
+- Target repo version: 0.4.31
+- Phoenix version: unknown -> 0.4.32
+
+### Summary
+
+- Added a new `PlaceMarketOrderDelegated` instruction that allows placing market orders signed by a delegated wallet distinct from the trader account authority. Supports both an explicit `traderWallet`/`permissionAccount` pair and a default fallback to the position authority.
+- Exported the full `PlaceMarketOrderDelegated` surface: low-level builder (`buildPlaceMarketOrderDelegatedIx`), codec helpers (`getPlaceMarketOrderDelegatedEncoder/Decoder/Codec`), higher-level builders (`buildPlaceMarketOrderDelegated`, `buildPlaceMarketOrderDelegatedIxResolved`), a fire-and-send helper (`placeMarketOrderDelegated`), and the associated TypeScript types.
+- `PlaceMarketOrderDelegated` instructions are now recognized as Flight-routable, matching the same Flight-wrapping behavior as `PlaceMarketOrder`.
+- `instructions.json` now includes canonical discriminant hex entries for both `PlaceMarketOrderDelegated` and `FlightPlaceMarketOrderDelegated`.
+
+### Breaking Changes
+
+- **`PhoenixIxClient` interface extended**: `buildPlaceMarketOrderDelegated` and `placeMarketOrderDelegated` methods are added to the `PhoenixIxClient` interface. Any downstream code that manually implements this interface will fail to compile until the two new methods are added.
+
+### Consumer Notes
+
+- When `traderWallet` and `permissionAccount` are omitted from `ClientPlaceMarketOrderDelegatedInput`, the SDK defaults both to `positionAuthority` (falling back to `authority`), so the method works as a drop-in for the primary position authority signing flow.
+- The `traderWallet` account is encoded as `READONLY_SIGNER` (account index 3) and `permissionAccount` as writable (account index 4) — relevant if you inspect raw account lists.
+- `buildPlaceMarketOrderDelegated` and `placeMarketOrderDelegated` are available on both the root package export and the `PhoenixIxClient` / `PhoenixIxOperations` client objects.

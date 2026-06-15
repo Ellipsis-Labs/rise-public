@@ -44,6 +44,16 @@ export {
 } from "../core/ixBuilders/PlaceMarketOrder";
 
 export {
+  buildPlaceMarketOrderDelegatedIx,
+  getPlaceMarketOrderDelegatedCodec,
+  getPlaceMarketOrderDelegatedDecoder,
+  getPlaceMarketOrderDelegatedEncoder,
+  type PlaceMarketOrderDelegatedAccounts,
+  type PlaceMarketOrderDelegatedIx,
+  type PlaceMarketOrderDelegatedParams,
+} from "../core/ixBuilders/PlaceMarketOrderDelegated";
+
+export {
   buildPlaceLimitOrderIx,
   getPlaceLimitOrderCodec,
   getPlaceLimitOrderDecoder,

@@ -16,6 +16,7 @@ export * from "./PlaceAttachedConditionalOrder";
 export * from "./PlaceLimitOrder";
 export * from "./PlaceLimitOrderWithConditionals";
 export * from "./PlaceMarketOrder";
+export * from "./PlaceMarketOrderDelegated";
 export * from "./PlaceMultiLimitOrder";
 export * from "./PlacePostOnlyOrder";
 export * from "./PlacePositionConditionalOrder";

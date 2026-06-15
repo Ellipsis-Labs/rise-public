@@ -15,6 +15,7 @@ import {
   buildEmberDepositIxResolved,
   buildEmberWithdrawIxResolved,
   buildPlaceLimitOrderIxResolved,
+  buildPlaceMarketOrderDelegatedIxResolved,
   buildPlaceMarketOrderIxResolved,
   buildPlacePostOnlyOrderIxResolved,
   buildPlaceStopLossIxResolved,
@@ -28,8 +29,16 @@ import {
   quoteLots,
   ticks,
 } from "@/index";
+import {
+  createPhoenixIxOperations,
+  type PhoenixIxOperationContext,
+} from "@/ixs/operations";
+import type { ResolvedPlaceOrderContext } from "@/ixs/types";
+import type { Authority } from "@/primitives";
+import type { InstructionsWithAccountsAndData } from "@/primitives/_utilityTypes";
 import { AccountRole } from "@solana/kit";
 import { describe, expect, it } from "vitest";
+import { DISCRIMINANTS } from "@/core/discriminants";
 
 const resolvedOrderContext = {
   exchange: {
@@ -72,6 +81,116 @@ const resolvedDepositTrader = {
   phoenixTokenAccount: "phoenix-token-account" as never,
   usdcTokenAccount: "usdc-token-account" as never,
 } as const;
+
+const marketOrderPacket = {
+  side: Side.Ask,
+  priceInTicks: ticks(99n),
+  numBaseLots: baseLots(3n),
+  numQuoteLots: null,
+  minBaseLotsToFill: baseLots(3n),
+  minQuoteLotsToFill: quoteLots(1n),
+  selfTradeBehavior: SelfTradeBehavior.Abort,
+  matchLimit: null,
+  clientOrderId: 0n,
+  lastValidSlot: null,
+  orderFlags: OrderFlags.ReduceOnly,
+  cancelExisting: false,
+} as const;
+
+const unexpectedOperationResolver = async (): Promise<never> => {
+  throw new Error("unexpected operation resolver call");
+};
+
+const createTestOperationContext = (
+  wrapCalls: Array<{
+    instruction: InstructionsWithAccountsAndData;
+    authority: Authority;
+  }>
+): PhoenixIxOperationContext => ({
+  orderPackets: {} as never,
+  phoenixProgramAddress: "phoenix-program" as never,
+  resolvePlaceOrderContext: async () =>
+    resolvedOrderContext as ResolvedPlaceOrderContext,
+  resolveMarketContext: unexpectedOperationResolver,
+  resolveExchangeInstructionAccounts: unexpectedOperationResolver,
+  resolveTraderAccount: unexpectedOperationResolver,
+  resolveTraderTokenAccounts: unexpectedOperationResolver,
+  resolveEmberAccounts: unexpectedOperationResolver,
+  resolveLogAuthorityAddress: unexpectedOperationResolver,
+  resolveGlobalConfigurationAddress: unexpectedOperationResolver,
+  resolveEscrowAddress: unexpectedOperationResolver,
+  resolvePermissionAddress: unexpectedOperationResolver,
+  resolveStopLossAddress: unexpectedOperationResolver,
+  maybeWrapOrderIx: async <TIx extends InstructionsWithAccountsAndData>(
+    instruction: TIx,
+    authority: Authority
+  ) => {
+    wrapCalls.push({ instruction, authority });
+    return instruction;
+  },
+  accountExists: async () => false,
+});
+
+describe("ix operations", () => {
+  it("wraps market order entrypoints with the trader account authority", async () => {
+    const wrapCalls: Array<{
+      instruction: InstructionsWithAccountsAndData;
+      authority: Authority;
+    }> = [];
+    const operations = createPhoenixIxOperations(
+      createTestOperationContext(wrapCalls)
+    );
+
+    const marketIx = await operations.placeMarketOrder({
+      authority: "trader-authority" as never,
+      symbol: "BTC-PERP" as never,
+      orderPacket: marketOrderPacket,
+    });
+    const delegatedIx = await operations.placeMarketOrderDelegated({
+      authority: "trader-authority" as never,
+      symbol: "BTC-PERP" as never,
+      traderWallet: "delegated-wallet" as never,
+      permissionAccount: "permission-account" as never,
+      orderPacket: marketOrderPacket,
+    });
+
+    expect(wrapCalls).toHaveLength(2);
+    expect(wrapCalls[0]?.instruction).toBe(marketIx);
+    expect(wrapCalls[0]?.authority).toBe("trader-authority");
+    expect(Array.from(marketIx.data.slice(0, 8))).toEqual(
+      Array.from(DISCRIMINANTS.PLACE_MARKET_ORDER)
+    );
+    expect(wrapCalls[1]?.instruction).toBe(delegatedIx);
+    expect(wrapCalls[1]?.authority).toBe("trader-authority");
+    expect(Array.from(delegatedIx.data.slice(0, 8))).toEqual(
+      Array.from(DISCRIMINANTS.PLACE_MARKET_ORDER_DELEGATED)
+    );
+    expect(delegatedIx.accounts[3]?.address).toBe("delegated-wallet");
+    expect(delegatedIx.accounts[4]?.address).toBe("permission-account");
+  });
+
+  it("builds delegated primary-position-authority market orders through the shared wrapper", async () => {
+    const wrapCalls: Array<{
+      instruction: InstructionsWithAccountsAndData;
+      authority: Authority;
+    }> = [];
+    const operations = createPhoenixIxOperations(
+      createTestOperationContext(wrapCalls)
+    );
+
+    const ix = await operations.placeMarketOrderDelegated({
+      authority: "trader-authority" as never,
+      symbol: "BTC-PERP" as never,
+      orderPacket: marketOrderPacket,
+    });
+
+    expect(wrapCalls).toHaveLength(1);
+    expect(wrapCalls[0]?.instruction).toBe(ix);
+    expect(wrapCalls[0]?.authority).toBe("trader-authority");
+    expect(ix.accounts[3]?.address).toBe("position-authority");
+    expect(ix.accounts[4]?.address).toBe("position-authority");
+  });
+});
 
 describe("resolved ix builders", () => {
   it("builds a resolved place limit order ix synchronously", () => {
@@ -119,6 +238,61 @@ describe("resolved ix builders", () => {
     expect(ix.programAddress).toBe("phoenix-program");
     expect(ix.accounts[3]?.address).toBe("position-authority");
     expect(ix.accounts.at(-2)?.address).toBe("market-address");
+  });
+
+  it("builds a resolved delegated market order ix with explicit signer and permission", () => {
+    const ix = buildPlaceMarketOrderDelegatedIxResolved({
+      ...resolvedOrderContext,
+      traderWallet: "delegated-wallet" as never,
+      permissionAccount: "permission-account" as never,
+      orderPacket: {
+        side: Side.Ask,
+        priceInTicks: ticks(99n),
+        numBaseLots: baseLots(3n),
+        numQuoteLots: null,
+        minBaseLotsToFill: baseLots(3n),
+        minQuoteLotsToFill: quoteLots(1n),
+        selfTradeBehavior: SelfTradeBehavior.Abort,
+        matchLimit: null,
+        clientOrderId: 0n,
+        lastValidSlot: null,
+        orderFlags: OrderFlags.ReduceOnly,
+        cancelExisting: false,
+      },
+    });
+
+    expect(ix.programAddress).toBe("phoenix-program");
+    expect(Array.from(ix.data.slice(0, 8))).toEqual(
+      Array.from(DISCRIMINANTS.PLACE_MARKET_ORDER_DELEGATED)
+    );
+    expect(ix.accounts[3]?.address).toBe("delegated-wallet");
+    expect(ix.accounts[3]?.role).toBe(AccountRole.READONLY_SIGNER);
+    expect(ix.accounts[4]?.address).toBe("permission-account");
+    expect(ix.accounts[5]?.address).toBe("trader-account");
+    expect(ix.accounts.at(-2)?.address).toBe("market-address");
+  });
+
+  it("uses the position authority as the delegated signer and permission account by default", () => {
+    const ix = buildPlaceMarketOrderDelegatedIxResolved({
+      ...resolvedOrderContext,
+      orderPacket: {
+        side: Side.Bid,
+        priceInTicks: null,
+        numBaseLots: baseLots(2n),
+        numQuoteLots: null,
+        minBaseLotsToFill: baseLots(1n),
+        minQuoteLotsToFill: quoteLots(1n),
+        selfTradeBehavior: SelfTradeBehavior.Abort,
+        matchLimit: null,
+        clientOrderId: 0n,
+        lastValidSlot: null,
+        orderFlags: OrderFlags.None,
+        cancelExisting: false,
+      },
+    });
+
+    expect(ix.accounts[3]?.address).toBe("position-authority");
+    expect(ix.accounts[4]?.address).toBe("position-authority");
   });
 
   it("builds a resolved post-only order ix synchronously", () => {
