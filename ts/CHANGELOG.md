@@ -217,3 +217,23 @@ Source Phoenix commit: `978cab228c047f8e511a8075621846c679d331d5`
 ### Consumer Notes
 
 - If you pin `ws` to an exact version below `8.21.0`, you may see peer dependency warnings or conflicts. Update your lockfile or pin to `ws@8.21.0` or later.
+
+## v0.4.39 - 2026-06-15
+
+Source Phoenix commit: `6b96d79ca6d38a289150f382efe441c4116e395c`
+
+### Summary
+
+- **Version bump**: `@ellipsis-labs/rise` is now `0.4.39`.
+- **Source files included in package**: The `src/` directory is now bundled in the published npm package alongside `dist/`. Consumers benefit from source availability for debugging and source maps without needing a separate step.
+- **Changelog included in package**: `CHANGELOG.md` is now shipped with the npm package, making release notes available locally after install.
+- **README documents changelog location**: A new "Changelog" section in the README links to the public Rise TypeScript changelog on GitHub.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- No API, type, or runtime behavior changes in this release — the changes are packaging-only.
+- If your bundler or tooling scans `node_modules` for `.ts` source files, the newly included `src/` directory may be picked up; verify your `exclude` or `ignore` patterns if unexpected files appear in your build.
