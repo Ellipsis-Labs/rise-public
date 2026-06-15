@@ -145,3 +145,21 @@ Source Phoenix commit: `c25ccb579ff367b65aedf254320d6a54da56613f`
 
 - Consumers subscribing to exchange market parameter updates will now receive `maxLiquidationSizeUpdated` events. If you have exhaustive switch/discriminated-union handling over `ExchangeMarketParameterUpdate`, TypeScript will require you to handle the new `MaxLiquidationSizeUpdated` variant.
 - If you use `ExchangeCacheMarketChangeKind` exhaustively (e.g., in a switch or mapped type), add a case for `"maxLiquidationSize"` to avoid compilation errors.
+
+## v0.4.35 - 2026-06-15
+
+Source Phoenix commit: `0499d27df18bb2694c5489a9395bec0a58d1d141`
+
+### Summary
+
+- Version bumped from `0.4.34` to `0.4.35`.
+- Add-market setup payloads now encode an after-hours radius field. The field is a `u64` appended at the end of the instruction data and defaults to `0` (no after-hours radius).
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- The encoded size of add-market instructions has changed to 345 bytes to accommodate the new after-hours radius field. If your code hard-codes or validates the byte length of these instruction payloads, update it accordingly.
+- The after-hours radius defaults to `0n` (disabled), so existing integrations that do not set this field should continue to work without modification.
