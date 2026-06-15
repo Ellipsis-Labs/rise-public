@@ -125,3 +125,23 @@ Source Phoenix commit: `d1c6f3dea8582f451d616bc42b1a083f9fa04000`
 - `getTraderCollateralHistory(authority, { pdaIndex? })` continues to work for authority-based lookups via `/v1/trader/{authority}/collateral-history` (path now carries the `v1` prefix internally, but the method signature is unchanged).
 - New `getTraderPdaCollateralHistory(traderPubkey, request?)` targets `/v1/traders/{traderPubkey}/collateral-history` — use this when you have the trader PDA pubkey directly rather than the authority.
 - New `getAllTraderPdaCollateralHistory(traderPubkey, pageSize?, request?)` auto-paginates until `hasMore` is false and returns the flat event array; the default page size is 1000.
+
+## v0.4.34 - 2026-06-15
+
+Source Phoenix commit: `c25ccb579ff367b65aedf254320d6a54da56613f`
+
+### Summary
+
+- Added `MaxLiquidationSizeUpdated` exchange market parameter update event: new `interface MaxLiquidationSizeUpdated` with `kind: "maxLiquidationSizeUpdated"`, `previousBaseLots: bigint`, and `newBaseLots: bigint`.
+- `MaxLiquidationSizeUpdated` is now included in the `ExchangeMarketParameterUpdate` discriminated union and recognized by the WebSocket wire adapter's known-kinds set and Zod schema.
+- The exchange cache store now maps `"maxLiquidationSizeUpdated"` events to the `"maxLiquidationSize"` change kind and applies `update.newBaseLots` to `nextMarket.maxLiquidationSizeBaseLots`.
+- `"maxLiquidationSize"` added to the `ExchangeCacheMarketChangeKind` union type.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- Consumers subscribing to exchange market parameter updates will now receive `maxLiquidationSizeUpdated` events. If you have exhaustive switch/discriminated-union handling over `ExchangeMarketParameterUpdate`, TypeScript will require you to handle the new `MaxLiquidationSizeUpdated` variant.
+- If you use `ExchangeCacheMarketChangeKind` exhaustively (e.g., in a switch or mapped type), add a case for `"maxLiquidationSize"` to avoid compilation errors.

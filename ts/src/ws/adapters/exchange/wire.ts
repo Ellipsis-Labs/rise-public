@@ -113,6 +113,12 @@ export interface OpenInterestCapUpdated {
   newBaseLots: bigint;
 }
 
+export interface MaxLiquidationSizeUpdated {
+  kind: "maxLiquidationSizeUpdated";
+  previousBaseLots: bigint;
+  newBaseLots: bigint;
+}
+
 export interface UpnlRiskFactorUpdated {
   kind: "upnlRiskFactorUpdated";
   previous: number;
@@ -159,6 +165,7 @@ export type ExchangeMarketParameterUpdate =
   | LeverageTiersUpdated
   | MarkPriceParametersUpdated
   | OpenInterestCapUpdated
+  | MaxLiquidationSizeUpdated
   | UpnlRiskFactorUpdated
   | UpnlRiskFactorForWithdrawalsUpdated
   | FundingParametersUpdated
@@ -240,6 +247,7 @@ const KNOWN_MARKET_PARAMETER_UPDATE_KINDS = new Set([
   "leverageTiersUpdated",
   "markPriceParametersUpdated",
   "openInterestCapUpdated",
+  "maxLiquidationSizeUpdated",
   "upnlRiskFactorUpdated",
   "upnlRiskFactorForWithdrawalsUpdated",
   "fundingParametersUpdated",
@@ -456,6 +464,11 @@ const exchangeMarketParameterUpdateSchema = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("openInterestCapUpdated"),
+    previousBaseLots: numericBigint("previousBaseLots"),
+    newBaseLots: numericBigint("newBaseLots"),
+  }),
+  z.object({
+    kind: z.literal("maxLiquidationSizeUpdated"),
     previousBaseLots: numericBigint("previousBaseLots"),
     newBaseLots: numericBigint("newBaseLots"),
   }),

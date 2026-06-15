@@ -52,6 +52,7 @@ export type ExchangeCacheMarketChangeKind =
   | "leverageTiers"
   | "markPriceParameters"
   | "openInterestCap"
+  | "maxLiquidationSize"
   | "upnlRiskFactor"
   | "upnlRiskFactorForWithdrawals"
   | "fundingParameters"
