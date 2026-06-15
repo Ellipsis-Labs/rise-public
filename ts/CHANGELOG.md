@@ -180,3 +180,24 @@ Source Phoenix commit: `8809c4d39c7070f6430c20dd5fe670ad86032523`
 ### Consumer Notes
 
 - None identified in the synced diff.
+
+## v0.4.37 - 2026-06-15
+
+Source Phoenix commit: `5a524ada417b9cce3f94096900c59b4ec5fc17ec`
+
+### Summary
+
+- Bumped `@ellipsis-labs/rise` from `0.4.36` to `0.4.37`.
+- Upgraded Vite from `7.3.2` to `8.0.16` (major version bump) in the package's build tooling and pinned override.
+- Vite 8 replaces `rollup` and `esbuild` as core bundler with `rolldown` (Rust-based) and adds `lightningcss` as a required CSS processor.
+
+### Breaking Changes
+
+- **Vite 8 bundler switch**: Vite 8 drops `rollup` and `esbuild` as core bundler dependencies in favor of `rolldown`. If your project extends the `@ellipsis-labs/rise` build config or shares a Vite instance, any use of `build.rollupOptions` or esbuild-specific plugin APIs may require updates.
+- **`esbuild` is now an optional peer in Vite 8**: Consumers who relied on esbuild being available transitively through Vite will need to add it explicitly if their own config references esbuild transforms or plugins.
+
+### Consumer Notes
+
+- No public TypeScript API changes in this release — types, exports, and runtime behavior are unchanged.
+- If your project uses Vite and this package's `vite` override propagates into your lock file, you will be upgraded to Vite 8. Review the [Vite 8 migration guide](https://vite.dev/guide/migration) for `rollupOptions` and plugin compatibility.
+- `lightningcss` is now a first-class dependency of Vite 8 (no longer an optional peer); CSS processing behavior may differ subtly from esbuild's CSS pipeline.
