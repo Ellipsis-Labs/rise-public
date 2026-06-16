@@ -1,5 +1,6 @@
 import { getPhoenixClientHeader } from "@/clientIdentity";
 import { PhoenixAuthError } from "@/errors";
+import { parseRetryAfterSeconds } from "@/http/rateLimitRetry";
 import type { AuthSessionManager } from "./manager";
 import { shouldClearSessionOnRefreshFailure } from "./refreshErrors";
 import {
@@ -38,21 +39,6 @@ export interface PhoenixAuthClientConfig extends PhoenixApiUrlConfig {
 const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_RATE_LIMIT_RETRY_SECONDS = 1;
 const MAX_RATE_LIMIT_RETRY_SECONDS = 30;
-
-const parseRetryAfterSeconds = (value: string | null): number | undefined => {
-  if (!value) return undefined;
-  const trimmed = value.trim();
-  const parsedSeconds = Number(trimmed);
-  if (Number.isFinite(parsedSeconds) && parsedSeconds >= 0) {
-    return Math.ceil(parsedSeconds);
-  }
-
-  const retryDate = Date.parse(trimmed);
-  if (Number.isNaN(retryDate)) return undefined;
-  const deltaMs = retryDate - Date.now();
-  if (deltaMs <= 0) return 0;
-  return Math.ceil(deltaMs / 1000);
-};
 
 const effectiveRetryAfterSeconds = (retryAfterSeconds?: number): number => {
   const value = retryAfterSeconds ?? DEFAULT_RATE_LIMIT_RETRY_SECONDS;

@@ -1,5 +1,13 @@
 import type { HttpTransport, RequestOptions } from "./http/transport";
 import { appendQueryParams } from "./http/transport";
+import {
+  isRateLimitRetryableMethod,
+  rateLimitRetryDecision,
+  resolveRateLimitRetryConfig,
+  setRateLimitRetryAttempts,
+  type RateLimitRetryConfig,
+  type ResolvedRateLimitRetryConfig,
+} from "./http/rateLimitRetry";
 import { V1CandlesClient } from "./api/candles/client";
 import { V1CollateralClient } from "./api/collateral/client";
 import { V1ExchangeClient } from "./api/exchange/client";
@@ -68,20 +76,6 @@ const AUTH_RETRYABLE_CODES = new Set([
   "access_jti_mismatch",
   "session_missing",
 ]);
-
-const parseRetryAfterSeconds = (value: string | null): number | undefined => {
-  if (!value) return undefined;
-  const trimmed = value.trim();
-  const parsedSeconds = Number(trimmed);
-  if (Number.isFinite(parsedSeconds) && parsedSeconds >= 0) {
-    return Math.ceil(parsedSeconds);
-  }
-  const retryDate = Date.parse(trimmed);
-  if (Number.isNaN(retryDate)) return undefined;
-  const deltaMs = retryDate - Date.now();
-  if (deltaMs <= 0) return 0;
-  return Math.ceil(deltaMs / 1000);
-};
 
 const summarizeRequestBody = (
   body: unknown
@@ -158,6 +152,8 @@ export interface PhoenixHttpClientConfig extends PhoenixApiUrlConfig {
   auth?: boolean;
   /** Optional auth/session overrides used when `auth: true`. */
   authConfig?: RiseAuthConfig;
+  /** Automatic rate-limit retry behavior for idempotent HTTP requests. */
+  rateLimitRetry?: RateLimitRetryConfig | false;
   /** Optional flight routing defaults applied to supported order-building paths. */
   flight?: PhoenixFlightClientConfig;
 }
@@ -177,6 +173,7 @@ export class PhoenixHttpClient implements HttpTransport {
   private readonly apiUrl: string;
   private readonly timeout: number;
   private readonly extraHeaders?: PhoenixHttpClientConfig["extraHeaders"];
+  private readonly rateLimitRetry: ResolvedRateLimitRetryConfig | null;
   private readonly authRuntime?: RiseAuthRuntime;
   readonly pda: PhoenixPdaClient;
   private readonly candlesClient: V1CandlesClient;
@@ -195,6 +192,7 @@ export class PhoenixHttpClient implements HttpTransport {
     this.apiUrl = resolvePhoenixApiUrl(config);
     this.timeout = config.timeout ?? DEFAULT_TIMEOUT;
     this.extraHeaders = config.extraHeaders;
+    this.rateLimitRetry = resolveRateLimitRetryConfig(config.rateLimitRetry);
     const pdaConfig: PhoenixPdaClientConfig = {
       phoenixEnv: config.phoenixEnv,
       addresses: config.addresses,
@@ -326,7 +324,7 @@ export class PhoenixHttpClient implements HttpTransport {
         return this.performFetch(url, method, headers, requestBody, controller);
       };
 
-      const authorizedResponse = await execute(
+      let authorizedResponse = await execute(
         session ? `Bearer ${session.accessToken}` : undefined
       );
 
@@ -337,34 +335,58 @@ export class PhoenixHttpClient implements HttpTransport {
         durationMs: Date.now() - startedAt,
       });
 
-      if (
+      let rateLimitRetries = 0;
+      let totalRateLimitWaitMs = 0;
+      while (
         authorizedResponse.status === 429 &&
-        (method === "GET" || method === "HEAD")
+        this.rateLimitRetry !== null &&
+        isRateLimitRetryableMethod(method) &&
+        rateLimitRetries < this.rateLimitRetry.maxRetries
       ) {
-        const retryAfterSeconds = parseRetryAfterSeconds(
-          authorizedResponse.headers.get("retry-after")
+        const retry = rateLimitRetryDecision(
+          authorizedResponse,
+          this.rateLimitRetry,
+          totalRateLimitWaitMs
         );
-        const waitMs = Math.max(
-          1_000,
-          Math.min(30_000, (retryAfterSeconds ?? 1) * 1000)
-        );
+        if (retry.kind === "exhausted") {
+          debugRise("http", "request:retry-after-exhausted", {
+            method: method.toUpperCase(),
+            url: url.toString(),
+            status: authorizedResponse.status,
+            waitMs: retry.waitMs,
+            nextTotalWaitMs: retry.nextTotalWaitMs,
+            totalWaitMs: totalRateLimitWaitMs,
+            maxTotalWaitMs: this.rateLimitRetry.maxTotalWaitMs,
+            retryAfterSeconds: retry.retryAfterSeconds,
+          });
+          break;
+        }
+
         debugRise("http", "request:retry-after", {
           method: method.toUpperCase(),
           url: url.toString(),
           status: authorizedResponse.status,
-          waitMs,
+          waitMs: retry.waitMs,
+          attempt: rateLimitRetries + 2,
+          retryAfterSeconds: retry.retryAfterSeconds,
         });
-        await new Promise((resolve) => setTimeout(resolve, waitMs));
-        const retriedResponse = await execute(
+        await new Promise((resolve) => setTimeout(resolve, retry.waitMs));
+        totalRateLimitWaitMs = retry.nextTotalWaitMs;
+        rateLimitRetries += 1;
+        authorizedResponse = await execute(
           session ? `Bearer ${session.accessToken}` : undefined
         );
         debugRise("http", "request:retry-response", {
           method: method.toUpperCase(),
           url: url.toString(),
-          status: retriedResponse.status,
+          status: authorizedResponse.status,
           durationMs: Date.now() - startedAt,
+          attempt: rateLimitRetries + 1,
         });
-        return retriedResponse;
+      }
+
+      if (authorizedResponse.status === 429) {
+        setRateLimitRetryAttempts(authorizedResponse, rateLimitRetries + 1);
       }
 
       if (
