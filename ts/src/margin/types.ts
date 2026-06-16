@@ -42,9 +42,8 @@ export interface MarginPositionState {
   virtualQuotePositionLots: string;
   entryPriceTicks: string;
   /**
-   * Funding with the margin-engine sign convention (positive increases
-   * effective collateral). Use the snapshot helpers to flip the TraderState
-   * sign when needed.
+   * Funding with the margin-engine sign convention: positive increases
+   * effective collateral.
    */
   unsettledFundingQuoteLots: string;
   accumulatedFundingQuoteLots: string;

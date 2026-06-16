@@ -237,3 +237,23 @@ Source Phoenix commit: `6b96d79ca6d38a289150f382efe441c4116e395c`
 
 - No API, type, or runtime behavior changes in this release — the changes are packaging-only.
 - If your bundler or tooling scans `node_modules` for `.ts` source files, the newly included `src/` directory may be picked up; verify your `exclude` or `ignore` patterns if unexpected files appear in your build.
+
+## v0.4.40 - 2026-06-16
+
+Source Phoenix commit: `65fc5aad3e13c249bcc606b410059b8adbc61e2d`
+
+### Summary
+
+- **Fixed liquidation price calculation**: The formula for computing a position's liquidation price now correctly incorporates the market's `maintenanceMarginFactorBps` risk parameter. Previously the formula used a simplified approximation; it now derives the denominator and numerator using the actual maintenance margin coefficient, producing more accurate results across leverage tiers.
+- **Fixed unsettled funding sign convention in snapshot helpers**: `buildMarginPositionStateFromSnapshot` no longer negates `unsettledFundingQuoteLots` when converting from a snapshot. The field is now passed through as-is, matching the margin-engine sign convention (positive = increases effective collateral).
+- **Clarified `MarginPositionState.unsettledFundingQuoteLots` documentation**: The JSDoc on this field no longer instructs callers to flip the sign themselves; the snapshot helper now handles the value correctly without manual adjustment.
+
+### Breaking Changes
+
+- **Snapshot-sourced `unsettledFundingQuoteLots` values will differ**: Any code that previously compensated for the sign flip in `buildMarginPositionStateFromSnapshot` (e.g., by negating the field before passing it downstream) must remove that workaround. The value is now passed through with the margin-engine convention intact.
+- **Liquidation price outputs will change**: Computed liquidation prices from `computeLiquidationPriceTicks` will differ from prior versions due to the corrected formula. Consumers who cache, display, or act on liquidation price values should expect updated results after upgrading.
+
+### Consumer Notes
+
+- If you construct `MarginPositionState` manually (not via snapshot helpers) and were previously accounting for the sign flip described in the old JSDoc, no change is needed — the type contract is unchanged; only the snapshot helper behavior is fixed.
+- The liquidation price fix requires `maintenanceMarginFactorBps` to be present and positive in `MarketParams.riskFactors`; positions with a zero or missing value will return `undefined` for liquidation price (was previously a potentially incorrect value).
