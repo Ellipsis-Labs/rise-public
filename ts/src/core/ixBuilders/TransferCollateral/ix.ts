@@ -32,6 +32,9 @@ export const buildTransferCollateralIx = (
     generateReadonlyAccount(params.perpAssetMap),
     ...generateArenaAccounts(params.globalTraderIndex),
     ...generateArenaAccounts(params.activeTraderBuffer),
+    ...(params.permissionAccount
+      ? [generateWritableAccount(params.permissionAccount)]
+      : []),
   ] as const;
 
   return {

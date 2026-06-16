@@ -96,6 +96,7 @@ export const buildTransferCollateralIxResolved = (
     perpAssetMap: params.exchange.perpAssetMap,
     globalTraderIndex: params.exchange.globalTraderIndex,
     activeTraderBuffer: params.exchange.activeTraderBuffer,
+    permissionAccount: params.trader.permissionAddress,
     amount: params.amount,
   });
 

@@ -683,33 +683,6 @@ try {
       },
     });
     results["PlaceMarketOrderDelegated"] = hexEncode(delegatedIx.data);
-
-    // 20. Flight wrapper for PlaceMarketOrderDelegated
-    console.error("Building FlightPlaceMarketOrderDelegated...");
-    const flightClient = new flight.PhoenixFlightClient(
-      {
-        addresses: {
-          phoenixProgramAddress: PHOENIX_PROGRAM_ADDRESS,
-          logAuthorityAddress: PHOENIX_LOG_AUTHORITY_ADDRESS,
-          globalConfigurationAddress: PHOENIX_GLOBAL_CONFIGURATION_ADDRESS,
-          usdcMintAddress: USDC_MINT_ADDRESS,
-          emberStateAddress: p(11),
-        },
-        fetchAccount: async () => ({ data: new Uint8Array() }),
-      } as any,
-      {
-        builderAuthority: p(9),
-        builderPdaIndex: 0,
-        builderSubaccountIndex: 0,
-      }
-    );
-    const wrappedDelegatedIx = await flightClient.tryWrapFlightInstruction(
-      delegatedIx,
-      p(0)
-    );
-    results["FlightPlaceMarketOrderDelegated"] = hexEncode(
-      wrappedDelegatedIx.data
-    );
   }
 
   // Output JSON in sorted order

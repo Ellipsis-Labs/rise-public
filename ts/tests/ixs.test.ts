@@ -513,6 +513,7 @@ describe("resolved ix builders", () => {
       trader: {
         authority: resolvedDepositTrader.authority,
         positionAuthority: "position-authority" as never,
+        permissionAddress: "permission-account" as never,
         srcTraderAccount: "src-trader-account" as never,
         dstTraderAccount: "dst-trader-account" as never,
       },
@@ -523,6 +524,8 @@ describe("resolved ix builders", () => {
     expect(ix.accounts[3]?.address).toBe("position-authority");
     expect(ix.accounts[4]?.address).toBe("src-trader-account");
     expect(ix.accounts[5]?.address).toBe("dst-trader-account");
+    expect(ix.accounts.at(-1)?.address).toBe("permission-account");
+    expect(ix.accounts.at(-1)?.role).toBe(AccountRole.WRITABLE);
   });
 
   it("builds a resolved transfer collateral child-to-parent ix synchronously", () => {

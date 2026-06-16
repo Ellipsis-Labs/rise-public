@@ -7,7 +7,7 @@ import type {
 } from "@/primitives";
 import type { InstructionsWithAccountsAndData } from "@/primitives/_utilityTypes";
 import type { PhoenixInstructionAddressOverrides } from "@/core/constants";
-import type { AccountMeta } from "@solana/kit";
+import type { AccountMeta, Address } from "@solana/kit";
 
 export interface TransferCollateralParams extends PhoenixInstructionAddressOverrides {
   trader: Authority; // Trader wallet (signer)
@@ -16,6 +16,7 @@ export interface TransferCollateralParams extends PhoenixInstructionAddressOverr
   perpAssetMap: PerpAssetMapAddress; // Perp asset map account
   globalTraderIndex: GlobalTraderIndexAddressArray; // Array of global trader index addresses (header, then N arenas)
   activeTraderBuffer: ActiveTraderBufferAddressArray; // Array of active trader buffer addresses (header, then N arenas)
+  permissionAccount?: Address; // Optional permission account for secondary position authorities
   amount: bigint; // Amount to transfer
 }
 
