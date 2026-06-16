@@ -83,3 +83,25 @@ Source Phoenix commit: `65fc5aad3e13c249bcc606b410059b8adbc61e2d`
 - `PhoenixHttpClient::post_json` is now public.
 - `is_auth_recovery_error` is now a public export for downstream error classification.
 - `async-trait 0.1` is a new direct dependency of `phoenix-rise`.
+
+## v0.1.8 - 2026-06-16
+
+Source Phoenix commit: `6487be852f3a382717f345a43fd956af3fba1766`
+
+### Summary
+
+- Upgraded `rand` from 0.9 to 0.10 (now a workspace dependency); the `rand::Rng` trait import in math tests is replaced by `rand::RngExt`.
+- Rate-limit retry logic now applies ±15% jitter to the fallback delay when no `Retry-After` header is present, reducing thundering-herd retries.
+- `Retry-After` header parsing now accepts both integer seconds and HTTP-date (`RFC 2822`) values; previously only integer seconds were recognized.
+- The `max_delay` field on `RateLimitRetryConfig` now bounds only the jittered fallback delay; explicit `Retry-After` values are bounded by `max_total_wait` instead (doc clarification, behavior change for large `Retry-After` values).
+
+### Breaking Changes
+
+- **`rand` 0.10 workspace dependency**: if your crate depends on `phoenix-rise` and also uses `rand`, you may need to align to `rand = "0.10"`. The `rand::Rng` trait is replaced by `rand::RngExt` in 0.10 — any code importing `rand::Rng` via a shared dependency tree will need updating.
+- **`RateLimitRetryConfig::max_delay` semantics changed**: previously capped all retry delays including explicit `Retry-After` header values; now only caps the jittered fallback delay. If you set a small `max_delay` to bound `Retry-After`-driven waits, use `max_total_wait` instead.
+
+### Consumer Notes
+
+- No changes to public API surface beyond the `RateLimitRetryConfig` doc/semantic fix above.
+- The jitter on fallback delays (±15%) is applied automatically; no configuration required or available.
+- If your server sends `Retry-After` as an HTTP-date string, the client will now correctly parse and honor it.

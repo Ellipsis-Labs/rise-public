@@ -30,7 +30,7 @@ use crate::phoenix_rise_types::{
 };
 use crate::transport::{
     PhoenixApiError, build_default_http_client, map_api_error_response, map_reqwest_error,
-    normalize_base_url,
+    normalize_base_url, parse_retry_after_seconds,
 };
 
 const DEFAULT_AUTH_SESSION_RELATIVE_PATH: &str = ".config/phoenix/access_token.json";
@@ -1368,13 +1368,6 @@ fn parse_error_code(body: &str) -> Option<String> {
                 .and_then(|entry| entry.as_str())
                 .map(str::to_string)
         })
-}
-
-fn parse_retry_after_seconds(headers: &reqwest::header::HeaderMap) -> Option<u64> {
-    headers
-        .get(reqwest::header::RETRY_AFTER)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.parse::<u64>().ok())
 }
 
 fn body_preview(body: &str, max_chars: usize) -> String {
