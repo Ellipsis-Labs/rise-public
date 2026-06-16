@@ -69,7 +69,8 @@ pub use limit_order::{
     create_place_limit_order_ix,
 };
 pub use market_order::{
-    IsolatedMarketOrderParams, MarketOrderParams, create_place_market_order_ix,
+    IsolatedMarketOrderParams, MarketOrderDelegatedParams, MarketOrderParams,
+    create_place_market_order_delegated_ix, create_place_market_order_ix,
 };
 pub use multi_limit_order::{
     MultiLimitOrderParams, MultiLimitOrderParamsBuilder, create_place_multi_limit_order_ix,

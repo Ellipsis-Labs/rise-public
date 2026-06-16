@@ -1,23 +1,20 @@
-//! Example: Query exchange keys, SOL market, and trader info via HTTP API.
+//! Example: Query exchange keys, SOL market, and trader history via HTTP API.
 //!
 //! Demonstrates the resource-based sub-client API:
 //!   client.markets().get_markets()
 //!   client.exchange().get_keys()
-//!   client.traders().get_trader(&authority)
 //!   etc.
 //!
 //! Run with:
 //!   export TRADER_PUBKEY=your_trader_pubkey  # optional
+//!   export AUTHORITY_PUBKEY=your_authority_pubkey  # optional
 //!   cargo run -p phoenix-rise --example http_client
-
-use std::str::FromStr;
 
 use phoenix_rise::{
     CandlesQueryParams, CollateralHistoryQueryParams, FundingHistoryQueryParams,
     OrderHistoryQueryParams, PhoenixHttpClient, PnlQueryParams, PnlResolution, Timeframe,
     TradeHistoryQueryParams,
 };
-use solana_pubkey::Pubkey;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -162,57 +159,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     println!();
 
-    // Fetch trader info (if TRADER_PUBKEY env var is set)
+    // Fetch trader history and analytics (if TRADER_PUBKEY env var is set)
     if let Ok(pubkey_str) = std::env::var("TRADER_PUBKEY") {
-        println!("=== Trader Subaccounts ===");
-        let authority = Pubkey::from_str(&pubkey_str)?;
-        let traders = client.traders().get_trader(&authority).await?;
-        println!("  Found {} subaccount(s)\n", traders.len());
-
-        for trader in &traders {
-            println!(
-                "  --- Subaccount {} (PDA index: {}) ---",
-                trader.trader_subaccount_index, trader.trader_pda_index
-            );
-            println!("  Trader Key:        {}", trader.trader_key);
-            println!("  State:             {:?}", trader.state);
-            println!("  Collateral:        {}", trader.collateral_balance.ui);
-            println!("  Portfolio Value:   {}", trader.portfolio_value.ui);
-            println!("  Unrealized PnL:    {}", trader.unrealized_pnl.ui);
-            println!("  Risk State:        {:?}", trader.risk_state);
-            println!("  Risk Tier:         {:?}", trader.risk_tier);
-
-            if !trader.positions.is_empty() {
-                println!("\n  Positions:");
-                for pos in &trader.positions {
-                    println!(
-                        "    {}: {} @ {} (uPnL: {})",
-                        pos.symbol, pos.position_size.ui, pos.entry_price.ui, pos.unrealized_pnl.ui
-                    );
-                }
-            }
-
-            let order_count: usize = trader.limit_orders.values().map(|v| v.len()).sum();
-            if order_count > 0 {
-                println!("\n  Limit Orders ({} total):", order_count);
-                for (symbol, orders) in &trader.limit_orders {
-                    for order in orders {
-                        println!(
-                            "    {}: {:?} {} @ {}",
-                            symbol, order.side, order.trade_size_remaining.ui, order.price.ui
-                        );
-                    }
-                }
-            }
-            println!();
-        }
+        let trader_pubkey = pubkey_str.parse()?;
 
         // Fetch trade history (fills) for this trader
         println!("=== Trade History ===");
         let params = TradeHistoryQueryParams::new().with_limit(10);
         let trades = client
             .trades()
-            .get_trader_trade_history(&authority, params)
+            .get_trader_trade_history(&trader_pubkey, params)
             .await?;
         println!("  Latest {} trades:", trades.data.len());
         for fill in &trades.data {
@@ -232,7 +188,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("  (more trades available via pagination)");
         }
 
-        // Fetch collateral history for this trader
+        // Demonstrate market filter for trades
+        println!("\n  Filtering trades by SOL market:");
+        let sol_params = TradeHistoryQueryParams::new()
+            .with_market_symbol("SOL")
+            .with_limit(5);
+        let sol_trades = client
+            .trades()
+            .get_trader_trade_history(&trader_pubkey, sol_params)
+            .await?;
+        println!("  Found {} SOL trades", sol_trades.data.len());
+        println!();
+    }
+
+    // Fetch authority-scoped history and analytics (if AUTHORITY_PUBKEY env var is
+    // set)
+    if let Ok(pubkey_str) = std::env::var("AUTHORITY_PUBKEY") {
+        let authority = pubkey_str.parse()?;
+
+        // Fetch collateral history for this authority
         println!("=== Collateral History ===");
         let params = CollateralHistoryQueryParams::new(10);
         let history = client
@@ -343,18 +317,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .get_trader_order_history(&authority, sol_params)
             .await?;
         println!("  Found {} SOL orders", sol_orders.data.len());
-        println!();
-
-        // Demonstrate market filter for trades
-        println!("\n  Filtering trades by SOL market:");
-        let sol_params = TradeHistoryQueryParams::new()
-            .with_market_symbol("SOL")
-            .with_limit(5);
-        let sol_trades = client
-            .trades()
-            .get_trader_trade_history(&authority, sol_params)
-            .await?;
-        println!("  Found {} SOL trades", sol_trades.data.len());
         println!();
     }
 

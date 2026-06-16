@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use async_trait::async_trait;
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use parking_lot::{Mutex as ParkingMutex, RwLock};
@@ -17,6 +18,7 @@ use solana_keypair::Keypair;
 #[cfg(feature = "solana-keypair")]
 use solana_signer::Signer as SolanaSigner;
 use thiserror::Error;
+use tokio::sync::Mutex as AsyncMutex;
 use url::Url;
 
 use crate::http_client::map_transport_error;
@@ -189,6 +191,24 @@ pub trait AuthSessionStore: Send + Sync {
     fn clear_session(&self) -> Result<(), AuthError>;
 }
 
+#[async_trait]
+pub trait PhoenixSessionManager: Send + Sync {
+    async fn current_session(&self) -> Result<Option<AuthSession>, PhoenixHttpError>;
+
+    async fn refresh_session(&self) -> Result<(), PhoenixHttpError>;
+
+    fn session_store(&self) -> Option<Arc<dyn AuthSessionStore>> {
+        None
+    }
+
+    async fn reload_session(
+        &self,
+        _current_session: Option<&AuthSession>,
+    ) -> Result<bool, PhoenixHttpError> {
+        Ok(false)
+    }
+}
+
 pub trait PhoenixAuthSigner: Send + Sync {
     fn client_id(&self) -> &str;
 
@@ -209,11 +229,196 @@ pub struct MemoryAuthSessionStore {
     session: Arc<ParkingMutex<Option<AuthSession>>>,
 }
 
+pub struct PhoenixMemorySessionManager {
+    auth_client: PhoenixServiceAuthClient,
+    session_store: Arc<dyn AuthSessionStore>,
+    session: AuthSession,
+    refresh_lock: AsyncMutex<()>,
+}
+
+impl PhoenixMemorySessionManager {
+    pub fn new(api_url: impl AsRef<str>, session: AuthSession) -> Result<Self, PhoenixHttpError> {
+        let session_store: Arc<dyn AuthSessionStore> = Arc::new(MemoryAuthSessionStore::new());
+        Self::with_session_store(api_url, session, session_store)
+    }
+
+    pub fn with_session_store(
+        api_url: impl AsRef<str>,
+        session: AuthSession,
+        session_store: Arc<dyn AuthSessionStore>,
+    ) -> Result<Self, PhoenixHttpError> {
+        let auth_client = PhoenixServiceAuthClient::new(api_url.as_ref(), session_store.clone())?;
+        Self::from_parts(auth_client, session_store, session)
+    }
+
+    fn from_parts(
+        auth_client: PhoenixServiceAuthClient,
+        session_store: Arc<dyn AuthSessionStore>,
+        session: AuthSession,
+    ) -> Result<Self, PhoenixHttpError> {
+        session_store
+            .store_session(&session)
+            .map_err(auth_error_to_http_error)?;
+
+        Ok(Self {
+            auth_client,
+            session_store,
+            session,
+            refresh_lock: AsyncMutex::new(()),
+        })
+    }
+
+    pub fn session(&self) -> AuthSession {
+        self.session.clone()
+    }
+
+    fn update_session(&self, session: &AuthSession) -> Result<(), PhoenixHttpError> {
+        self.session
+            .update_from_snapshot(session.snapshot())
+            .map_err(auth_error_to_http_error)?;
+        self.session_store
+            .store_session(&self.session)
+            .map_err(auth_error_to_http_error)
+    }
+
+    fn missing_refresh_error(&self) -> PhoenixHttpError {
+        let error = if self.session.refresh_token().is_none() {
+            AuthError::MissingRefreshToken
+        } else {
+            AuthError::RefreshExpired
+        };
+        auth_error_to_http_error(error)
+    }
+}
+
+#[async_trait]
+impl PhoenixSessionManager for PhoenixMemorySessionManager {
+    async fn current_session(&self) -> Result<Option<AuthSession>, PhoenixHttpError> {
+        Ok(Some(self.session.clone()))
+    }
+
+    fn session_store(&self) -> Option<Arc<dyn AuthSessionStore>> {
+        Some(self.session_store.clone())
+    }
+
+    async fn refresh_session(&self) -> Result<(), PhoenixHttpError> {
+        let refresh_candidate = self.session.snapshot();
+        let _guard = self.refresh_lock.lock().await;
+
+        if self.session.snapshot() != refresh_candidate {
+            return Ok(());
+        }
+
+        if !self.session.can_refresh() {
+            return Err(self.missing_refresh_error());
+        }
+
+        let session = self.auth_client.refresh_session().await?;
+        self.update_session(&session)
+    }
+
+    async fn reload_session(
+        &self,
+        current_session: Option<&AuthSession>,
+    ) -> Result<bool, PhoenixHttpError> {
+        let Some(loaded) = self
+            .session_store
+            .load_session()
+            .map_err(auth_error_to_http_error)?
+        else {
+            return Ok(false);
+        };
+
+        if current_session
+            .or(Some(&self.session))
+            .is_some_and(|current| sessions_match_for_reload(current, &loaded))
+        {
+            return Ok(false);
+        }
+
+        self.update_session(&loaded)?;
+        Ok(true)
+    }
+}
+
+#[cfg(feature = "solana-keypair")]
+pub struct PhoenixWalletSessionManager {
+    memory: PhoenixMemorySessionManager,
+    keypair: Arc<Keypair>,
+}
+
+#[cfg(feature = "solana-keypair")]
+impl PhoenixWalletSessionManager {
+    pub async fn login(
+        api_url: impl AsRef<str>,
+        keypair: Arc<Keypair>,
+    ) -> Result<Self, PhoenixHttpError> {
+        let session_store: Arc<dyn AuthSessionStore> = Arc::new(MemoryAuthSessionStore::new());
+        let auth_client = PhoenixServiceAuthClient::new(api_url.as_ref(), session_store.clone())?;
+        let session = if let Some(env_session) = AuthSession::from_env().map_err(|error| {
+            map_transport_error(PhoenixApiError::Authentication(error), None, None)
+        })? {
+            session_store.store_session(&env_session).map_err(|error| {
+                map_transport_error(PhoenixApiError::Authentication(error), None, None)
+            })?;
+            env_session
+        } else {
+            auth_client
+                .login_with_wallet_keypair(keypair.as_ref())
+                .await?
+        };
+        let memory = PhoenixMemorySessionManager::from_parts(auth_client, session_store, session)?;
+
+        Ok(Self { memory, keypair })
+    }
+
+    pub fn session(&self) -> AuthSession {
+        self.memory.session()
+    }
+
+    async fn reauthenticate(&self) -> Result<(), PhoenixHttpError> {
+        let session = self
+            .memory
+            .auth_client
+            .login_with_wallet_keypair(self.keypair.as_ref())
+            .await?;
+        self.memory.update_session(&session)
+    }
+}
+
+#[cfg(feature = "solana-keypair")]
+#[async_trait]
+impl PhoenixSessionManager for PhoenixWalletSessionManager {
+    async fn current_session(&self) -> Result<Option<AuthSession>, PhoenixHttpError> {
+        self.memory.current_session().await
+    }
+
+    fn session_store(&self) -> Option<Arc<dyn AuthSessionStore>> {
+        self.memory.session_store()
+    }
+
+    async fn refresh_session(&self) -> Result<(), PhoenixHttpError> {
+        match self.memory.refresh_session().await {
+            Ok(()) => Ok(()),
+            Err(error) if is_auth_recovery_error(&error) => self.reauthenticate().await,
+            Err(error) => Err(error),
+        }
+    }
+
+    async fn reload_session(
+        &self,
+        current_session: Option<&AuthSession>,
+    ) -> Result<bool, PhoenixHttpError> {
+        self.memory.reload_session(current_session).await
+    }
+}
+
 #[derive(Default)]
 pub struct PhoenixHttpAuthConfig {
     pub initial_session: Option<AuthSession>,
     pub session_store: Option<Arc<dyn AuthSessionStore>>,
     pub signer: Option<Arc<dyn PhoenixAuthSigner>>,
+    pub session_manager: Option<Arc<dyn PhoenixSessionManager>>,
 }
 
 impl PhoenixHttpAuthConfig {
@@ -233,6 +438,11 @@ impl PhoenixHttpAuthConfig {
 
     pub fn with_signer(mut self, signer: Arc<dyn PhoenixAuthSigner>) -> Self {
         self.signer = Some(signer);
+        self
+    }
+
+    pub fn with_session_manager(mut self, manager: Arc<dyn PhoenixSessionManager>) -> Self {
+        self.session_manager = Some(manager);
         self
     }
 
@@ -259,12 +469,18 @@ impl PhoenixHttpAuthConfig {
     pub(crate) fn into_parts(self) -> PhoenixHttpAuthParts {
         let session_store = self
             .session_store
+            .or_else(|| {
+                self.session_manager
+                    .as_ref()
+                    .and_then(|manager| manager.session_store())
+            })
             .unwrap_or_else(|| Arc::new(MemoryAuthSessionStore::new()));
 
         PhoenixHttpAuthParts {
             initial_session: self.initial_session,
             session_store,
             signer: self.signer,
+            session_manager: self.session_manager,
         }
     }
 }
@@ -273,6 +489,7 @@ pub(crate) struct PhoenixHttpAuthParts {
     pub initial_session: Option<AuthSession>,
     pub session_store: Arc<dyn AuthSessionStore>,
     pub signer: Option<Arc<dyn PhoenixAuthSigner>>,
+    pub session_manager: Option<Arc<dyn PhoenixSessionManager>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1166,6 +1383,48 @@ fn body_preview(body: &str, max_chars: usize) -> String {
         preview.push_str("...");
     }
     preview
+}
+
+pub fn is_auth_recovery_error(error: &PhoenixHttpError) -> bool {
+    error.is_auth_error()
+        || matches!(error.status(), Some(401 | 403))
+        || matches!(
+            error.error_code(),
+            Some(
+                "missing_access_token"
+                    | "invalid_access_token"
+                    | "access_token_expired"
+                    | "access_jti_mismatch"
+                    | "session_missing"
+                    | "missing_refresh_token"
+                    | "invalid_refresh_token"
+                    | "refresh_expired"
+                    | "missing_pop_nonce"
+                    | "missing_pop_mac"
+                    | "missing_pop_binding"
+                    | "invalid_pop_nonce"
+                    | "invalid_pop_mac"
+                    | "invalid_pop_key"
+                    | "pop_binding_mismatch"
+                    | "pop_replay"
+                    | "pop_too_far_ahead"
+                    | "no_auth_session"
+            )
+        )
+}
+
+fn auth_error_to_http_error(error: AuthError) -> PhoenixHttpError {
+    map_transport_error(PhoenixApiError::Authentication(error), None, None)
+}
+
+fn sessions_match_for_reload(current_session: &AuthSession, loaded_session: &AuthSession) -> bool {
+    let mut current_snapshot = current_session.snapshot();
+    let mut loaded_snapshot = loaded_session.snapshot();
+    current_snapshot.access_expires_at = None;
+    current_snapshot.refresh_expires_at = None;
+    loaded_snapshot.access_expires_at = None;
+    loaded_snapshot.refresh_expires_at = None;
+    current_snapshot == loaded_snapshot
 }
 
 fn write_private_session_file(path: &Path, payload: &[u8]) -> Result<(), AuthError> {

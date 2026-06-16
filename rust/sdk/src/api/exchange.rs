@@ -9,11 +9,11 @@ pub struct ExchangeClient<'a> {
 
 impl ExchangeClient<'_> {
     pub async fn get_exchange(&self) -> Result<ExchangeResponse, PhoenixHttpError> {
-        self.http.get_json("/exchange").await
+        self.http.get_json("/v1/view/exchange").await
     }
 
     pub async fn get_keys(&self) -> Result<ExchangeKeysView, PhoenixHttpError> {
-        self.http.get_json("/exchange/keys").await
+        self.http.get_json("/v1/view/exchange/keys").await
     }
 
     pub async fn get_snapshot(&self) -> Result<ExchangeSnapshotView, PhoenixHttpError> {

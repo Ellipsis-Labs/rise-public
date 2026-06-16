@@ -11,7 +11,8 @@ use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use phoenix_rise::{
     AuthError, AuthSession, AuthSessionStore, MemoryAuthSessionStore, PhoenixAuthSigner,
-    PhoenixHttpClient, PhoenixServiceChallenge, PhoenixServiceLoginRequest,
+    PhoenixHttpClient, PhoenixMemorySessionManager, PhoenixServiceChallenge,
+    PhoenixServiceLoginRequest,
 };
 use serde_json::{Value, json};
 #[cfg(feature = "solana-keypair")]
@@ -67,7 +68,7 @@ async fn service_account_login_shares_session_with_http_client() {
         )
         .route("/v1/auth/login/service", post(service_login_handler))
         .route("/v1/auth/refresh", post(refresh_handler))
-        .route("/exchange/keys", get(exchange_keys_handler))
+        .route("/v1/view/exchange/keys", get(exchange_keys_handler))
         .with_state(state.clone());
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -128,7 +129,7 @@ async fn wallet_login_shares_session_with_http_client() {
     let app = Router::new()
         .route("/v1/auth/nonce", get(wallet_nonce_handler))
         .route("/v1/auth/login/wallet", post(wallet_login_handler))
-        .route("/exchange/keys", get(exchange_keys_handler))
+        .route("/v1/view/exchange/keys", get(exchange_keys_handler))
         .with_state(state.clone());
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -182,7 +183,7 @@ async fn signer_reauthenticates_when_refresh_token_is_missing() {
         )
         .route("/v1/auth/login/service", post(service_login_handler))
         .route("/v1/auth/refresh", post(refresh_handler))
-        .route("/exchange/keys", get(exchange_keys_handler))
+        .route("/v1/view/exchange/keys", get(exchange_keys_handler))
         .with_state(state.clone());
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -246,7 +247,7 @@ async fn signer_reauthenticates_after_invalid_refresh_token() {
         )
         .route("/v1/auth/login/service", post(service_login_handler))
         .route("/v1/auth/refresh", post(refresh_handler))
-        .route("/exchange/keys", get(exchange_keys_handler))
+        .route("/v1/view/exchange/keys", get(exchange_keys_handler))
         .with_state(state.clone());
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -304,7 +305,7 @@ async fn store_only_auth_refreshes_after_unauthorized() {
 
     let app = Router::new()
         .route("/v1/auth/refresh", post(refresh_success_handler))
-        .route("/exchange/keys", get(exchange_keys_handler))
+        .route("/v1/view/exchange/keys", get(exchange_keys_handler))
         .with_state(state.clone());
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -337,6 +338,122 @@ async fn store_only_auth_refreshes_after_unauthorized() {
         store.load_session().unwrap().unwrap().access_jti(),
         "jti-fresh"
     );
+
+    server.abort();
+}
+
+#[tokio::test]
+async fn memory_session_manager_refreshes_before_request() {
+    let state = TestState {
+        login_access_token: make_jwt("jti-memory-fresh"),
+        pop_key: URL_SAFE_NO_PAD.encode(b"pop-key-memory"),
+        saw_auth_header: Arc::new(AtomicBool::new(false)),
+        service_login_calls: Arc::new(AtomicUsize::new(0)),
+        wallet_login_calls: Arc::new(AtomicUsize::new(0)),
+        refresh_calls: Arc::new(AtomicUsize::new(0)),
+    };
+
+    let app = Router::new()
+        .route("/v1/auth/refresh", post(refresh_success_handler))
+        .route("/v1/view/exchange/keys", get(exchange_keys_handler))
+        .with_state(state.clone());
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    let initial_session = AuthSession::from_tokens(
+        make_jwt_with_exp("jti-memory-expired", 1),
+        Some("refresh-token-memory".to_string()),
+        URL_SAFE_NO_PAD.encode(b"pop-key-stale"),
+        None,
+        Some(3600),
+    )
+    .unwrap();
+    let manager = Arc::new(
+        PhoenixMemorySessionManager::new(format!("http://{}", addr), initial_session).unwrap(),
+    );
+
+    let client = PhoenixHttpClient::builder(format!("http://{}", addr))
+        .with_session_manager(manager.clone())
+        .build()
+        .unwrap();
+
+    let keys = client.exchange().get_keys().await.unwrap();
+    assert_eq!(keys.global_config, "11111111111111111111111111111111");
+    assert!(state.saw_auth_header.load(Ordering::SeqCst));
+    assert_eq!(state.refresh_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(manager.session().access_jti(), "jti-memory-fresh");
+    assert_eq!(
+        client
+            .auth()
+            .expect("manager-backed client should expose shared auth client")
+            .session()
+            .unwrap()
+            .expect("refreshed session should be stored")
+            .access_jti(),
+        "jti-memory-fresh"
+    );
+
+    server.abort();
+}
+
+#[tokio::test]
+async fn memory_session_manager_coalesces_concurrent_refreshes() {
+    let state = TestState {
+        login_access_token: make_jwt("jti-memory-fresh"),
+        pop_key: URL_SAFE_NO_PAD.encode(b"pop-key-memory"),
+        saw_auth_header: Arc::new(AtomicBool::new(false)),
+        service_login_calls: Arc::new(AtomicUsize::new(0)),
+        wallet_login_calls: Arc::new(AtomicUsize::new(0)),
+        refresh_calls: Arc::new(AtomicUsize::new(0)),
+    };
+
+    let app = Router::new()
+        .route("/v1/auth/refresh", post(refresh_success_slow_handler))
+        .route("/v1/view/exchange/keys", get(exchange_keys_handler))
+        .with_state(state.clone());
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    let initial_session = AuthSession::from_tokens(
+        make_jwt_with_exp("jti-memory-expired", 1),
+        Some("refresh-token-memory".to_string()),
+        URL_SAFE_NO_PAD.encode(b"pop-key-stale"),
+        None,
+        Some(3600),
+    )
+    .unwrap();
+    let manager = Arc::new(
+        PhoenixMemorySessionManager::new(format!("http://{}", addr), initial_session).unwrap(),
+    );
+
+    let client = PhoenixHttpClient::builder(format!("http://{}", addr))
+        .with_session_manager(manager.clone())
+        .build()
+        .unwrap();
+
+    let first = async { client.exchange().get_keys().await };
+    let second = async { client.exchange().get_keys().await };
+    let (first, second) = tokio::join!(first, second);
+
+    assert_eq!(
+        first.unwrap().global_config,
+        "11111111111111111111111111111111"
+    );
+    assert_eq!(
+        second.unwrap().global_config,
+        "11111111111111111111111111111111"
+    );
+    assert!(state.saw_auth_header.load(Ordering::SeqCst));
+    assert_eq!(state.refresh_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(manager.session().access_jti(), "jti-memory-fresh");
 
     server.abort();
 }
@@ -389,7 +506,7 @@ async fn store_reload_does_not_consume_refresh_retry() {
 
     let app = Router::new()
         .route("/v1/auth/refresh", post(refresh_success_handler))
-        .route("/exchange/keys", get(exchange_keys_handler))
+        .route("/v1/view/exchange/keys", get(exchange_keys_handler))
         .with_state(state.clone());
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -530,6 +647,13 @@ async fn refresh_success_handler(
     })))
 }
 
+async fn refresh_success_slow_handler(
+    State(state): State<TestState>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    refresh_success_handler(State(state)).await
+}
+
 async fn exchange_keys_handler(
     State(state): State<TestState>,
     headers: HeaderMap,
@@ -577,8 +701,11 @@ async fn exchange_keys_handler(
 }
 
 fn make_jwt(jti: &str) -> String {
+    make_jwt_with_exp(jti, 4_102_444_800)
+}
+
+fn make_jwt_with_exp(jti: &str, exp: u64) -> String {
     let header = URL_SAFE_NO_PAD.encode(r#"{"alg":"none","typ":"JWT"}"#);
-    let payload =
-        URL_SAFE_NO_PAD.encode(format!(r#"{{"jti":"{jti}","exp":4102444800}}"#).as_bytes());
+    let payload = URL_SAFE_NO_PAD.encode(format!(r#"{{"jti":"{jti}","exp":{exp}}}"#).as_bytes());
     format!("{header}.{payload}.sig")
 }

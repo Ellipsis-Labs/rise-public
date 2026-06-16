@@ -51,7 +51,7 @@ impl TradesClient<'_> {
         trader_pubkey: &Pubkey,
         params: TradeHistoryQueryParams,
     ) -> Result<TradeHistoryResponse, PhoenixHttpError> {
-        self.get_legacy_trader_trade_history(trader_pubkey, params)
+        self.get_trader_trade_history_by_pda(trader_pubkey, params)
             .await
     }
 
@@ -72,19 +72,6 @@ impl TradesClient<'_> {
         let query = trade_history_v2_query(&params, None);
         self.http
             .get_json_with_query(&format!("/v1/traders/{trader_pda}/trades_v2"), &query)
-            .await
-    }
-
-    async fn get_legacy_trader_trade_history(
-        &self,
-        trader_pubkey: &Pubkey,
-        params: TradeHistoryQueryParams,
-    ) -> Result<TradeHistoryResponse, PhoenixHttpError> {
-        self.http
-            .get_json_with_query(
-                &format!("/v1/trader/{trader_pubkey}/trades-history"),
-                &params,
-            )
             .await
     }
 }

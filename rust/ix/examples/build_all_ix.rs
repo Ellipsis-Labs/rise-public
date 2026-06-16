@@ -658,6 +658,50 @@ fn main() {
         );
     }
 
+    // 19. PlaceMarketOrderDelegated
+    {
+        let market_order = MarketOrderParams::builder()
+            .trader(pubkeys[0])
+            .trader_account(pubkeys[1])
+            .perp_asset_map(pubkeys[2])
+            .orderbook(pubkeys[3])
+            .spline_collection(pubkeys[4])
+            .global_trader_index(vec2(5, 6))
+            .active_trader_buffer(vec2(7, 8))
+            .side(Side::Ask)
+            .num_base_lots(100)
+            .min_base_lots_to_fill(0)
+            .min_quote_lots_to_fill(0)
+            .self_trade_behavior(phoenix_rise_ix::SelfTradeBehavior::Abort)
+            .client_order_id(0)
+            .order_flags(phoenix_rise_ix::OrderFlags::None)
+            .cancel_existing(false)
+            .build()
+            .unwrap();
+        let params = MarketOrderDelegatedParams::builder()
+            .market_order(market_order)
+            .trader_wallet(pubkeys[9])
+            .permission_account(pubkeys[10])
+            .build()
+            .unwrap();
+
+        let delegated_ix = create_place_market_order_delegated_ix(params).unwrap();
+        results.insert(
+            "PlaceMarketOrderDelegated".to_string(),
+            hex_encode(&delegated_ix.data),
+        );
+
+        // 20. Flight wrapper for PlaceMarketOrderDelegated
+        let flight_client = PhoenixFlightClient::new(pubkeys[9], 0, 0);
+        let ix = flight_client
+            .try_wrap_order_instruction(delegated_ix.into(), pubkeys[0])
+            .unwrap();
+        results.insert(
+            "FlightPlaceMarketOrderDelegated".to_string(),
+            hex_encode(&ix.data),
+        );
+    }
+
     // Output JSON
     let mut json = String::from("{");
     let mut first = true;

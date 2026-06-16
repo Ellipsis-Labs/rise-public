@@ -30,6 +30,7 @@ pub enum ExchangeCacheMarketChangeKind {
     LeverageTiers,
     MarkPriceParameters,
     OpenInterestCap,
+    MaxLiquidationSize,
     UpnlRiskFactor,
     UpnlRiskFactorForWithdrawals,
     FundingParameters,
@@ -366,6 +367,9 @@ fn apply_market_parameter_update(
         ExchangeMarketParameterUpdate::OpenInterestCapUpdated { new_base_lots, .. } => {
             market.open_interest_cap_base_lots = *new_base_lots;
         }
+        ExchangeMarketParameterUpdate::MaxLiquidationSizeUpdated { new_base_lots, .. } => {
+            market.max_liquidation_size_base_lots = *new_base_lots;
+        }
         ExchangeMarketParameterUpdate::UpnlRiskFactorUpdated { new, new_bps, .. } => {
             market.risk_factors.upnl = *new;
             market.risk_factors.upnl_bps = (*new_bps).or_else(|| percent_to_basis_points(*new));
@@ -420,6 +424,9 @@ fn market_change_kind(
         }
         ExchangeMarketParameterUpdate::OpenInterestCapUpdated { .. } => {
             Some(ExchangeCacheMarketChangeKind::OpenInterestCap)
+        }
+        ExchangeMarketParameterUpdate::MaxLiquidationSizeUpdated { .. } => {
+            Some(ExchangeCacheMarketChangeKind::MaxLiquidationSize)
         }
         ExchangeMarketParameterUpdate::UpnlRiskFactorUpdated { .. } => {
             Some(ExchangeCacheMarketChangeKind::UpnlRiskFactor)

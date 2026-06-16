@@ -8,7 +8,7 @@ use std::time::Duration;
 use futures_util::stream::{BoxStream, StreamExt};
 use parking_lot::Mutex;
 use solana_pubkey::Pubkey;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 use tokio_stream::StreamMap;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -28,6 +28,7 @@ use crate::ws_client::{PhoenixWSClient, SubscriptionHandle, WsConnectionStatus};
 struct PhoenixClientInner {
     http_client: PhoenixHttpClient,
     cmd_tx: mpsc::UnboundedSender<ClientCommand>,
+    connection_status_rx: watch::Receiver<WsConnectionStatus>,
     task_handle: Mutex<Option<JoinHandle<()>>>,
 }
 
@@ -54,10 +55,33 @@ impl PhoenixClient {
         Self::from_env(PhoenixEnv::load()).await
     }
 
+    /// Create a new authenticated PhoenixClient from environment variables.
+    pub async fn new_from_env_with_auth() -> Result<Self, PhoenixClientError> {
+        Self::from_env_with_auth(PhoenixEnv::load()).await
+    }
+
     /// Create a new PhoenixClient from a [`PhoenixEnv`].
     pub async fn from_env(env: PhoenixEnv) -> Result<Self, PhoenixClientError> {
         let http_client =
             PhoenixHttpClient::from_env(env.clone()).map_err(PhoenixClientError::Http)?;
+        Self::from_env_with_http_client(env, http_client).await
+    }
+
+    /// Create a new authenticated PhoenixClient from a [`PhoenixEnv`].
+    pub async fn from_env_with_auth(env: PhoenixEnv) -> Result<Self, PhoenixClientError> {
+        let http_client =
+            PhoenixHttpClient::from_env_with_auth(env.clone()).map_err(PhoenixClientError::Http)?;
+        Self::from_env_with_http_client(env, http_client).await
+    }
+
+    /// Create a new PhoenixClient from an environment and HTTP client.
+    ///
+    /// If the HTTP client has auth configured, the WebSocket connection loop
+    /// uses the same auth lifecycle for handshake JWT refreshes.
+    pub async fn from_env_with_http_client(
+        env: PhoenixEnv,
+        http_client: PhoenixHttpClient,
+    ) -> Result<Self, PhoenixClientError> {
         let exchange_response = http_client
             .get_exchange()
             .await
@@ -65,9 +89,14 @@ impl PhoenixClient {
         let metadata = PhoenixMetadata::new(exchange_response.into());
 
         let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
+        let (connection_status_tx, connection_status_rx) = watch::channel(
+            WsConnectionStatus::Disconnected("not connected".to_string()),
+        );
+        let ws_http_client = http_client.clone();
         let inner = Arc::new(PhoenixClientInner {
             http_client,
             cmd_tx,
+            connection_status_rx,
             task_handle: Mutex::new(None),
         });
 
@@ -75,7 +104,13 @@ impl PhoenixClient {
             inner: Arc::clone(&inner),
         };
 
-        let task_handle = tokio::spawn(Self::connection_loop(env, cmd_rx, metadata));
+        let task_handle = tokio::spawn(Self::connection_loop(
+            env,
+            ws_http_client,
+            cmd_rx,
+            metadata,
+            connection_status_tx,
+        ));
         *client.inner.task_handle.lock() = Some(task_handle);
 
         Ok(client)
@@ -120,6 +155,16 @@ impl PhoenixClient {
         &self.inner.http_client
     }
 
+    /// Return the latest observed WebSocket connection status.
+    pub fn connection_status(&self) -> WsConnectionStatus {
+        self.inner.connection_status_rx.borrow().clone()
+    }
+
+    /// Subscribe to WebSocket connection status updates for this client.
+    pub fn subscribe_connection_status(&self) -> watch::Receiver<WsConnectionStatus> {
+        self.inner.connection_status_rx.clone()
+    }
+
     /// Signal the background task to shut down.
     pub fn shutdown(&self) {
         let _ = self.inner.cmd_tx.send(ClientCommand::Shutdown);
@@ -135,8 +180,10 @@ impl PhoenixClient {
 
     async fn connection_loop(
         env: PhoenixEnv,
+        http_client: PhoenixHttpClient,
         mut cmd_rx: mpsc::UnboundedReceiver<ClientCommand>,
         metadata: PhoenixMetadata,
+        connection_status_tx: watch::Sender<WsConnectionStatus>,
     ) {
         let mut runtime_state = RuntimeState::new(metadata);
         let mut logical_subscriptions: HashMap<ClientSubscriptionId, LogicalSubscription> =
@@ -150,14 +197,17 @@ impl PhoenixClient {
         const MAX_BACKOFF_MS: u64 = 30_000;
 
         'reconnect: loop {
-            let mut ws_client = match PhoenixWSClient::from_env_with_connection_status(env.clone())
-            {
+            let mut ws_client = match PhoenixWSClient::from_env_with_connection_status_and_auth(
+                env.clone(),
+                http_client.clone(),
+            ) {
                 Ok(client) => {
                     backoff_ms = 1_000;
                     client
                 }
                 Err(e) => {
                     error!("Failed to create WS client: {:?}", e);
+                    let _ = connection_status_tx.send(WsConnectionStatus::ConnectionFailed);
                     if !Self::wait_with_command_processing(
                         Duration::from_millis(backoff_ms),
                         &mut cmd_rx,
@@ -183,6 +233,9 @@ impl PhoenixClient {
                         "PhoenixWSClient missing status receiver; expected \
                          from_env_with_connection_status to enable it"
                     );
+                    let _ = connection_status_tx.send(WsConnectionStatus::Disconnected(
+                        "connection status unavailable".to_string(),
+                    ));
                     return;
                 }
             };
@@ -201,16 +254,29 @@ impl PhoenixClient {
             loop {
                 tokio::select! {
                     status = status_rx.recv() => {
-                        match status {
-                            Some(WsConnectionStatus::Connected) => {
-                                debug!("PhoenixClient WebSocket connected");
-                                backoff_ms = 1_000;
-                            }
-                            Some(WsConnectionStatus::Connecting) => {
-                                debug!("PhoenixClient WebSocket connecting");
-                            }
-                            Some(WsConnectionStatus::Disconnected(reason)) => {
-                                warn!("PhoenixClient WebSocket disconnected: {}", reason);
+                        if let Some(status) = status {
+                            let _ = connection_status_tx.send(status.clone());
+                            let should_reconnect = match status {
+                                WsConnectionStatus::Connected => {
+                                    debug!("PhoenixClient WebSocket connected");
+                                    backoff_ms = 1_000;
+                                    false
+                                }
+                                WsConnectionStatus::Connecting => {
+                                    debug!("PhoenixClient WebSocket connecting");
+                                    false
+                                }
+                                WsConnectionStatus::Disconnected(reason) => {
+                                    warn!("PhoenixClient WebSocket disconnected: {}", reason);
+                                    true
+                                }
+                                WsConnectionStatus::ConnectionFailed => {
+                                    warn!("PhoenixClient WebSocket connection failed");
+                                    true
+                                }
+                            };
+
+                            if should_reconnect {
                                 drop(ws_handles);
                                 if !Self::wait_with_command_processing(
                                     Duration::from_millis(backoff_ms),
@@ -226,28 +292,13 @@ impl PhoenixClient {
                                 backoff_ms = (backoff_ms * 2).min(MAX_BACKOFF_MS);
                                 continue 'reconnect;
                             }
-                            Some(WsConnectionStatus::ConnectionFailed) => {
-                                warn!("PhoenixClient WebSocket connection failed");
-                                drop(ws_handles);
-                                if !Self::wait_with_command_processing(
-                                    Duration::from_millis(backoff_ms),
-                                    &mut cmd_rx,
-                                    &runtime_state,
-                                    &mut logical_subscriptions,
-                                    &mut subscribers_by_key,
-                                    &mut dependency_refcounts,
-                                    &mut next_subscription_id,
-                                ).await {
-                                    return;
-                                }
-                                backoff_ms = (backoff_ms * 2).min(MAX_BACKOFF_MS);
-                                continue 'reconnect;
-                            }
-                            None => {
-                                warn!("PhoenixClient connection status channel closed");
-                                drop(ws_handles);
-                                continue 'reconnect;
-                            }
+                        } else {
+                            warn!("PhoenixClient connection status channel closed");
+                            let _ = connection_status_tx.send(WsConnectionStatus::Disconnected(
+                                "connection status channel closed".to_string(),
+                            ));
+                            drop(ws_handles);
+                            continue 'reconnect;
                         }
                     }
 

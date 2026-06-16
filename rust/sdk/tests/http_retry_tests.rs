@@ -64,7 +64,7 @@ async fn get_requests_can_disable_rate_limit_retry_at_creation() {
 
 async fn spawn_test_server(state: TestState) -> (String, tokio::task::JoinHandle<()>) {
     let app = Router::new()
-        .route("/exchange/keys", get(exchange_keys_handler))
+        .route("/v1/view/exchange/keys", get(exchange_keys_handler))
         .with_state(state);
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

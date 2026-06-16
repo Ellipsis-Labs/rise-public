@@ -11,11 +11,12 @@ use url::Url;
 
 use crate::auth::{
     AuthError, AuthResponseBody, AuthSession, AuthSessionStore, PhoenixAuthSigner,
-    RefreshRequestBody, login_with_auth_signer,
+    PhoenixSessionManager, RefreshRequestBody, login_with_auth_signer,
 };
 use crate::auth_lifecycle::{
     AuthLifecycleController, AuthLifecycleError, AuthLifecycleErrorReason, AuthLifecycleState,
 };
+use crate::phoenix_rise_types::PhoenixHttpError;
 
 const ACCESS_REFRESH_WINDOW: Duration = Duration::from_secs(60);
 pub(crate) const PHOENIX_CLIENT_HEADER_VALUE: &str = concat!(
@@ -105,6 +106,9 @@ pub(crate) enum PhoenixApiError {
 
     #[error("authentication error: {0}")]
     Authentication(#[from] AuthError),
+
+    #[error("session manager error: {0}")]
+    SessionManager(#[from] PhoenixHttpError),
 }
 
 impl PhoenixApiError {
@@ -140,6 +144,7 @@ pub(crate) struct PhoenixApiClient {
     auth_session: Option<AuthSession>,
     auth_session_store: Option<Arc<dyn AuthSessionStore>>,
     auth_signer: Option<Arc<dyn PhoenixAuthSigner>>,
+    session_manager: Option<Arc<dyn PhoenixSessionManager>>,
     auth_lifecycle: Arc<Mutex<AuthLifecycleController>>,
 }
 
@@ -149,6 +154,7 @@ pub(crate) struct PhoenixApiClientBuilder {
     auth_session: Option<AuthSession>,
     auth_session_store: Option<Arc<dyn AuthSessionStore>>,
     auth_signer: Option<Arc<dyn PhoenixAuthSigner>>,
+    session_manager: Option<Arc<dyn PhoenixSessionManager>>,
 }
 
 impl PhoenixApiClient {
@@ -162,6 +168,40 @@ impl PhoenixApiClient {
 
     pub(crate) fn auth_lifecycle_last_error(&self) -> Option<AuthLifecycleError> {
         self.auth_lifecycle.lock().last_error().cloned()
+    }
+
+    pub(crate) async fn auth_session_for_request(
+        &self,
+    ) -> Result<Option<AuthSession>, PhoenixApiError> {
+        self.maybe_refresh_before_request().await?;
+
+        match self.current_auth_session().await? {
+            Some(session) if !access_expires_at_is_expired(&session) => Ok(Some(session)),
+            Some(session) => {
+                if session.can_refresh()
+                    || self.auth_signer.is_some()
+                    || self.session_manager.is_some()
+                {
+                    self.refresh_session().await?;
+                    return self.current_auth_session().await.map(|session| {
+                        session.filter(|session| !access_expires_at_is_expired(session))
+                    });
+                }
+
+                Ok(None)
+            }
+            None if self.auth_signer.is_some() || self.session_manager.is_some() => {
+                self.refresh_session().await?;
+                self.current_auth_session()
+                    .await
+                    .map(|session| session.filter(|session| !access_expires_at_is_expired(session)))
+            }
+            None => Ok(None),
+        }
+    }
+
+    pub(crate) async fn refresh_auth_session(&self) -> Result<(), PhoenixApiError> {
+        self.refresh_session().await
     }
 
     pub(crate) async fn get_json_typed<T: DeserializeOwned>(
@@ -247,7 +287,7 @@ impl PhoenixApiClient {
         let mut allow_store_reload = allow_auth_retry;
 
         loop {
-            let session = self.current_auth_session()?;
+            let session = self.current_auth_session().await?;
             let valid_session = session
                 .as_ref()
                 .filter(|session| !access_expires_at_is_expired(session));
@@ -269,7 +309,8 @@ impl PhoenixApiClient {
 
             let can_retry_auth = valid_session.is_some()
                 || self.auth_session_store.is_some()
-                || self.auth_signer.is_some();
+                || self.auth_signer.is_some()
+                || self.session_manager.is_some();
 
             if allow_auth_retry && status == StatusCode::UNAUTHORIZED && can_retry_auth {
                 if allow_store_reload
@@ -295,14 +336,15 @@ impl PhoenixApiClient {
     }
 
     async fn maybe_refresh_before_request(&self) -> Result<(), PhoenixApiError> {
-        let Some(session) = self.current_auth_session()? else {
+        let Some(session) = self.current_auth_session().await? else {
             return Ok(());
         };
         let should_rotate_access_token = session
             .access_expires_at()
             .map(|expires_at| expires_at <= Instant::now() + ACCESS_REFRESH_WINDOW)
             .unwrap_or(false);
-        let can_renew_session = session.can_refresh() || self.auth_signer.is_some();
+        let can_renew_session =
+            session.can_refresh() || self.auth_signer.is_some() || self.session_manager.is_some();
 
         if !should_rotate_access_token || !can_renew_session {
             return Ok(());
@@ -344,7 +386,11 @@ impl PhoenixApiClient {
             .map_err(|error| map_reqwest_error(error, Some(url_string)))
     }
 
-    fn current_auth_session(&self) -> Result<Option<AuthSession>, PhoenixApiError> {
+    async fn current_auth_session(&self) -> Result<Option<AuthSession>, PhoenixApiError> {
+        if let Some(manager) = &self.session_manager {
+            return manager.current_session().await.map_err(Into::into);
+        }
+
         if let Some(session) = &self.auth_session {
             return Ok(Some(session.clone()));
         }
@@ -362,9 +408,26 @@ impl PhoenixApiClient {
     }
 
     async fn refresh_session(&self) -> Result<(), PhoenixApiError> {
+        if let Some(manager) = &self.session_manager {
+            self.auth_lifecycle.lock().on_refresh_started();
+            return match manager.refresh_session().await {
+                Ok(()) => {
+                    self.auth_lifecycle.lock().on_refresh_succeeded(true);
+                    Ok(())
+                }
+                Err(error) => {
+                    self.auth_lifecycle.lock().on_refresh_failed(
+                        AuthLifecycleErrorReason::RefreshFailed,
+                        Some(error.to_string()),
+                    );
+                    Err(error.into())
+                }
+            };
+        }
+
         self.auth_lifecycle.lock().on_refresh_started();
 
-        let Some(session) = self.current_auth_session()? else {
+        let Some(session) = self.current_auth_session().await? else {
             return self
                 .reauthenticate_or_fail(
                     AuthLifecycleErrorReason::NoSession,
@@ -543,6 +606,13 @@ impl PhoenixApiClient {
         &self,
         current_session: Option<&AuthSession>,
     ) -> Result<bool, PhoenixApiError> {
+        if let Some(manager) = &self.session_manager {
+            return manager
+                .reload_session(current_session)
+                .await
+                .map_err(Into::into);
+        }
+
         let Some(store) = &self.auth_session_store else {
             return Ok(false);
         };
@@ -600,6 +670,7 @@ impl PhoenixApiClientBuilder {
             auth_session: None,
             auth_session_store: None,
             auth_signer: None,
+            session_manager: None,
         }
     }
 
@@ -618,6 +689,11 @@ impl PhoenixApiClientBuilder {
         self
     }
 
+    pub(crate) fn with_session_manager(mut self, manager: Arc<dyn PhoenixSessionManager>) -> Self {
+        self.session_manager = Some(manager);
+        self
+    }
+
     pub(crate) fn build(self) -> Result<PhoenixApiClient, PhoenixApiError> {
         let client = match self.client {
             Some(client) => client,
@@ -626,6 +702,7 @@ impl PhoenixApiClientBuilder {
         };
         let base_url = normalize_base_url(Url::parse(&self.api_url)?);
         let has_session = self.auth_session.is_some();
+        let has_session_manager = self.session_manager.is_some();
 
         Ok(PhoenixApiClient {
             client,
@@ -633,7 +710,10 @@ impl PhoenixApiClientBuilder {
             auth_session: self.auth_session,
             auth_session_store: self.auth_session_store,
             auth_signer: self.auth_signer,
-            auth_lifecycle: Arc::new(Mutex::new(AuthLifecycleController::new(has_session))),
+            session_manager: self.session_manager,
+            auth_lifecycle: Arc::new(Mutex::new(AuthLifecycleController::new(
+                has_session || has_session_manager,
+            ))),
         })
     }
 }

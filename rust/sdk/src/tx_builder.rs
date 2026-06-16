@@ -19,8 +19,8 @@ use crate::phoenix_rise_ix::{
     CancelId, CancelOrdersByIdParams, CancelStopLossParams, CondensedOrder,
     CreateConditionalOrdersAccountParams, DepositFundsParams, Direction, EmberDepositParams,
     EmberWithdrawParams, IsolatedCollateralFlow, IsolatedLimitOrderParams,
-    IsolatedMarketOrderParams, LimitOrderParams, MarketOrderParams, MultiLimitOrderParams,
-    OrderPacket, PHOENIX_PROGRAM_ID, PlaceLimitOrderWithConditionalsParams,
+    IsolatedMarketOrderParams, LimitOrderParams, MarketOrderDelegatedParams, MarketOrderParams,
+    MultiLimitOrderParams, OrderPacket, PHOENIX_PROGRAM_ID, PlaceLimitOrderWithConditionalsParams,
     PlacePositionConditionalOrderParams, PlaceStopLossParams, RegisterTraderParams, Side,
     SplApproveParams, StopLossOrderKind, SyncParentToChildParams,
     TransferCollateralChildToParentParams, TransferCollateralParams, TriggerOrderParams, USDC_MINT,
@@ -28,12 +28,13 @@ use crate::phoenix_rise_ix::{
     create_cancel_orders_by_id_ix, create_cancel_stop_loss_ix,
     create_create_conditional_orders_account_ix, create_deposit_funds_ix, create_ember_deposit_ix,
     create_ember_withdraw_ix, create_place_limit_order_ix,
-    create_place_limit_order_with_conditionals_ix, create_place_market_order_ix,
-    create_place_multi_limit_order_ix, create_place_position_conditional_order_ix,
-    create_place_stop_loss_ix, create_register_trader_ix, create_spl_approve_ix,
-    create_sync_parent_to_child_ix, create_transfer_collateral_child_to_parent_ix,
-    create_transfer_collateral_ix, create_withdraw_funds_ix, get_associated_token_address,
-    get_conditional_orders_address, get_ember_state_address, get_stop_loss_address,
+    create_place_limit_order_with_conditionals_ix, create_place_market_order_delegated_ix,
+    create_place_market_order_ix, create_place_multi_limit_order_ix,
+    create_place_position_conditional_order_ix, create_place_stop_loss_ix,
+    create_register_trader_ix, create_spl_approve_ix, create_sync_parent_to_child_ix,
+    create_transfer_collateral_child_to_parent_ix, create_transfer_collateral_ix,
+    create_withdraw_funds_ix, get_associated_token_address, get_conditional_orders_address,
+    get_ember_state_address, get_stop_loss_address,
 };
 use crate::phoenix_rise_math::{MathError, WrapperNum};
 use crate::phoenix_rise_types::accounts::StopLosses;
@@ -96,6 +97,11 @@ pub enum PhoenixTxBuilderError {
          leg sizes or use position conditionals after fill"
     )]
     UnsupportedLimitBracketLegSizing,
+
+    /// Delegated market-order builder only constructs the delegated market
+    /// order instruction, not follow-on conditional-order legs.
+    #[error("Delegated market orders do not support bracket legs in the local tx builder")]
+    UnsupportedDelegatedMarketOrderBrackets,
 }
 
 pub(crate) struct ParsedAddresses {
@@ -226,6 +232,50 @@ impl<'a> PhoenixTxBuilder<'a> {
             return self.create_bracket_market_order_ixs(params, &bracket).await;
         }
         self.create_market_order_ixs(params)
+    }
+
+    /// Build a delegated market order from a trader-facing ticket.
+    ///
+    /// `ticket.authority()` identifies the trader account authority for
+    /// PDA/metadata resolution. `trader_wallet` is the signing wallet. Pass
+    /// `None` for `permission_account` only when `trader_wallet` is the trader
+    /// account authority or primary position authority; this puts
+    /// `trader_wallet` itself in the permission-account slot. A
+    /// secondary/delegated wallet needs an actual
+    /// permission account bridging it to the trader account authority.
+    pub fn place_market_order_delegated(
+        &self,
+        ticket: MarketOrderTicket,
+        trader_wallet: Pubkey,
+        permission_account: Option<Pubkey>,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        if ticket
+            .bracket_leg_ticket()
+            .is_some_and(|bracket| !bracket.is_empty())
+        {
+            return Err(PhoenixTxBuilderError::UnsupportedDelegatedMarketOrderBrackets);
+        }
+
+        let market_order = ticket.to_params(self.order_ticket_metadata(ticket.symbol())?)?;
+        let params = MarketOrderDelegatedParams::builder()
+            .market_order(market_order)
+            .trader_wallet(trader_wallet)
+            .permission_account(permission_account.unwrap_or(trader_wallet))
+            .build()?;
+        self.build_market_order_delegated_with_params(params)
+    }
+
+    /// Build a delegated market-order instruction with pre-built params.
+    pub fn build_market_order_delegated_with_params(
+        &self,
+        params: MarketOrderDelegatedParams,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        if params.market_order().subaccount_index() == CROSS_MARGIN_SUBACCOUNT_IDX {
+            self.reject_isolated_only(params.market_order().symbol())?;
+        }
+
+        let ix = create_place_market_order_delegated_ix(params)?;
+        Ok(vec![ix.into()])
     }
 
     /// Build a limit order from a trader-facing ticket, optionally attaching
@@ -1673,6 +1723,7 @@ mod tests {
     use crate::order_tickets::BracketLeg;
     use crate::phoenix_rise_ix::{
         OrderFlags, PHOENIX_GLOBAL_CONFIGURATION, PHOENIX_LOG_AUTHORITY, get_ember_vault_address,
+        place_market_order_delegated_discriminant,
     };
     use crate::phoenix_rise_math::{MarketCalculator, QuoteLotsPerBaseLotPerTick};
     use crate::phoenix_rise_types::{
@@ -1768,6 +1819,37 @@ mod tests {
         assert_eq!(params.price_in_ticks(), None);
         assert_eq!(params.order_flags(), OrderFlags::None);
         assert_eq!(params.subaccount_index(), CROSS_MARGIN_SUBACCOUNT_IDX);
+    }
+
+    #[test]
+    fn test_place_market_order_delegated_builds_distinct_ix() {
+        let metadata = mock_metadata("SOL");
+        let builder = PhoenixTxBuilder::new(&metadata);
+        let authority = Pubkey::new_unique();
+        let trader_wallet = Pubkey::new_unique();
+        let trader_account = Pubkey::new_unique();
+        let ticket = MarketOrderTicket::builder()
+            .authority(authority)
+            .trader_account(trader_account)
+            .symbol("SOL")
+            .side(Side::Bid)
+            .num_base_lots(25)
+            .build()
+            .unwrap();
+
+        let ix = builder
+            .place_market_order_delegated(ticket, trader_wallet, None)
+            .unwrap()
+            .pop()
+            .unwrap();
+
+        assert_eq!(&ix.data[..8], &place_market_order_delegated_discriminant());
+        assert_eq!(ix.accounts.len(), 11);
+        assert_eq!(ix.accounts[3].pubkey, trader_wallet);
+        assert!(ix.accounts[3].is_signer);
+        assert_eq!(ix.accounts[4].pubkey, trader_wallet);
+        assert_eq!(ix.accounts[5].pubkey, trader_account);
+        assert_ne!(ix.accounts[3].pubkey, authority);
     }
 
     #[test]

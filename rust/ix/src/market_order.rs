@@ -5,7 +5,7 @@ use solana_pubkey::Pubkey;
 
 use crate::ix::constants::{
     PHOENIX_GLOBAL_CONFIGURATION, PHOENIX_LOG_AUTHORITY, PHOENIX_PROGRAM_ID,
-    place_market_order_discriminant,
+    place_market_order_delegated_discriminant, place_market_order_discriminant,
 };
 use crate::ix::error::PhoenixIxError;
 use crate::ix::order_packet::{OrderPacket, client_order_id_to_bytes};
@@ -39,6 +39,82 @@ pub struct MarketOrderParams {
     symbol: String,
     /// Subaccount index (0 = cross-margin, 1+ = isolated). Not serialized.
     subaccount_index: u8,
+}
+
+/// Parameters for placing a market order through the delegated market-order
+/// entrypoint.
+#[derive(Debug, Clone)]
+pub struct MarketOrderDelegatedParams {
+    market_order: MarketOrderParams,
+    trader_wallet: Pubkey,
+    permission_account: Pubkey,
+}
+
+impl MarketOrderDelegatedParams {
+    pub fn builder() -> MarketOrderDelegatedParamsBuilder {
+        MarketOrderDelegatedParamsBuilder::new()
+    }
+
+    pub fn market_order(&self) -> &MarketOrderParams {
+        &self.market_order
+    }
+
+    pub fn trader_wallet(&self) -> Pubkey {
+        self.trader_wallet
+    }
+
+    pub fn permission_account(&self) -> Pubkey {
+        self.permission_account
+    }
+}
+
+#[derive(Default)]
+pub struct MarketOrderDelegatedParamsBuilder {
+    market_order: Option<MarketOrderParams>,
+    trader_wallet: Option<Pubkey>,
+    permission_account: Option<Pubkey>,
+}
+
+impl MarketOrderDelegatedParamsBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn market_order(mut self, market_order: MarketOrderParams) -> Self {
+        self.market_order = Some(market_order);
+        self
+    }
+
+    /// Signing wallet. This may be the trader account authority, the account's
+    /// primary position authority, or a secondary/delegated wallet authorized
+    /// by `permission_account`.
+    pub fn trader_wallet(mut self, trader_wallet: Pubkey) -> Self {
+        self.trader_wallet = Some(trader_wallet);
+        self
+    }
+
+    /// Permission account to validate. When signing as the trader account
+    /// authority or primary position authority, pass the same pubkey used for
+    /// `trader_wallet`. A secondary/delegated wallet must pass an actual
+    /// permission account bridging it to the trader account authority.
+    pub fn permission_account(mut self, permission_account: Pubkey) -> Self {
+        self.permission_account = Some(permission_account);
+        self
+    }
+
+    pub fn build(self) -> Result<MarketOrderDelegatedParams, PhoenixIxError> {
+        Ok(MarketOrderDelegatedParams {
+            market_order: self
+                .market_order
+                .ok_or(PhoenixIxError::MissingField("market_order"))?,
+            trader_wallet: self
+                .trader_wallet
+                .ok_or(PhoenixIxError::MissingField("trader_wallet"))?,
+            permission_account: self
+                .permission_account
+                .ok_or(PhoenixIxError::MissingField("permission_account"))?,
+        })
+    }
 }
 
 impl MarketOrderParams {
@@ -329,8 +405,27 @@ pub fn create_place_market_order_ix(
 ) -> Result<Instruction, PhoenixIxError> {
     validate(&params)?;
 
-    let data = encode_market_order(&params);
+    let data = encode_market_order(&params, place_market_order_discriminant());
     let accounts = build_accounts(&params);
+
+    Ok(Instruction {
+        program_id: *PHOENIX_PROGRAM_ID,
+        accounts,
+        data,
+    })
+}
+
+/// Create a delegated place market order instruction.
+pub fn create_place_market_order_delegated_ix(
+    params: MarketOrderDelegatedParams,
+) -> Result<Instruction, PhoenixIxError> {
+    validate(params.market_order())?;
+
+    let data = encode_market_order(
+        params.market_order(),
+        place_market_order_delegated_discriminant(),
+    );
+    let accounts = build_delegated_accounts(&params);
 
     Ok(Instruction {
         program_id: *PHOENIX_PROGRAM_ID,
@@ -349,11 +444,11 @@ fn validate(params: &MarketOrderParams) -> Result<(), PhoenixIxError> {
     Ok(())
 }
 
-fn encode_market_order(params: &MarketOrderParams) -> Vec<u8> {
+fn encode_market_order(params: &MarketOrderParams, discriminant: [u8; 8]) -> Vec<u8> {
     let mut data = Vec::new();
 
     // Instruction discriminant (8 bytes)
-    data.extend_from_slice(&place_market_order_discriminant());
+    data.extend_from_slice(&discriminant);
 
     // Build the order packet using proper Borsh serialization
     let packet = OrderPacket::immediate_or_cancel(
@@ -374,6 +469,32 @@ fn encode_market_order(params: &MarketOrderParams) -> Vec<u8> {
     data.extend_from_slice(&to_vec(&packet.kind).expect("serialization should not fail"));
 
     data
+}
+
+fn build_delegated_accounts(params: &MarketOrderDelegatedParams) -> Vec<AccountMeta> {
+    let market_order = params.market_order();
+    let mut accounts = Vec::new();
+
+    accounts.push(AccountMeta::readonly(*PHOENIX_PROGRAM_ID));
+    accounts.push(AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY));
+    accounts.push(AccountMeta::writable(*PHOENIX_GLOBAL_CONFIGURATION));
+    accounts.push(AccountMeta::readonly_signer(params.trader_wallet()));
+    accounts.push(AccountMeta::writable(params.permission_account()));
+    accounts.push(AccountMeta::writable(market_order.trader_account()));
+    accounts.push(AccountMeta::writable(market_order.perp_asset_map()));
+
+    for addr in market_order.global_trader_index() {
+        accounts.push(AccountMeta::writable(*addr));
+    }
+
+    for addr in market_order.active_trader_buffer() {
+        accounts.push(AccountMeta::writable(*addr));
+    }
+
+    accounts.push(AccountMeta::writable(market_order.orderbook()));
+    accounts.push(AccountMeta::writable(market_order.spline_collection()));
+
+    accounts
 }
 
 fn build_accounts(params: &MarketOrderParams) -> Vec<AccountMeta> {
@@ -480,6 +601,55 @@ mod tests {
     }
 
     #[test]
+    fn test_create_market_order_delegated_ix_uses_distinct_signer_and_permission() {
+        let trader_authority = Pubkey::new_unique();
+        let trader_wallet = Pubkey::new_unique();
+        let permission_account = Pubkey::new_unique();
+        let trader_account = Pubkey::new_unique();
+        let perp_asset_map = Pubkey::new_unique();
+        let orderbook = Pubkey::new_unique();
+        let spline_collection = Pubkey::new_unique();
+        let global_trader_index = Pubkey::new_unique();
+        let active_trader_buffer = Pubkey::new_unique();
+
+        let market_order = MarketOrderParams::builder()
+            .trader(trader_authority)
+            .trader_account(trader_account)
+            .perp_asset_map(perp_asset_map)
+            .orderbook(orderbook)
+            .spline_collection(spline_collection)
+            .global_trader_index(vec![global_trader_index])
+            .active_trader_buffer(vec![active_trader_buffer])
+            .side(Side::Bid)
+            .price_in_ticks(50000)
+            .num_base_lots(1000)
+            .min_base_lots_to_fill(1000)
+            .min_quote_lots_to_fill(1)
+            .build()
+            .unwrap();
+        let normal_ix = create_place_market_order_ix(market_order.clone()).unwrap();
+        let delegated_params = MarketOrderDelegatedParams::builder()
+            .market_order(market_order)
+            .trader_wallet(trader_wallet)
+            .permission_account(permission_account)
+            .build()
+            .unwrap();
+
+        let ix = create_place_market_order_delegated_ix(delegated_params).unwrap();
+
+        assert_eq!(ix.program_id, *PHOENIX_PROGRAM_ID);
+        assert_eq!(ix.accounts.len(), 11);
+        assert_eq!(&ix.data[..8], &place_market_order_delegated_discriminant());
+        assert_eq!(&ix.data[8..], &normal_ix.data[8..]);
+        assert_eq!(ix.accounts[3].pubkey, trader_wallet);
+        assert!(ix.accounts[3].is_signer);
+        assert_eq!(ix.accounts[4].pubkey, permission_account);
+        assert!(ix.accounts[4].is_writable);
+        assert_eq!(ix.accounts[5].pubkey, trader_account);
+        assert_ne!(ix.accounts[3].pubkey, trader_authority);
+    }
+
+    #[test]
     fn test_builder_missing_required_field() {
         let result = MarketOrderParams::builder()
             .trader(Pubkey::new_unique())
@@ -487,5 +657,31 @@ mod tests {
             .build();
 
         assert!(matches!(result, Err(PhoenixIxError::MissingField(_))));
+    }
+
+    #[test]
+    fn test_delegated_builder_requires_trader_wallet() {
+        let market_order = MarketOrderParams::builder()
+            .trader(Pubkey::new_unique())
+            .trader_account(Pubkey::new_unique())
+            .perp_asset_map(Pubkey::new_unique())
+            .orderbook(Pubkey::new_unique())
+            .spline_collection(Pubkey::new_unique())
+            .global_trader_index(vec![Pubkey::new_unique()])
+            .active_trader_buffer(vec![Pubkey::new_unique()])
+            .side(Side::Bid)
+            .num_base_lots(1000)
+            .build()
+            .unwrap();
+
+        let result = MarketOrderDelegatedParams::builder()
+            .market_order(market_order)
+            .permission_account(Pubkey::new_unique())
+            .build();
+
+        assert!(matches!(
+            result,
+            Err(PhoenixIxError::MissingField("trader_wallet"))
+        ));
     }
 }

@@ -18,6 +18,11 @@ Optional features:
 - `ed25519-dalek` for service-account signing helpers
 - `rust_decimal` for decimal-backed helpers
 
+## Changelog
+
+Release notes are maintained in the public Rise repository:
+<https://github.com/Ellipsis-Labs/rise-public/blob/master/rust/CHANGELOG.md>.
+
 ## Source Layout
 
 The published `phoenix-rise` crate is assembled from:

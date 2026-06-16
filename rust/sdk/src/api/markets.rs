@@ -11,13 +11,13 @@ pub struct MarketsClient<'a> {
 
 impl MarketsClient<'_> {
     pub async fn get_markets(&self) -> Result<Vec<ExchangeMarketConfig>, PhoenixHttpError> {
-        self.http.get_json("/exchange/markets").await
+        self.http.get_json("/v1/view/exchange/markets").await
     }
 
     pub async fn get_market(&self, symbol: &str) -> Result<ExchangeMarketConfig, PhoenixHttpError> {
         let symbol_upper = symbol.to_ascii_uppercase();
         self.http
-            .get_json(&format!("/exchange/market/{}", symbol_upper))
+            .get_json(&format!("/v1/view/exchange/market/{}", symbol_upper))
             .await
     }
 
@@ -34,7 +34,7 @@ impl MarketsClient<'_> {
         let symbol_upper = symbol.to_ascii_uppercase();
         self.http
             .get_json_with_query(
-                &format!("/market/{}/orderbook", symbol_upper),
+                &format!("/v1/view/orderbook/{}", symbol_upper),
                 &Query { include_splines },
             )
             .await
