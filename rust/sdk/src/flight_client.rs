@@ -10,8 +10,9 @@ use solana_pubkey::Pubkey;
 use crate::phoenix_rise_ix::flight::{ProxyInstructionParams, create_proxy_instruction_ix};
 use crate::phoenix_rise_ix::{
     PhoenixIxError, place_attached_conditional_order_discriminant, place_limit_order_discriminant,
-    place_limit_order_with_conditionals_discriminant, place_market_order_discriminant,
-    place_position_conditional_order_discriminant, place_stop_loss_discriminant,
+    place_limit_order_with_conditionals_discriminant, place_market_order_delegated_discriminant,
+    place_market_order_discriminant, place_position_conditional_order_discriminant,
+    place_stop_loss_discriminant,
 };
 use crate::phoenix_rise_types::TraderKey;
 
@@ -78,6 +79,7 @@ impl PhoenixFlightClient {
 pub fn is_flight_routable_instruction(ix: &Instruction) -> bool {
     has_discriminant(&ix.data, &place_limit_order_discriminant())
         || has_discriminant(&ix.data, &place_market_order_discriminant())
+        || has_discriminant(&ix.data, &place_market_order_delegated_discriminant())
         || has_discriminant(&ix.data, &place_stop_loss_discriminant())
         || has_discriminant(&ix.data, &place_position_conditional_order_discriminant())
         || has_discriminant(&ix.data, &place_attached_conditional_order_discriminant())
@@ -193,6 +195,9 @@ mod tests {
         assert!(is_flight_routable_instruction(&build_sample_limit_ix()));
         assert!(is_flight_routable_instruction(&build_sample_phoenix_ix(
             place_market_order_discriminant()
+        )));
+        assert!(is_flight_routable_instruction(&build_sample_phoenix_ix(
+            place_market_order_delegated_discriminant()
         )));
         assert!(is_flight_routable_instruction(&build_sample_phoenix_ix(
             place_stop_loss_discriminant()

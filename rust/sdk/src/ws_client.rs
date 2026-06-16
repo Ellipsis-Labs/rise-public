@@ -6,13 +6,17 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use futures_util::{SinkExt, StreamExt};
 use solana_pubkey::Pubkey;
 use tokio::sync::mpsc;
-use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+use tokio_tungstenite::tungstenite::http::header::{AUTHORIZATION, SEC_WEBSOCKET_PROTOCOL};
+use tokio_tungstenite::tungstenite::http::{HeaderValue, StatusCode};
+use tokio_tungstenite::tungstenite::{Error as TungsteniteError, Message};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async};
 use tracing::{debug, error, info, warn};
 use url::Url;
 
+use crate::auth::AuthSession;
 use crate::env::PhoenixEnv;
+use crate::http_client::PhoenixHttpClient;
 use crate::phoenix_rise_types::{
     AllMidsData, CandleData, CandlesSubscriptionRequest, ClientMessage, FundingRateMessage,
     FundingRateSubscriptionRequest, L2BookUpdate, MarketStatsUpdate, MarketSubscriptionRequest,
@@ -123,7 +127,7 @@ impl PhoenixWSClient {
 
     /// Create a new WebSocket client from a `PhoenixEnv`.
     pub fn from_env(env: PhoenixEnv) -> Result<Self, PhoenixWsError> {
-        Self::new_internal(&env.ws_url, false)
+        Self::new_internal(&env.ws_url, false, None)
     }
 
     /// Create a new WebSocket client from a `PhoenixEnv` with connection status
@@ -132,7 +136,14 @@ impl PhoenixWSClient {
     /// Use `connection_status_receiver()` to get the receiver for status
     /// updates.
     pub fn from_env_with_connection_status(env: PhoenixEnv) -> Result<Self, PhoenixWsError> {
-        Self::new_internal(&env.ws_url, true)
+        Self::new_internal(&env.ws_url, true, None)
+    }
+
+    pub(crate) fn from_env_with_connection_status_and_auth(
+        env: PhoenixEnv,
+        auth_client: PhoenixHttpClient,
+    ) -> Result<Self, PhoenixWsError> {
+        Self::new_internal(&env.ws_url, true, Some(auth_client))
     }
 
     /// Create a new WebSocket client and connect to the server.
@@ -140,7 +151,7 @@ impl PhoenixWSClient {
     /// # Arguments
     /// * `ws_url` - The WebSocket URL (e.g., "wss://api.phoenix.trade/ws")
     pub fn new(ws_url: &str) -> Result<Self, PhoenixWsError> {
-        Self::new_internal(ws_url, false)
+        Self::new_internal(ws_url, false, None)
     }
 
     /// Create a new WebSocket client with connection status updates enabled.
@@ -151,13 +162,14 @@ impl PhoenixWSClient {
     /// # Arguments
     /// * `ws_url` - The WebSocket URL (e.g., "wss://api.phoenix.trade/ws")
     pub fn new_with_connection_status(ws_url: &str) -> Result<Self, PhoenixWsError> {
-        Self::new_internal(ws_url, true)
+        Self::new_internal(ws_url, true, None)
     }
 
     /// Internal constructor.
     fn new_internal(
         ws_url: &str,
         receiver_connection_status: bool,
+        auth_client: Option<PhoenixHttpClient>,
     ) -> Result<Self, PhoenixWsError> {
         let url = Url::parse(ws_url)?;
         let (control_tx, control_rx) = mpsc::unbounded_channel();
@@ -179,6 +191,7 @@ impl PhoenixWSClient {
         // Spawn the connection manager task
         tokio::spawn(Self::connection_manager(
             url,
+            auth_client,
             control_rx,
             ws_connection_status_tx,
         ));
@@ -505,6 +518,7 @@ impl PhoenixWSClient {
     /// routing.
     async fn connection_manager(
         url: Url,
+        auth_client: Option<PhoenixHttpClient>,
         mut control_rx: mpsc::UnboundedReceiver<ControlMessage>,
         ws_connection_status_tx: Option<mpsc::UnboundedSender<WsConnectionStatus>>,
     ) {
@@ -518,7 +532,7 @@ impl PhoenixWSClient {
         }
 
         // Connect to WebSocket
-        let ws_stream = match Self::connect(&url).await {
+        let ws_stream = match Self::connect(&url, auth_client.as_ref()).await {
             Ok(stream) => {
                 info!("Connected to WebSocket: {}", url);
                 if let Some(ref tx) = ws_connection_status_tx {
@@ -650,10 +664,67 @@ impl PhoenixWSClient {
     /// Connect to the WebSocket server.
     async fn connect(
         url: &Url,
+        auth_client: Option<&PhoenixHttpClient>,
     ) -> Result<WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>, PhoenixWsError> {
-        let request = url.as_str().into_client_request()?;
-        let (ws_stream, _response) = connect_async(request).await?;
+        let auth_session = Self::auth_session_for_connect(auth_client).await?;
+        let request = Self::connect_request(url, auth_session.as_ref())?;
+        let ws_stream = match connect_async(request).await {
+            Ok((ws_stream, _response)) => ws_stream,
+            Err(error) if is_ws_auth_error(&error) => {
+                let Some(auth_client) = auth_client else {
+                    return Err(error.into());
+                };
+                auth_client
+                    .refresh_auth_session()
+                    .await
+                    .map_err(ws_auth_error)?;
+                let auth_session = Self::auth_session_for_connect(Some(auth_client)).await?;
+                let request = Self::connect_request(url, auth_session.as_ref())?;
+                let (ws_stream, _response) = connect_async(request).await?;
+                ws_stream
+            }
+            Err(error) => return Err(error.into()),
+        };
         Ok(ws_stream)
+    }
+
+    async fn auth_session_for_connect(
+        auth_client: Option<&PhoenixHttpClient>,
+    ) -> Result<Option<AuthSession>, PhoenixWsError> {
+        let Some(auth_client) = auth_client else {
+            return Ok(None);
+        };
+
+        auth_client
+            .auth_session_for_request()
+            .await
+            .map_err(ws_auth_error)
+    }
+
+    fn connect_request(
+        url: &Url,
+        auth_session: Option<&AuthSession>,
+    ) -> Result<tokio_tungstenite::tungstenite::handshake::client::Request, PhoenixWsError> {
+        let mut request = url.as_str().into_client_request()?;
+        let Some(auth_session) = auth_session else {
+            return Ok(request);
+        };
+
+        let bearer = format!("Bearer {}", auth_session.access_token());
+        let protocols = format!("phoenix-jwt, {}", auth_session.access_token());
+        request.headers_mut().insert(
+            AUTHORIZATION,
+            bearer
+                .parse::<HeaderValue>()
+                .map_err(|error| PhoenixWsError::InvalidHeaderValue(error.to_string()))?,
+        );
+        request.headers_mut().insert(
+            SEC_WEBSOCKET_PROTOCOL,
+            protocols
+                .parse::<HeaderValue>()
+                .map_err(|error| PhoenixWsError::InvalidHeaderValue(error.to_string()))?,
+        );
+        Ok(request)
     }
 
     /// Broadcast a message to all subscribers for a given key.
@@ -803,5 +874,70 @@ impl PhoenixWSClient {
 impl Drop for PhoenixWSClient {
     fn drop(&mut self) {
         self.shutdown();
+    }
+}
+
+fn is_ws_auth_error(error: &TungsteniteError) -> bool {
+    matches!(
+        error,
+        TungsteniteError::Http(response)
+            if matches!(
+                response.status(),
+                StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN | StatusCode::CONFLICT
+            )
+    )
+}
+
+fn ws_auth_error(error: impl std::fmt::Display) -> PhoenixWsError {
+    PhoenixWsError::Authentication(error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use base64::Engine as _;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+
+    use super::*;
+
+    #[test]
+    fn connect_request_includes_auth_headers_when_session_is_available() {
+        let access_token = test_jwt("ws-jti");
+        let session = AuthSession::from_tokens(
+            access_token.clone(),
+            Some("refresh-token".to_string()),
+            URL_SAFE_NO_PAD.encode(b"pop-key"),
+            Some(300),
+            Some(600),
+        )
+        .expect("session should parse");
+        let url = Url::parse("wss://api.example.test/ws").expect("url should parse");
+
+        let request =
+            PhoenixWSClient::connect_request(&url, Some(&session)).expect("request should build");
+
+        assert_eq!(
+            request.headers().get(AUTHORIZATION).unwrap(),
+            &format!("Bearer {access_token}")
+        );
+        assert_eq!(
+            request.headers().get(SEC_WEBSOCKET_PROTOCOL).unwrap(),
+            &format!("phoenix-jwt, {access_token}")
+        );
+    }
+
+    #[test]
+    fn connect_request_omits_auth_headers_without_session() {
+        let url = Url::parse("wss://api.example.test/ws").expect("url should parse");
+
+        let request = PhoenixWSClient::connect_request(&url, None).expect("request should build");
+
+        assert!(request.headers().get(AUTHORIZATION).is_none());
+        assert!(request.headers().get(SEC_WEBSOCKET_PROTOCOL).is_none());
+    }
+
+    fn test_jwt(jti: &str) -> String {
+        let header = URL_SAFE_NO_PAD.encode(r#"{"alg":"none"}"#);
+        let payload = URL_SAFE_NO_PAD.encode(format!(r#"{{"jti":"{jti}"}}"#));
+        format!("{header}.{payload}.sig")
     }
 }

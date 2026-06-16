@@ -150,6 +150,11 @@ pub fn place_market_order_discriminant() -> [u8; 8] {
     compute_discriminant("global:place_market_order")
 }
 
+/// Instruction discriminant for place_market_order_delegated.
+pub fn place_market_order_delegated_discriminant() -> [u8; 8] {
+    compute_discriminant("global:place_market_order_delegated")
+}
+
 /// Instruction discriminant for cancel_orders_by_id.
 pub fn cancel_orders_by_id_discriminant() -> [u8; 8] {
     compute_discriminant("global:cancel_orders_by_id")

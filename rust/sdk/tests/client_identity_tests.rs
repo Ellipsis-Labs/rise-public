@@ -61,7 +61,7 @@ async fn auth_client_sends_rise_client_identity_header() {
 
 async fn spawn_test_server(state: TestState) -> (String, tokio::task::JoinHandle<()>) {
     let app = Router::new()
-        .route("/exchange/keys", get(exchange_keys_handler))
+        .route("/v1/view/exchange/keys", get(exchange_keys_handler))
         .route(
             "/v1/auth/login/service/challenge",
             post(service_challenge_handler),

@@ -42,6 +42,14 @@ pub struct PhoenixEnv {
 }
 
 impl PhoenixEnv {
+    /// Build environment configuration from an API URL, deriving the canonical
+    /// Phoenix WebSocket URL at `/v1/ws` under any configured path prefix.
+    pub fn from_api_url(api_url: impl Into<String>) -> Result<Self, PhoenixWsError> {
+        let api_url = api_url.into();
+        let ws_url = ws_url_from_api_url(&api_url)?;
+        Ok(Self { api_url, ws_url })
+    }
+
     /// Load configuration from environment variables.
     ///
     /// # Environment Variables
@@ -80,16 +88,32 @@ impl Default for PhoenixEnv {
 pub(crate) fn ws_url_from_api_url(api_url: &str) -> Result<String, PhoenixWsError> {
     let mut url = Url::parse(api_url)?;
 
-    // Convert http(s) to ws(s) by replacing "http" prefix with "ws"
-    let scheme = url.scheme();
-    if let Some(ws_scheme) = scheme.strip_prefix("http") {
-        let new_scheme = format!("ws{}", ws_scheme);
-        let _ = url.set_scheme(&new_scheme);
-    } else if scheme != "ws" && scheme != "wss" {
-        return Err(PhoenixWsError::UnsupportedUrlScheme(scheme.to_string()));
+    let scheme = url.scheme().to_ascii_lowercase();
+    match scheme.as_str() {
+        "http" => {
+            url.set_scheme("ws")
+                .map_err(|_| PhoenixWsError::UnsupportedUrlScheme(scheme.clone()))?;
+        }
+        "https" => {
+            url.set_scheme("wss")
+                .map_err(|_| PhoenixWsError::UnsupportedUrlScheme(scheme.clone()))?;
+        }
+        "ws" | "wss" => {}
+        _ => return Err(PhoenixWsError::UnsupportedUrlScheme(scheme)),
     }
 
-    url.set_path(DEFAULT_WS_PATH);
+    let path = url.path().trim_end_matches('/');
+    let ws_path = if path.ends_with(DEFAULT_WS_PATH) {
+        path.to_string()
+    } else if path.ends_with("/v1") {
+        format!("{path}/ws")
+    } else if path.is_empty() || path == "/" {
+        DEFAULT_WS_PATH.to_string()
+    } else {
+        format!("{path}{DEFAULT_WS_PATH}")
+    };
+
+    url.set_path(&ws_path);
     url.set_query(None);
     url.set_fragment(None);
 
@@ -117,6 +141,13 @@ mod tests {
     }
 
     #[test]
+    fn test_from_api_url_derives_ws_url() {
+        let env = PhoenixEnv::from_api_url("http://localhost:8080").unwrap();
+        assert_eq!(env.api_url, "http://localhost:8080");
+        assert_eq!(env.ws_url, "ws://localhost:8080/v1/ws");
+    }
+
+    #[test]
     fn test_ws_url_from_https_api_url_appends_ws() {
         let ws_url = ws_url_from_api_url("https://perp-api.phoenix.trade").unwrap();
         assert_eq!(ws_url, "wss://perp-api.phoenix.trade/v1/ws");
@@ -135,6 +166,12 @@ mod tests {
     }
 
     #[test]
+    fn test_ws_url_preserves_path_prefix() {
+        let ws_url = ws_url_from_api_url("https://gateway.example.com/phoenix").unwrap();
+        assert_eq!(ws_url, "wss://gateway.example.com/phoenix/v1/ws");
+    }
+
+    #[test]
     fn test_ws_url_handles_trailing_slash() {
         let ws_url = ws_url_from_api_url("https://perp-api.phoenix.trade/").unwrap();
         assert_eq!(ws_url, "wss://perp-api.phoenix.trade/v1/ws");
@@ -142,7 +179,7 @@ mod tests {
 
     #[test]
     fn test_ws_url_does_not_double_append_ws() {
-        let ws_url = ws_url_from_api_url("https://perp-api.phoenix.trade/ws").unwrap();
+        let ws_url = ws_url_from_api_url("https://perp-api.phoenix.trade/v1/ws").unwrap();
         assert_eq!(ws_url, "wss://perp-api.phoenix.trade/v1/ws");
     }
 }

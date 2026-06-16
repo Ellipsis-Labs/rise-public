@@ -2529,8 +2529,9 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
+ "async-trait",
  "axum",
  "base64 0.22.1",
  "borsh 1.6.0",
@@ -2574,7 +2575,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-sdk-cli"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "clap",
  "phoenix-rise",

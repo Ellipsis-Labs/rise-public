@@ -56,3 +56,30 @@ Source Phoenix commit: `443ff8dfd64a9e7d35960b8b1946b3248d6681e5`
 
 - **Prefer `_bps` fields for risk factor arithmetic.** The server now populates them (e.g., `maintenance_bps: Some(5000)` = 50%). When present, these should be considered authoritative; the legacy `f64` fields may carry basis-point-scale values from the API rather than percentages in some contexts — divide by 100 only for human-readable display, as shown in the updated `http_client` example.
 - `ExchangeRiskFactors` struct literals in your own code now require the six new `Option<u16>` fields; either supply `None` or use `..Default::default()` (if you derive `Default`) to stay forward-compatible.
+
+## v0.1.7 - 2026-06-16
+
+Source Phoenix commit: `65fc5aad3e13c249bcc606b410059b8adbc61e2d`
+
+### Summary
+
+- **Delegated market orders**: New `MarketOrderDelegatedParams` / `create_place_market_order_delegated_ix` instruction builder and `PhoenixTxBuilder::place_market_order_delegated` for signing via a wallet that differs from the trader account authority. Delegated market-order instructions are now routable through `PhoenixFlightClient`.
+- **Session manager abstraction**: New `PhoenixSessionManager` trait with two built-in implementations — `PhoenixMemorySessionManager` (any `AuthSession`) and `PhoenixWalletSessionManager` (Solana keypair login, `solana-keypair` feature). Concurrent refreshes are coalesced. Pass via `PhoenixHttpClientBuilder::with_session_manager`.
+- **Authenticated WebSocket handshake**: `PhoenixClient::new_from_env_with_auth` / `from_env_with_auth` / `from_env_with_http_client` propagate the HTTP client's auth lifecycle to WebSocket connections; the handshake now sends `Authorization` and `Sec-WebSocket-Protocol` JWT headers and auto-retries on 401/403/409.
+- **WS connection status observable**: `PhoenixClient::connection_status()` and `subscribe_connection_status()` expose a `watch::Receiver<WsConnectionStatus>` for the full client's reconnection state.
+- **`MaxLiquidationSizeUpdated` WS event**: New `ExchangeMarketParameterUpdate::MaxLiquidationSizeUpdated` variant tracked by `ExchangeCacheMarketChangeKind::MaxLiquidationSize`.
+
+### Breaking Changes
+
+- **`TradersClient` API replaced**: `get_trader(authority)`, `get_trader_internal(authority, pda_index)`, and `get_trader_state(authority, pda_index)` are removed. Use `get_trader_by_pubkey(&trader_pda)` instead, which takes the trader PDA directly. The convenience top-level methods `PhoenixHttpClient::get_traders` and `get_trader_state` are also removed.
+- **`get_permission_address` removed** from the public re-export list in `phoenix_rise`.
+- **New `ExchangeMarketParameterUpdate::MaxLiquidationSizeUpdated` variant**: exhaustive `match` arms over this enum must add a handler for the new variant.
+- **New `PhoenixWsError::Authentication` variant**: exhaustive `match` arms over this error type must add a handler.
+
+### Consumer Notes
+
+- `PhoenixEnv::from_api_url(api_url)` is a new convenience constructor that derives the WebSocket URL automatically, including preserving reverse-proxy path prefixes (e.g. `https://gateway.example.com/phoenix` → `wss://gateway.example.com/phoenix/v1/ws`).
+- `PhoenixHttpClient::from_url_with_wallet_keypair(url, keypair)` (`solana-keypair` feature) creates a fully authenticated client in one step.
+- `PhoenixHttpClient::post_json` is now public.
+- `is_auth_recovery_error` is now a public export for downstream error classification.
+- `async-trait 0.1` is a new direct dependency of `phoenix-rise`.

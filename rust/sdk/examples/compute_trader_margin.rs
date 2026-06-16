@@ -163,23 +163,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let trader_key = TraderKey::from_authority(authority);
     let mut trader = Trader::new(trader_key.clone());
 
-    // Optionally fetch initial state via HTTP
-    match http_client.get_traders(&authority).await {
-        Ok(traders) => {
-            if let Some(view) = traders.into_iter().find(|t| t.trader_subaccount_index == 0) {
-                println!("  Found trader (PDA index: {})", view.trader_pda_index);
-                println!("  Positions: {}", view.positions.len());
-                println!("  Current Risk Tier: {:?}\n", view.risk_tier);
-            } else {
-                println!("  No primary subaccount found");
-                println!("  Will populate from WebSocket\n");
-            }
-        }
-        Err(e) => {
-            println!("  Could not fetch trader state: {}", e);
-            println!("  Will populate from WebSocket\n");
-        }
-    };
+    println!("  Trader state will populate from WebSocket\n");
 
     // Portfolio will be built from trader state updates
     let mut portfolio = TraderPortfolio::default();

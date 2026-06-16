@@ -85,11 +85,14 @@ pub use api::{
     CandlesClient, CollateralClient, ExchangeClient, FundingClient, InviteClient, MarketsClient,
     OrdersClient, TradersClient, TradesClient,
 };
+#[cfg(feature = "solana-keypair")]
+pub use auth::PhoenixWalletSessionManager;
 pub use auth::{
     AuthError, AuthSession, AuthSessionSnapshot, AuthSessionStore, FileAuthSessionStore,
-    MemoryAuthSessionStore, PhoenixAuthSigner, PhoenixHttpAuthConfig, PhoenixServiceAuthClient,
-    PhoenixServiceChallenge, PhoenixServiceLoginRequest, PhoenixWalletNonce,
-    PhoenixWalletNonceRequest, PhoenixWalletTransactionChallenge, default_auth_session_store_path,
+    MemoryAuthSessionStore, PhoenixAuthSigner, PhoenixHttpAuthConfig, PhoenixMemorySessionManager,
+    PhoenixServiceAuthClient, PhoenixServiceChallenge, PhoenixServiceLoginRequest,
+    PhoenixSessionManager, PhoenixWalletNonce, PhoenixWalletNonceRequest,
+    PhoenixWalletTransactionChallenge, default_auth_session_store_path, is_auth_recovery_error,
 };
 pub use auth_lifecycle::{AuthLifecycleError, AuthLifecycleErrorReason, AuthLifecycleState};
 #[cfg(feature = "ed25519-dalek")]
@@ -121,13 +124,13 @@ pub use ws_client::{PhoenixWSClient, SubscriptionHandle, WsConnectionStatus};
 pub use crate::phoenix_rise_ix::{
     CancelConditionalOrderParams, CancelId, CancelStopLossParams, CondensedOrder,
     CreateConditionalOrdersAccountParams, Direction, FifoOrderId, IsolatedCollateralFlow,
-    IsolatedLimitOrderParams, IsolatedMarketOrderParams, MultiLimitOrderParams,
-    OnboardTraderDelegatedParams, OrderFlags, PlaceAttachedConditionalOrderParams,
-    PlaceLimitOrderWithConditionalsParams, PlacePositionConditionalOrderParams,
-    RegisterTraderParams, SelfTradeBehavior, Side, StopLossOrderKind, TransferCollateralParams,
-    TriggerOrderParams, get_conditional_orders_address, get_permission_address,
-    phoenix_global_configuration, phoenix_instruction_addresses, phoenix_log_authority,
-    phoenix_program_id, resolve_phoenix_instruction_addresses_for_env,
+    IsolatedLimitOrderParams, IsolatedMarketOrderParams, MarketOrderDelegatedParams,
+    MultiLimitOrderParams, OnboardTraderDelegatedParams, OrderFlags,
+    PlaceAttachedConditionalOrderParams, PlaceLimitOrderWithConditionalsParams,
+    PlacePositionConditionalOrderParams, RegisterTraderParams, SelfTradeBehavior, Side,
+    StopLossOrderKind, TransferCollateralParams, TriggerOrderParams,
+    get_conditional_orders_address, phoenix_global_configuration, phoenix_instruction_addresses,
+    phoenix_log_authority, phoenix_program_id, resolve_phoenix_instruction_addresses_for_env,
 };
 // Re-export useful types from the types crate
 pub use crate::phoenix_rise_types::{

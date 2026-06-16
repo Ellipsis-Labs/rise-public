@@ -259,6 +259,10 @@ pub enum ExchangeMarketParameterUpdate {
         previous_base_lots: JsSafeU64,
         new_base_lots: JsSafeU64,
     },
+    MaxLiquidationSizeUpdated {
+        previous_base_lots: JsSafeU64,
+        new_base_lots: JsSafeU64,
+    },
     UpnlRiskFactorUpdated {
         previous: f64,
         new: f64,

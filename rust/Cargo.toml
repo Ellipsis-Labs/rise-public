@@ -25,6 +25,10 @@ version = { workspace = true }
 path = "sdk/src/lib.rs"
 
 [[test]]
+name = "auth_config_tests"
+path = "sdk/tests/auth_config_tests.rs"
+
+[[test]]
 name = "invite_client_tests"
 path = "sdk/tests/invite_client_tests.rs"
 
@@ -159,6 +163,7 @@ ignored = [
 ]
 
 [dependencies]
+async-trait        = { workspace = true }
 base64             = { workspace = true }
 borsh              = { workspace = true }
 bs58               = { workspace = true }
@@ -216,9 +221,10 @@ publish      = true
 readme       = "CRATES.md"
 repository   = "https://github.com/Ellipsis-Labs/rise"
 rust-version = "1.84.0"
-version      = "0.1.6"
+version      = "0.1.7"
 
 [workspace.dependencies]
+async-trait = "0.1"
 base64 = "0.22"
 borsh = { version = "1.5", features = ["derive"] }
 bs58 = "0.5"

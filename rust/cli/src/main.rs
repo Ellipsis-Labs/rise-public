@@ -63,10 +63,6 @@ enum HttpCommand {
         symbol: String,
     },
     Exchange,
-    Traders {
-        #[arg(long)]
-        authority: String,
-    },
     CollateralHistory {
         #[arg(long)]
         authority: String,
@@ -381,11 +377,6 @@ async fn run_http_request(
         }
         HttpCommand::Exchange => {
             let response = client.get_exchange().await?;
-            print_json(&response, pretty)?;
-        }
-        HttpCommand::Traders { authority } => {
-            let authority = parse_pubkey(&authority)?;
-            let response = client.get_traders(&authority).await?;
             print_json(&response, pretty)?;
         }
         HttpCommand::CollateralHistory {

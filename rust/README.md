@@ -44,6 +44,11 @@ rust/
   modules
 - `phoenix-rise-sdk-cli`: smoke-test CLI for HTTP, websocket, and auth flows
 
+## Changelog
+
+The public Rust SDK changelog is published at
+<https://github.com/Ellipsis-Labs/rise-public/blob/master/rust/CHANGELOG.md>.
+
 ## Main SDK Surfaces
 
 ### `PhoenixHttpClient`

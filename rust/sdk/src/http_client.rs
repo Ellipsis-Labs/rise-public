@@ -10,6 +10,8 @@ use std::time::Duration;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use solana_instruction::Instruction;
+#[cfg(feature = "solana-keypair")]
+use solana_keypair::Keypair;
 use solana_pubkey::Pubkey;
 use tracing::debug;
 
@@ -18,9 +20,11 @@ use crate::api::{
     CandlesClient, CollateralClient, ExchangeClient, FundingClient, InviteClient, MarketsClient,
     OrdersClient, TradersClient, TradesClient,
 };
+#[cfg(feature = "solana-keypair")]
+use crate::auth::PhoenixWalletSessionManager;
 use crate::auth::{
     AuthError, AuthSession, AuthSessionStore, PhoenixAuthSigner, PhoenixHttpAuthConfig,
-    PhoenixServiceAuthClient,
+    PhoenixServiceAuthClient, PhoenixSessionManager,
 };
 use crate::auth_lifecycle::{AuthLifecycleError, AuthLifecycleState};
 use crate::env::PhoenixEnv;
@@ -36,8 +40,8 @@ use crate::phoenix_rise_types::{
     PlaceIsolatedLimitOrderRequest, PlaceIsolatedLimitOrderWithConditionalsRequest,
     PlaceIsolatedMarketOrderRequest, PlacePositionConditionalOrderRequest,
     PlaceStopLossOrderRequest, PnlPoint, PnlQueryParams, TradeHistoryQueryParams,
-    TradeHistoryResponse, TraderKey, TraderStateResponse, TraderView,
-    UserLiquidationHistoryQueryParams, UserLiquidationHistoryResponse,
+    TradeHistoryResponse, TraderKey, UserLiquidationHistoryQueryParams,
+    UserLiquidationHistoryResponse,
 };
 use crate::transport::{PhoenixApiClient, PhoenixApiError};
 
@@ -121,6 +125,34 @@ impl HttpClientInner {
 
     pub fn auth_lifecycle_last_error(&self) -> Option<AuthLifecycleError> {
         self.transport.auth_lifecycle_last_error()
+    }
+
+    pub(crate) async fn auth_session_for_request(
+        &self,
+    ) -> Result<Option<AuthSession>, PhoenixHttpError> {
+        self.transport
+            .auth_session_for_request()
+            .await
+            .map_err(|error| {
+                map_transport_error(
+                    error,
+                    Some(self.auth_lifecycle_state()),
+                    self.auth_lifecycle_last_error(),
+                )
+            })
+    }
+
+    pub(crate) async fn refresh_auth_session(&self) -> Result<(), PhoenixHttpError> {
+        self.transport
+            .refresh_auth_session()
+            .await
+            .map_err(|error| {
+                map_transport_error(
+                    error,
+                    Some(self.auth_lifecycle_state()),
+                    self.auth_lifecycle_last_error(),
+                )
+            })
     }
 
     async fn execute_with_rate_limit_retry<T, F, Fut>(
@@ -240,6 +272,16 @@ impl PhoenixHttpClientBuilder {
         self
     }
 
+    pub fn with_session_manager(mut self, manager: Arc<dyn PhoenixSessionManager>) -> Self {
+        let auth = self
+            .auth
+            .take()
+            .unwrap_or_default()
+            .with_session_manager(manager);
+        self.auth = Some(auth);
+        self
+    }
+
     pub fn with_rate_limit_retry_config(mut self, config: RateLimitRetryConfig) -> Self {
         self.rate_limit_retry = config;
         self
@@ -279,6 +321,9 @@ impl PhoenixHttpClientBuilder {
                 transport_builder.with_auth_session_store(parts.session_store.clone());
             if let Some(signer) = parts.signer.clone() {
                 transport_builder = transport_builder.with_auth_signer(signer);
+            }
+            if let Some(manager) = parts.session_manager.clone() {
+                transport_builder = transport_builder.with_session_manager(manager);
             }
         }
         let transport = transport_builder
@@ -370,6 +415,19 @@ impl PhoenixHttpClient {
         Self::builder(api_url).build()
     }
 
+    /// Creates an HTTP client backed by a wallet session manager.
+    #[cfg(feature = "solana-keypair")]
+    pub async fn from_url_with_wallet_keypair(
+        api_url: impl AsRef<str>,
+        keypair: Arc<Keypair>,
+    ) -> Result<Self, PhoenixHttpError> {
+        let api_url = api_url.as_ref();
+        let session_manager = PhoenixWalletSessionManager::login(api_url, keypair).await?;
+        Self::builder(api_url)
+            .with_session_manager(Arc::new(session_manager))
+            .build()
+    }
+
     /// Creates a new unauthenticated HTTP client.
     pub fn new_public(api_url: impl Into<String>) -> Result<Self, PhoenixHttpError> {
         Self::builder(api_url).build()
@@ -418,6 +476,16 @@ impl PhoenixHttpClient {
         self.inner.get_json_with_query(path, query).await
     }
 
+    /// POST a typed JSON request and response using the client's configured
+    /// auth behavior.
+    pub async fn post_json<T: DeserializeOwned, B: Serialize>(
+        &self,
+        path: &str,
+        body: &B,
+    ) -> Result<T, PhoenixHttpError> {
+        self.inner.post_json(path, body).await
+    }
+
     /// Returns the optional shared auth client when auth was enabled for this
     /// HTTP client.
     pub fn auth(&self) -> Option<&PhoenixServiceAuthClient> {
@@ -430,6 +498,16 @@ impl PhoenixHttpClient {
 
     pub fn auth_lifecycle_last_error(&self) -> Option<AuthLifecycleError> {
         self.inner.auth_lifecycle_last_error()
+    }
+
+    pub(crate) async fn auth_session_for_request(
+        &self,
+    ) -> Result<Option<AuthSession>, PhoenixHttpError> {
+        self.inner.auth_session_for_request().await
+    }
+
+    pub(crate) async fn refresh_auth_session(&self) -> Result<(), PhoenixHttpError> {
+        self.inner.refresh_auth_session().await
     }
 
     // --- Resource sub-client accessors ---
@@ -518,21 +596,6 @@ impl PhoenixHttpClient {
 
     pub async fn get_exchange_snapshot(&self) -> Result<ExchangeSnapshotView, PhoenixHttpError> {
         self.exchange().get_snapshot().await
-    }
-
-    pub async fn get_traders(
-        &self,
-        authority: &Pubkey,
-    ) -> Result<Vec<TraderView>, PhoenixHttpError> {
-        self.traders().get_trader(authority).await
-    }
-
-    pub async fn get_trader_state(
-        &self,
-        authority: &Pubkey,
-        pda_index: u8,
-    ) -> Result<TraderStateResponse, PhoenixHttpError> {
-        self.traders().get_trader_state(authority, pda_index).await
     }
 
     pub async fn get_collateral_history(
@@ -928,6 +991,7 @@ pub(crate) fn map_transport_error(
             message: error.to_string(),
             error_code: auth_error_code(&error),
         },
+        PhoenixApiError::SessionManager(error) => error,
         other => PhoenixHttpError::ParseFailed(other.to_string()),
     }
 }

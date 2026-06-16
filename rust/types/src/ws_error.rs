@@ -21,6 +21,10 @@ pub enum PhoenixWsError {
     #[error("Invalid header value: {0}")]
     InvalidHeaderValue(String),
 
+    /// Failed to prepare WebSocket authentication.
+    #[error("WebSocket authentication failed: {0}")]
+    Authentication(String),
+
     /// Failed to serialize a message.
     #[error("Failed to serialize message: {0}")]
     SerializationFailed(#[from] serde_json::Error),
