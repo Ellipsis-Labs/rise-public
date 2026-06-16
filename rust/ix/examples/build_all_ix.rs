@@ -690,16 +690,6 @@ fn main() {
             "PlaceMarketOrderDelegated".to_string(),
             hex_encode(&delegated_ix.data),
         );
-
-        // 20. Flight wrapper for PlaceMarketOrderDelegated
-        let flight_client = PhoenixFlightClient::new(pubkeys[9], 0, 0);
-        let ix = flight_client
-            .try_wrap_order_instruction(delegated_ix.into(), pubkeys[0])
-            .unwrap();
-        results.insert(
-            "FlightPlaceMarketOrderDelegated".to_string(),
-            hex_encode(&ix.data),
-        );
     }
 
     // Output JSON

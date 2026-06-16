@@ -105,3 +105,23 @@ Source Phoenix commit: `6487be852f3a382717f345a43fd956af3fba1766`
 - No changes to public API surface beyond the `RateLimitRetryConfig` doc/semantic fix above.
 - The jitter on fallback delays (±15%) is applied automatically; no configuration required or available.
 - If your server sends `Retry-After` as an HTTP-date string, the client will now correctly parse and honor it.
+
+## v0.1.9 - 2026-06-16
+
+Source Phoenix commit: `00d34904a9c9e981dcc62666906e2985a98624d9`
+
+### Summary
+
+- **New `opentelemetry` feature flag**: adds opt-in W3C trace-context propagation for outbound HTTP requests and WebSocket handshakes. Enable with `phoenix-rise = { features = ["opentelemetry"] }`. When active, `PhoenixHttpClientBuilder` exposes `with_trace_context_provider(...)` and `PhoenixWSClient` gains `new_with_trace_context_provider` and `new_with_connection_status_and_trace_context_provider` constructors.
+- **`TransferCollateralParamsBuilder` gains an optional `permission_account`**: pass a secondary position-authority permission account via `.permission_account(pubkey)`. When set, it is appended as a writable account at the end of the instruction's account list.
+- **`PlaceMarketOrderDelegated` removed from Flight routing**: `is_flight_routable_instruction` now returns `false` for delegated market orders. The discriminant function remains public but is no longer matched by the Flight client.
+- Dependency updates: `proptest` → `1.11.0`, `getrandom` → `0.4.2`, and several transitive `windows-sys` pins resolved to earlier versions.
+
+### Breaking Changes
+
+- **`is_flight_routable_instruction` behavior change**: `PlaceMarketOrderDelegated` instructions are no longer considered flight-routable. If your code wrapped delegated market orders via `PhoenixFlightClient::try_wrap_order_instruction`, those instructions must now be submitted directly rather than through Flight.
+
+### Consumer Notes
+
+- The `opentelemetry` feature does not install a global propagator automatically — callers must call `opentelemetry::global::set_text_map_propagator(...)` (e.g., with `TraceContextPropagator`) before trace headers will be injected into requests.
+- The `permission_account` builder method is additive and optional; existing `TransferCollateralParams` construction code requires no changes.

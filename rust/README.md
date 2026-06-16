@@ -164,6 +164,12 @@ Flight.
 - `phoenix-rise`
   - `solana-keypair`: enables wallet-keypair login helpers
   - `ed25519-dalek`: enables Ed25519 service-account auth signing helpers
+  - `opentelemetry`: enables W3C trace-context propagation on outbound HTTP
+    requests and websocket handshakes. When this feature is enabled,
+    `PhoenixHttpClient::builder(...)` exposes
+    `with_trace_context_provider(...)`, and `PhoenixWSClient` exposes
+    trace-context-aware websocket constructors for callers that need to pass an
+    existing OpenTelemetry parent context.
   - `rust_decimal`: enables decimal-backed helpers
   - `utoipa`: enables OpenAPI schema derivations where needed
 

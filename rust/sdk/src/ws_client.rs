@@ -1,17 +1,29 @@
 //! WebSocket client for connecting to the Phoenix API.
 
 use std::collections::HashMap;
+#[cfg(feature = "opentelemetry")]
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use futures_util::{SinkExt, StreamExt};
+#[cfg(feature = "opentelemetry")]
+use opentelemetry::{Context, global};
+#[cfg(feature = "opentelemetry")]
+use opentelemetry_http::HeaderInjector;
 use solana_pubkey::Pubkey;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+#[cfg(feature = "opentelemetry")]
+use tokio_tungstenite::tungstenite::http::HeaderMap;
 use tokio_tungstenite::tungstenite::http::header::{AUTHORIZATION, SEC_WEBSOCKET_PROTOCOL};
 use tokio_tungstenite::tungstenite::http::{HeaderValue, StatusCode};
 use tokio_tungstenite::tungstenite::{Error as TungsteniteError, Message};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async};
+#[cfg(feature = "opentelemetry")]
+use tracing::Instrument;
 use tracing::{debug, error, info, warn};
+#[cfg(feature = "opentelemetry")]
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 use url::Url;
 
 use crate::auth::AuthSession;
@@ -25,6 +37,8 @@ use crate::phoenix_rise_types::{
     TraderStateServerMessage, TraderStateSubscriptionRequest, TradesMessage,
     TradesSubscriptionRequest,
 };
+#[cfg(feature = "opentelemetry")]
+use crate::transport::TraceContextProvider;
 
 /// WebSocket connection status events.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -127,7 +141,13 @@ impl PhoenixWSClient {
 
     /// Create a new WebSocket client from a `PhoenixEnv`.
     pub fn from_env(env: PhoenixEnv) -> Result<Self, PhoenixWsError> {
-        Self::new_internal(&env.ws_url, false, None)
+        Self::new_internal(
+            &env.ws_url,
+            false,
+            None,
+            #[cfg(feature = "opentelemetry")]
+            None,
+        )
     }
 
     /// Create a new WebSocket client from a `PhoenixEnv` with connection status
@@ -136,14 +156,26 @@ impl PhoenixWSClient {
     /// Use `connection_status_receiver()` to get the receiver for status
     /// updates.
     pub fn from_env_with_connection_status(env: PhoenixEnv) -> Result<Self, PhoenixWsError> {
-        Self::new_internal(&env.ws_url, true, None)
+        Self::new_internal(
+            &env.ws_url,
+            true,
+            None,
+            #[cfg(feature = "opentelemetry")]
+            None,
+        )
     }
 
     pub(crate) fn from_env_with_connection_status_and_auth(
         env: PhoenixEnv,
         auth_client: PhoenixHttpClient,
     ) -> Result<Self, PhoenixWsError> {
-        Self::new_internal(&env.ws_url, true, Some(auth_client))
+        Self::new_internal(
+            &env.ws_url,
+            true,
+            Some(auth_client),
+            #[cfg(feature = "opentelemetry")]
+            None,
+        )
     }
 
     /// Create a new WebSocket client and connect to the server.
@@ -151,7 +183,26 @@ impl PhoenixWSClient {
     /// # Arguments
     /// * `ws_url` - The WebSocket URL (e.g., "wss://api.phoenix.trade/ws")
     pub fn new(ws_url: &str) -> Result<Self, PhoenixWsError> {
-        Self::new_internal(ws_url, false, None)
+        Self::new_internal(
+            ws_url,
+            false,
+            None,
+            #[cfg(feature = "opentelemetry")]
+            None,
+        )
+    }
+
+    /// Create a new WebSocket client with an OpenTelemetry parent context
+    /// provider for the outbound connect span and trace header propagation.
+    #[cfg(feature = "opentelemetry")]
+    pub fn new_with_trace_context_provider<F>(
+        ws_url: &str,
+        provider: F,
+    ) -> Result<Self, PhoenixWsError>
+    where
+        F: Fn() -> Context + Send + Sync + 'static,
+    {
+        Self::new_internal(ws_url, false, None, Some(Arc::new(provider)))
     }
 
     /// Create a new WebSocket client with connection status updates enabled.
@@ -162,7 +213,27 @@ impl PhoenixWSClient {
     /// # Arguments
     /// * `ws_url` - The WebSocket URL (e.g., "wss://api.phoenix.trade/ws")
     pub fn new_with_connection_status(ws_url: &str) -> Result<Self, PhoenixWsError> {
-        Self::new_internal(ws_url, true, None)
+        Self::new_internal(
+            ws_url,
+            true,
+            None,
+            #[cfg(feature = "opentelemetry")]
+            None,
+        )
+    }
+
+    /// Create a new WebSocket client with connection status updates and an
+    /// OpenTelemetry parent context provider for the outbound connect span and
+    /// trace header propagation.
+    #[cfg(feature = "opentelemetry")]
+    pub fn new_with_connection_status_and_trace_context_provider<F>(
+        ws_url: &str,
+        provider: F,
+    ) -> Result<Self, PhoenixWsError>
+    where
+        F: Fn() -> Context + Send + Sync + 'static,
+    {
+        Self::new_internal(ws_url, true, None, Some(Arc::new(provider)))
     }
 
     /// Internal constructor.
@@ -170,6 +241,7 @@ impl PhoenixWSClient {
         ws_url: &str,
         receiver_connection_status: bool,
         auth_client: Option<PhoenixHttpClient>,
+        #[cfg(feature = "opentelemetry")] trace_context_provider: Option<TraceContextProvider>,
     ) -> Result<Self, PhoenixWsError> {
         let url = Url::parse(ws_url)?;
         let (control_tx, control_rx) = mpsc::unbounded_channel();
@@ -188,7 +260,26 @@ impl PhoenixWSClient {
             next_subscriber_id: AtomicU64::new(0),
         };
 
+        #[cfg(feature = "opentelemetry")]
+        let trace_context_provider = auth_client
+            .as_ref()
+            .and_then(PhoenixHttpClient::trace_context_provider)
+            .or(trace_context_provider)
+            .map(|provider| {
+                let context = provider();
+                Arc::new(move || context.clone()) as TraceContextProvider
+            });
+
         // Spawn the connection manager task
+        #[cfg(feature = "opentelemetry")]
+        tokio::spawn(Self::connection_manager(
+            url,
+            auth_client,
+            control_rx,
+            ws_connection_status_tx,
+            trace_context_provider,
+        ));
+        #[cfg(not(feature = "opentelemetry"))]
         tokio::spawn(Self::connection_manager(
             url,
             auth_client,
@@ -521,6 +612,7 @@ impl PhoenixWSClient {
         auth_client: Option<PhoenixHttpClient>,
         mut control_rx: mpsc::UnboundedReceiver<ControlMessage>,
         ws_connection_status_tx: Option<mpsc::UnboundedSender<WsConnectionStatus>>,
+        #[cfg(feature = "opentelemetry")] trace_context_provider: Option<TraceContextProvider>,
     ) {
         let mut subscribers: HashMap<SubscriptionKey, HashMap<u64, Subscriber>> = HashMap::new();
         let mut active_subscriptions: HashMap<SubscriptionKey, SubscriptionRequest> =
@@ -532,7 +624,14 @@ impl PhoenixWSClient {
         }
 
         // Connect to WebSocket
-        let ws_stream = match Self::connect(&url, auth_client.as_ref()).await {
+        let ws_stream = match Self::connect(
+            &url,
+            auth_client.as_ref(),
+            #[cfg(feature = "opentelemetry")]
+            trace_context_provider.as_ref(),
+        )
+        .await
+        {
             Ok(stream) => {
                 info!("Connected to WebSocket: {}", url);
                 if let Some(ref tx) = ws_connection_status_tx {
@@ -665,10 +764,30 @@ impl PhoenixWSClient {
     async fn connect(
         url: &Url,
         auth_client: Option<&PhoenixHttpClient>,
+        #[cfg(feature = "opentelemetry")] trace_context_provider: Option<&TraceContextProvider>,
     ) -> Result<WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>, PhoenixWsError> {
         let auth_session = Self::auth_session_for_connect(auth_client).await?;
         let request = Self::connect_request(url, auth_session.as_ref())?;
-        let ws_stream = match connect_async(request).await {
+        #[cfg(feature = "opentelemetry")]
+        let span = tracing::info_span!(
+            "phoenix_rise_ws_client_connect",
+            http.url = %url,
+            otel.kind = "client"
+        );
+        #[cfg(feature = "opentelemetry")]
+        if let Some(context) = trace_parent_context(trace_context_provider) {
+            let _ = span.set_parent(context);
+        }
+        #[cfg(feature = "opentelemetry")]
+        let connect_result = {
+            let mut request = request;
+            inject_trace_headers(&span, request.headers_mut());
+            connect_async(request).instrument(span).await
+        };
+        #[cfg(not(feature = "opentelemetry"))]
+        let connect_result = connect_async(request).await;
+
+        let ws_stream = match connect_result {
             Ok((ws_stream, _response)) => ws_stream,
             Err(error) if is_ws_auth_error(&error) => {
                 let Some(auth_client) = auth_client else {
@@ -680,7 +799,26 @@ impl PhoenixWSClient {
                     .map_err(ws_auth_error)?;
                 let auth_session = Self::auth_session_for_connect(Some(auth_client)).await?;
                 let request = Self::connect_request(url, auth_session.as_ref())?;
-                let (ws_stream, _response) = connect_async(request).await?;
+                #[cfg(feature = "opentelemetry")]
+                let span = tracing::info_span!(
+                    "phoenix_rise_ws_client_connect",
+                    http.url = %url,
+                    otel.kind = "client",
+                    retry = true
+                );
+                #[cfg(feature = "opentelemetry")]
+                if let Some(context) = trace_parent_context(trace_context_provider) {
+                    let _ = span.set_parent(context);
+                }
+                #[cfg(feature = "opentelemetry")]
+                let connect_result = {
+                    let mut request = request;
+                    inject_trace_headers(&span, request.headers_mut());
+                    connect_async(request).instrument(span).await
+                };
+                #[cfg(not(feature = "opentelemetry"))]
+                let connect_result = connect_async(request).await;
+                let (ws_stream, _response) = connect_result?;
                 ws_stream
             }
             Err(error) => return Err(error.into()),
@@ -892,10 +1030,38 @@ fn ws_auth_error(error: impl std::fmt::Display) -> PhoenixWsError {
     PhoenixWsError::Authentication(error.to_string())
 }
 
+#[cfg(feature = "opentelemetry")]
+fn trace_parent_context(provider: Option<&TraceContextProvider>) -> Option<Context> {
+    provider.map(|provider| provider())
+}
+
+#[cfg(feature = "opentelemetry")]
+fn inject_trace_headers(span: &tracing::Span, headers: &mut HeaderMap) {
+    inject_trace_headers_from_context(&span.context(), headers);
+}
+
+#[cfg(feature = "opentelemetry")]
+fn inject_trace_headers_from_context(context: &Context, headers: &mut HeaderMap) {
+    global::get_text_map_propagator(|propagator| {
+        propagator.inject_context(context, &mut HeaderInjector(headers));
+    });
+}
+
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "opentelemetry")]
+    use std::sync::Arc;
+
     use base64::Engine as _;
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+    #[cfg(feature = "opentelemetry")]
+    use opentelemetry::trace::{
+        SpanContext, SpanId, TraceContextExt, TraceFlags, TraceId, TraceState,
+    };
+    #[cfg(feature = "opentelemetry")]
+    use opentelemetry::{Context, global};
+    #[cfg(feature = "opentelemetry")]
+    use opentelemetry_sdk::propagation::TraceContextPropagator;
 
     use super::*;
 
@@ -933,6 +1099,54 @@ mod tests {
 
         assert!(request.headers().get(AUTHORIZATION).is_none());
         assert!(request.headers().get(SEC_WEBSOCKET_PROTOCOL).is_none());
+    }
+
+    #[cfg(feature = "opentelemetry")]
+    #[test]
+    fn inject_trace_headers_from_context_includes_traceparent() {
+        global::set_text_map_propagator(TraceContextPropagator::new());
+        let parent_context = Context::new().with_remote_span_context(SpanContext::new(
+            TraceId::from_hex("4bf92f3577b34da6a3ce929d0e0e4736").expect("valid trace id"),
+            SpanId::from_hex("00f067aa0ba902b7").expect("valid span id"),
+            TraceFlags::SAMPLED,
+            true,
+            TraceState::default(),
+        ));
+        let mut headers = HeaderMap::new();
+
+        inject_trace_headers_from_context(&parent_context, &mut headers);
+
+        let traceparent = headers
+            .get("traceparent")
+            .and_then(|value| value.to_str().ok())
+            .expect("traceparent header should be present");
+        assert!(traceparent.contains("4bf92f3577b34da6a3ce929d0e0e4736"));
+    }
+
+    #[cfg(feature = "opentelemetry")]
+    #[test]
+    fn trace_parent_context_uses_provider() {
+        global::set_text_map_propagator(TraceContextPropagator::new());
+        let parent_context = Context::new().with_remote_span_context(SpanContext::new(
+            TraceId::from_hex("4bf92f3577b34da6a3ce929d0e0e4736").expect("valid trace id"),
+            SpanId::from_hex("00f067aa0ba902b7").expect("valid span id"),
+            TraceFlags::SAMPLED,
+            true,
+            TraceState::default(),
+        ));
+        let provider_context = parent_context.clone();
+        let provider: TraceContextProvider = Arc::new(move || provider_context.clone());
+
+        let provided_context =
+            trace_parent_context(Some(&provider)).expect("provider should return context");
+        let mut headers = HeaderMap::new();
+        inject_trace_headers_from_context(&provided_context, &mut headers);
+
+        let traceparent = headers
+            .get("traceparent")
+            .and_then(|value| value.to_str().ok())
+            .expect("traceparent header should be present");
+        assert!(traceparent.contains("4bf92f3577b34da6a3ce929d0e0e4736"));
     }
 
     fn test_jwt(jti: &str) -> String {
