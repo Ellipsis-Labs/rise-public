@@ -1,6 +1,6 @@
 {
   "name": "@ellipsis-labs/rise",
-  "version": "0.4.38",
+  "version": "0.4.39",
   "packageManager": "bun@1.3.13",
   "repository": {
     "type": "git",
@@ -18,7 +18,9 @@
   "description": "Rise SDK - Phoenix HTTP client",
   "type": "module",
   "files": [
-    "dist"
+    "dist",
+    "src",
+    "CHANGELOG.md"
   ],
   "main": "./dist/index.js",
   "module": "./dist/index.js",

@@ -13,6 +13,11 @@ It gives you:
 - built-in WebSocket adapters plus typed custom subscription registration
 - low-level transport helpers for custom HTTP endpoints
 
+## Changelog
+
+See the [public Rise TypeScript changelog](https://github.com/Ellipsis-Labs/rise-public/blob/master/ts/CHANGELOG.md)
+for release notes.
+
 ## Main Entry Points
 
 ```ts
