@@ -208,6 +208,7 @@ export interface ClientWithdrawInput {
 export interface ClientTransferCollateralInput {
   authority: Authority;
   positionAuthority?: Authority;
+  permissionAddress?: Address;
   traderPdaIndex: number;
   srcSubaccountIndex: number;
   dstSubaccountIndex: number;
@@ -453,6 +454,7 @@ export interface ResolvedTransferCollateralIxInput {
   trader: {
     authority: Authority;
     positionAuthority?: Authority;
+    permissionAddress?: Address;
     srcTraderAccount: TraderAddress;
     dstTraderAccount: TraderAddress;
   };
