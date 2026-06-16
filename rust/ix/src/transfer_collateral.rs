@@ -27,6 +27,9 @@ pub struct TransferCollateralParams {
     global_trader_index: Vec<Pubkey>,
     /// Active trader buffer addresses (header + arenas).
     active_trader_buffer: Vec<Pubkey>,
+    /// Optional permission account authorizing `trader` as a secondary position
+    /// authority.
+    permission_account: Option<Pubkey>,
     /// Amount to transfer in token base units.
     amount: u64,
 }
@@ -61,6 +64,10 @@ impl TransferCollateralParams {
         &self.active_trader_buffer
     }
 
+    pub fn permission_account(&self) -> Option<Pubkey> {
+        self.permission_account
+    }
+
     pub fn amount(&self) -> u64 {
         self.amount
     }
@@ -75,6 +82,7 @@ pub struct TransferCollateralParamsBuilder {
     perp_asset_map: Option<Pubkey>,
     global_trader_index: Option<Vec<Pubkey>>,
     active_trader_buffer: Option<Vec<Pubkey>>,
+    permission_account: Option<Pubkey>,
     amount: Option<u64>,
 }
 
@@ -110,6 +118,11 @@ impl TransferCollateralParamsBuilder {
 
     pub fn active_trader_buffer(mut self, active_trader_buffer: Vec<Pubkey>) -> Self {
         self.active_trader_buffer = Some(active_trader_buffer);
+        self
+    }
+
+    pub fn permission_account(mut self, permission_account: Pubkey) -> Self {
+        self.permission_account = Some(permission_account);
         self
     }
 
@@ -151,6 +164,7 @@ impl TransferCollateralParamsBuilder {
                 .ok_or(PhoenixIxError::MissingField("perp_asset_map"))?,
             global_trader_index,
             active_trader_buffer,
+            permission_account: self.permission_account,
             amount,
         })
     }
@@ -219,6 +233,10 @@ fn build_accounts(params: &TransferCollateralParams) -> Vec<AccountMeta> {
     // N+1-M. active_trader_buffer addresses (all writable)
     for addr in params.active_trader_buffer() {
         accounts.push(AccountMeta::writable(*addr));
+    }
+
+    if let Some(permission_account) = params.permission_account() {
+        accounts.push(AccountMeta::writable(permission_account));
     }
 
     accounts
@@ -539,6 +557,29 @@ mod tests {
         // Account 8: atb (writable)
         assert_eq!(ix.accounts[8].pubkey, atb);
         assert!(ix.accounts[8].is_writable);
+    }
+
+    #[test]
+    fn test_transfer_collateral_optional_permission_account() {
+        let permission_account = Pubkey::new_unique();
+        let params = TransferCollateralParams::builder()
+            .trader(Pubkey::new_unique())
+            .src_trader_account(Pubkey::new_unique())
+            .dst_trader_account(Pubkey::new_unique())
+            .perp_asset_map(Pubkey::new_unique())
+            .global_trader_index(vec![Pubkey::new_unique()])
+            .active_trader_buffer(vec![Pubkey::new_unique()])
+            .permission_account(permission_account)
+            .amount(1)
+            .build()
+            .unwrap();
+
+        let ix = create_transfer_collateral_ix(params).unwrap();
+
+        assert_eq!(ix.accounts.len(), 10);
+        assert_eq!(ix.accounts[9].pubkey, permission_account);
+        assert!(ix.accounts[9].is_writable);
+        assert!(!ix.accounts[9].is_signer);
     }
 
     #[test]

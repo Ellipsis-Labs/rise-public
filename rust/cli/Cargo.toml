@@ -11,7 +11,7 @@ rust-version = { workspace = true }
 version      = { workspace = true }
 
 [dependencies]
-phoenix-rise = { path = "..", features = ["solana-keypair"] }
+phoenix-rise = { path = "..", features = ["opentelemetry", "solana-keypair"] }
 
 clap           = { workspace = true }
 serde          = { workspace = true }

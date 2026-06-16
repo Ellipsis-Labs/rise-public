@@ -190,6 +190,11 @@ impl HttpClientInner {
             })
     }
 
+    #[cfg(feature = "opentelemetry")]
+    pub(crate) fn trace_context_provider(&self) -> Option<crate::transport::TraceContextProvider> {
+        self.transport.trace_context_provider()
+    }
+
     async fn execute_with_rate_limit_retry<T, F, Fut>(
         &self,
         retryable: bool,
@@ -246,6 +251,8 @@ pub struct PhoenixHttpClientBuilder {
     api_url: String,
     pub(crate) auth: Option<PhoenixHttpAuthConfig>,
     rate_limit_retry: RateLimitRetryConfig,
+    #[cfg(feature = "opentelemetry")]
+    trace_context_provider: Option<crate::transport::TraceContextProvider>,
 }
 
 impl PhoenixHttpClientBuilder {
@@ -254,6 +261,8 @@ impl PhoenixHttpClientBuilder {
             api_url: api_url.into(),
             auth: None,
             rate_limit_retry: RateLimitRetryConfig::default(),
+            #[cfg(feature = "opentelemetry")]
+            trace_context_provider: None,
         }
     }
 
@@ -319,6 +328,17 @@ impl PhoenixHttpClientBuilder {
         self.with_rate_limit_retry_enabled(false)
     }
 
+    /// Sets the OpenTelemetry parent context provider used for outbound API
+    /// request spans and trace header propagation.
+    #[cfg(feature = "opentelemetry")]
+    pub fn with_trace_context_provider<F>(mut self, provider: F) -> Self
+    where
+        F: Fn() -> opentelemetry::Context + Send + Sync + 'static,
+    {
+        self.trace_context_provider = Some(Arc::new(provider));
+        self
+    }
+
     pub fn build(self) -> Result<PhoenixHttpClient, PhoenixHttpError> {
         let auth_parts = self.auth.map(PhoenixHttpAuthConfig::into_parts);
 
@@ -334,6 +354,10 @@ impl PhoenixHttpClientBuilder {
         }
 
         let mut transport_builder = PhoenixApiClient::builder(&self.api_url);
+        #[cfg(feature = "opentelemetry")]
+        if let Some(provider) = self.trace_context_provider {
+            transport_builder = transport_builder.with_trace_context_provider(provider);
+        }
         if let Some(parts) = auth_parts.as_ref() {
             if let Some(session) = parts.initial_session.clone() {
                 transport_builder = transport_builder.with_auth_session(session);
@@ -529,6 +553,11 @@ impl PhoenixHttpClient {
 
     pub(crate) async fn refresh_auth_session(&self) -> Result<(), PhoenixHttpError> {
         self.inner.refresh_auth_session().await
+    }
+
+    #[cfg(feature = "opentelemetry")]
+    pub(crate) fn trace_context_provider(&self) -> Option<crate::transport::TraceContextProvider> {
+        self.inner.trace_context_provider()
     }
 
     // --- Resource sub-client accessors ---

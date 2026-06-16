@@ -2,12 +2,20 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use chrono::Utc;
+#[cfg(feature = "opentelemetry")]
+use opentelemetry::{Context, global};
+#[cfg(feature = "opentelemetry")]
+use opentelemetry_http::HeaderInjector;
 use parking_lot::Mutex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Client, Method, StatusCode};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
+#[cfg(feature = "opentelemetry")]
+use tracing::Instrument;
+#[cfg(feature = "opentelemetry")]
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 use url::Url;
 
 use crate::auth::{
@@ -146,8 +154,13 @@ pub(crate) struct PhoenixApiClient {
     auth_session_store: Option<Arc<dyn AuthSessionStore>>,
     auth_signer: Option<Arc<dyn PhoenixAuthSigner>>,
     session_manager: Option<Arc<dyn PhoenixSessionManager>>,
+    #[cfg(feature = "opentelemetry")]
+    trace_context_provider: Option<TraceContextProvider>,
     auth_lifecycle: Arc<Mutex<AuthLifecycleController>>,
 }
+
+#[cfg(feature = "opentelemetry")]
+pub(crate) type TraceContextProvider = Arc<dyn Fn() -> Context + Send + Sync + 'static>;
 
 pub(crate) struct PhoenixApiClientBuilder {
     api_url: String,
@@ -156,6 +169,8 @@ pub(crate) struct PhoenixApiClientBuilder {
     auth_session_store: Option<Arc<dyn AuthSessionStore>>,
     auth_signer: Option<Arc<dyn PhoenixAuthSigner>>,
     session_manager: Option<Arc<dyn PhoenixSessionManager>>,
+    #[cfg(feature = "opentelemetry")]
+    trace_context_provider: Option<TraceContextProvider>,
 }
 
 impl PhoenixApiClient {
@@ -365,8 +380,25 @@ impl PhoenixApiClient {
         body: Option<Vec<u8>>,
         session: Option<&AuthSession>,
     ) -> Result<reqwest::Response, PhoenixApiError> {
+        #[cfg(feature = "opentelemetry")]
+        let method_name = method.as_str().to_string();
         let url_string = url.to_string();
+        #[cfg(feature = "opentelemetry")]
+        let span = tracing::info_span!(
+            "phoenix_rise_http_client_request",
+            http.method = %method_name,
+            http.url = %url_string,
+            otel.kind = "client"
+        );
+        #[cfg(feature = "opentelemetry")]
+        if let Some(context) = self.trace_parent_context() {
+            let _ = span.set_parent(context);
+        }
         let mut request = self.client.request(method, url);
+        #[cfg(feature = "opentelemetry")]
+        {
+            request = request.headers(current_trace_headers(&span));
+        }
 
         if let Some(session) = session {
             request = request.header(
@@ -381,10 +413,24 @@ impl PhoenixApiClient {
                 .body(body);
         }
 
-        request
-            .send()
-            .await
-            .map_err(|error| map_reqwest_error(error, Some(url_string)))
+        #[cfg(feature = "opentelemetry")]
+        let response = request.send().instrument(span).await;
+        #[cfg(not(feature = "opentelemetry"))]
+        let response = request.send().await;
+
+        response.map_err(|error| map_reqwest_error(error, Some(url_string)))
+    }
+
+    #[cfg(feature = "opentelemetry")]
+    fn trace_parent_context(&self) -> Option<Context> {
+        self.trace_context_provider
+            .as_ref()
+            .map(|provider| provider())
+    }
+
+    #[cfg(feature = "opentelemetry")]
+    pub(crate) fn trace_context_provider(&self) -> Option<TraceContextProvider> {
+        self.trace_context_provider.clone()
     }
 
     async fn current_auth_session(&self) -> Result<Option<AuthSession>, PhoenixApiError> {
@@ -672,6 +718,8 @@ impl PhoenixApiClientBuilder {
             auth_session_store: None,
             auth_signer: None,
             session_manager: None,
+            #[cfg(feature = "opentelemetry")]
+            trace_context_provider: None,
         }
     }
 
@@ -695,6 +743,12 @@ impl PhoenixApiClientBuilder {
         self
     }
 
+    #[cfg(feature = "opentelemetry")]
+    pub(crate) fn with_trace_context_provider(mut self, provider: TraceContextProvider) -> Self {
+        self.trace_context_provider = Some(provider);
+        self
+    }
+
     pub(crate) fn build(self) -> Result<PhoenixApiClient, PhoenixApiError> {
         let client = match self.client {
             Some(client) => client,
@@ -712,6 +766,8 @@ impl PhoenixApiClientBuilder {
             auth_session_store: self.auth_session_store,
             auth_signer: self.auth_signer,
             session_manager: self.session_manager,
+            #[cfg(feature = "opentelemetry")]
+            trace_context_provider: self.trace_context_provider,
             auth_lifecycle: Arc::new(Mutex::new(AuthLifecycleController::new(
                 has_session || has_session_manager,
             ))),
@@ -739,6 +795,20 @@ pub(crate) fn build_default_http_client(timeout: Duration) -> Result<Client, req
     };
 
     builder.build()
+}
+
+#[cfg(feature = "opentelemetry")]
+fn current_trace_headers(span: &tracing::Span) -> HeaderMap {
+    trace_headers_from_context(&span.context())
+}
+
+#[cfg(feature = "opentelemetry")]
+fn trace_headers_from_context(context: &Context) -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    global::get_text_map_propagator(|propagator| {
+        propagator.inject_context(context, &mut HeaderInjector(&mut headers));
+    });
+    headers
 }
 
 pub(crate) fn is_rate_limited_error(status: StatusCode, error_code: Option<&str>) -> bool {
@@ -842,6 +912,14 @@ mod tests {
 
     use base64::Engine as _;
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+    #[cfg(feature = "opentelemetry")]
+    use opentelemetry::trace::{
+        SpanContext, SpanId, TraceContextExt, TraceFlags, TraceId, TraceState,
+    };
+    #[cfg(feature = "opentelemetry")]
+    use opentelemetry::{Context, global};
+    #[cfg(feature = "opentelemetry")]
+    use opentelemetry_sdk::propagation::TraceContextPropagator;
     use parking_lot::Mutex;
     use serde_json::json;
 
@@ -977,6 +1055,57 @@ mod tests {
             Some(3600),
         )
         .expect("test session should parse")
+    }
+
+    #[cfg(feature = "opentelemetry")]
+    #[test]
+    fn trace_headers_from_context_includes_traceparent() {
+        global::set_text_map_propagator(TraceContextPropagator::new());
+        let parent_context = Context::new().with_remote_span_context(SpanContext::new(
+            TraceId::from_hex("4bf92f3577b34da6a3ce929d0e0e4736").expect("valid trace id"),
+            SpanId::from_hex("00f067aa0ba902b7").expect("valid span id"),
+            TraceFlags::SAMPLED,
+            true,
+            TraceState::default(),
+        ));
+
+        let headers = trace_headers_from_context(&parent_context);
+
+        let traceparent = headers
+            .get("traceparent")
+            .and_then(|value| value.to_str().ok())
+            .expect("traceparent header should be present");
+        assert!(traceparent.contains("4bf92f3577b34da6a3ce929d0e0e4736"));
+    }
+
+    #[cfg(feature = "opentelemetry")]
+    #[test]
+    fn builder_uses_trace_context_provider() {
+        global::set_text_map_propagator(TraceContextPropagator::new());
+        let parent_context = Context::new().with_remote_span_context(SpanContext::new(
+            TraceId::from_hex("4bf92f3577b34da6a3ce929d0e0e4736").expect("valid trace id"),
+            SpanId::from_hex("00f067aa0ba902b7").expect("valid span id"),
+            TraceFlags::SAMPLED,
+            true,
+            TraceState::default(),
+        ));
+        let provided_context = parent_context.clone();
+        let client = PhoenixApiClient::builder("https://api.example.com")
+            .with_trace_context_provider(Arc::new(move || provided_context.clone()))
+            .build()
+            .expect("client should build");
+
+        let headers = trace_headers_from_context(
+            &client
+                .trace_parent_context()
+                .expect("provider should return context"),
+        );
+
+        let traceparent = headers
+            .get("traceparent")
+            .and_then(|value| value.to_str().ok())
+            .expect("traceparent header should be present");
+        assert!(traceparent.contains("4bf92f3577b34da6a3ce929d0e0e4736"));
     }
 
     #[tokio::test]
