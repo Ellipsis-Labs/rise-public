@@ -257,3 +257,24 @@ Source Phoenix commit: `65fc5aad3e13c249bcc606b410059b8adbc61e2d`
 
 - If you construct `MarginPositionState` manually (not via snapshot helpers) and were previously accounting for the sign flip described in the old JSDoc, no change is needed — the type contract is unchanged; only the snapshot helper behavior is fixed.
 - The liquidation price fix requires `maintenanceMarginFactorBps` to be present and positive in `MarketParams.riskFactors`; positions with a zero or missing value will return `undefined` for liquidation price (was previously a potentially incorrect value).
+
+## v0.4.41 - 2026-06-16
+
+Source Phoenix commit: `6487be852f3a382717f345a43fd956af3fba1766`
+
+### Summary
+
+- `PhoenixHttpClient` now automatically retries `GET` and `HEAD` requests that receive a `429 Too Many Requests` response. By default, up to 2 retries are attempted with a cumulative wait cap of 15 seconds, honoring the server's `Retry-After` header (both numeric seconds and HTTP-date formats). Pass `rateLimitRetry: false` to opt out.
+- A new `rateLimitRetry` config field on `PhoenixHttpClientConfig` accepts a `RateLimitRetryConfig` object (`maxRetries`, `maxTotalWaitMs`, `fallbackDelayMs`) or `false` to disable retries entirely.
+- `PhoenixHttpError` gains an `attempts` field (number of total attempts including the initial request) so callers can distinguish a first-shot 429 from one that exhausted retries.
+- `RateLimitRetryConfig` is now exported from the package root (`@ellipsis-labs/rise`).
+- `Retry-After` parsing is now unified and more accurate: supports both numeric seconds (including fractional) and HTTP-date strings; previously, `transport.ts` parsed only integers and clamped to a minimum of 1 second.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- **Default retry behavior is now active.** Existing code that calls `GET`/`HEAD` endpoints may now wait and retry on 429s (up to ~15 s total) instead of failing immediately. If your application handles 429s manually or has strict latency budgets, pass `rateLimitRetry: false` to restore the prior behavior.
+- **`PhoenixHttpError.attempts` is additive** — no code changes required, but error-inspection code that checks for a fixed set of fields may now observe this new property on 429 errors.

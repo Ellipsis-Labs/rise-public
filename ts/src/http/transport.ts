@@ -1,5 +1,9 @@
 import type z from "zod";
 import { PhoenixHttpError } from "@/errors";
+import {
+  getRateLimitRetryAttempts,
+  parseRetryAfterSeconds,
+} from "./rateLimitRetry";
 
 // ---------------------------------------------------------------------------
 // Shared param types
@@ -60,14 +64,6 @@ export function appendQueryParams(url: URL, params: QueryParams): void {
   }
 }
 
-function parseRetryAfterSeconds(headers: Headers): number | undefined {
-  const value = headers.get("retry-after");
-  if (!value) return undefined;
-  const seconds = parseInt(value.trim(), 10);
-  if (Number.isNaN(seconds)) return undefined;
-  return Math.max(seconds, 1);
-}
-
 type ErrorPayload = {
   code?: string;
   message?: string;
@@ -120,7 +116,10 @@ export async function send<T>(
 ): Promise<T> {
   const response = await transport.fetch(method, endpoint, options, body);
   if (!response.ok) {
-    const retryAfter = parseRetryAfterSeconds(response.headers);
+    const retryAfter = parseRetryAfterSeconds(
+      response.headers.get("retry-after")
+    );
+    const attempts = getRateLimitRetryAttempts(response);
     const responseBody = await response.text().catch(() => "");
     const payload = parseErrorPayload(responseBody);
     throw new PhoenixHttpError(
@@ -128,7 +127,8 @@ export async function send<T>(
       formatHttpErrorMessage(method, endpoint, response, responseBody),
       payload.code,
       retryAfter,
-      payload.body
+      payload.body,
+      attempts
     );
   }
   const data: unknown = await response.json();

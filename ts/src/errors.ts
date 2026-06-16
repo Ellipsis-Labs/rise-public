@@ -6,7 +6,8 @@ export class PhoenixHttpError extends Error {
     message: string,
     public readonly code?: string,
     public readonly retryAfterSeconds?: number,
-    body?: Record<string, unknown>
+    body?: Record<string, unknown>,
+    public readonly attempts?: number
   ) {
     super(message);
     this.name = "PhoenixHttpError";

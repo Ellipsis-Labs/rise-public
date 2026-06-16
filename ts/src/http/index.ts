@@ -4,6 +4,7 @@ export type {
   QueryParams,
   ParamValue,
 } from "./transport";
+export type { RateLimitRetryConfig } from "./rateLimitRetry";
 export {
   send,
   get,
