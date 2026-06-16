@@ -32,6 +32,10 @@ path = "sdk/tests/auth_config_tests.rs"
 name = "invite_client_tests"
 path = "sdk/tests/invite_client_tests.rs"
 
+[[test]]
+name = "http_retry_tests"
+path = "sdk/tests/http_retry_tests.rs"
+
 [[example]]
 name              = "cancel_all_conditional_orders"
 path              = "sdk/examples/cancel_all_conditional_orders.rs"
@@ -174,6 +178,7 @@ fixed              = { workspace = true }
 futures-util       = { workspace = true }
 parking_lot        = { workspace = true }
 pastey             = { workspace = true }
+rand               = { workspace = true }
 reqwest            = { workspace = true }
 rust_decimal       = { workspace = true }
 serde              = { workspace = true }
@@ -199,7 +204,6 @@ utoipa             = { workspace = true, optional = true }
 axum                            = "0.8"
 litesvm                         = "0.7"
 proptest                        = "1.6"
-rand                            = "0.9"
 solana-commitment-config        = { workspace = true }
 solana-compute-budget-interface = "~2.2"
 solana-keypair                  = { workspace = true }
@@ -221,7 +225,7 @@ publish      = true
 readme       = "CRATES.md"
 repository   = "https://github.com/Ellipsis-Labs/rise"
 rust-version = "1.84.0"
-version      = "0.1.7"
+version      = "0.1.8"
 
 [workspace.dependencies]
 async-trait = "0.1"
@@ -236,6 +240,7 @@ fixed = "=1.29.0"
 futures-util = "0.3"
 parking_lot = "0.12"
 pastey = "0.1"
+rand = "0.10"
 reqwest = { version = "0.12", default-features = false, features = [
   "json",
   "rustls-tls-webpki-roots",

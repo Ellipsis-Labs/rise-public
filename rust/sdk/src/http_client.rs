@@ -56,7 +56,8 @@ pub struct RateLimitRetryConfig {
     pub max_total_wait: Duration,
     /// Fallback delay if `Retry-After` is missing or invalid.
     pub fallback_delay: Duration,
-    /// Maximum delay per retry attempt.
+    /// Maximum fallback delay per retry attempt. Explicit `Retry-After` values
+    /// are bounded by `max_total_wait` instead.
     pub max_delay: Duration,
 }
 
@@ -81,6 +82,40 @@ impl RateLimitRetryConfig {
             ..Self::default()
         }
     }
+
+    fn retry_plan(
+        &self,
+        retries: u32,
+        total_wait: Duration,
+        retry_after_seconds: Option<u64>,
+    ) -> Option<RateLimitRetryPlan> {
+        if !self.enabled || retries >= self.max_retries {
+            return None;
+        }
+
+        let wait = self.retry_delay(retry_after_seconds);
+        let next_total_wait = total_wait.saturating_add(wait);
+        if next_total_wait > self.max_total_wait {
+            return None;
+        }
+
+        Some(RateLimitRetryPlan {
+            wait,
+            next_total_wait,
+        })
+    }
+
+    fn retry_delay(&self, retry_after_seconds: Option<u64>) -> Duration {
+        retry_after_seconds
+            .map(Duration::from_secs)
+            .unwrap_or_else(|| fallback_delay_with_jitter(self.fallback_delay, self.max_delay))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct RateLimitRetryPlan {
+    wait: Duration,
+    next_total_wait: Duration,
 }
 
 /// Shared HTTP transport used by all resource sub-clients.
@@ -173,40 +208,26 @@ impl HttpClientInner {
                 Err(error) if retryable && error.is_rate_limited() => {
                     let retry_after_seconds = error.retry_after_seconds();
                     let attempts = retries.saturating_add(1);
-                    let can_retry = self.rate_limit_retry.enabled
-                        && retries < self.rate_limit_retry.max_retries;
-
-                    if !can_retry {
+                    let Some(plan) =
+                        self.rate_limit_retry
+                            .retry_plan(retries, total_wait, retry_after_seconds)
+                    else {
                         return Err(map_rate_limited_error(
                             error,
                             attempts,
                             Some(self.auth_lifecycle_state()),
                         ));
-                    }
-
-                    let wait = retry_after_seconds
-                        .map(Duration::from_secs)
-                        .unwrap_or(self.rate_limit_retry.fallback_delay)
-                        .min(self.rate_limit_retry.max_delay);
-                    let next_total_wait = total_wait.saturating_add(wait);
-
-                    if next_total_wait > self.rate_limit_retry.max_total_wait {
-                        return Err(map_rate_limited_error(
-                            error,
-                            attempts,
-                            Some(self.auth_lifecycle_state()),
-                        ));
-                    }
+                    };
 
                     debug!(
                         "Rise HTTP rate limited, retrying attempt {} in {:?} (retry_after={:?})",
                         attempts + 1,
-                        wait,
+                        plan.wait,
                         retry_after_seconds
                     );
 
-                    tokio::time::sleep(wait).await;
-                    total_wait = next_total_wait;
+                    tokio::time::sleep(plan.wait).await;
+                    total_wait = plan.next_total_wait;
                     retries = retries.saturating_add(1);
                 }
                 Err(error) => {
@@ -1027,6 +1048,21 @@ fn map_rate_limited_error(
         }
         other => map_transport_error(other, auth_lifecycle_state, None),
     }
+}
+
+fn fallback_delay_with_jitter(fallback_delay: Duration, max_delay: Duration) -> Duration {
+    if fallback_delay.is_zero() {
+        return Duration::ZERO;
+    }
+
+    let jitter_percent = u128::from(fallback_jitter_percent());
+    let jittered_millis = fallback_delay.as_millis().saturating_mul(jitter_percent) / 100;
+    let millis = u64::try_from(jittered_millis).unwrap_or(u64::MAX);
+    Duration::from_millis(millis).min(max_delay)
+}
+
+fn fallback_jitter_percent() -> u32 {
+    rand::random_range(85..=115)
 }
 
 fn auth_error_code(error: &AuthError) -> Option<String> {

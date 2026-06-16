@@ -131,7 +131,7 @@ impl Debug for I80F48 {
 #[cfg(test)]
 mod tests {
     use rand::rngs::StdRng;
-    use rand::{Rng, SeedableRng};
+    use rand::{RngExt, SeedableRng};
 
     #[test]
     fn seeded_fixed_fuzz_test() {

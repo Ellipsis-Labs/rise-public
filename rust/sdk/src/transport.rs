@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use chrono::Utc;
 use parking_lot::Mutex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Client, Method, StatusCode};
@@ -794,11 +795,33 @@ fn parse_error_code(body: &str) -> Option<String> {
         })
 }
 
-fn parse_retry_after_seconds(headers: &reqwest::header::HeaderMap) -> Option<u64> {
+pub(crate) fn parse_retry_after_seconds(headers: &reqwest::header::HeaderMap) -> Option<u64> {
     headers
         .get(reqwest::header::RETRY_AFTER)
         .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.parse::<u64>().ok())
+        .and_then(|value| parse_retry_after_value_seconds(value, Utc::now()))
+}
+
+fn parse_retry_after_value_seconds(value: &str, now: chrono::DateTime<Utc>) -> Option<u64> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if let Ok(seconds) = trimmed.parse::<u64>() {
+        return Some(seconds);
+    }
+
+    let retry_at = chrono::DateTime::parse_from_rfc2822(trimmed).ok()?;
+    let delta_ms = retry_at
+        .with_timezone(&Utc)
+        .signed_duration_since(now)
+        .num_milliseconds();
+    if delta_ms <= 0 {
+        return Some(0);
+    }
+    let rounded_seconds = (delta_ms + 999) / 1_000;
+    u64::try_from(rounded_seconds).ok()
 }
 
 fn body_preview(body: &str, max_chars: usize) -> String {
@@ -994,5 +1017,23 @@ mod tests {
         let requests = requests.lock();
         assert_eq!(requests[0].path, "/v1/auth/refresh");
         assert_eq!(requests[0].authorization, None);
+    }
+
+    #[test]
+    fn retry_after_parses_seconds_and_http_dates() {
+        let now = chrono::DateTime::parse_from_rfc3339("2026-01-01T00:00:00Z")
+            .expect("valid test timestamp")
+            .with_timezone(&Utc);
+
+        assert_eq!(parse_retry_after_value_seconds("2", now), Some(2));
+        assert_eq!(
+            parse_retry_after_value_seconds("Thu, 01 Jan 2026 00:00:02 GMT", now),
+            Some(2)
+        );
+        assert_eq!(
+            parse_retry_after_value_seconds("Wed, 31 Dec 2025 23:59:59 GMT", now),
+            Some(0)
+        );
+        assert_eq!(parse_retry_after_value_seconds("invalid", now), None);
     }
 }
