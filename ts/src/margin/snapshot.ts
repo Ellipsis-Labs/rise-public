@@ -1,5 +1,4 @@
 import { buildLimitOrderMarginStateFromOrders } from "./inputs";
-import { toBigInt } from "./math";
 import type {
   LimitOrderMarginInput,
   MarginPositionState,
@@ -80,9 +79,7 @@ export const buildMarginPositionStateFromSnapshot = (
   basePositionLots: position.basePositionLots,
   virtualQuotePositionLots: position.virtualQuotePositionLots,
   entryPriceTicks: position.entryPriceTicks,
-  unsettledFundingQuoteLots: (-toBigInt(
-    position.unsettledFundingQuoteLots
-  )).toString(),
+  unsettledFundingQuoteLots: position.unsettledFundingQuoteLots,
   accumulatedFundingQuoteLots: position.accumulatedFundingQuoteLots,
 });
 

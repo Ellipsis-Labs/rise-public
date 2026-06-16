@@ -194,25 +194,26 @@ const solveLiquidationPrice = (
   positionSize: number,
   entryPrice: number,
   leverage: bigint,
+  maintenanceBps: bigint,
   rawCollateral: number,
   otherAssetUnrealizedPnl: number,
   otherAssetMaintenanceMargin: number
 ): number | undefined => {
-  if (positionSize === 0 || leverage === 0n) {
+  if (positionSize === 0 || leverage === 0n || maintenanceBps <= 0n) {
     return undefined;
   }
   const leverageNumber = Number(leverage);
-  const denom = positionSize * (2 * leverageNumber - 1);
+  const maintenanceCoefficient =
+    (Math.abs(positionSize) * Number(maintenanceBps)) / 10_000 / leverageNumber;
+  const denom = maintenanceCoefficient - positionSize;
   if (!Number.isFinite(denom) || Math.abs(denom) < 1e-10) {
     return undefined;
   }
   const numerator =
-    2 *
-    leverageNumber *
-    (otherAssetMaintenanceMargin +
-      entryPrice * positionSize -
-      rawCollateral -
-      otherAssetUnrealizedPnl);
+    rawCollateral +
+    otherAssetUnrealizedPnl -
+    otherAssetMaintenanceMargin -
+    entryPrice * positionSize;
   const price = numerator / denom;
   if (!Number.isFinite(price) || price <= 0) {
     return undefined;
@@ -259,10 +260,14 @@ const computeLiquidationPriceTicks = (
     parseLeverageTiers(marketParams),
     absBigInt(basePositionLots)
   );
+  const maintenanceBps = toBigInt(
+    marketParams.riskFactors.maintenanceMarginFactorBps
+  );
   const liquidationPrice = solveLiquidationPrice(
     basePosition,
     entryPrice,
     leverage,
+    maintenanceBps,
     rawCollateral,
     otherAssetUnrealizedPnl,
     otherAssetMaintenanceMargin
