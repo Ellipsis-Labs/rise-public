@@ -278,3 +278,23 @@ Source Phoenix commit: `6487be852f3a382717f345a43fd956af3fba1766`
 
 - **Default retry behavior is now active.** Existing code that calls `GET`/`HEAD` endpoints may now wait and retry on 429s (up to ~15 s total) instead of failing immediately. If your application handles 429s manually or has strict latency budgets, pass `rateLimitRetry: false` to restore the prior behavior.
 - **`PhoenixHttpError.attempts` is additive** — no code changes required, but error-inspection code that checks for a fixed set of fields may now observe this new property on 429 errors.
+
+## v0.4.42 - 2026-06-16
+
+Source Phoenix commit: `ee8192d915d1d282849dc7e70d84db2e51cbba42`
+
+### Summary
+
+- Added optional `permissionAddress` field to `ClientTransferCollateralInput`, `ResolvedTransferCollateralIxInput`, and `TransferCollateralParams` to support secondary position authority delegation in `TransferCollateral` instructions. When provided, the address is appended as a writable account on the instruction.
+- `PlaceMarketOrderDelegated` instructions are no longer wrapped by the Flight router (`wrapInstructionWithFlight` / `isFlightRoutableInstruction`); they are passed through unchanged.
+- `FlightPlaceMarketOrderDelegated` has been removed from the exported `instructions.json` fixture.
+
+### Breaking Changes
+
+- **`FlightPlaceMarketOrderDelegated` removed from `instructions.json`**: Consumers that read this key from the package's `instructions.json` export will find it absent. Remove any reference to `instructions["FlightPlaceMarketOrderDelegated"]` in downstream code.
+- **Delegated market orders no longer Flight-routed**: `isFlightRoutableInstruction` and `wrapInstructionWithFlight` no longer recognize `PLACE_MARKET_ORDER_DELEGATED` instructions. If your code relied on the Flight router wrapping delegated market orders, those instructions will now be returned unchanged. Update any logic that expected a Flight-wrapped delegated market order to handle the pass-through behavior.
+
+### Consumer Notes
+
+- The new `permissionAddress` field on `ClientTransferCollateralInput` and `ResolvedTransferCollateralIxInput` is optional and backward compatible; no changes required if you are not using position authority delegation for collateral transfers.
+- If you pass a `permissionAddress`, it is included as the last account (writable) on the resulting `TransferCollateral` instruction — account index assumptions in any manual account-position logic should account for this trailing account.

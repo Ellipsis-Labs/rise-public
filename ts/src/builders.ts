@@ -900,6 +900,7 @@ export const buildTransferCollateral = async (
   params: {
     authority: Authority;
     positionAuthority?: Authority;
+    permissionAddress?: Address;
     traderPdaIndex: number;
     srcSubaccountIndex: number;
     dstSubaccountIndex: number;
@@ -914,6 +915,7 @@ export const transferCollateral = async (
   params: {
     authority: Authority;
     positionAuthority?: Authority;
+    permissionAddress?: Address;
     traderPdaIndex: number;
     srcSubaccountIndex: number;
     dstSubaccountIndex: number;

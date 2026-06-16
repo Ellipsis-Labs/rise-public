@@ -683,6 +683,7 @@ export const createPhoenixIxOperations = (
         trader: {
           authority: params.authority,
           positionAuthority: params.positionAuthority,
+          permissionAddress: params.permissionAddress,
           srcTraderAccount,
           dstTraderAccount,
         },
