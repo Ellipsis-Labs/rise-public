@@ -61,6 +61,11 @@ const IX_METHOD_NAMES = [
   "buildSyncParentToChild",
   "buildDepositIxs",
   "buildWithdrawIxs",
+  "buildHawkeyeViewMargin",
+  "buildHawkeyeViewMarginForAsset",
+  "buildHawkeyeViewLiquidationPrice",
+  "buildHawkeyeViewBbo",
+  "buildHawkeyeViewFunding",
 ] as const satisfies readonly IxMethodName[];
 
 const summarizeIxParams = (params: unknown): Record<string, unknown> => {

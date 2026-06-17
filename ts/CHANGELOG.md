@@ -298,3 +298,23 @@ Source Phoenix commit: `ee8192d915d1d282849dc7e70d84db2e51cbba42`
 
 - The new `permissionAddress` field on `ClientTransferCollateralInput` and `ResolvedTransferCollateralIxInput` is optional and backward compatible; no changes required if you are not using position authority delegation for collateral transfers.
 - If you pass a `permissionAddress`, it is included as the last account (writable) on the resulting `TransferCollateral` instruction — account index assumptions in any manual account-position logic should account for this trailing account.
+
+## v0.4.43 - 2026-06-17
+
+Source Phoenix commit: `e01d6bf79f112b8f9c7c6e7e3ad84fb83050eb43`
+
+### Summary
+
+- **Hawkeye program client**: Added a full read-only simulation client for the Hawkeye program (`RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj`). Call `client.rpc.hawkeye.viewMargin(...)`, `.viewMarginForAsset(...)`, `.viewLiquidationPrice(...)`, `.viewBbo(...)`, and `.viewFunding(...)` to query on-chain margin, risk state, liquidation price, BBO, and funding data via transaction simulation — no signature required.
+- **New root-level exports**: Five instruction builders (`buildHawkeyeViewMarginIx`, `buildHawkeyeViewMarginForAssetIx`, `buildHawkeyeViewLiquidationPriceIx`, `buildHawkeyeViewBboIx`, `buildHawkeyeViewFundingIx`), `decodeHawkeyeReturnData`, `encodeHawkeyeSimulationTransaction`, `HAWKEYE_PROGRAM_ADDRESS`, `HAWKEYE_SIMULATION_COMPUTE_UNIT_LIMIT`, and all associated TypeScript types (`HawkeyeReturnData`, `HawkeyeMarginReturn`, `HawkeyeAssetReturn`, `HawkeyeLiquidationPriceReturn`, `HawkeyeBboReturn`, `HawkeyeFundingReturn`, etc.) are now exported from the package root.
+- **`PhoenixIxClient` additions**: Five new `buildHawkeyeView*` methods on the ix client automatically resolve trader accounts and asset IDs from authority/symbol, mirroring the existing client pattern.
+- **`zod` pinned to `4.4.3`** (previously `^4.3.6`).
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `PhoenixRpcAccountFetcherClient.request` was widened from `private` to `public`; this is additive and does not break existing code, but the method is now formally part of the class surface.
+- The `zod` dependency is now pinned to the exact version `4.4.3`. If your project declares `zod` as a direct dependency and previously resolved `^4.3.6` to a different patch, verify your lockfile resolves cleanly after upgrading to this version of `@ellipsis-labs/rise`.

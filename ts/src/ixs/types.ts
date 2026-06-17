@@ -22,6 +22,7 @@ import type { SyncParentToChildIx } from "@/core/ixBuilders/SyncParentToChild";
 import type { TransferCollateralChildToParentIx } from "@/core/ixBuilders/TransferCollateralChildToParent";
 import type { TransferCollateralIx } from "@/core/ixBuilders/TransferCollateral";
 import type { WithdrawFundsIx } from "@/core/ixBuilders/WithdrawFunds";
+import type { HawkeyeIx } from "@/hawkeye";
 import type { PhoenixOrderPacketBuilders } from "@/orderPackets";
 import type {
   ActiveTraderBufferAddressArray,
@@ -273,6 +274,29 @@ export interface ClientPlaceLimitOrderWithConditionalsInput {
   lessTriggerOrder?: TriggerOrderParamsInput | null;
   traderPdaIndex?: number;
   traderSubaccountIndex?: number;
+}
+
+export type ClientHawkeyeTraderInput =
+  | {
+      authority: Authority;
+      traderAccount?: never;
+      traderPdaIndex?: number;
+      traderSubaccountIndex?: number;
+    }
+  | {
+      authority?: never;
+      traderAccount: TraderAddress;
+      traderPdaIndex?: never;
+      traderSubaccountIndex?: never;
+    };
+
+export type ClientHawkeyeTraderAssetInput = ClientHawkeyeTraderInput & {
+  assetId?: number;
+  symbol?: Symbol;
+};
+
+export interface ClientHawkeyeBboInput {
+  symbol: Symbol;
 }
 
 interface BaseBuildRegisterTraderParams {
@@ -654,4 +678,15 @@ export interface PhoenixIxClient {
   ): Promise<SyncParentToChildIx>;
   buildDepositIxs(params: ClientDepositInput): Promise<DepositIxsResult>;
   buildWithdrawIxs(params: ClientWithdrawInput): Promise<WithdrawIxsResult>;
+  buildHawkeyeViewMargin(params: ClientHawkeyeTraderInput): Promise<HawkeyeIx>;
+  buildHawkeyeViewMarginForAsset(
+    params: ClientHawkeyeTraderAssetInput
+  ): Promise<HawkeyeIx>;
+  buildHawkeyeViewLiquidationPrice(
+    params: ClientHawkeyeTraderAssetInput
+  ): Promise<HawkeyeIx>;
+  buildHawkeyeViewBbo(params: ClientHawkeyeBboInput): Promise<HawkeyeIx>;
+  buildHawkeyeViewFunding(
+    params: ClientHawkeyeTraderAssetInput
+  ): Promise<HawkeyeIx>;
 }

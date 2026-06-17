@@ -114,6 +114,15 @@ export const ROOT_PRESENT_PROPERTIES = [
   "createPhoenixClient",
   "createPhoenixIxClient",
   "createPhoenixRpcClient",
+  "buildHawkeyeViewMarginIx",
+  "buildHawkeyeViewMarginForAssetIx",
+  "buildHawkeyeViewLiquidationPriceIx",
+  "buildHawkeyeViewBboIx",
+  "buildHawkeyeViewFundingIx",
+  "decodeHawkeyeReturnData",
+  "encodeHawkeyeSimulationTransaction",
+  "HAWKEYE_PROGRAM_ADDRESS",
+  "HAWKEYE_SIMULATION_COMPUTE_UNIT_LIMIT",
   "buildLimitOrderPacketFromMarketParams",
   "buildMarketOrderPacketFromMarketParams",
   "buildDepositFundsIxResolved",
@@ -254,10 +263,16 @@ export const PHOENIX_IX_PROPERTIES = [
   "placeMarketOrderDelegated",
   "placePositionConditionalOrder",
   "placePostOnlyOrder",
+  "buildHawkeyeViewMargin",
+  "buildHawkeyeViewMarginForAsset",
+  "buildHawkeyeViewLiquidationPrice",
+  "buildHawkeyeViewBbo",
+  "buildHawkeyeViewFunding",
 ] as const;
 
 export const PHOENIX_RPC_PROPERTIES = [
   "available",
   "exchange",
   "markets",
+  "hawkeye",
 ] as const;

@@ -3,6 +3,7 @@ import {
   address,
   createKeyPairSignerFromPrivateKeyBytes,
   getArrayEncoder,
+  getBase58Decoder,
   getBooleanEncoder,
   getConstantEncoder,
   getHiddenPrefixEncoder,
@@ -15,10 +16,16 @@ import type { TransactionSigner } from "@solana/kit";
 import { describe, expect, test } from "vitest";
 import {
   Direction,
+  HAWKEYE_PROGRAM_ADDRESS,
   OrderFlags,
   SelfTradeBehavior,
   Side,
   StopLossOrderKind,
+  buildHawkeyeViewBboIx,
+  buildHawkeyeViewFundingIx,
+  buildHawkeyeViewLiquidationPriceIx,
+  buildHawkeyeViewMarginForAssetIx,
+  buildHawkeyeViewMarginIx,
   buildCreatePermissionIx,
   buildCancelAllIxResolved,
   buildCancelOrdersByIdIxResolved,
@@ -39,6 +46,7 @@ import {
   buildTransferCollateralIxResolved,
   buildUpdateTraderStateIx,
   buildWithdrawIxsResolved,
+  decodeHawkeyeReturnData,
   executionPriceFromSlippageBps,
   generateArenaAccounts,
   generateReadonlyAccount,
@@ -52,15 +60,21 @@ import {
   priceUsdToTicksWithMarketParams,
   sha2_const,
 } from "../src";
+import type { HawkeyeIx, HawkeyeReturnData } from "../src";
 import {
   decodeConditionalOrderCollection,
   decodeStopLosses,
 } from "../src/accounts";
 import type {
+  ActiveTraderBufferAddressArray,
   Authority,
   FIFOOrderId,
+  GlobalConfigurationAddress,
+  GlobalTraderIndexAddressArray,
   MarketAddress,
+  PerpAssetMapAddress,
   PhoenixProgramAddress,
+  SplineCollectionAddress,
   TraderAddress,
 } from "../src";
 import type {
@@ -195,6 +209,127 @@ describe("SDK localnet common flows", () => {
         "market order"
       );
       expect(position.position.baseLotPosition).toBeGreaterThan(0n);
+    },
+    TEST_TIMEOUT_MS
+  );
+
+  vmTest(
+    "executes Hawkeye view functions and decodes return data",
+    async () => {
+      if (!programPaths?.hawkeye) {
+        if (isSdkLocalnetVmRequired()) {
+          throw new Error(
+            "Missing local Hawkeye SBF artifact; set RISE_SDK_LOCALNET_HAWKEYE_SO"
+          );
+        }
+        console.warn(
+          "skipping Hawkeye LiteSVM flow because phoenix_hawkeye.so is missing"
+        );
+        return;
+      }
+
+      const context = await createContext();
+      const actor = context.getActor("taker0");
+      const market = context.getMarket("BTC");
+      const baseAccounts = {
+        phoenixProgramAddress: context.fixture.programs
+          .phoenixEternal as PhoenixProgramAddress,
+        globalConfigurationAddress: context.fixture.addresses
+          .globalConfig as GlobalConfigurationAddress,
+        globalTraderIndex: context.fixture.addresses
+          .globalTraderIndex as GlobalTraderIndexAddressArray,
+        activeTraderBuffer: context.fixture.addresses
+          .activeTraderBuffer as ActiveTraderBufferAddressArray,
+        perpAssetMap: context.fixture.addresses
+          .perpAssetMap as PerpAssetMapAddress,
+      };
+      const traderAccounts = {
+        ...baseAccounts,
+        traderAccount: actor.traderAccount as TraderAddress,
+      };
+
+      await placeMarketOrder(context, {
+        actorName: actor.name,
+        symbol: "BTC",
+        side: Side.Bid,
+        baseUnits: "0.01",
+        priceLimitUsd: "101000",
+      });
+
+      const margin = await executeHawkeyeView(
+        context,
+        buildHawkeyeViewMarginIx(traderAccounts),
+        "hawkeye:view-margin"
+      );
+      expect(margin.kind).toBe("view_margin");
+      if (margin.kind !== "view_margin") {
+        throw new Error(`unexpected Hawkeye return kind ${margin.kind}`);
+      }
+      expect(margin.positionCount).toBeGreaterThan(0);
+      expect(margin.initialMarginQuoteLots).toBeGreaterThan(0n);
+
+      const asset = await executeHawkeyeView(
+        context,
+        buildHawkeyeViewMarginForAssetIx({
+          ...traderAccounts,
+          assetId: 0,
+        }),
+        "hawkeye:view-margin-for-asset"
+      );
+      expect(asset.kind).toBe("view_margin_for_asset");
+      if (asset.kind !== "view_margin_for_asset") {
+        throw new Error(`unexpected Hawkeye return kind ${asset.kind}`);
+      }
+      expect(asset.assetId).toBe(0);
+      expect(asset.baseLots).not.toBe(0n);
+      expect(asset.markPriceTicks).toBeGreaterThan(0n);
+
+      const liquidation = await executeHawkeyeView(
+        context,
+        buildHawkeyeViewLiquidationPriceIx({
+          ...traderAccounts,
+          assetId: 0,
+        }),
+        "hawkeye:view-liquidation-price"
+      );
+      expect(liquidation.kind).toBe("view_liquidation_price");
+      if (liquidation.kind !== "view_liquidation_price") {
+        throw new Error(`unexpected Hawkeye return kind ${liquidation.kind}`);
+      }
+      expect(liquidation.assetId).toBe(0);
+      expect(liquidation.markPriceTicks).toBeGreaterThan(0n);
+
+      const bbo = await executeHawkeyeView(
+        context,
+        buildHawkeyeViewBboIx({
+          ...baseAccounts,
+          orderbook: market.orderbook as MarketAddress,
+          splineCollection: market.spline as SplineCollectionAddress,
+        }),
+        "hawkeye:view-bbo"
+      );
+      expect(bbo.kind).toBe("view_bbo");
+      if (bbo.kind !== "view_bbo") {
+        throw new Error(`unexpected Hawkeye return kind ${bbo.kind}`);
+      }
+      expect(bbo.bestBidTicks ?? bbo.bestAskTicks).not.toBeNull();
+      expect(bbo.markPriceTicks).toBeGreaterThan(0n);
+      expect(bbo.indexPriceTicks).toBeGreaterThan(0n);
+
+      const funding = await executeHawkeyeView(
+        context,
+        buildHawkeyeViewFundingIx({
+          ...traderAccounts,
+          assetId: 0,
+        }),
+        "hawkeye:view-funding"
+      );
+      expect(funding.kind).toBe("view_funding");
+      if (funding.kind !== "view_funding") {
+        throw new Error(`unexpected Hawkeye return kind ${funding.kind}`);
+      }
+      expect(funding.assetId).toBe(0);
+      expect(funding.totalAccumulatedFundingQuoteLots).not.toBeNull();
     },
     TEST_TIMEOUT_MS
   );
@@ -1051,6 +1186,26 @@ const expectSuccess = async (
   const execution = await result;
   expect(execution.metadata.computeUnitsConsumed()).toBeGreaterThan(0n);
   return execution;
+};
+
+const executeHawkeyeView = async (
+  context: SdkLocalnetContext,
+  instruction: HawkeyeIx,
+  label: string
+): Promise<HawkeyeReturnData> => {
+  const execution = await expectSuccess(
+    context.sendInstructions([instruction], {
+      feePayerSeed: "payer",
+      label,
+    })
+  );
+  const returnData = execution.metadata.returnData();
+  const bytes = returnData.data();
+  expect(bytes.byteLength, `${label} return data length`).toBeGreaterThan(0);
+  expect(getBase58Decoder().decode(returnData.programId())).toBe(
+    HAWKEYE_PROGRAM_ADDRESS
+  );
+  return decodeHawkeyeReturnData(bytes);
 };
 
 const expectFixtureSuccess = async (
