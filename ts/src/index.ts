@@ -93,6 +93,7 @@ export * from "./auth";
 export * as flight from "./flight";
 export * from "./exchange-cache";
 export * from "./margin";
+export * from "./hawkeye";
 
 export type { HttpTransport, RequestOptions, QueryParams } from "./http";
 export { send, get, post, put, patch, del } from "./http";

@@ -27,6 +27,7 @@ import type {
   TransactionSigner,
 } from "@solana/kit";
 import { decodeOrderbook, decodeTrader } from "../../src/accounts";
+import { HAWKEYE_PROGRAM_ADDRESS } from "../../src/hawkeye";
 import type {
   Orderbook,
   Trader,
@@ -79,6 +80,7 @@ import type {
 export interface SdkLocalnetProgramPaths {
   phoenixEternal: string;
   ember: string;
+  hawkeye?: string;
 }
 
 export interface FindSdkLocalnetProgramPathsOptions {
@@ -190,6 +192,7 @@ const REQUIRED_PROGRAM_ARTIFACT_ENV = "RISE_SDK_LOCALNET_REQUIRE_PROGRAMS";
 const PHOENIX_REPO_ROOT_ENV = "PHOENIX_REPO_ROOT";
 const ETERNAL_PROGRAM_ENV = "RISE_SDK_LOCALNET_ETERNAL_SO";
 const EMBER_PROGRAM_ENV = "RISE_SDK_LOCALNET_EMBER_SO";
+const HAWKEYE_PROGRAM_ENV = "RISE_SDK_LOCALNET_HAWKEYE_SO";
 const DEFAULT_LAST_VALID_BLOCK_HEIGHT = 1_000_000n;
 
 export const isSdkLocalnetVmRequired = (): boolean =>
@@ -659,6 +662,12 @@ export const loadSdkLocalnetPrograms = (
     toLiteSvmAddress(fixture.programs.ember),
     programPaths.ember
   );
+  if (programPaths.hawkeye) {
+    vm.addProgramFromFile(
+      toLiteSvmAddress(HAWKEYE_PROGRAM_ADDRESS),
+      programPaths.hawkeye
+    );
+  }
 };
 
 export const fundSdkLocalnetSigners = (
@@ -1080,14 +1089,16 @@ const explicitProgramPaths = (
   const phoenixEternal =
     programPaths?.phoenixEternal ?? process.env[ETERNAL_PROGRAM_ENV];
   const ember = programPaths?.ember ?? process.env[EMBER_PROGRAM_ENV];
+  const hawkeye = programPaths?.hawkeye ?? process.env[HAWKEYE_PROGRAM_ENV];
 
-  if (!phoenixEternal && !ember) {
+  if (!phoenixEternal && !ember && !hawkeye) {
     return null;
   }
 
   return {
     phoenixEternal: resolveRequiredPath(phoenixEternal, ETERNAL_PROGRAM_ENV),
     ember: resolveRequiredPath(ember, EMBER_PROGRAM_ENV),
+    ...(hawkeye ? { hawkeye: resolve(hawkeye) } : {}),
   };
 };
 
@@ -1102,7 +1113,9 @@ const resolveRequiredPath = (
 };
 
 const allProgramPathsExist = (programPaths: SdkLocalnetProgramPaths): boolean =>
-  existsSync(programPaths.phoenixEternal) && existsSync(programPaths.ember);
+  existsSync(programPaths.phoenixEternal) &&
+  existsSync(programPaths.ember) &&
+  (programPaths.hawkeye === undefined || existsSync(programPaths.hawkeye));
 
 const defaultProgramPathCandidates = (
   repoRoot?: string
@@ -1129,10 +1142,15 @@ const defaultProgramPathCandidates = (
           "programs/target/deploy/phoenix_eternal.so"
         ),
         ember: resolve(root, "programs/target/deploy/phoenix_ember_program.so"),
+        ...optionalProgramPath(
+          root,
+          "programs/target/deploy/phoenix_hawkeye.so"
+        ),
       },
       {
         phoenixEternal: resolve(root, "target/deploy/phoenix_eternal.so"),
         ember: resolve(root, "target/deploy/phoenix_ember_program.so"),
+        ...optionalProgramPath(root, "target/deploy/phoenix_hawkeye.so"),
       },
       {
         phoenixEternal: resolve(
@@ -1143,11 +1161,23 @@ const defaultProgramPathCandidates = (
           root,
           "programs/ember/target/deploy/phoenix_ember_program.so"
         ),
+        ...optionalProgramPath(
+          root,
+          "programs/phoenix-hawkeye/target/deploy/phoenix_hawkeye.so"
+        ),
       }
     );
   }
 
   return candidates;
+};
+
+const optionalProgramPath = (
+  root: string,
+  path: string
+): Pick<SdkLocalnetProgramPaths, "hawkeye"> => {
+  const resolved = resolve(root, path);
+  return existsSync(resolved) ? { hawkeye: resolved } : {};
 };
 
 const moduleDirectory = (): string => dirname(fileURLToPath(import.meta.url));

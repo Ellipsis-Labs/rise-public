@@ -4,6 +4,13 @@ import {
   type CreateConditionalOrdersAccountIx,
 } from "@/core/ixBuilders/CreateConditionalOrdersAccount";
 import {
+  buildHawkeyeViewBboIx,
+  buildHawkeyeViewFundingIx,
+  buildHawkeyeViewLiquidationPriceIx,
+  buildHawkeyeViewMarginForAssetIx,
+  buildHawkeyeViewMarginIx,
+} from "@/hawkeye";
+import {
   buildPlaceAttachedConditionalOrderIx,
   type PlaceAttachedConditionalOrderIx,
 } from "@/core/ixBuilders/PlaceAttachedConditionalOrder";
@@ -79,6 +86,9 @@ import type {
   ClientCreateEscrowRequestInput,
   ClientDepositInput,
   ClientDelegateTraderInput,
+  ClientHawkeyeBboInput,
+  ClientHawkeyeTraderAssetInput,
+  ClientHawkeyeTraderInput,
   ClientOnboardTraderDelegatedInput,
   ClientPlaceAttachedConditionalOrderInput,
   ClientPlaceLimitOrderWithConditionalsInput,
@@ -232,6 +242,55 @@ export const createPhoenixIxOperations = (
       traderAccount,
       phoenixProgramAddress: context.phoenixProgramAddress,
     });
+
+  const resolveHawkeyeBaseAccounts = async () => {
+    const exchangeAccounts = await context.resolveExchangeInstructionAccounts();
+    return {
+      phoenixProgramAddress: exchangeAccounts.phoenixProgramAddress,
+      globalConfigurationAddress: exchangeAccounts.globalConfigurationAddress,
+      globalTraderIndex: exchangeAccounts.globalTraderIndex,
+      activeTraderBuffer: exchangeAccounts.activeTraderBuffer,
+      perpAssetMap: exchangeAccounts.perpAssetMap,
+    };
+  };
+
+  const resolveHawkeyeTraderAccounts = async (
+    params: ClientHawkeyeTraderInput
+  ) => ({
+    ...(await resolveHawkeyeBaseAccounts()),
+    traderAccount:
+      params.traderAccount !== undefined
+        ? params.traderAccount
+        : await context.resolveTraderAccount({
+            authority: params.authority,
+            traderPdaIndex: params.traderPdaIndex,
+            traderSubaccountIndex: params.traderSubaccountIndex,
+          }),
+  });
+
+  const resolveHawkeyeAssetId = async (
+    params: ClientHawkeyeTraderAssetInput
+  ): Promise<number> => {
+    if (params.assetId !== undefined) {
+      return params.assetId;
+    }
+    if (!params.symbol) {
+      throw new Error("symbol or assetId is required for this Hawkeye view");
+    }
+    return (await context.resolveMarketContext(params.symbol)).assetId;
+  };
+
+  const resolveHawkeyeBboAccounts = async (params: ClientHawkeyeBboInput) => {
+    const [baseAccounts, market] = await Promise.all([
+      resolveHawkeyeBaseAccounts(),
+      context.resolveMarketContext(params.symbol),
+    ]);
+    return {
+      ...baseAccounts,
+      orderbook: market.marketAddress,
+      splineCollection: market.splineCollection,
+    };
+  };
 
   const buildCreateConditionalOrdersAccount = async (
     params: ClientCreateConditionalOrdersAccountInput
@@ -1013,5 +1072,28 @@ export const createPhoenixIxOperations = (
         amount: params.amount,
       });
     },
+    buildHawkeyeViewMargin: async (params: ClientHawkeyeTraderInput) =>
+      buildHawkeyeViewMarginIx(await resolveHawkeyeTraderAccounts(params)),
+    buildHawkeyeViewMarginForAsset: async (
+      params: ClientHawkeyeTraderAssetInput
+    ) =>
+      buildHawkeyeViewMarginForAssetIx({
+        ...(await resolveHawkeyeTraderAccounts(params)),
+        assetId: await resolveHawkeyeAssetId(params),
+      }),
+    buildHawkeyeViewLiquidationPrice: async (
+      params: ClientHawkeyeTraderAssetInput
+    ) =>
+      buildHawkeyeViewLiquidationPriceIx({
+        ...(await resolveHawkeyeTraderAccounts(params)),
+        assetId: await resolveHawkeyeAssetId(params),
+      }),
+    buildHawkeyeViewBbo: async (params: ClientHawkeyeBboInput) =>
+      buildHawkeyeViewBboIx(await resolveHawkeyeBboAccounts(params)),
+    buildHawkeyeViewFunding: async (params: ClientHawkeyeTraderAssetInput) =>
+      buildHawkeyeViewFundingIx({
+        ...(await resolveHawkeyeTraderAccounts(params)),
+        assetId: await resolveHawkeyeAssetId(params),
+      }),
   };
 };
