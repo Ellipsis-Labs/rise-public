@@ -282,11 +282,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: read
     env:
       GH_TOKEN: ${{ github.token }}
       PACKAGE_SCOPE: ${{ needs.plan.outputs.package_scope }}
       RELEASE_TAG: ${{ needs.plan.outputs.release_tag }}
       RELEASE_TITLE: ${{ needs.plan.outputs.release_title }}
+      RISE_RELEASE_SLACK_WEBHOOK_CONFIGURED: ${{ secrets.RISE_RELEASE_SLACK_WEBHOOK_URL != '' }}
     steps:
       - uses: actions/checkout@v6
 
@@ -307,3 +309,124 @@ jobs:
             --target "${GITHUB_SHA}" \
             --title "${RELEASE_TITLE}" \
             --notes-file release-notes.md
+
+      - name: Collect release PR metadata
+        id: release-pr
+        if: env.RISE_RELEASE_SLACK_WEBHOOK_CONFIGURED == 'true'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          def write_output(key, value):
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+                  handle.write(f"{key}={value}\n")
+
+          def gh_api(path):
+              result = subprocess.run(
+                  [
+                      "gh",
+                      "api",
+                      "-H",
+                      "Accept: application/vnd.github+json",
+                      path,
+                  ],
+                  check=False,
+                  capture_output=True,
+                  text=True,
+              )
+              if result.returncode != 0:
+                  print(result.stderr.strip() or result.stdout.strip())
+                  return None
+              return json.loads(result.stdout)
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          sha = os.environ["GITHUB_SHA"]
+          prs = gh_api(f"/repos/{repo}/commits/{sha}/pulls") or []
+          merged_prs = [pr for pr in prs if pr.get("merged_at")]
+          pr = merged_prs[0] if merged_prs else (prs[0] if prs else None)
+          if pr is None:
+              write_output("pr_number", "")
+              write_output("pr_url", "")
+              write_output("stamped_by", "")
+              write_output("merged_by", os.environ.get("GITHUB_ACTOR", ""))
+              raise SystemExit(0)
+
+          pr_number = str(pr["number"])
+          pr_details = gh_api(f"/repos/{repo}/pulls/{pr_number}") or pr
+          reviews = gh_api(f"/repos/{repo}/pulls/{pr_number}/reviews") or []
+          approvals = [
+              review
+              for review in reviews
+              if review.get("state") == "APPROVED" and review.get("user")
+          ]
+          stamped_by = approvals[-1]["user"]["login"] if approvals else ""
+          merged_by = (
+              (pr_details.get("merged_by") or {}).get("login")
+              or os.environ.get("GITHUB_ACTOR", "")
+          )
+
+          write_output("pr_number", pr_number)
+          write_output("pr_url", pr_details.get("html_url") or pr.get("html_url") or "")
+          write_output("stamped_by", stamped_by)
+          write_output("merged_by", merged_by)
+          PY
+
+      - name: Notify Slack
+        if: env.RISE_RELEASE_SLACK_WEBHOOK_CONFIGURED == 'true'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.RISE_RELEASE_SLACK_WEBHOOK_URL }}
+          RELEASE_PR_NUMBER: ${{ steps.release-pr.outputs.pr_number }}
+          RELEASE_PR_URL: ${{ steps.release-pr.outputs.pr_url }}
+          RELEASE_STAMPED_BY: ${{ steps.release-pr.outputs.stamped_by }}
+          RELEASE_MERGED_BY: ${{ steps.release-pr.outputs.merged_by }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          release_title = os.environ["RELEASE_TITLE"]
+          release_tag = os.environ["RELEASE_TAG"]
+          release_url = (
+              f"https://github.com/{os.environ['GITHUB_REPOSITORY']}"
+              f"/releases/tag/{release_tag}"
+          )
+          release_notes = Path("release-notes.md").read_text(encoding="utf-8").strip()
+          title_heading = f"# {release_title}"
+          if release_notes.startswith(title_heading):
+              release_notes = release_notes[len(title_heading):].strip()
+
+          metadata = []
+          if os.environ.get("RELEASE_PR_NUMBER") and os.environ.get("RELEASE_PR_URL"):
+              metadata.append(
+                  f"*PR:* <{os.environ['RELEASE_PR_URL']}|#{os.environ['RELEASE_PR_NUMBER']}>"
+              )
+          if os.environ.get("RELEASE_STAMPED_BY"):
+              metadata.append(f"*Stamped by:* @{os.environ['RELEASE_STAMPED_BY']}")
+          if os.environ.get("RELEASE_MERGED_BY"):
+              metadata.append(f"*Merged by:* @{os.environ['RELEASE_MERGED_BY']}")
+
+          body_parts = []
+          if metadata:
+              body_parts.append("\n".join(metadata))
+          if release_notes:
+              body_parts.append(release_notes)
+
+          payload = {
+              "text": f"*<{release_url}|{release_title}>*\n\n" + "\n\n".join(body_parts),
+          }
+          Path("slack-payload.json").write_text(
+              json.dumps(payload, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          curl --fail-with-body -sS \
+            -X POST \
+            -H 'Content-Type: application/json' \
+            --data @slack-payload.json \
+            "${SLACK_WEBHOOK_URL}"
