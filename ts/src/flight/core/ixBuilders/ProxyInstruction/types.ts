@@ -7,6 +7,7 @@ export interface ProxyInstructionParams extends ResolveFlightInstructionAddresse
   builderAuthority: Authority;
   builderTraderAccount: TraderAddress;
   traderWallet: Authority;
+  feeBpsOverride?: bigint | null;
   innerInstruction: InstructionsWithAccountsAndData;
 }
 

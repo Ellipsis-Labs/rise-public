@@ -509,7 +509,40 @@ try {
     results["ProxyInstruction"] = hexEncode(ix.data);
   }
 
-  // 24. Flight client wrapper for deterministic Flight-supported instructions
+  // 24. Flight ProxyInstructionWithFeeOverride (wrapping a deterministic PlaceLimitOrder)
+  {
+    const inner = buildPlaceLimitOrderIx({
+      trader: p(0),
+      traderAccount: p(1),
+      perpAssetMap: p(2),
+      orderbook: p(3),
+      splineCollection: p(4),
+      globalTraderIndex: vec2(5, 6),
+      activeTraderBuffer: vec2(7, 8),
+      orderPacket: {
+        side: Side.Bid,
+        priceInTicks: ticks(1000n),
+        numBaseLots: baseLots(100n),
+        selfTradeBehavior: SelfTradeBehavior.Abort,
+        matchLimit: null,
+        clientOrderId: 0n,
+        lastValidSlot: null,
+        orderFlags: OrderFlags.None,
+        cancelExisting: false,
+      },
+    });
+
+    const ix = await flight.buildProxyInstructionIx({
+      builderAuthority: p(9),
+      builderTraderAccount: p(10),
+      traderWallet: p(0),
+      feeBpsOverride: 5n,
+      innerInstruction: inner,
+    });
+    results["ProxyInstructionWithFeeOverride"] = hexEncode(ix.data);
+  }
+
+  // 25. Flight client wrapper for deterministic Flight-supported instructions
   {
     const flightClient = new flight.PhoenixFlightClient(
       {

@@ -66,6 +66,9 @@ Recommended settings:
 - Configure Flight with `builderAuthority`, plus optional `builderPdaIndex`
   and `builderSubaccountIndex`. rise derives the builder trader account from
   those values, with both indexes defaulting to `0`.
+- Set `feeBpsOverride` only when you need an individual integration route to
+  use Flight's `proxy_instruction_with_fee_override` instruction instead of the
+  builder's registered fee.
 - Keep `exchangeMetadata: { stream: true }` enabled for long-running apps that
   build orders against live market metadata.
 - Keep PDA caching enabled. `pdaCache: { maxEntries: 1024 }` is the explicit
@@ -234,6 +237,7 @@ const wrappedIx = await flight.wrapInstructionWithFlight({
     builderAuthority: "Builder111111111111111111111111111111111",
     builderPdaIndex: 0,
     builderSubaccountIndex: 0,
+    feeBpsOverride: 5n,
   },
   resolveFeeCollectorTraderAddress: (traderPdaIndex, subaccountIndex) =>
     client.pda.getTraderAddress({

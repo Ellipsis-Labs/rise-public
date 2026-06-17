@@ -318,3 +318,23 @@ Source Phoenix commit: `e01d6bf79f112b8f9c7c6e7e3ad84fb83050eb43`
 
 - `PhoenixRpcAccountFetcherClient.request` was widened from `private` to `public`; this is additive and does not break existing code, but the method is now formally part of the class surface.
 - The `zod` dependency is now pinned to the exact version `4.4.3`. If your project declares `zod` as a direct dependency and previously resolved `^4.3.6` to a different patch, verify your lockfile resolves cleanly after upgrading to this version of `@ellipsis-labs/rise`.
+
+## v0.4.44 - 2026-06-17
+
+Source Phoenix commit: `2d72d1003db4c5e852d3eef26572cd24da068745`
+
+### Summary
+
+- Added opt-in fee-override support to Flight proxy instructions. When `feeBpsOverride` is set on `PhoenixFlightClientConfig` or `ProxyInstructionParams`, `buildProxyInstructionIx` and `wrapInstructionWithFlight` emit `proxy_instruction_with_fee_override` instead of the standard `proxy_instruction`, allowing an integration route to override the builder's registered fee.
+- New `FLIGHT_DISCRIMINANTS.PROXY_INSTRUCTION_WITH_FEE_OVERRIDE` discriminant and associated codec helpers (`encodeProxyInstructionWithFeeOverrideData`, `getProxyInstructionWithFeeOverrideParamsEncoder/Decoder/Codec`, `getProxyInstructionWithFeeOverridePrefixEncoder`, `ProxyInstructionWithFeeOverrideParamsData`) are now exported from the package.
+- `instructions.json` gains the deterministic `ProxyInstructionWithFeeOverride` entry for snapshot testing and tooling.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `feeBpsOverride` (`bigint | null`) is an optional, additive field on both `PhoenixFlightClientConfig` and `ProxyInstructionParams`; omitting it (or passing `null`) preserves existing behavior with no code changes required.
+- When `feeBpsOverride` is provided, `buildProxyInstructionIx` validates that the value is in the range `0n–10_000n` (inclusive) and throws `"Fee bps override must be in the range 0..=10000"` if not.
+- The fee-override path emits an on-chain instruction with a different discriminant (`PROXY_INSTRUCTION_WITH_FEE_OVERRIDE`), so infrastructure that inspects raw instruction bytes or discriminants (parsers, indexers, monitoring) should be updated to recognize the new variant.

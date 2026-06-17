@@ -163,7 +163,9 @@ Recommended defaults:
 - If you use Flight consistently, configure it once on the client with
   `builderAuthority`, plus optional `builderPdaIndex` and
   `builderSubaccountIndex`. rise derives the builder trader account from those
-  values and defaults both indexes to `0`.
+  values and defaults both indexes to `0`. Set `feeBpsOverride` only when the
+  client should emit Flight's fee-override proxy instruction for supported
+  local order builders.
 
 For short runnable onboarding examples, see:
 

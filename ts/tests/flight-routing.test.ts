@@ -53,6 +53,83 @@ describe("flight instruction routing", () => {
     expect(resolveFeeCollectorTraderAddress).toHaveBeenCalledTimes(6);
   });
 
+  it("wraps Flight-routable placement instructions with a fee override", async () => {
+    const resolveFeeCollectorTraderAddress = vi.fn(
+      async () => feeCollectorTrader
+    );
+    const data = new Uint8Array([...DISCRIMINANTS.PLACE_MARKET_ORDER, 1, 2, 3]);
+
+    const wrapped = await flight.wrapInstructionWithFlight({
+      phoenixInstruction: {
+        programAddress: phoenixProgramAddress,
+        accounts: [],
+        data,
+      },
+      authority: traderAuthority,
+      phoenixProgramAddress,
+      flight: { builderAuthority, feeBpsOverride: 5n },
+      resolveFeeCollectorTraderAddress,
+    });
+
+    expect(wrapped.programAddress).toBe(flight.FLIGHT_PROGRAM_ADDRESS);
+    expect(Array.from(wrapped.data?.slice(0, 8) ?? [])).toEqual(
+      Array.from(
+        flight.FLIGHT_DISCRIMINANTS.PROXY_INSTRUCTION_WITH_FEE_OVERRIDE
+      )
+    );
+    expect(wrapped.data?.[8]).toBe(1);
+    expect(Array.from(wrapped.data?.slice(9, 17) ?? [])).toEqual([
+      5, 0, 0, 0, 0, 0, 0, 0,
+    ]);
+    expect(Array.from(wrapped.data?.slice(17) ?? [])).toEqual(Array.from(data));
+  });
+
+  it("builds the low-level proxy instruction with a fee override", async () => {
+    const data = new Uint8Array([...DISCRIMINANTS.PLACE_LIMIT_ORDER, 1, 2, 3]);
+
+    const wrapped = await flight.buildProxyInstructionIx({
+      phoenixProgramAddress,
+      builderAuthority,
+      builderTraderAccount: feeCollectorTrader,
+      traderWallet: traderAuthority,
+      feeBpsOverride: 7n,
+      innerInstruction: {
+        programAddress: phoenixProgramAddress,
+        accounts: [],
+        data,
+      },
+    });
+
+    expect(wrapped.programAddress).toBe(flight.FLIGHT_PROGRAM_ADDRESS);
+    expect(Array.from(wrapped.data?.slice(0, 8) ?? [])).toEqual(
+      Array.from(
+        flight.FLIGHT_DISCRIMINANTS.PROXY_INSTRUCTION_WITH_FEE_OVERRIDE
+      )
+    );
+    expect(wrapped.data?.[8]).toBe(1);
+    expect(Array.from(wrapped.data?.slice(9, 17) ?? [])).toEqual([
+      7, 0, 0, 0, 0, 0, 0, 0,
+    ]);
+    expect(Array.from(wrapped.data?.slice(17) ?? [])).toEqual(Array.from(data));
+  });
+
+  it("rejects an invalid fee override", async () => {
+    await expect(
+      flight.buildProxyInstructionIx({
+        phoenixProgramAddress,
+        builderAuthority,
+        builderTraderAccount: feeCollectorTrader,
+        traderWallet: traderAuthority,
+        feeBpsOverride: 10_001n,
+        innerInstruction: {
+          programAddress: phoenixProgramAddress,
+          accounts: [],
+          data: new Uint8Array(DISCRIMINANTS.PLACE_LIMIT_ORDER),
+        },
+      })
+    ).rejects.toThrow("Fee bps override must be in the range 0..=10000");
+  });
+
   it("leaves unsupported instructions unchanged", async () => {
     const resolveFeeCollectorTraderAddress = vi.fn(
       async () => feeCollectorTrader
