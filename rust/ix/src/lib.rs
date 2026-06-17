@@ -36,6 +36,7 @@ mod ember_deposit;
 mod ember_withdraw;
 mod error;
 pub mod flight;
+mod hawkeye;
 mod limit_order;
 mod market_order;
 mod multi_limit_order;
@@ -64,6 +65,7 @@ pub use deposit_funds::{DepositFundsParams, create_deposit_funds_ix};
 pub use ember_deposit::{EmberDepositParams, create_ember_deposit_ix};
 pub use ember_withdraw::{EmberWithdrawParams, create_ember_withdraw_ix};
 pub use error::PhoenixIxError;
+pub use hawkeye::*;
 pub use limit_order::{
     IsolatedLimitOrderParams, LimitOrderParams, LimitOrderParamsBuilder,
     create_place_limit_order_ix,
