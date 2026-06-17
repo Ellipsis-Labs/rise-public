@@ -7,9 +7,11 @@ use std::sync::Arc;
 
 use borsh::{BorshSerialize, to_vec};
 use litesvm::LiteSVM;
+use litesvm::types::TransactionMetadata;
 use phoenix_rise::math::WrapperNum;
 use phoenix_rise::phoenix_rise_ix::{
-    create_onboard_trader_delegated_ix, create_register_trader_ix,
+    HAWKEYE_PROGRAM_ID, HawkeyeReturnData, create_onboard_trader_delegated_ix,
+    create_register_trader_ix, decode_hawkeye_return_data,
 };
 use phoenix_rise::types::accounts::{
     ConditionalOrderCollection, Orderbook, StopLossOrderKind as AccountStopLossOrderKind, Trader,
@@ -41,6 +43,7 @@ const REQUIRED_PROGRAM_ARTIFACT_ENV: &str = "RISE_SDK_LOCALNET_REQUIRE_PROGRAMS"
 const PHOENIX_REPO_ROOT_ENV: &str = "PHOENIX_REPO_ROOT";
 const ETERNAL_PROGRAM_ENV: &str = "RISE_SDK_LOCALNET_ETERNAL_SO";
 const EMBER_PROGRAM_ENV: &str = "RISE_SDK_LOCALNET_EMBER_SO";
+const HAWKEYE_PROGRAM_ENV: &str = "RISE_SDK_LOCALNET_HAWKEYE_SO";
 const STOP_LOSS_PERMISSION: u64 = 1 << 2;
 const TRADER_ONBOARDING_PERMISSION: u64 = 1 << 4;
 const ORACLE_UPDATE_TIMESTAMP: u64 = 1_900_000_001;
@@ -467,9 +470,148 @@ fn rise_sdk_onboard_trader_delegated_ix_executes() {
     );
 }
 
+#[tokio::test]
+async fn rise_sdk_hawkeye_views_execute_and_decode_return_data() {
+    let Some(program_paths) = find_sdk_localnet_program_paths() else {
+        if sdk_localnet_vm_required() {
+            panic!(
+                "missing local SBF artifacts; run `mise build-sbf` or set \
+                 {ETERNAL_PROGRAM_ENV}/{EMBER_PROGRAM_ENV}/{HAWKEYE_PROGRAM_ENV}"
+            );
+        }
+        eprintln!("skipping Hawkeye LiteSVM flow because local SBF artifacts are missing");
+        return;
+    };
+    if program_paths.hawkeye.is_none() {
+        if sdk_localnet_vm_required() {
+            panic!("missing local Hawkeye SBF artifact; set {HAWKEYE_PROGRAM_ENV}");
+        }
+        eprintln!("skipping Hawkeye LiteSVM flow because phoenix_hawkeye.so is missing");
+        return;
+    }
+
+    let fixture = default_sdk_localnet_fixture().expect("fixture should deserialize");
+    let mut context = SdkLocalnetContext::new(fixture, program_paths);
+    context.execute_setup();
+
+    let metadata = phoenix_metadata_from_fixture(&context.fixture);
+    let builder = PhoenixTxBuilder::new(&metadata);
+    let actor = context.actor("taker0");
+    let authority = parse_pubkey(&actor.pubkey);
+    let trader = parse_pubkey(&actor.trader_account);
+
+    let ticket = MarketOrderTicket::builder()
+        .authority(authority)
+        .trader_account(trader)
+        .symbol("BTC")
+        .side(Side::Bid)
+        .price(101_000.0)
+        .num_base_lots(100)
+        .self_trade_behavior(SelfTradeBehavior::CancelProvide)
+        .order_flags(OrderFlags::None)
+        .build()
+        .unwrap();
+    context.send_instructions(
+        builder.place_market_order(ticket).await.unwrap(),
+        &actor.seed,
+        "hawkeye-open-position",
+    );
+
+    let margin = decode_hawkeye_return(
+        &context.send_instructions_with_metadata(
+            builder
+                .build_hawkeye_view_margin_for_trader(trader)
+                .unwrap(),
+            "payer",
+            "hawkeye-view-margin",
+        ),
+    );
+    let HawkeyeReturnData::Margin(margin) = margin else {
+        panic!("view_margin returned unexpected Hawkeye payload: {margin:?}");
+    };
+    assert_eq!(margin.version, phoenix_rise::HAWKEYE_RETURN_VERSION);
+    assert!(
+        margin.position_count > 0,
+        "opened position should appear in margin view"
+    );
+    assert!(
+        margin.initial_margin_quote_lots > 0,
+        "margin view should include position margin"
+    );
+
+    let asset = decode_hawkeye_return(
+        &context.send_instructions_with_metadata(
+            builder
+                .build_hawkeye_view_margin_for_asset_for_trader(trader, BTC_ASSET_ID)
+                .unwrap(),
+            "payer",
+            "hawkeye-view-margin-for-asset",
+        ),
+    );
+    let HawkeyeReturnData::Asset(asset) = asset else {
+        panic!("view_margin_for_asset returned unexpected Hawkeye payload: {asset:?}");
+    };
+    assert_eq!(asset.asset_id, BTC_ASSET_ID);
+    assert_eq!(asset.version, phoenix_rise::HAWKEYE_RETURN_VERSION);
+    assert_ne!(asset.base_lots, 0);
+    assert!(asset.mark_price_ticks > 0);
+
+    let liquidation = decode_hawkeye_return(
+        &context.send_instructions_with_metadata(
+            builder
+                .build_hawkeye_view_liquidation_price_for_trader(trader, BTC_ASSET_ID)
+                .unwrap(),
+            "payer",
+            "hawkeye-view-liquidation-price",
+        ),
+    );
+    let HawkeyeReturnData::LiquidationPrice(liquidation) = liquidation else {
+        panic!("view_liquidation_price returned unexpected Hawkeye payload: {liquidation:?}");
+    };
+    assert_eq!(liquidation.asset_id, BTC_ASSET_ID);
+    assert_eq!(liquidation.version, phoenix_rise::HAWKEYE_RETURN_VERSION);
+    assert!(liquidation.mark_price_ticks > 0);
+
+    let bbo = decode_hawkeye_return(&context.send_instructions_with_metadata(
+        builder.build_hawkeye_view_bbo("BTC").unwrap(),
+        "payer",
+        "hawkeye-view-bbo",
+    ));
+    let HawkeyeReturnData::Bbo(bbo) = bbo else {
+        panic!("view_bbo returned unexpected Hawkeye payload: {bbo:?}");
+    };
+    assert_eq!(bbo.version, phoenix_rise::HAWKEYE_RETURN_VERSION);
+    assert!(
+        bbo.best_bid_ticks().is_some() || bbo.best_ask_ticks().is_some(),
+        "fixture should have BBO liquidity"
+    );
+    assert!(bbo.mark_price_ticks > 0);
+    assert!(bbo.index_price_ticks > 0);
+
+    let funding = decode_hawkeye_return(
+        &context.send_instructions_with_metadata(
+            builder
+                .build_hawkeye_view_funding_for_trader(trader, BTC_ASSET_ID)
+                .unwrap(),
+            "payer",
+            "hawkeye-view-funding",
+        ),
+    );
+    let HawkeyeReturnData::Funding(funding) = funding else {
+        panic!("view_funding returned unexpected Hawkeye payload: {funding:?}");
+    };
+    assert_eq!(funding.asset_id, BTC_ASSET_ID);
+    assert_eq!(funding.version, phoenix_rise::HAWKEYE_RETURN_VERSION);
+    assert!(
+        funding.total_accumulated_funding_quote_lots().is_some(),
+        "opened position should expose accumulated funding"
+    );
+}
+
 struct SdkLocalnetProgramPaths {
     phoenix_eternal: PathBuf,
     ember: PathBuf,
+    hawkeye: Option<PathBuf>,
 }
 
 struct SdkLocalnetContext {
@@ -488,6 +630,9 @@ impl SdkLocalnetContext {
             &program_paths.phoenix_eternal,
         );
         load_program(&mut svm, &fixture.programs.ember, &program_paths.ember);
+        if let Some(hawkeye) = program_paths.hawkeye.as_ref() {
+            load_program(&mut svm, &HAWKEYE_PROGRAM_ID.to_string(), hawkeye);
+        }
 
         let mut signers_by_seed = HashMap::new();
         let mut signer_seed_by_pubkey = HashMap::new();
@@ -579,6 +724,15 @@ impl SdkLocalnetContext {
         fee_payer_seed: &str,
         label: &str,
     ) {
+        self.send_instructions_with_metadata(instructions, fee_payer_seed, label);
+    }
+
+    fn send_instructions_with_metadata(
+        &mut self,
+        instructions: Vec<Instruction>,
+        fee_payer_seed: &str,
+        label: &str,
+    ) -> TransactionMetadata {
         let fee_payer = self
             .signers_by_seed
             .get(fee_payer_seed)
@@ -618,7 +772,7 @@ impl SdkLocalnetContext {
                 error.err,
                 error.meta.logs.join("\n")
             )
-        });
+        })
     }
 
     fn signer_pubkey(&self, seed: &str) -> Pubkey {
@@ -666,10 +820,12 @@ fn find_sdk_localnet_program_paths() -> Option<SdkLocalnetProgramPaths> {
     let explicit = match (
         std::env::var(ETERNAL_PROGRAM_ENV),
         std::env::var(EMBER_PROGRAM_ENV),
+        std::env::var(HAWKEYE_PROGRAM_ENV),
     ) {
-        (Ok(phoenix_eternal), Ok(ember)) => Some(SdkLocalnetProgramPaths {
+        (Ok(phoenix_eternal), Ok(ember), hawkeye) => Some(SdkLocalnetProgramPaths {
             phoenix_eternal: PathBuf::from(phoenix_eternal),
             ember: PathBuf::from(ember),
+            hawkeye: hawkeye.ok().map(PathBuf::from),
         }),
         _ => None,
     };
@@ -682,14 +838,21 @@ fn find_sdk_localnet_program_paths() -> Option<SdkLocalnetProgramPaths> {
             SdkLocalnetProgramPaths {
                 phoenix_eternal: root.join("programs/target/deploy/phoenix_eternal.so"),
                 ember: root.join("programs/target/deploy/phoenix_ember_program.so"),
+                hawkeye: optional_program_path(
+                    root.join("programs/target/deploy/phoenix_hawkeye.so"),
+                ),
             },
             SdkLocalnetProgramPaths {
                 phoenix_eternal: root.join("target/deploy/phoenix_eternal.so"),
                 ember: root.join("target/deploy/phoenix_ember_program.so"),
+                hawkeye: optional_program_path(root.join("target/deploy/phoenix_hawkeye.so")),
             },
             SdkLocalnetProgramPaths {
                 phoenix_eternal: root.join("programs/eternal/target/deploy/phoenix_eternal.so"),
                 ember: root.join("programs/ember/target/deploy/phoenix_ember_program.so"),
+                hawkeye: optional_program_path(
+                    root.join("programs/phoenix-hawkeye/target/deploy/phoenix_hawkeye.so"),
+                ),
             },
         ] {
             if program_paths_exist(&program_paths) {
@@ -716,7 +879,16 @@ fn default_program_roots() -> Vec<PathBuf> {
 }
 
 fn program_paths_exist(paths: &SdkLocalnetProgramPaths) -> bool {
-    paths.phoenix_eternal.exists() && paths.ember.exists()
+    paths.phoenix_eternal.exists()
+        && paths.ember.exists()
+        && match paths.hawkeye.as_ref() {
+            Some(hawkeye) => hawkeye.exists(),
+            None => true,
+        }
+}
+
+fn optional_program_path(path: PathBuf) -> Option<PathBuf> {
+    path.exists().then_some(path)
 }
 
 fn load_program(svm: &mut LiteSVM, program_id: &str, path: &Path) {
@@ -836,6 +1008,15 @@ fn account_data(context: &SdkLocalnetContext, address: &Pubkey) -> Vec<u8> {
         .get_account(address)
         .unwrap_or_else(|| panic!("missing account {address}"))
         .data
+}
+
+fn decode_hawkeye_return(tx: &TransactionMetadata) -> HawkeyeReturnData {
+    assert_eq!(tx.return_data.program_id, HAWKEYE_PROGRAM_ID);
+    assert!(
+        !tx.return_data.data.is_empty(),
+        "Hawkeye transaction should set return data"
+    );
+    decode_hawkeye_return_data(&tx.return_data.data).expect("decode Hawkeye return data")
 }
 
 fn orderbook_has_resting_price(

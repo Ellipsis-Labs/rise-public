@@ -18,16 +18,19 @@ use crate::order_tickets::{
 use crate::phoenix_rise_ix::{
     CancelId, CancelOrdersByIdParams, CancelStopLossParams, CondensedOrder,
     CreateConditionalOrdersAccountParams, DepositFundsParams, Direction, EmberDepositParams,
-    EmberWithdrawParams, IsolatedCollateralFlow, IsolatedLimitOrderParams,
-    IsolatedMarketOrderParams, LimitOrderParams, MarketOrderDelegatedParams, MarketOrderParams,
-    MultiLimitOrderParams, OrderPacket, PHOENIX_PROGRAM_ID, PlaceLimitOrderWithConditionalsParams,
-    PlacePositionConditionalOrderParams, PlaceStopLossParams, RegisterTraderParams, Side,
-    SplApproveParams, StopLossOrderKind, SyncParentToChildParams,
-    TransferCollateralChildToParentParams, TransferCollateralParams, TriggerOrderParams, USDC_MINT,
-    WithdrawFundsParams, client_order_id_to_bytes, create_associated_token_account_idempotent_ix,
-    create_cancel_orders_by_id_ix, create_cancel_stop_loss_ix,
-    create_create_conditional_orders_account_ix, create_deposit_funds_ix, create_ember_deposit_ix,
-    create_ember_withdraw_ix, create_place_limit_order_ix,
+    EmberWithdrawParams, HawkeyeBboViewAccounts, HawkeyeTraderViewAccounts, IsolatedCollateralFlow,
+    IsolatedLimitOrderParams, IsolatedMarketOrderParams, LimitOrderParams,
+    MarketOrderDelegatedParams, MarketOrderParams, MultiLimitOrderParams, OrderPacket,
+    PHOENIX_PROGRAM_ID, PlaceLimitOrderWithConditionalsParams, PlacePositionConditionalOrderParams,
+    PlaceStopLossParams, RegisterTraderParams, Side, SplApproveParams, StopLossOrderKind,
+    SyncParentToChildParams, TransferCollateralChildToParentParams, TransferCollateralParams,
+    TriggerOrderParams, USDC_MINT, WithdrawFundsParams, client_order_id_to_bytes,
+    create_associated_token_account_idempotent_ix, create_cancel_orders_by_id_ix,
+    create_cancel_stop_loss_ix, create_create_conditional_orders_account_ix,
+    create_deposit_funds_ix, create_ember_deposit_ix, create_ember_withdraw_ix,
+    create_hawkeye_view_bbo_ix, create_hawkeye_view_funding_ix,
+    create_hawkeye_view_liquidation_price_ix, create_hawkeye_view_margin_for_asset_ix,
+    create_hawkeye_view_margin_ix, create_place_limit_order_ix,
     create_place_limit_order_with_conditionals_ix, create_place_market_order_delegated_ix,
     create_place_market_order_ix, create_place_multi_limit_order_ix,
     create_place_position_conditional_order_ix, create_place_stop_loss_ix,
@@ -899,6 +902,121 @@ impl<'a> PhoenixTxBuilder<'a> {
         Ok(vec![ix.into()])
     }
 
+    /// Build a Hawkeye `view_margin` instruction for a derived trader account.
+    pub fn build_hawkeye_view_margin(
+        &self,
+        authority: Pubkey,
+        pda_index: u8,
+        subaccount_index: u8,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        let trader = Self::trader_pda(&authority, pda_index, subaccount_index);
+        self.build_hawkeye_view_margin_for_trader(trader)
+    }
+
+    /// Build a Hawkeye `view_margin` instruction for an explicit trader
+    /// account.
+    pub fn build_hawkeye_view_margin_for_trader(
+        &self,
+        trader: Pubkey,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        Ok(vec![
+            create_hawkeye_view_margin_ix(self.hawkeye_trader_accounts(trader)?).into(),
+        ])
+    }
+
+    /// Build a Hawkeye `view_margin_for_asset` instruction for a derived trader
+    /// account.
+    pub fn build_hawkeye_view_margin_for_asset(
+        &self,
+        authority: Pubkey,
+        pda_index: u8,
+        subaccount_index: u8,
+        asset_id: u32,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        let trader = Self::trader_pda(&authority, pda_index, subaccount_index);
+        self.build_hawkeye_view_margin_for_asset_for_trader(trader, asset_id)
+    }
+
+    /// Build a Hawkeye `view_margin_for_asset` instruction for an explicit
+    /// trader account.
+    pub fn build_hawkeye_view_margin_for_asset_for_trader(
+        &self,
+        trader: Pubkey,
+        asset_id: u32,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        Ok(vec![
+            create_hawkeye_view_margin_for_asset_ix(
+                self.hawkeye_trader_accounts(trader)?,
+                asset_id,
+            )
+            .into(),
+        ])
+    }
+
+    /// Build a Hawkeye `view_liquidation_price` instruction for a derived
+    /// trader account.
+    pub fn build_hawkeye_view_liquidation_price(
+        &self,
+        authority: Pubkey,
+        pda_index: u8,
+        subaccount_index: u8,
+        asset_id: u32,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        let trader = Self::trader_pda(&authority, pda_index, subaccount_index);
+        self.build_hawkeye_view_liquidation_price_for_trader(trader, asset_id)
+    }
+
+    /// Build a Hawkeye `view_liquidation_price` instruction for an explicit
+    /// trader account.
+    pub fn build_hawkeye_view_liquidation_price_for_trader(
+        &self,
+        trader: Pubkey,
+        asset_id: u32,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        Ok(vec![
+            create_hawkeye_view_liquidation_price_ix(
+                self.hawkeye_trader_accounts(trader)?,
+                asset_id,
+            )
+            .into(),
+        ])
+    }
+
+    /// Build a Hawkeye `view_funding` instruction for a derived trader account
+    /// and asset.
+    pub fn build_hawkeye_view_funding(
+        &self,
+        authority: Pubkey,
+        pda_index: u8,
+        subaccount_index: u8,
+        asset_id: u32,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        let trader = Self::trader_pda(&authority, pda_index, subaccount_index);
+        self.build_hawkeye_view_funding_for_trader(trader, asset_id)
+    }
+
+    /// Build a Hawkeye `view_funding` instruction for an explicit trader
+    /// account and asset.
+    pub fn build_hawkeye_view_funding_for_trader(
+        &self,
+        trader: Pubkey,
+        asset_id: u32,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        Ok(vec![
+            create_hawkeye_view_funding_ix(self.hawkeye_trader_accounts(trader)?, asset_id).into(),
+        ])
+    }
+
+    /// Build a Hawkeye `view_bbo` instruction for a market symbol.
+    pub fn build_hawkeye_view_bbo(
+        &self,
+        symbol: &str,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        Ok(vec![
+            create_hawkeye_view_bbo_ix(self.hawkeye_bbo_accounts(symbol)?).into(),
+        ])
+    }
+
     /// Build a transfer collateral instruction.
     ///
     /// Transfers collateral between two subaccounts (e.g., from cross-margin
@@ -1572,6 +1690,53 @@ impl<'a> PhoenixTxBuilder<'a> {
             ));
         }
         Ok(())
+    }
+
+    fn hawkeye_trader_accounts(
+        &self,
+        trader: Pubkey,
+    ) -> Result<HawkeyeTraderViewAccounts, PhoenixTxBuilderError> {
+        let keys = self.metadata.keys();
+        Ok(HawkeyeTraderViewAccounts {
+            phoenix_program_id: keys
+                .program_id
+                .as_deref()
+                .map(Pubkey::from_str)
+                .transpose()?
+                .unwrap_or(*PHOENIX_PROGRAM_ID),
+            global_config: Pubkey::from_str(&keys.global_config)?,
+            global_trader_index: parse_pubkey_vec(&keys.global_trader_index)?,
+            active_trader_buffer: parse_pubkey_vec(&keys.active_trader_buffer)?,
+            perp_asset_map: Pubkey::from_str(&keys.perp_asset_map)?,
+            trader,
+        })
+    }
+
+    fn hawkeye_bbo_accounts(
+        &self,
+        symbol: &str,
+    ) -> Result<HawkeyeBboViewAccounts, PhoenixTxBuilderError> {
+        let market = self
+            .metadata
+            .get_market(symbol)
+            .ok_or_else(|| PhoenixTxBuilderError::UnknownSymbol(symbol.to_string()))?;
+        let keys = self.metadata.keys();
+        let addrs = self.parse_addresses(market)?;
+
+        Ok(HawkeyeBboViewAccounts {
+            phoenix_program_id: keys
+                .program_id
+                .as_deref()
+                .map(Pubkey::from_str)
+                .transpose()?
+                .unwrap_or(*PHOENIX_PROGRAM_ID),
+            global_config: Pubkey::from_str(&keys.global_config)?,
+            global_trader_index: addrs.global_trader_index,
+            active_trader_buffer: addrs.active_trader_buffer,
+            perp_asset_map: addrs.perp_asset_map,
+            orderbook: addrs.orderbook,
+            spline_collection: addrs.spline_collection,
+        })
     }
 
     /// Parse all required addresses from the exchange metadata for a given

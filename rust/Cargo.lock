@@ -2622,7 +2622,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "async-trait",
  "axum",
@@ -2656,8 +2656,11 @@ dependencies = [
  "solana-keypair",
  "solana-pubkey",
  "solana-rpc-client",
+ "solana-rpc-client-api",
  "solana-signer",
  "solana-transaction",
+ "solana-transaction-error",
+ "solana-transaction-status-client-types",
  "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
@@ -2672,7 +2675,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-sdk-cli"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "clap",
  "phoenix-rise",

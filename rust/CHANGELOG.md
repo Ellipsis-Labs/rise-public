@@ -125,3 +125,25 @@ Source Phoenix commit: `00d34904a9c9e981dcc62666906e2985a98624d9`
 
 - The `opentelemetry` feature does not install a global propagator automatically — callers must call `opentelemetry::global::set_text_map_propagator(...)` (e.g., with `TraceContextPropagator`) before trace headers will be injected into requests.
 - The `permission_account` builder method is additive and optional; existing `TransferCollateralParams` construction code requires no changes.
+
+## v0.1.10 - 2026-06-17
+
+Source Phoenix commit: `e01d6bf79f112b8f9c7c6e7e3ad84fb83050eb43`
+
+### Summary
+
+- Added the **Phoenix Hawkeye** read-only view layer: instruction builders, typed return-data structs, a decode pipeline, and a high-level async RPC client for querying margin, per-asset risk, liquidation prices, BBO, and funding state via simulated transactions.
+- New top-level exports from `phoenix_rise`: `PhoenixHawkeyeClient`, `HawkeyeSimulation<T>`, `PhoenixHawkeyeClientError`, `HawkeyeReturnData`, `HawkeyeReturnDataError`, all `View*Return` structs, `Hawkeye*ViewAccounts` account-list structs, low-level instruction builders (`create_hawkeye_view_*_ix`), and decode helpers (`decode_hawkeye_return_data`, `decode_hawkeye_return`).
+- `PhoenixTxBuilder` gains nine new `build_hawkeye_view_*` methods that construct Hawkeye simulation instructions from a `PhoenixMetadata` context, with both PDA-derived and explicit-trader variants.
+- Three new mandatory runtime dependencies: `solana-rpc-client-api ~2.3`, `solana-transaction-error ~2.2`, and `solana-transaction-status-client-types ~2.3`; `solana-compute-budget-interface ~2.2` is also added. Downstream `Cargo.toml` files that pin Solana crate ranges tightly may need adjustments.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `PhoenixHawkeyeClient::new(rpc_url, &metadata)` is the recommended entry point; it defaults to an unsigned simulation fee payer (`HAWKEYE_SIMULATION_FEE_PAYER`) and a 1.4M CU limit, both overridable via builder methods.
+- All Hawkeye view calls are **read-only simulations** — no fee payer signature required and no state is mutated on-chain.
+- Return data is versioned (`HAWKEYE_RETURN_VERSION = 1`); callers should assert `version` matches if they hard-code struct layouts.
+- `ViewBboReturn::best_bid_ticks()` / `best_ask_ticks()` return `Option<u64>` based on presence flags — a `None` means no resting orders on that side, not an error.
