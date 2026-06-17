@@ -2,7 +2,7 @@
 
 use core::mem::size_of;
 
-use bytemuck::{Pod, Zeroable, try_from_bytes};
+use bytemuck::{try_from_bytes, Pod, Zeroable};
 use solana_pubkey::Pubkey;
 use thiserror::Error;
 
@@ -15,7 +15,7 @@ pub const HAWKEYE_PROGRAM_ID: Pubkey =
 
 /// Default fee payer for unsigned Hawkeye simulations.
 pub const HAWKEYE_SIMULATION_FEE_PAYER: Pubkey =
-    solana_pubkey::pubkey!("Hik5qWJvfgZR9HAGfNqYXfhxbYNGRoZbABEkP91zgC5h");
+    solana_pubkey::pubkey!("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM");
 
 /// Default compute-unit limit used by Hawkeye simulation helpers.
 pub const HAWKEYE_SIMULATION_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;
@@ -38,11 +38,11 @@ pub const VIEW_FUNDING_HAS_UNSETTLED: u8 = 1 << 1;
 #[repr(u64)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum PhoenixHawkeyeInstruction {
-    ViewMargin           = sha2_const(b"global:view_margin"),
-    ViewMarginForAsset   = sha2_const(b"global:view_margin_for_asset"),
+    ViewMargin = sha2_const(b"global:view_margin"),
+    ViewMarginForAsset = sha2_const(b"global:view_margin_for_asset"),
     ViewLiquidationPrice = sha2_const(b"global:view_liquidation_price"),
-    ViewBbo              = sha2_const(b"global:view_bbo"),
-    ViewFunding          = sha2_const(b"global:view_funding"),
+    ViewBbo = sha2_const(b"global:view_bbo"),
+    ViewFunding = sha2_const(b"global:view_funding"),
 }
 
 impl PhoenixHawkeyeInstruction {
