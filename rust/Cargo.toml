@@ -172,41 +172,46 @@ ignored = [
 ]
 
 [dependencies]
-async-trait           = { workspace = true }
-base64                = { workspace = true }
-borsh                 = { workspace = true }
-bs58                  = { workspace = true }
-bytemuck              = { workspace = true }
-chrono                = { workspace = true }
-ed25519-dalek         = { workspace = true, optional = true }
-fixed                 = { workspace = true }
-futures-util          = { workspace = true }
-opentelemetry         = { workspace = true, optional = true }
-opentelemetry-http    = { workspace = true, optional = true }
-parking_lot           = { workspace = true }
-pastey                = { workspace = true }
-rand                  = { workspace = true }
-reqwest               = { workspace = true }
-rust_decimal          = { workspace = true }
-serde                 = { workspace = true }
-serde_json            = { workspace = true }
-serde_urlencoded      = { workspace = true }
-serde_with            = { workspace = true }
-sha2                  = { workspace = true }
-sha2-const-stable     = { workspace = true }
-solana-instruction    = { workspace = true }
-solana-keypair        = { workspace = true, optional = true }
-solana-pubkey         = { workspace = true }
-solana-rpc-client     = { workspace = true }
-solana-signer         = { workspace = true, optional = true }
-thiserror             = { workspace = true }
-tokio                 = { workspace = true }
-tokio-stream          = "0.1"
-tokio-tungstenite     = { workspace = true }
-tracing               = { workspace = true }
-tracing-opentelemetry = { workspace = true, optional = true }
-url                   = { workspace = true }
-utoipa                = { workspace = true, optional = true }
+async-trait                            = { workspace = true }
+base64                                 = { workspace = true }
+borsh                                  = { workspace = true }
+bs58                                   = { workspace = true }
+bytemuck                               = { workspace = true }
+chrono                                 = { workspace = true }
+ed25519-dalek                          = { workspace = true, optional = true }
+fixed                                  = { workspace = true }
+futures-util                           = { workspace = true }
+opentelemetry                          = { workspace = true, optional = true }
+opentelemetry-http                     = { workspace = true, optional = true }
+parking_lot                            = { workspace = true }
+pastey                                 = { workspace = true }
+rand                                   = { workspace = true }
+reqwest                                = { workspace = true }
+rust_decimal                           = { workspace = true }
+serde                                  = { workspace = true }
+serde_json                             = { workspace = true }
+serde_urlencoded                       = { workspace = true }
+serde_with                             = { workspace = true }
+sha2                                   = { workspace = true }
+sha2-const-stable                      = { workspace = true }
+solana-compute-budget-interface        = { workspace = true }
+solana-instruction                     = { workspace = true }
+solana-keypair                         = { workspace = true, optional = true }
+solana-pubkey                          = { workspace = true }
+solana-rpc-client                      = { workspace = true }
+solana-rpc-client-api                  = { workspace = true }
+solana-signer                          = { workspace = true, optional = true }
+solana-transaction                     = { workspace = true }
+solana-transaction-error               = { workspace = true }
+solana-transaction-status-client-types = { workspace = true }
+thiserror                              = { workspace = true }
+tokio                                  = { workspace = true }
+tokio-stream                           = "0.1"
+tokio-tungstenite                      = { workspace = true }
+tracing                                = { workspace = true }
+tracing-opentelemetry                  = { workspace = true, optional = true }
+url                                    = { workspace = true }
+utoipa                                 = { workspace = true, optional = true }
 
 [dev-dependencies]
 axum                            = "0.8"
@@ -235,7 +240,7 @@ publish      = true
 readme       = "CRATES.md"
 repository   = "https://github.com/Ellipsis-Labs/rise"
 rust-version = "1.84.0"
-version      = "0.1.9"
+version      = "0.1.10"
 
 [workspace.dependencies]
 async-trait = "0.1"
@@ -266,14 +271,18 @@ serde_with = "3.12"
 sha2 = "0.10"
 sha2-const-stable = "0.1"
 solana-commitment-config = { version = "~2.2" }
+solana-compute-budget-interface = "~2.2"
 solana-instruction = { version = "~2.3", default-features = false, features = [
   "std",
 ] }
 solana-keypair = { version = "~2.2" }
 solana-pubkey = { version = "~2.4", features = ["curve25519"] }
 solana-rpc-client = "~2.3"
+solana-rpc-client-api = "~2.3"
 solana-signer = { version = "~2.2" }
 solana-transaction = { version = "~2.2" }
+solana-transaction-error = "~2.2"
+solana-transaction-status-client-types = "~2.3"
 thiserror = "2.0"
 tokio = { version = "1.44", features = [
   "sync",
