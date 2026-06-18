@@ -20,6 +20,7 @@ export interface PhoenixFlightClientConfig {
   builderAuthority: Authority;
   builderPdaIndex?: number;
   builderSubaccountIndex?: number;
+  feeBpsOverride?: bigint | null;
 }
 
 export const resolvePhoenixFlightFeeCollectorTraderAddress = async (
@@ -76,6 +77,7 @@ export const wrapInstructionWithFlight = async (params: {
       params.resolveFeeCollectorTraderAddress
     ),
     traderWallet: params.authority,
+    feeBpsOverride: params.flight.feeBpsOverride,
     innerInstruction: params.phoenixInstruction,
   });
 };
@@ -84,6 +86,7 @@ export class PhoenixFlightClient implements PhoenixInstructionClient {
   readonly builderAuthority: Authority;
   readonly builderPdaIndex: number;
   readonly builderSubaccountIndex: number;
+  readonly feeBpsOverride: bigint | null;
   readonly instructionClient: PhoenixInstructionClient;
 
   constructor(
@@ -94,6 +97,7 @@ export class PhoenixFlightClient implements PhoenixInstructionClient {
     this.builderAuthority = config.builderAuthority;
     this.builderPdaIndex = config.builderPdaIndex ?? 0;
     this.builderSubaccountIndex = config.builderSubaccountIndex ?? 0;
+    this.feeBpsOverride = config.feeBpsOverride ?? null;
   }
 
   get addresses(): PhoenixBuilderAddresses {

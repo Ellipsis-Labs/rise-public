@@ -25,11 +25,11 @@ import {
 } from "@solana/kit";
 
 export const HAWKEYE_PROGRAM_ADDRESS: Address = address(
-  "RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj",
+  "RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj"
 );
 
 export const HAWKEYE_SIMULATION_FEE_PAYER: Address = address(
-  "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+  "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
 );
 
 export const HAWKEYE_SIMULATION_COMPUTE_UNIT_LIMIT: number = 1_400_000;
@@ -228,23 +228,23 @@ export type HawkeyeBboViewAccounts = HawkeyeBaseAccounts & {
 export type HawkeyeIx = InstructionsWithAccountsAndData;
 
 export const buildHawkeyeViewMarginIx = (
-  params: HawkeyeTraderViewAccounts,
+  params: HawkeyeTraderViewAccounts
 ): HawkeyeIx => buildTraderViewIx(params, "margin");
 
 export const buildHawkeyeViewMarginForAssetIx = (
-  params: HawkeyeTraderViewAccounts & { assetId: number },
+  params: HawkeyeTraderViewAccounts & { assetId: number }
 ): HawkeyeIx => buildTraderViewIx(params, "asset", params.assetId);
 
 export const buildHawkeyeViewLiquidationPriceIx = (
-  params: HawkeyeTraderViewAccounts & { assetId: number },
+  params: HawkeyeTraderViewAccounts & { assetId: number }
 ): HawkeyeIx => buildTraderViewIx(params, "liquidation", params.assetId);
 
 export const buildHawkeyeViewFundingIx = (
-  params: HawkeyeTraderViewAccounts & { assetId: number },
+  params: HawkeyeTraderViewAccounts & { assetId: number }
 ): HawkeyeIx => buildTraderViewIx(params, "funding", params.assetId);
 
 export const buildHawkeyeViewBboIx = (
-  params: HawkeyeBboViewAccounts,
+  params: HawkeyeBboViewAccounts
 ): HawkeyeIx => ({
   programAddress: HAWKEYE_PROGRAM_ADDRESS,
   accounts: [
@@ -256,7 +256,7 @@ export const buildHawkeyeViewBboIx = (
 });
 
 export const buildSetComputeUnitLimitIx = (
-  units: number = HAWKEYE_SIMULATION_COMPUTE_UNIT_LIMIT,
+  units: number = HAWKEYE_SIMULATION_COMPUTE_UNIT_LIMIT
 ): Instruction => {
   const data = new Uint8Array(5);
   const view = new DataView(data.buffer);
@@ -285,16 +285,16 @@ export const encodeHawkeyeSimulationTransaction = (params: {
       },
       setTransactionMessageFeePayer(
         params.feePayer ?? HAWKEYE_SIMULATION_FEE_PAYER,
-        createTransactionMessage({ version: 0 }),
-      ),
-    ),
+        createTransactionMessage({ version: 0 })
+      )
+    )
   );
 
   return getBase64EncodedWireTransaction(compileTransaction(message));
 };
 
 export const decodeHawkeyeReturnData = (
-  bytes: Uint8Array,
+  bytes: Uint8Array
 ): HawkeyeReturnData => {
   const kind = identifyHawkeyeReturnKind(bytes);
   switch (kind) {
@@ -314,7 +314,7 @@ export const decodeHawkeyeReturnData = (
 const buildTraderViewIx = (
   params: HawkeyeTraderViewAccounts,
   kind: "margin" | "asset" | "liquidation" | "funding",
-  assetId?: number,
+  assetId?: number
 ): HawkeyeIx => ({
   programAddress: HAWKEYE_PROGRAM_ADDRESS,
   accounts: [
@@ -334,7 +334,7 @@ const buildBaseAccounts = (params: HawkeyeBaseAccounts) => [
 
 const buildHawkeyeInstructionData = (
   kind: HawkeyeViewKind,
-  assetId?: number,
+  assetId?: number
 ): Uint8Array => {
   const needsAsset =
     kind === "asset" || kind === "liquidation" || kind === "funding";
@@ -411,7 +411,7 @@ const decodeAsset = (bytes: Uint8Array): HawkeyeAssetReturn => {
 };
 
 const decodeLiquidation = (
-  bytes: Uint8Array,
+  bytes: Uint8Array
 ): HawkeyeLiquidationPriceReturn => {
   const view = viewFor(bytes, 56, "view_liquidation_price");
   return {
@@ -473,11 +473,11 @@ const decodeFunding = (bytes: Uint8Array): HawkeyeFundingReturn => {
 const viewFor = (
   bytes: Uint8Array,
   expectedLength: number,
-  label: string,
+  label: string
 ): DataView => {
   if (bytes.byteLength !== expectedLength) {
     throw new Error(
-      `${label} return data expected ${expectedLength} bytes, got ${bytes.byteLength}`,
+      `${label} return data expected ${expectedLength} bytes, got ${bytes.byteLength}`
     );
   }
   return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -486,11 +486,11 @@ const viewFor = (
 const expectLengthAtLeast = (
   bytes: Uint8Array,
   expectedLength: number,
-  label: string,
+  label: string
 ) => {
   if (bytes.byteLength < expectedLength) {
     throw new Error(
-      `${label} expected at least ${expectedLength} bytes, got ${bytes.byteLength}`,
+      `${label} expected at least ${expectedLength} bytes, got ${bytes.byteLength}`
     );
   }
 };
@@ -499,7 +499,7 @@ const readMagic = (bytes: Uint8Array): HawkeyeMagic => {
   const value = new DataView(
     bytes.buffer,
     bytes.byteOffset,
-    bytes.byteLength,
+    bytes.byteLength
   ).getBigUint64(0, true);
   return {
     decimal: value.toString(),
@@ -509,7 +509,7 @@ const readMagic = (bytes: Uint8Array): HawkeyeMagic => {
 
 const codeLabel = <T extends readonly string[]>(
   labels: T,
-  code: number,
+  code: number
 ): HawkeyeCodeLabel<T[number]> => ({
   code,
   label: labels[code] ?? "unknown",

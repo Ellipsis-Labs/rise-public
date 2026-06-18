@@ -6,6 +6,9 @@ export const FLIGHT_DISCRIMINANTS: DiscriminantMap = {
   REGISTER_BUILDER: sha2_const("global:register_builder"),
   UPDATE_FEE: sha2_const("global:update_fee"),
   PROXY_INSTRUCTION: sha2_const("global:proxy_instruction"),
+  PROXY_INSTRUCTION_WITH_FEE_OVERRIDE: sha2_const(
+    "global:proxy_instruction_with_fee_override"
+  ),
 };
 
 export const FLIGHT_ACCOUNT_DISCRIMINANTS: DiscriminantMap = {

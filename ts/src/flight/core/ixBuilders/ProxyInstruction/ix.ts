@@ -7,13 +7,18 @@ import {
   getFlightBuilderStateAddress,
   getFlightGlobalStateAddress,
 } from "@/flight/pdas";
-import { encodeProxyInstructionData } from "./codec";
+import {
+  encodeProxyInstructionData,
+  encodeProxyInstructionWithFeeOverrideData,
+} from "./codec";
 import type {
   ProxyInstructionAccounts,
   ProxyInstructionIx,
   ProxyInstructionParams,
 } from "./types";
 import type { PhoenixProgramAddress } from "@/primitives/index.js";
+
+const MAX_BASIS_POINTS = 10_000n;
 
 export const buildProxyInstructionIx = async (
   params: ProxyInstructionParams
@@ -42,9 +47,15 @@ export const buildProxyInstructionIx = async (
     ...(params.innerInstruction.accounts ?? []),
   ] as const;
 
-  const data = encodeProxyInstructionData(
-    params.innerInstruction.data ?? new Uint8Array(0)
-  );
+  const innerInstructionData =
+    params.innerInstruction.data ?? new Uint8Array(0);
+  const data =
+    params.feeBpsOverride == null
+      ? encodeProxyInstructionData(innerInstructionData)
+      : encodeProxyInstructionWithFeeOverrideData(
+          params.feeBpsOverride,
+          innerInstructionData
+        );
 
   return {
     programAddress,
@@ -68,6 +79,14 @@ const validate = (
   }
   if (!params.innerInstruction?.programAddress) {
     throw new Error("Inner instruction program address is required");
+  }
+  if (params.feeBpsOverride != null) {
+    if (
+      params.feeBpsOverride < 0n ||
+      params.feeBpsOverride > MAX_BASIS_POINTS
+    ) {
+      throw new Error("Fee bps override must be in the range 0..=10000");
+    }
   }
 
   if (params.innerInstruction.programAddress !== phoenixProgramAddress) {
