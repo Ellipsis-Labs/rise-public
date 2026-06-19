@@ -41,6 +41,7 @@
 pub mod ix;
 #[path = "../../math/src/lib.rs"]
 pub mod math;
+#[cfg(feature = "types")]
 #[path = "../../types/src/lib.rs"]
 pub mod types;
 
@@ -55,6 +56,7 @@ pub mod phoenix_rise_math {
     };
 }
 
+#[cfg(feature = "types")]
 pub mod phoenix_rise_types {
     pub use crate::types::{
         accounts, auth, candles, client, conversions, core, exchange, exchange_ws, funding,
@@ -64,30 +66,50 @@ pub mod phoenix_rise_types {
     };
 }
 
+#[cfg(feature = "sdk")]
 pub mod accounts;
+#[cfg(feature = "sdk")]
 pub mod api;
+#[cfg(feature = "sdk")]
 mod auth;
+#[cfg(feature = "sdk")]
 mod auth_lifecycle;
+#[cfg(feature = "sdk")]
 mod auth_signers;
+#[cfg(feature = "sdk")]
 mod client;
+#[cfg(feature = "sdk")]
 mod env;
+#[cfg(feature = "sdk")]
 mod exchange_cache;
+#[cfg(feature = "sdk")]
 mod flight_client;
+#[cfg(feature = "sdk")]
 mod hawkeye_client;
+#[cfg(feature = "sdk")]
 mod http_client;
+#[cfg(feature = "sdk")]
 mod order_tickets;
+#[cfg(feature = "test-fixture")]
+pub mod test_fixture;
+#[cfg(feature = "sdk")]
 mod transport;
+#[cfg(feature = "sdk")]
 mod tx_builder;
+#[cfg(feature = "sdk")]
 mod ws_client;
 
 // Re-export main types
+#[cfg(feature = "sdk")]
 pub use accounts::{AccountDataFetcher, PhoenixAccountClient, PhoenixAccountClientError};
+#[cfg(feature = "sdk")]
 pub use api::{
     CandlesClient, CollateralClient, ExchangeClient, FundingClient, InviteClient, MarketsClient,
     OrdersClient, TradersClient, TradesClient,
 };
-#[cfg(feature = "solana-keypair")]
+#[cfg(all(feature = "sdk", feature = "solana-keypair"))]
 pub use auth::PhoenixWalletSessionManager;
+#[cfg(feature = "sdk")]
 pub use auth::{
     AuthError, AuthSession, AuthSessionSnapshot, AuthSessionStore, FileAuthSessionStore,
     MemoryAuthSessionStore, PhoenixAuthSigner, PhoenixHttpAuthConfig, PhoenixMemorySessionManager,
@@ -95,32 +117,44 @@ pub use auth::{
     PhoenixSessionManager, PhoenixWalletNonce, PhoenixWalletNonceRequest,
     PhoenixWalletTransactionChallenge, default_auth_session_store_path, is_auth_recovery_error,
 };
+#[cfg(feature = "sdk")]
 pub use auth_lifecycle::{AuthLifecycleError, AuthLifecycleErrorReason, AuthLifecycleState};
-#[cfg(feature = "ed25519-dalek")]
+#[cfg(all(feature = "sdk", feature = "ed25519-dalek"))]
 pub use auth_signers::PhoenixEd25519ServiceAuthSigner;
+#[cfg(feature = "sdk")]
 pub use auth_signers::{
     PhoenixAuthSignerKind, PhoenixHttpAuthConfigSignerExt, PhoenixHttpClientBuilderSignerExt,
     PhoenixServiceAccountCredential,
 };
-#[cfg(feature = "solana-keypair")]
+#[cfg(all(feature = "sdk", feature = "solana-keypair"))]
 pub use auth_signers::{PhoenixSolanaKeypairAuthSigner, default_solana_keypair_path};
+#[cfg(feature = "sdk")]
 pub use client::PhoenixClient;
+#[cfg(feature = "sdk")]
 pub use env::PhoenixEnv;
+#[cfg(feature = "sdk")]
 pub use exchange_cache::{
     ExchangeCacheApplyError, ExchangeCacheEvent, ExchangeCacheExchangeChangeKind,
     ExchangeCacheMarketChangeKind, ExchangeCacheSnapshotSource, ExchangeInstructionContext,
     PhoenixExchangeCacheStore,
 };
+#[cfg(feature = "sdk")]
 pub use flight_client::PhoenixFlightClient;
+#[cfg(feature = "sdk")]
 pub use hawkeye_client::{HawkeyeSimulation, PhoenixHawkeyeClient, PhoenixHawkeyeClientError};
+#[cfg(feature = "sdk")]
 pub use http_client::{PhoenixHttpClient, PhoenixHttpClientBuilder, RateLimitRetryConfig};
+#[cfg(feature = "sdk")]
 pub use order_tickets::{
     BracketLeg, BracketLegExecution, BracketLegOrders, BracketLegSize, BracketLegTicket,
     DEFAULT_BRACKET_LEG_SLIPPAGE_BPS, LimitOrderTicket, LimitOrderTicketBuilder, MarketOrderTicket,
     MarketOrderTicketBuilder, OrderTicketMetadata,
 };
+#[cfg(feature = "types")]
 pub use rust_decimal::Decimal;
+#[cfg(feature = "sdk")]
 pub use tx_builder::{PhoenixTxBuilder, PhoenixTxBuilderError};
+#[cfg(feature = "sdk")]
 pub use ws_client::{PhoenixWSClient, SubscriptionHandle, WsConnectionStatus};
 
 pub use crate::phoenix_rise_ix::{
@@ -144,6 +178,7 @@ pub use crate::phoenix_rise_ix::{
     phoenix_log_authority, phoenix_program_id, resolve_phoenix_instruction_addresses_for_env,
 };
 // Re-export useful types from the types crate
+#[cfg(feature = "types")]
 pub use crate::phoenix_rise_types::{
     AllMidsData, ApiCandle, AuthoritySet, CROSS_MARGIN_SUBACCOUNT_IDX,
     CancelConditionalOrderRequest, CancelStopLossOrderRequest, CandleData, CandlesQueryParams,
@@ -179,4 +214,5 @@ pub use crate::phoenix_rise_types::{
     UserLiquidationHistoryResponse, UserLiquidationHistoryRole, UserLiquidationHistoryType,
     WalletNonceResponse,
 };
+#[cfg(feature = "types")]
 pub use crate::types::conversions::*;

@@ -16,8 +16,12 @@
     "perpAssetMap": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
     "withdrawQueue": "E2PdNFupWRyfTersboFbTKroQ7hLvcZtgzNQ81buCDbT",
     "globalVault": "99DGXmqavGrSBB67bnHySiAoU8u4aQWxCCFGp45XwRnz",
-    "globalTraderIndex": ["HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK"],
-    "activeTraderBuffer": ["2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok"],
+    "globalTraderIndex": [
+      "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK"
+    ],
+    "activeTraderBuffer": [
+      "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok"
+    ],
     "emberState": "6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz",
     "emberVault": "FKcEb4TdPDTRuMnQDpSEPQBcrm15S73xiUD6Qf8ZLUkq"
   },
@@ -150,6 +154,8 @@
       "orderbook": "FQKqynzMoUZUzNMhbnaQ9tfAJ212FrRE7C95n9hsrp6D",
       "spline": "9J7gqEXKXmMKRuME4bgKeR3udrUPJLeP1R2bxyfGkS51",
       "signerSeed": "market-BTC",
+      "defaultTakerFeeMicro": 350,
+      "defaultMakerFeeMicro": 50,
       "baseLotDecimals": 4,
       "tickSizeInQuoteLotsPerBaseLot": 100,
       "initialMarkPriceAtoms": 100000000,
@@ -182,6 +188,8 @@
       "orderbook": "2BukCb65F4pPa7RjQbvhdsmR2kUNQoEbJR7QdEmn4fuD",
       "spline": "53kr4wExNMU3goZh1eviGzcqQCnjKKJaosVY1P2UUCq7",
       "signerSeed": "market-ETH",
+      "defaultTakerFeeMicro": 350,
+      "defaultMakerFeeMicro": 50,
       "baseLotDecimals": 3,
       "tickSizeInQuoteLotsPerBaseLot": 10,
       "initialMarkPriceAtoms": 3500000,
@@ -214,6 +222,8 @@
       "orderbook": "CByKdU5zCv8Z6Wf99nv7AbfXiLk1fCptyhAkq7cTJgAD",
       "spline": "4NQqRHeBdLx9rcyNUoAfHkFmpk28JDNcAEmdMiTviYsn",
       "signerSeed": "market-SOL",
+      "defaultTakerFeeMicro": 350,
+      "defaultMakerFeeMicro": 50,
       "baseLotDecimals": 2,
       "tickSizeInQuoteLotsPerBaseLot": 10,
       "initialMarkPriceAtoms": 150000,
@@ -348,7 +358,10 @@
     {
       "name": "createFakeUsdcMint",
       "description": "Create a deterministic fake USDC SPL mint controlled by the payer.",
-      "signerSeeds": ["payer", "usdc"],
+      "signerSeeds": [
+        "payer",
+        "usdc"
+      ],
       "instructions": [
         {
           "name": "createFakeUsdcMintAccount",
@@ -657,7 +670,12 @@
     {
       "name": "initializeMarkets",
       "description": "Create and activate BTC, ETH, and SOL perpetual markets.",
-      "signerSeeds": ["payer", "market-BTC", "market-ETH", "market-SOL"],
+      "signerSeeds": [
+        "payer",
+        "market-BTC",
+        "market-ETH",
+        "market-SOL"
+      ],
       "instructions": [
         {
           "name": "createBTCOrderbook",
@@ -726,7 +744,7 @@
               "isWritable": false
             }
           ],
-          "dataBase64": "KYm5fkWL/jdCVEMAAAAAAAAAAAAAAAAAoIYBAAAAAAAUAAAAAAAAAFgbAAAAAAAAIKEHAAAAAAAKAAAAAAAAAEAfAAAAAAAAQEIPAAAAAAAFAAAAAAAAACgjAAAAAAAAgJaYAAAAAAACAAAAAAAAABAnAAAAAAAAAABkAAAAAAAAAAQBAAAAAAAAABAnAAAAAAAAuAsAAAAAAAAsGogT0AdYG2RFAQAAAAAAoIYBAAAAAABkAAAAAAAAACChBwAAAAAAyAAAAAAAAABAQg8AAAAAACwBAAAAAAAAgJaYAAAAAACQAQAAAAAAAP////8AAAAAdwEAAAAAAADoAwAAAAAAAOgDAAAAAAAAZAAAAAAAAABkAAAAAAAAAGQAAAAAAAAAAQAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB9AEBCgoACgAAAAAAAAAAAAAA"
+          "dataBase64": "KYm5fkWL/jdCVEMAAAAAAAAAAAAAAAAAoIYBAAAAAAAUAAAAAAAAAFgbAAAAAAAAIKEHAAAAAAAKAAAAAAAAAEAfAAAAAAAAQEIPAAAAAAAFAAAAAAAAACgjAAAAAAAAgJaYAAAAAAACAAAAAAAAABAnAAAAAAAAAABkAAAAAAAAAAReAQAAMgAAABAnAAAAAAAAuAsAAAAAAAAsGogT0AdYG2RFAQAAAAAAoIYBAAAAAABkAAAAAAAAACChBwAAAAAAyAAAAAAAAABAQg8AAAAAACwBAAAAAAAAgJaYAAAAAACQAQAAAAAAAP////8AAAAAdwEAAAAAAADoAwAAAAAAAOgDAAAAAAAAZAAAAAAAAABkAAAAAAAAAGQAAAAAAAAAAQAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB9AEBCgoACgAAAAAAAAAAAAAA"
         },
         {
           "name": "activateBTCMarket",
@@ -837,7 +855,7 @@
               "isWritable": false
             }
           ],
-          "dataBase64": "KYm5fkWL/jdFVEgAAAAAAAAAAAAAAAAAoIYBAAAAAAAUAAAAAAAAAFgbAAAAAAAAIKEHAAAAAAAKAAAAAAAAAEAfAAAAAAAAQEIPAAAAAAAFAAAAAAAAACgjAAAAAAAAgJaYAAAAAAACAAAAAAAAABAnAAAAAAAAAAAKAAAAAAAAAAMBAAAAAAAAABAnAAAAAAAAuAsAAAAAAACIE9AH6AN8FcgUBQAAAAAAoIYBAAAAAABkAAAAAAAAACChBwAAAAAAyAAAAAAAAABAQg8AAAAAACwBAAAAAAAAgJaYAAAAAACQAQAAAAAAAP////8AAAAAdwEAAAAAAADoAwAAAAAAAOgDAAAAAAAAZAAAAAAAAABkAAAAAAAAAGQAAAAAAAAAAQAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB9AEBCgoACgAAAAAAAAAAAAAA"
+          "dataBase64": "KYm5fkWL/jdFVEgAAAAAAAAAAAAAAAAAoIYBAAAAAAAUAAAAAAAAAFgbAAAAAAAAIKEHAAAAAAAKAAAAAAAAAEAfAAAAAAAAQEIPAAAAAAAFAAAAAAAAACgjAAAAAAAAgJaYAAAAAAACAAAAAAAAABAnAAAAAAAAAAAKAAAAAAAAAANeAQAAMgAAABAnAAAAAAAAuAsAAAAAAACIE9AH6AN8FcgUBQAAAAAAoIYBAAAAAABkAAAAAAAAACChBwAAAAAAyAAAAAAAAABAQg8AAAAAACwBAAAAAAAAgJaYAAAAAACQAQAAAAAAAP////8AAAAAdwEAAAAAAADoAwAAAAAAAOgDAAAAAAAAZAAAAAAAAABkAAAAAAAAAGQAAAAAAAAAAQAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB9AEBCgoACgAAAAAAAAAAAAAA"
         },
         {
           "name": "activateETHMarket",
@@ -948,7 +966,7 @@
               "isWritable": false
             }
           ],
-          "dataBase64": "KYm5fkWL/jdTT0wAAAAAAAAAAAAAAAAAoIYBAAAAAAAUAAAAAAAAAFgbAAAAAAAAIKEHAAAAAAAKAAAAAAAAAEAfAAAAAAAAQEIPAAAAAAAFAAAAAAAAACgjAAAAAAAAgJaYAAAAAAACAAAAAAAAABAnAAAAAAAAAAAKAAAAAAAAAAIBAAAAAAAAABAnAAAAAAAAuAsAAAAAAACIE9AH6AN8FUBCDwAAAAAAoIYBAAAAAABkAAAAAAAAACChBwAAAAAAyAAAAAAAAABAQg8AAAAAACwBAAAAAAAAgJaYAAAAAACQAQAAAAAAAP////8AAAAAdwEAAAAAAADoAwAAAAAAAOgDAAAAAAAAZAAAAAAAAABkAAAAAAAAAGQAAAAAAAAAAQAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB9AEBCgoACgAAAAAAAAAAAAAA"
+          "dataBase64": "KYm5fkWL/jdTT0wAAAAAAAAAAAAAAAAAoIYBAAAAAAAUAAAAAAAAAFgbAAAAAAAAIKEHAAAAAAAKAAAAAAAAAEAfAAAAAAAAQEIPAAAAAAAFAAAAAAAAACgjAAAAAAAAgJaYAAAAAAACAAAAAAAAABAnAAAAAAAAAAAKAAAAAAAAAAJeAQAAMgAAABAnAAAAAAAAuAsAAAAAAACIE9AH6AN8FUBCDwAAAAAAoIYBAAAAAABkAAAAAAAAACChBwAAAAAAyAAAAAAAAABAQg8AAAAAACwBAAAAAAAAgJaYAAAAAACQAQAAAAAAAP////8AAAAAdwEAAAAAAADoAwAAAAAAAOgDAAAAAAAAZAAAAAAAAABkAAAAAAAAAGQAAAAAAAAAAQAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB9AEBCgoACgAAAAAAAAAAAAAA"
         },
         {
           "name": "activateSOLMarket",
@@ -997,7 +1015,10 @@
     {
       "name": "oracleSetPrices",
       "description": "Create oracle delegation for the price oracle and set deterministic mark/spot prices.",
-      "signerSeeds": ["payer", "price-oracle"],
+      "signerSeeds": [
+        "payer",
+        "price-oracle"
+      ],
       "instructions": [
         {
           "name": "createOraclePermission",
@@ -1115,7 +1136,10 @@
     {
       "name": "seedOrderbookTraderCollateral",
       "description": "Mint fake USDC to orderbookTrader, deposit through Ember, register the Phoenix trader, and enable all trading capabilities.",
-      "signerSeeds": ["payer", "orderbook-trader"],
+      "signerSeeds": [
+        "payer",
+        "orderbook-trader"
+      ],
       "instructions": [
         {
           "name": "createOrderbookTraderFakeUsdcAta",
@@ -1411,7 +1435,10 @@
     {
       "name": "seedSplineTraderCollateral",
       "description": "Mint fake USDC to splineTrader, deposit through Ember, register the Phoenix trader, and enable all trading capabilities.",
-      "signerSeeds": ["payer", "spline-trader"],
+      "signerSeeds": [
+        "payer",
+        "spline-trader"
+      ],
       "instructions": [
         {
           "name": "createSplineTraderFakeUsdcAta",
@@ -1707,7 +1734,10 @@
     {
       "name": "seedTaker0Collateral",
       "description": "Mint fake USDC to taker0, deposit through Ember, register the Phoenix trader, and enable all trading capabilities.",
-      "signerSeeds": ["payer", "taker-0000"],
+      "signerSeeds": [
+        "payer",
+        "taker-0000"
+      ],
       "instructions": [
         {
           "name": "createTaker0FakeUsdcAta",
@@ -2003,7 +2033,10 @@
     {
       "name": "seedTaker1Collateral",
       "description": "Mint fake USDC to taker1, deposit through Ember, register the Phoenix trader, and enable all trading capabilities.",
-      "signerSeeds": ["payer", "taker-0001"],
+      "signerSeeds": [
+        "payer",
+        "taker-0001"
+      ],
       "instructions": [
         {
           "name": "createTaker1FakeUsdcAta",
@@ -2299,7 +2332,10 @@
     {
       "name": "seedStopLossTakerCollateral",
       "description": "Mint fake USDC to stopLossTaker, deposit through Ember, register the Phoenix trader, and enable all trading capabilities.",
-      "signerSeeds": ["payer", "stop-loss-taker-0000"],
+      "signerSeeds": [
+        "payer",
+        "stop-loss-taker-0000"
+      ],
       "instructions": [
         {
           "name": "createStopLossTakerFakeUsdcAta",
@@ -2595,7 +2631,9 @@
     {
       "name": "registerSplines",
       "description": "Register the spline trader as spline owner for each market.",
-      "signerSeeds": ["payer"],
+      "signerSeeds": [
+        "payer"
+      ],
       "instructions": [
         {
           "name": "registerBTCSpline",
@@ -2818,7 +2856,9 @@
     {
       "name": "orderbookPlaceLevels",
       "description": "Place deterministic maker bid/ask levels from the orderbook trader.",
-      "signerSeeds": ["orderbook-trader"],
+      "signerSeeds": [
+        "orderbook-trader"
+      ],
       "instructions": [
         {
           "name": "placeBTCMakerLevels",
@@ -2998,7 +3038,9 @@
     {
       "name": "oracleSetPrices",
       "description": "Update deterministic mark/spot prices with the delegated price oracle.",
-      "signerSeeds": ["price-oracle"],
+      "signerSeeds": [
+        "price-oracle"
+      ],
       "instructions": [
         {
           "name": "updateOraclePrices",
@@ -3042,7 +3084,9 @@
     {
       "name": "orderbookPlaceLevels",
       "description": "Place deterministic maker bid/ask levels from the orderbook trader.",
-      "signerSeeds": ["orderbook-trader"],
+      "signerSeeds": [
+        "orderbook-trader"
+      ],
       "instructions": [
         {
           "name": "placeBTCMakerLevels",
@@ -3220,7 +3264,9 @@
     {
       "name": "orderbookCancelLevels",
       "description": "Cancel all maker levels owned by the orderbook trader.",
-      "signerSeeds": ["orderbook-trader"],
+      "signerSeeds": [
+        "orderbook-trader"
+      ],
       "instructions": [
         {
           "name": "cancelBTCMakerLevels",
@@ -3398,7 +3444,9 @@
     {
       "name": "splineUpdatePrices",
       "description": "Update deterministic spline prices for each market.",
-      "signerSeeds": ["spline-trader"],
+      "signerSeeds": [
+        "spline-trader"
+      ],
       "instructions": [
         {
           "name": "updateBTCSplinePrice",

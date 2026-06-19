@@ -1,0 +1,25 @@
+[package]
+edition      = "2021"
+name         = "rise-close-position-and-withdraw-cli"
+publish      = false
+rust-version = "1.84.0"
+version      = "0.1.0"
+
+[dependencies]
+borsh = "=1.6.0"
+clap = { version = "4.5", features = ["derive", "env"] }
+phoenix-rise = { path = "../../../rust", default-features = false, features = [
+  "sdk",
+] }
+rise-close-position-and-withdraw = { path = ".." }
+solana-commitment-config = "~2.2"
+solana-compute-budget-interface = "~2.2"
+solana-instruction = { version = "~2.3", default-features = false, features = [
+  "std",
+] }
+solana-keypair     = "~2.2"
+solana-pubkey      = { version = "~2.4", features = ["curve25519"] }
+solana-rpc-client  = "~2.3"
+solana-signer      = "~2.2"
+solana-transaction = "~2.2"
+tokio              = { version = "1.44", features = ["macros", "rt-multi-thread"] }

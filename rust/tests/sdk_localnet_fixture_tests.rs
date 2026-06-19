@@ -48,6 +48,9 @@ const STOP_LOSS_PERMISSION: u64 = 1 << 2;
 const TRADER_ONBOARDING_PERMISSION: u64 = 1 << 4;
 const ORACLE_UPDATE_TIMESTAMP: u64 = 1_900_000_001;
 const ORACLE_PRICE_EXPO: u8 = 3;
+const MAINNET_DEFAULT_TAKER_FEE_MICRO: u32 = 350;
+const MAINNET_DEFAULT_MAKER_FEE_MICRO: i32 = 50;
+const MICRO_FEE_DENOMINATOR: f64 = 1_000_000.0;
 const TRADER_CAPABILITY_HOT: u32 = 1 << 0;
 const TRADER_CAPABILITY_FROZEN: u32 = (1 << 1) | (1 << 2);
 const TRADER_CAPABILITY_COLD: u32 = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5);
@@ -63,6 +66,18 @@ fn default_sdk_localnet_fixture_loads_and_decodes() {
     assert!(!fixture.addresses.perp_asset_map.is_empty());
     assert!(!fixture.addresses.withdraw_queue.is_empty());
     assert_eq!(fixture.markets.len(), 3);
+    assert!(
+        fixture
+            .markets
+            .iter()
+            .all(|market| market.default_taker_fee_micro == MAINNET_DEFAULT_TAKER_FEE_MICRO)
+    );
+    assert!(
+        fixture
+            .markets
+            .iter()
+            .all(|market| market.default_maker_fee_micro == MAINNET_DEFAULT_MAKER_FEE_MICRO)
+    );
     assert_eq!(fixture.actors.len(), 5);
     assert!(
         fixture
@@ -945,8 +960,8 @@ fn phoenix_metadata_from_fixture(fixture: &SdkLocalnetFixture) -> PhoenixMetadat
                     spline_pubkey: market.spline.clone(),
                     tick_size: market.tick_size_in_quote_lots_per_base_lot,
                     base_lots_decimals: market.base_lot_decimals,
-                    taker_fee: 0.0,
-                    maker_fee: 0.0,
+                    taker_fee: micro_fee_to_rate(market.default_taker_fee_micro),
+                    maker_fee: signed_micro_fee_to_rate(market.default_maker_fee_micro),
                     leverage_tiers: Vec::new(),
                     risk_factors: ExchangeRiskFactors::default(),
                     funding_interval_seconds: 1,
@@ -961,6 +976,14 @@ fn phoenix_metadata_from_fixture(fixture: &SdkLocalnetFixture) -> PhoenixMetadat
         .collect();
 
     PhoenixMetadata::new(ExchangeView { keys, markets })
+}
+
+fn micro_fee_to_rate(value: u32) -> f64 {
+    value as f64 / MICRO_FEE_DENOMINATOR
+}
+
+fn signed_micro_fee_to_rate(value: i32) -> f64 {
+    value as f64 / MICRO_FEE_DENOMINATOR
 }
 
 fn price_to_ticks(builder: &PhoenixTxBuilder<'_>, symbol: &str, price: f64) -> u64 {

@@ -50,6 +50,9 @@ pub enum PhoenixIxError {
     #[error("Inner instruction must target the Phoenix program")]
     InvalidInnerProgram,
 
+    #[error("Invalid fee bps override (must be in 0..=10000)")]
+    InvalidFeeBpsOverride,
+
     #[error("Invalid conditional orders capacity (must be greater than 0)")]
     InvalidConditionalOrdersCapacity,
 

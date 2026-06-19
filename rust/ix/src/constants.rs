@@ -1,5 +1,6 @@
 //! Phoenix program constants and addresses.
 
+#[cfg(not(target_os = "solana"))]
 use std::sync::LazyLock;
 
 use sha2::{Digest, Sha256};
@@ -54,25 +55,42 @@ pub const BETA_PHOENIX_INSTRUCTION_ADDRESSES: PhoenixInstructionAddresses =
 ///
 /// This is resolved once from `PHOENIX_ENV`. Set `PHOENIX_ENV=beta` before
 /// first use to target the beta deployment.
+#[cfg(not(target_os = "solana"))]
 pub static PHOENIX_INSTRUCTION_ADDRESSES: LazyLock<PhoenixInstructionAddresses> =
     LazyLock::new(|| {
         resolve_phoenix_instruction_addresses_for_env(std::env::var("PHOENIX_ENV").ok().as_deref())
     });
 
+#[cfg(target_os = "solana")]
+pub static PHOENIX_INSTRUCTION_ADDRESSES: &PhoenixInstructionAddresses =
+    &PROD_PHOENIX_INSTRUCTION_ADDRESSES;
+
 /// Active Phoenix program ID for the current process.
 ///
 /// This is resolved once from `PHOENIX_ENV`. Set `PHOENIX_ENV=beta` before
 /// first use to target the beta deployment.
+#[cfg(not(target_os = "solana"))]
 pub static PHOENIX_PROGRAM_ID: LazyLock<Pubkey> =
     LazyLock::new(|| phoenix_instruction_addresses().program_id);
 
+#[cfg(target_os = "solana")]
+pub static PHOENIX_PROGRAM_ID: &Pubkey = &PROD_PHOENIX_PROGRAM_ID;
+
 /// Active Phoenix log authority for the current process.
+#[cfg(not(target_os = "solana"))]
 pub static PHOENIX_LOG_AUTHORITY: LazyLock<Pubkey> =
     LazyLock::new(|| phoenix_instruction_addresses().log_authority);
 
+#[cfg(target_os = "solana")]
+pub static PHOENIX_LOG_AUTHORITY: &Pubkey = &PROD_PHOENIX_LOG_AUTHORITY;
+
 /// Active Phoenix global configuration for the current process.
+#[cfg(not(target_os = "solana"))]
 pub static PHOENIX_GLOBAL_CONFIGURATION: LazyLock<Pubkey> =
     LazyLock::new(|| phoenix_instruction_addresses().global_configuration);
+
+#[cfg(target_os = "solana")]
+pub static PHOENIX_GLOBAL_CONFIGURATION: &Pubkey = &PROD_PHOENIX_GLOBAL_CONFIGURATION;
 
 /// Resolve Phoenix instruction addresses for an explicit environment value.
 ///
