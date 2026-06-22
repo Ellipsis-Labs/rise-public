@@ -112,7 +112,60 @@ fn main() {
         results.insert("CancelOrdersById".to_string(), hex_encode(&ix.data));
     }
 
-    // 5. CancelStopLoss
+    // 5. CancelAll
+    {
+        let params = CancelAllParams::builder()
+            .trader(pubkeys[0])
+            .trader_account(pubkeys[1])
+            .perp_asset_map(pubkeys[2])
+            .orderbook(pubkeys[3])
+            .spline_collection(pubkeys[4])
+            .global_trader_index(vec2(5, 6))
+            .active_trader_buffer(vec2(7, 8))
+            .build()
+            .unwrap();
+
+        let ix = create_cancel_all_ix(params).unwrap();
+        results.insert("CancelAll".to_string(), hex_encode(&ix.data));
+    }
+
+    // 6. CancelUpTo
+    {
+        let params = CancelUpToParams::builder()
+            .trader(pubkeys[0])
+            .trader_account(pubkeys[1])
+            .perp_asset_map(pubkeys[2])
+            .orderbook(pubkeys[3])
+            .spline_collection(pubkeys[4])
+            .global_trader_index(vec2(5, 6))
+            .active_trader_buffer(vec2(7, 8))
+            .side(Side::Ask)
+            .num_orders_to_cancel(2)
+            .tick_limit(1000)
+            .build()
+            .unwrap();
+
+        let ix = create_cancel_up_to_ix(params).unwrap();
+        results.insert("CancelUpTo".to_string(), hex_encode(&ix.data));
+    }
+
+    // 7. CancelStopLoss
+    {
+        let params = UncrossCrankParams::builder()
+            .perp_asset_map(pubkeys[2])
+            .orderbook(pubkeys[3])
+            .spline_collection(pubkeys[4])
+            .global_trader_index(vec2(5, 6))
+            .active_trader_buffer(vec2(7, 8))
+            .match_limit(5)
+            .build()
+            .unwrap();
+
+        let ix = create_uncross_crank_ix(params).unwrap();
+        results.insert("UncrossCrank".to_string(), hex_encode(&ix.data));
+    }
+
+    // 7. CancelStopLoss
     {
         let params = CancelStopLossParams::builder()
             .funder(pubkeys[0])

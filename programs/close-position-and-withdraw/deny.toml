@@ -37,5 +37,6 @@ ignore = [
   "RUSTSEC-2026-0097", # rand advisory accepted for now
   "RUSTSEC-2026-0098", # rustls-webpki URI name constraints issue; transitive via rustls stack
   "RUSTSEC-2026-0099", # rustls-webpki wildcard name constraints issue; transitive via rustls stack
+  "RUSTSEC-2026-0186", # memmap2 0.5.10 forced by Solana 2.x solana-genesis-config; no compatible 0.9.x upgrade available
 ]
 unmaintained = 'workspace'

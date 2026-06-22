@@ -95,7 +95,9 @@ metadata rather than server-assisted order helpers.
 - Cross-margin order placement: `place_market_order(...)`,
   `place_limit_order(...)`
 - Cancellation helpers: `build_cancel_orders(...)`,
+  `build_cancel_all_orders(...)`, `build_cancel_up_to(...)`,
   `build_cancel_bracket_leg(...)`
+- Maintenance helpers: `build_uncross_crank(...)`
 - Trader and collateral flows: `build_register_trader(...)`,
   `build_deposit_funds(...)`, `build_withdraw_funds(...)`,
   `build_transfer_collateral(...)`, `build_sync_parent_to_child(...)`
