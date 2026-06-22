@@ -2,6 +2,7 @@ import type { EscrowAction } from "@/core/ixBuilders/CreateEscrowRequest";
 import type { CancelAllIx } from "@/core/ixBuilders/CancelAll";
 import type { CancelOrdersByIdIx } from "@/core/ixBuilders/CancelOrdersById";
 import type { CancelStopLossIx } from "@/core/ixBuilders/CancelStopLoss";
+import type { CancelUpToIx } from "@/core/ixBuilders/CancelUpTo";
 import type { CreateConditionalOrdersAccountIx } from "@/core/ixBuilders/CreateConditionalOrdersAccount";
 import type { CreateEscrowRequestIx } from "@/core/ixBuilders/CreateEscrowRequest";
 import type { DelegateTraderIx } from "@/core/ixBuilders/DelegateTrader";
@@ -21,6 +22,7 @@ import type { OnboardTraderDelegatedIx } from "@/core/ixBuilders/OnboardTraderDe
 import type { SyncParentToChildIx } from "@/core/ixBuilders/SyncParentToChild";
 import type { TransferCollateralChildToParentIx } from "@/core/ixBuilders/TransferCollateralChildToParent";
 import type { TransferCollateralIx } from "@/core/ixBuilders/TransferCollateral";
+import type { UncrossCrankIx } from "@/core/ixBuilders/UncrossCrank";
 import type { WithdrawFundsIx } from "@/core/ixBuilders/WithdrawFunds";
 import type { HawkeyeIx } from "@/hawkeye";
 import type { PhoenixOrderPacketBuilders } from "@/orderPackets";
@@ -105,6 +107,18 @@ export interface BuildCancelOrdersByIdIxResolvedInput extends ResolvedPlaceOrder
   orderIds: CancelId[];
 }
 
+export interface BuildCancelUpToIxResolvedInput extends ResolvedPlaceOrderContext {
+  side: Side;
+  numOrdersToCancel?: bigint | number | null;
+  tickLimit?: bigint | null;
+}
+
+export interface BuildUncrossCrankIxResolvedInput {
+  exchange: ResolvedPlaceOrderContext["exchange"];
+  market: ResolvedPlaceOrderContext["market"];
+  matchLimit?: bigint | number;
+}
+
 export interface BuildPlaceStopLossIxResolvedInput extends ResolvedPlaceOrderContext {
   stopLossAccount: Address;
   triggerPrice: bigint;
@@ -141,6 +155,17 @@ export interface ClientCancelOrdersByIdInput extends ClientCancelAllInput {
     price: number | bigint;
     orderSequenceNumber: string | number;
   }>;
+}
+
+export interface ClientCancelUpToInput extends ClientCancelAllInput {
+  side: Side;
+  numOrdersToCancel?: bigint | number | null;
+  tickLimit?: bigint | null;
+}
+
+export interface ClientUncrossCrankInput {
+  symbol: Symbol;
+  matchLimit?: bigint | number;
 }
 
 export interface ClientCancelStopLossInput {
@@ -606,6 +631,8 @@ export interface PhoenixIxClient {
   buildCancelOrdersById(
     params: ClientCancelOrdersByIdInput
   ): Promise<CancelOrdersByIdIx>;
+  buildCancelUpTo(params: ClientCancelUpToInput): Promise<CancelUpToIx>;
+  buildUncrossCrank(params: ClientUncrossCrankInput): Promise<UncrossCrankIx>;
   buildCancelStopLoss(
     params: ClientCancelStopLossInput
   ): Promise<CancelStopLossIx>;

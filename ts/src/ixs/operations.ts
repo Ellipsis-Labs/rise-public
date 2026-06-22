@@ -64,6 +64,8 @@ import { buildCreateEscrowRequestIxResolved } from "./escrow";
 import {
   buildCancelAllIxResolved,
   buildCancelOrdersByIdIxResolved,
+  buildCancelUpToIxResolved,
+  buildUncrossCrankIxResolved,
   buildPlaceLimitOrderIxResolved,
   buildPlaceMarketOrderDelegatedIxResolved,
   buildPlaceMarketOrderIxResolved,
@@ -82,6 +84,8 @@ import type {
   ClientCancelAllInput,
   ClientCancelOrdersByIdInput,
   ClientCancelStopLossInput,
+  ClientCancelUpToInput,
+  ClientUncrossCrankInput,
   ClientCreateConditionalOrdersAccountInput,
   ClientCreateEscrowRequestInput,
   ClientDepositInput,
@@ -489,6 +493,36 @@ export const createPhoenixIxOperations = (
             orderSequenceNumber: BigInt(order.orderSequenceNumber),
           },
         })),
+      });
+    },
+    buildCancelUpTo: async (params: ClientCancelUpToInput) =>
+      buildCancelUpToIxResolved({
+        ...(await context.resolvePlaceOrderContext(params)),
+        side: params.side,
+        numOrdersToCancel: params.numOrdersToCancel,
+        tickLimit: params.tickLimit,
+      }),
+    buildUncrossCrank: async (params: ClientUncrossCrankInput) => {
+      const [exchangeAccounts, market] = await Promise.all([
+        context.resolveExchangeInstructionAccounts(),
+        context.resolveMarketContext(params.symbol),
+      ]);
+
+      return buildUncrossCrankIxResolved({
+        exchange: {
+          phoenixProgramAddress: exchangeAccounts.phoenixProgramAddress,
+          logAuthorityAddress: exchangeAccounts.logAuthorityAddress,
+          globalConfigurationAddress:
+            exchangeAccounts.globalConfigurationAddress,
+          perpAssetMap: exchangeAccounts.perpAssetMap,
+          globalTraderIndex: exchangeAccounts.globalTraderIndex,
+          activeTraderBuffer: exchangeAccounts.activeTraderBuffer,
+        },
+        market: {
+          marketAddress: market.marketAddress,
+          splineCollection: market.splineCollection,
+        },
+        matchLimit: params.matchLimit,
       });
     },
     buildCancelStopLoss: async (params: ClientCancelStopLossInput) => {

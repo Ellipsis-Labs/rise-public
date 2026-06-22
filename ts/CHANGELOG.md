@@ -396,3 +396,23 @@ Source Phoenix commit: `472a79816f0e119910a009795ae3c8cd7e39b054`
 - **New package export**: `@ellipsis-labs/rise/test-fixtures/default-localnet.json` is now a stable named export. Consumers can import the default localnet fixture directly from the package instead of copying it or referencing it by relative path.
 - **Fixture schema addition**: Each market object in the localnet fixture now carries `defaultTakerFeeMicro` and `defaultMakerFeeMicro` numeric fields. Code that deserializes the fixture into a typed struct should treat these as new optional fields; strict deserializers that reject unknown fields will need updating.
 - The `test-fixtures/` directory is now included in the published `files` list; the fixture JSON is part of the public package surface and subject to semver considerations going forward.
+
+## v0.4.48 - 2026-06-22
+
+Source Phoenix commit: `a419e23d7d1b2a3e37696d76e85fac7f0a023f5e`
+
+### Summary
+
+- Added `UncrossCrank` instruction: triggers an uncross crank on an orderbook to match resting crossed orders. Exported as `buildUncrossCrankIx`, `buildUncrossCrank`, `uncrossCrank`, `buildUncrossCrankIxResolved`, and associated types/codecs (`UncrossCrankParams`, `UncrossCrankIx`, `UncrossCrankAccounts`, `UncrossCrankInstruction`).
+- Promoted `CancelUpTo` to the full public SDK surface: `buildCancelUpTo`, `cancelUpToOrders`, `buildCancelUpToIxResolved`, `BuildCancelUpToIxResolvedInput`, `ClientCancelUpToInput` are now exported and available on `client.ixs`.
+- `cancelAllOrders` now accepts an optional `traderSubaccountIndex` in its options (defaults to `0`; fully backward compatible).
+
+### Breaking Changes
+
+- **`buildCancelUpToIx` account-role change**: `globalConfigurationAddress` is now passed as **writable** instead of readonly. Any pre-built or cached `CancelUpTo` transaction assembled with `0.4.47` will fail on-chain due to the account-meta mismatch. Rebuild affected transactions after upgrading.
+
+### Consumer Notes
+
+- `buildUncrossCrankIxResolved` defaults `matchLimit` to `100n` when the parameter is omitted; pass an explicit value to override.
+- `UncrossCrankParams.matchLimit` is typed as `bigint` (required, non-negative). The high-level `buildUncrossCrank` / `ClientUncrossCrankInput` accept `bigint | number` and coerce automatically.
+- All new exports are available from the package root (`@ellipsis-labs/rise`); no sub-path import changes are required.

@@ -34,6 +34,20 @@ export {
 } from "../core/ixBuilders/CancelUpTo";
 
 export {
+  buildUncrossCrankIx,
+  getUncrossCrankCodec,
+  getUncrossCrankDecoder,
+  getUncrossCrankEncoder,
+  getUncrossCrankInstructionCodec,
+  getUncrossCrankInstructionDecoder,
+  getUncrossCrankInstructionEncoder,
+  type UncrossCrankAccounts,
+  type UncrossCrankInstruction,
+  type UncrossCrankIx,
+  type UncrossCrankParams,
+} from "../core/ixBuilders/UncrossCrank";
+
+export {
   buildPlaceMarketOrderIx,
   getPlaceMarketOrderCodec,
   getPlaceMarketOrderDecoder,

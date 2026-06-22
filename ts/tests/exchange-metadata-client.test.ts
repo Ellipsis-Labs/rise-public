@@ -793,6 +793,62 @@ describe("exchange metadata client integration", () => {
     client.dispose();
   });
 
+  it("builds cancel-up-to ixs from cached exchange metadata through client.ixs", async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(stringifyWithBigints(buildSnapshot()), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createPhoenixClient({
+      baseUrl: "https://example.com",
+      ws: false,
+    });
+
+    const ix = await client.ixs.buildCancelUpTo({
+      authority: address("11111111111111111111111111111111"),
+      symbol: "SOL-PERP",
+      side: Side.Ask,
+      numOrdersToCancel: 2,
+      tickLimit: ticks(100n),
+    });
+
+    expect(ix.accounts.at(-2)?.address).toBe("sol-market");
+    expect(ix.accounts.at(-1)?.address).toBe("sol-spline");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    client.dispose();
+  });
+
+  it("builds uncross-crank ixs from cached exchange metadata through client.ixs", async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(stringifyWithBigints(buildSnapshot()), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createPhoenixClient({
+      baseUrl: "https://example.com",
+      ws: false,
+    });
+
+    const ix = await client.ixs.buildUncrossCrank({
+      symbol: "SOL-PERP",
+      matchLimit: 5n,
+    });
+
+    expect(ix.accounts[3]?.address).toBe("perp-asset-map");
+    expect(ix.accounts.at(-2)?.address).toBe("sol-market");
+    expect(ix.accounts.at(-1)?.address).toBe("sol-spline");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    client.dispose();
+  });
+
   it("builds register-trader ixs through client.ixs without requiring exchange bootstrap", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

@@ -26,5 +26,6 @@ export * from "./OnboardTraderDelegated";
 export * from "./SyncParentToChild";
 export * from "./TransferCollateral";
 export * from "./TransferCollateralChildToParent";
+export * from "./UncrossCrank";
 export * from "./UpdateTraderState";
 export * from "./WithdrawFunds";

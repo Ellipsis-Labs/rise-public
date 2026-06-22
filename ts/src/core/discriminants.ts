@@ -18,6 +18,7 @@ export const DISCRIMINANTS: DiscriminantMap = {
   CANCEL_ORDERS_BY_ID: sha2_const("global:cancel_orders_by_id"),
   CANCEL_ALL: sha2_const("global:cancel_all"),
   CANCEL_UP_TO: sha2_const("global:cancel_up_to"),
+  UNCROSS_CRANK: sha2_const("global:uncross_crank"),
   DEPOSIT_FUNDS: sha2_const("global:deposit_funds"),
   WITHDRAW_FUNDS: sha2_const("global:withdraw_funds"),
   REGISTER_TRADER: sha2_const("global:register_trader"),
