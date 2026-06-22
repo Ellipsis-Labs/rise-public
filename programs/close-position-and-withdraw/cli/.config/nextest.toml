@@ -1,0 +1,9 @@
+[profile.default]
+# Terminate slow tests after 90s (3 periods of 30s).
+slow-timeout = { period = "30s", terminate-after = 3 }
+
+[profile.ci]
+# Terminate slow tests after 90s (3 periods of 30s).
+slow-timeout = { period = "30s", terminate-after = 3 }
+# Don't fail fast on CI, so all test failures are reported.
+fail-fast = false

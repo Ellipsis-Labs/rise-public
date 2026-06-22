@@ -376,3 +376,23 @@ Source Phoenix commit: `fd9d044ad0e76e6bcbef1333b1ebc8648f511b7a`
 
 - Access per-market stats via `market.statsSnapshot` when calling `getMarkets()`. The field is optional and will be `undefined` if the server does not include it.
 - `MarketStatsSnapshot` and `MarketStatsSnapshotSchema` are now available as named exports for consumers who want to validate or type this shape independently.
+
+## v0.4.47 - 2026-06-22
+
+Source Phoenix commit: `472a79816f0e119910a009795ae3c8cd7e39b054`
+
+### Summary
+
+- The default localnet fixture (`test-fixtures/default-localnet.json`) is now bundled in the npm package and exported as a named package path, enabling consumers to import it directly without a local copy.
+- Market entries in the localnet fixture now include `defaultTakerFeeMicro` (350) and `defaultMakerFeeMicro` (50) fields for BTC, ETH, and SOL markets.
+- A new test assertion verifies that the packaged fixture copy stays in sync with the canonical root fixture.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- **New package export**: `@ellipsis-labs/rise/test-fixtures/default-localnet.json` is now a stable named export. Consumers can import the default localnet fixture directly from the package instead of copying it or referencing it by relative path.
+- **Fixture schema addition**: Each market object in the localnet fixture now carries `defaultTakerFeeMicro` and `defaultMakerFeeMicro` numeric fields. Code that deserializes the fixture into a typed struct should treat these as new optional fields; strict deserializers that reject unknown fields will need updating.
+- The `test-fixtures/` directory is now included in the published `files` list; the fixture JSON is part of the public package surface and subject to semver considerations going forward.

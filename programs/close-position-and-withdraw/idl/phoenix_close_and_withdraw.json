@@ -1,0 +1,785 @@
+{
+  "version": "0.1.0",
+  "address": "6oy4nTsJWjAyMX86fxbWVK7UfpWPzzG6AdLouhLNkoen",
+  "metadata": {
+    "name": "PhoenixCloseAndWithdraw",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Rise CPI example program that closes Phoenix Eternal positions and withdraws free collateral through Phoenix and Ember",
+    "address": "6oy4nTsJWjAyMX86fxbWVK7UfpWPzzG6AdLouhLNkoen",
+    "origin": "manual-anchor-compatible",
+    "mainnetAddresses": {
+      "phoenixProgram": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "hawkeyeProgram": "RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj",
+      "emberProgram": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+      "flightProgram": "F1ightu9cujFYo34k9CabifLrJT8qzfDVM2Q7BqhJn2W",
+      "phoenixLogAuthority": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+      "phoenixGlobalConfig": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+      "usdcMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "emberState": "6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz",
+      "emberVault": "FKcEb4TdPDTRuMnQDpSEPQBcrm15S73xiUD6Qf8ZLUkq",
+      "flightGlobalState": "8nccjm9jfLCCLvwEsuWy9N6Afanv32FkCBSvryuZeQc5",
+      "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+    }
+  },
+  "docs": [
+    "Manual Anchor-compatible IDL for the Pinocchio PhoenixCloseAndWithdraw example program.",
+    "Instruction data uses an 8-byte Anchor-style discriminator followed by Borsh-serialized params.",
+    "The Phoenix GlobalTraderIndex and ActiveTraderBuffer account groups are dynamic. Each instruction keeps these account groups at the end of the account list. The exact counts are carried in the instruction params.",
+    "Fixed Phoenix Eternal mainnet program accounts use the Anchor IDL account address field where the account has a canonical mainnet pubkey. Exchange-state and market-specific accounts are supplied from exchange metadata or the Phoenix global configuration.",
+    "The demo validates the supplied program ids, Ember state/vault PDAs, Ember input and output mints, and Phoenix global-configuration accounts before CPI. Phoenix Eternal and Ember validate those invariants again inside their CPI handlers."
+  ],
+  "instructions": [
+    {
+      "name": "ClosePositionAndWithdraw",
+      "docs": [
+        "Reads withdrawable collateral with Hawkeye, places a reduce-only Phoenix Eternal market order, reads withdrawable collateral again, then withdraws through Phoenix and Ember.",
+        "Use withdrawMode to withdraw all free collateral after the order or only the collateral delta freed by this order."
+      ],
+      "discriminator": [157, 238, 186, 228, 181, 194, 93, 155],
+      "accounts": [
+        {
+          "name": "traderAuthority",
+          "signer": true,
+          "docs": [
+            "Trader authority that owns the Phoenix trader account and signs the Phoenix and Ember CPIs.",
+            "Expected base58 pubkey: the caller's trader authority signer; this is not a fixed global address."
+          ]
+        },
+        {
+          "name": "phoenixProgram",
+          "address": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "docs": [
+            "Phoenix Eternal mainnet program id.",
+            "Expected base58 pubkey: EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih."
+          ]
+        },
+        {
+          "name": "hawkeyeProgram",
+          "address": "RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj",
+          "docs": [
+            "Phoenix Hawkeye mainnet view program id.",
+            "Expected base58 pubkey: RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj."
+          ]
+        },
+        {
+          "name": "emberProgram",
+          "address": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+          "docs": [
+            "Phoenix Ember mainnet token-wrapper program id.",
+            "Expected base58 pubkey: EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy."
+          ]
+        },
+        {
+          "name": "phoenixLogAuthority",
+          "address": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+          "docs": [
+            "Phoenix Eternal log authority PDA used by Phoenix CPI event logging.",
+            "Expected base58 pubkey: GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS."
+          ]
+        },
+        {
+          "name": "phoenixGlobalConfig",
+          "writable": true,
+          "address": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+          "docs": [
+            "Phoenix Eternal global configuration account for the mainnet deployment.",
+            "Expected base58 pubkey: 2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ."
+          ]
+        },
+        {
+          "name": "traderAccount",
+          "writable": true,
+          "docs": [
+            "Phoenix trader state account whose position is reduced and whose collateral is withdrawn.",
+            "Expected base58 pubkey: the Phoenix trader PDA for traderAuthority and the target subaccount; this is trader-specific."
+          ]
+        },
+        {
+          "name": "perpAssetMap",
+          "writable": true,
+          "docs": [
+            "Phoenix PerpAssetMap account from exchange metadata or the global configuration.",
+            "Expected base58 pubkey: the PerpAssetMap pubkey from Phoenix exchange metadata or phoenixGlobalConfig."
+          ]
+        },
+        {
+          "name": "globalVault",
+          "writable": true,
+          "docs": [
+            "Phoenix collateral vault for the canonical collateral mint from exchange metadata or the global configuration.",
+            "Expected base58 pubkey: the collateral vault pubkey from Phoenix exchange metadata or phoenixGlobalConfig."
+          ]
+        },
+        {
+          "name": "traderPhoenixTokenAccount",
+          "writable": true,
+          "docs": [
+            "Trader authority's token account for the Phoenix canonical collateral mint. Phoenix withdraws into this account and Ember burns from it.",
+            "Expected base58 pubkey: the traderAuthority-owned SPL token account for canonicalMint."
+          ]
+        },
+        {
+          "name": "withdrawQueue",
+          "writable": true,
+          "docs": [
+            "Phoenix withdraw queue account from exchange metadata or the global configuration.",
+            "Expected base58 pubkey: the withdraw queue pubkey from Phoenix exchange metadata or phoenixGlobalConfig."
+          ]
+        },
+        {
+          "name": "usdcMint",
+          "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "docs": [
+            "USDC mint used as Ember input mint on mainnet.",
+            "Expected base58 pubkey: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v."
+          ]
+        },
+        {
+          "name": "canonicalMint",
+          "writable": true,
+          "docs": [
+            "Phoenix canonical collateral mint used as Ember output mint.",
+            "Expected base58 pubkey: the Phoenix canonical collateral mint from Phoenix exchange metadata or phoenixGlobalConfig."
+          ]
+        },
+        {
+          "name": "traderUsdcTokenAccount",
+          "writable": true,
+          "docs": [
+            "USDC destination token account for the Ember withdraw output.",
+            "Expected base58 pubkey: the traderAuthority-owned SPL token account receiving USDC from Ember."
+          ]
+        },
+        {
+          "name": "emberState",
+          "address": "6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz",
+          "docs": [
+            "Ember state PDA derived from [phoenixProgram, \"state\"] for the mainnet Phoenix Eternal deployment.",
+            "Expected base58 pubkey: 6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz."
+          ]
+        },
+        {
+          "name": "emberVault",
+          "writable": true,
+          "address": "FKcEb4TdPDTRuMnQDpSEPQBcrm15S73xiUD6Qf8ZLUkq",
+          "docs": [
+            "Ember vault PDA derived from [phoenixProgram, \"vault\"] for the mainnet Phoenix Eternal deployment.",
+            "Expected base58 pubkey: FKcEb4TdPDTRuMnQDpSEPQBcrm15S73xiUD6Qf8ZLUkq."
+          ]
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "docs": [
+            "SPL Token program.",
+            "Expected base58 pubkey: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA."
+          ]
+        },
+        {
+          "name": "orderbook",
+          "writable": true,
+          "docs": [
+            "Market orderbook account for the Phoenix market whose position is being closed.",
+            "Expected base58 pubkey: the target market orderbook pubkey from Phoenix market metadata."
+          ]
+        },
+        {
+          "name": "splineCollection",
+          "writable": true,
+          "docs": [
+            "Spline collection account for the same Phoenix market as orderbook.",
+            "Expected base58 pubkey: the target market spline collection pubkey from Phoenix market metadata."
+          ]
+        },
+        {
+          "name": "globalTraderIndex",
+          "writable": true,
+          "docs": [
+            "Dynamic GlobalTraderIndex account group. Append exactly params.globalTraderIndexCount accounts here, after all fixed accounts and before ActiveTraderBuffer.",
+            "Expected base58 pubkeys: append the GlobalTraderIndex account group from Phoenix exchange metadata, with count params.globalTraderIndexCount."
+          ]
+        },
+        {
+          "name": "activeTraderBuffer",
+          "writable": true,
+          "docs": [
+            "Dynamic ActiveTraderBuffer account group. Append exactly params.activeTraderBufferCount accounts here as the final accounts.",
+            "Expected base58 pubkeys: append the ActiveTraderBuffer account group from Phoenix exchange metadata, with count params.activeTraderBufferCount."
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "ClosePositionAndWithdrawParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "ClosePositionAndWithdrawWithBuilders",
+      "docs": [
+        "Same flow as ClosePositionAndWithdraw, but wraps the Phoenix market order CPI in a Flight proxy instruction so a registered builder can collect builder fees.",
+        "The five Flight accounts are fixed accounts immediately before the dynamic Phoenix account tail."
+      ],
+      "discriminator": [255, 208, 82, 91, 249, 116, 93, 104],
+      "accounts": [
+        {
+          "name": "traderAuthority",
+          "signer": true,
+          "docs": [
+            "Trader authority that owns the Phoenix trader account and signs the Phoenix and Ember CPIs.",
+            "Expected base58 pubkey: the caller's trader authority signer; this is not a fixed global address."
+          ]
+        },
+        {
+          "name": "phoenixProgram",
+          "address": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "docs": [
+            "Phoenix Eternal mainnet program id.",
+            "Expected base58 pubkey: EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih."
+          ]
+        },
+        {
+          "name": "hawkeyeProgram",
+          "address": "RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj",
+          "docs": [
+            "Phoenix Hawkeye mainnet view program id.",
+            "Expected base58 pubkey: RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj."
+          ]
+        },
+        {
+          "name": "emberProgram",
+          "address": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+          "docs": [
+            "Phoenix Ember mainnet token-wrapper program id.",
+            "Expected base58 pubkey: EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy."
+          ]
+        },
+        {
+          "name": "phoenixLogAuthority",
+          "address": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+          "docs": [
+            "Phoenix Eternal log authority PDA used by Phoenix CPI event logging.",
+            "Expected base58 pubkey: GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS."
+          ]
+        },
+        {
+          "name": "phoenixGlobalConfig",
+          "writable": true,
+          "address": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+          "docs": [
+            "Phoenix Eternal global configuration account for the mainnet deployment.",
+            "Expected base58 pubkey: 2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ."
+          ]
+        },
+        {
+          "name": "traderAccount",
+          "writable": true,
+          "docs": [
+            "Phoenix trader state account whose position is reduced and whose collateral is withdrawn.",
+            "Expected base58 pubkey: the Phoenix trader PDA for traderAuthority and the target subaccount; this is trader-specific."
+          ]
+        },
+        {
+          "name": "perpAssetMap",
+          "writable": true,
+          "docs": [
+            "Phoenix PerpAssetMap account from exchange metadata or the global configuration.",
+            "Expected base58 pubkey: the PerpAssetMap pubkey from Phoenix exchange metadata or phoenixGlobalConfig."
+          ]
+        },
+        {
+          "name": "globalVault",
+          "writable": true,
+          "docs": [
+            "Phoenix collateral vault for the canonical collateral mint from exchange metadata or the global configuration.",
+            "Expected base58 pubkey: the collateral vault pubkey from Phoenix exchange metadata or phoenixGlobalConfig."
+          ]
+        },
+        {
+          "name": "traderPhoenixTokenAccount",
+          "writable": true,
+          "docs": [
+            "Trader authority's token account for the Phoenix canonical collateral mint. Phoenix withdraws into this account and Ember burns from it.",
+            "Expected base58 pubkey: the traderAuthority-owned SPL token account for canonicalMint."
+          ]
+        },
+        {
+          "name": "withdrawQueue",
+          "writable": true,
+          "docs": [
+            "Phoenix withdraw queue account from exchange metadata or the global configuration.",
+            "Expected base58 pubkey: the withdraw queue pubkey from Phoenix exchange metadata or phoenixGlobalConfig."
+          ]
+        },
+        {
+          "name": "usdcMint",
+          "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "docs": [
+            "USDC mint used as Ember input mint on mainnet.",
+            "Expected base58 pubkey: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v."
+          ]
+        },
+        {
+          "name": "canonicalMint",
+          "writable": true,
+          "docs": [
+            "Phoenix canonical collateral mint used as Ember output mint.",
+            "Expected base58 pubkey: the Phoenix canonical collateral mint from Phoenix exchange metadata or phoenixGlobalConfig."
+          ]
+        },
+        {
+          "name": "traderUsdcTokenAccount",
+          "writable": true,
+          "docs": [
+            "USDC destination token account for the Ember withdraw output.",
+            "Expected base58 pubkey: the traderAuthority-owned SPL token account receiving USDC from Ember."
+          ]
+        },
+        {
+          "name": "emberState",
+          "address": "6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz",
+          "docs": [
+            "Ember state PDA derived from [phoenixProgram, \"state\"] for the mainnet Phoenix Eternal deployment.",
+            "Expected base58 pubkey: 6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz."
+          ]
+        },
+        {
+          "name": "emberVault",
+          "writable": true,
+          "address": "FKcEb4TdPDTRuMnQDpSEPQBcrm15S73xiUD6Qf8ZLUkq",
+          "docs": [
+            "Ember vault PDA derived from [phoenixProgram, \"vault\"] for the mainnet Phoenix Eternal deployment.",
+            "Expected base58 pubkey: FKcEb4TdPDTRuMnQDpSEPQBcrm15S73xiUD6Qf8ZLUkq."
+          ]
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "docs": [
+            "SPL Token program.",
+            "Expected base58 pubkey: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA."
+          ]
+        },
+        {
+          "name": "orderbook",
+          "writable": true,
+          "docs": [
+            "Market orderbook account for the Phoenix market whose position is being closed.",
+            "Expected base58 pubkey: the target market orderbook pubkey from Phoenix market metadata."
+          ]
+        },
+        {
+          "name": "splineCollection",
+          "writable": true,
+          "docs": [
+            "Spline collection account for the same Phoenix market as orderbook.",
+            "Expected base58 pubkey: the target market spline collection pubkey from Phoenix market metadata."
+          ]
+        },
+        {
+          "name": "flightProgram",
+          "address": "F1ightu9cujFYo34k9CabifLrJT8qzfDVM2Q7BqhJn2W",
+          "docs": [
+            "Phoenix Flight mainnet builder-fee proxy program id.",
+            "Expected base58 pubkey: F1ightu9cujFYo34k9CabifLrJT8qzfDVM2Q7BqhJn2W."
+          ]
+        },
+        {
+          "name": "builderAuthority",
+          "docs": [
+            "Registered Flight builder authority recorded in the builder state account.",
+            "Expected base58 pubkey: the registered Flight builder authority."
+          ]
+        },
+        {
+          "name": "builderTraderAccount",
+          "writable": true,
+          "docs": [
+            "Builder's Phoenix trader account that receives the Flight builder fee.",
+            "Expected base58 pubkey: the builder authority's Phoenix trader account that receives Flight fees."
+          ]
+        },
+        {
+          "name": "flightGlobalState",
+          "address": "8nccjm9jfLCCLvwEsuWy9N6Afanv32FkCBSvryuZeQc5",
+          "docs": [
+            "Flight global state PDA derived from [phoenixProgram, \"global_state\"] for the mainnet Phoenix Eternal deployment.",
+            "Expected base58 pubkey: 8nccjm9jfLCCLvwEsuWy9N6Afanv32FkCBSvryuZeQc5."
+          ]
+        },
+        {
+          "name": "flightBuilderState",
+          "docs": [
+            "Flight builder state PDA derived from [phoenixProgram, builderAuthority, \"builder_state\"].",
+            "Expected base58 pubkey: the Flight builder state PDA derived from phoenixProgram, builderAuthority, and \"builder_state\"."
+          ]
+        },
+        {
+          "name": "globalTraderIndex",
+          "writable": true,
+          "docs": [
+            "Dynamic GlobalTraderIndex account group. Append exactly params.globalTraderIndexCount accounts here, after all fixed and Flight accounts and before ActiveTraderBuffer.",
+            "Expected base58 pubkeys: append the GlobalTraderIndex account group from Phoenix exchange metadata, with count params.globalTraderIndexCount."
+          ]
+        },
+        {
+          "name": "activeTraderBuffer",
+          "writable": true,
+          "docs": [
+            "Dynamic ActiveTraderBuffer account group. Append exactly params.activeTraderBufferCount accounts here as the final accounts.",
+            "Expected base58 pubkeys: append the ActiveTraderBuffer account group from Phoenix exchange metadata, with count params.activeTraderBufferCount."
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "ClosePositionAndWithdrawParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "WithdrawAllCollateral",
+      "docs": [
+        "Reads the trader's withdrawable collateral with Hawkeye, then withdraws that amount through Phoenix and Ember without placing a market order."
+      ],
+      "discriminator": [37, 185, 159, 214, 37, 30, 163, 146],
+      "accounts": [
+        {
+          "name": "traderAuthority",
+          "signer": true,
+          "docs": [
+            "Trader authority that owns the Phoenix trader account and signs the Phoenix and Ember CPIs.",
+            "Expected base58 pubkey: the caller's trader authority signer; this is not a fixed global address."
+          ]
+        },
+        {
+          "name": "phoenixProgram",
+          "address": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "docs": [
+            "Phoenix Eternal mainnet program id.",
+            "Expected base58 pubkey: EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih."
+          ]
+        },
+        {
+          "name": "hawkeyeProgram",
+          "address": "RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj",
+          "docs": [
+            "Phoenix Hawkeye mainnet view program id.",
+            "Expected base58 pubkey: RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj."
+          ]
+        },
+        {
+          "name": "emberProgram",
+          "address": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+          "docs": [
+            "Phoenix Ember mainnet token-wrapper program id.",
+            "Expected base58 pubkey: EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy."
+          ]
+        },
+        {
+          "name": "phoenixLogAuthority",
+          "address": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+          "docs": [
+            "Phoenix Eternal log authority PDA used by Phoenix CPI event logging.",
+            "Expected base58 pubkey: GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS."
+          ]
+        },
+        {
+          "name": "phoenixGlobalConfig",
+          "writable": true,
+          "address": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+          "docs": [
+            "Phoenix Eternal global configuration account for the mainnet deployment.",
+            "Expected base58 pubkey: 2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ."
+          ]
+        },
+        {
+          "name": "traderAccount",
+          "writable": true,
+          "docs": [
+            "Phoenix trader state account whose collateral is withdrawn.",
+            "Expected base58 pubkey: the Phoenix trader PDA for traderAuthority and the target subaccount; this is trader-specific."
+          ]
+        },
+        {
+          "name": "perpAssetMap",
+          "writable": true,
+          "docs": [
+            "Phoenix PerpAssetMap account from exchange metadata or the global configuration.",
+            "Expected base58 pubkey: the PerpAssetMap pubkey from Phoenix exchange metadata or phoenixGlobalConfig."
+          ]
+        },
+        {
+          "name": "globalVault",
+          "writable": true,
+          "docs": [
+            "Phoenix collateral vault for the canonical collateral mint from exchange metadata or the global configuration.",
+            "Expected base58 pubkey: the collateral vault pubkey from Phoenix exchange metadata or phoenixGlobalConfig."
+          ]
+        },
+        {
+          "name": "traderPhoenixTokenAccount",
+          "writable": true,
+          "docs": [
+            "Trader authority's token account for the Phoenix canonical collateral mint. Phoenix withdraws into this account and Ember burns from it.",
+            "Expected base58 pubkey: the traderAuthority-owned SPL token account for canonicalMint."
+          ]
+        },
+        {
+          "name": "withdrawQueue",
+          "writable": true,
+          "docs": [
+            "Phoenix withdraw queue account from exchange metadata or the global configuration.",
+            "Expected base58 pubkey: the withdraw queue pubkey from Phoenix exchange metadata or phoenixGlobalConfig."
+          ]
+        },
+        {
+          "name": "usdcMint",
+          "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "docs": [
+            "USDC mint used as Ember input mint on mainnet.",
+            "Expected base58 pubkey: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v."
+          ]
+        },
+        {
+          "name": "canonicalMint",
+          "writable": true,
+          "docs": [
+            "Phoenix canonical collateral mint used as Ember output mint.",
+            "Expected base58 pubkey: the Phoenix canonical collateral mint from Phoenix exchange metadata or phoenixGlobalConfig."
+          ]
+        },
+        {
+          "name": "traderUsdcTokenAccount",
+          "writable": true,
+          "docs": [
+            "USDC destination token account for the Ember withdraw output.",
+            "Expected base58 pubkey: the traderAuthority-owned SPL token account receiving USDC from Ember."
+          ]
+        },
+        {
+          "name": "emberState",
+          "address": "6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz",
+          "docs": [
+            "Ember state PDA derived from [phoenixProgram, \"state\"] for the mainnet Phoenix Eternal deployment.",
+            "Expected base58 pubkey: 6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz."
+          ]
+        },
+        {
+          "name": "emberVault",
+          "writable": true,
+          "address": "FKcEb4TdPDTRuMnQDpSEPQBcrm15S73xiUD6Qf8ZLUkq",
+          "docs": [
+            "Ember vault PDA derived from [phoenixProgram, \"vault\"] for the mainnet Phoenix Eternal deployment.",
+            "Expected base58 pubkey: FKcEb4TdPDTRuMnQDpSEPQBcrm15S73xiUD6Qf8ZLUkq."
+          ]
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "docs": [
+            "SPL Token program.",
+            "Expected base58 pubkey: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA."
+          ]
+        },
+        {
+          "name": "globalTraderIndex",
+          "writable": true,
+          "docs": [
+            "Dynamic GlobalTraderIndex account group. Append exactly params.globalTraderIndexCount accounts here, after all fixed accounts and before ActiveTraderBuffer.",
+            "Expected base58 pubkeys: append the GlobalTraderIndex account group from Phoenix exchange metadata, with count params.globalTraderIndexCount."
+          ]
+        },
+        {
+          "name": "activeTraderBuffer",
+          "writable": true,
+          "docs": [
+            "Dynamic ActiveTraderBuffer account group. Append exactly params.activeTraderBufferCount accounts here as the final accounts.",
+            "Expected base58 pubkeys: append the ActiveTraderBuffer account group from Phoenix exchange metadata, with count params.activeTraderBufferCount."
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "WithdrawAllCollateralParams"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "types": [
+    {
+      "name": "ClosePositionAndWithdrawParams",
+      "docs": [
+        "Borsh payload shared by close_position_and_withdraw and close_position_and_withdraw_with_builders."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "withdrawMode",
+            "type": {
+              "defined": {
+                "name": "WithdrawMode"
+              }
+            }
+          },
+          {
+            "name": "side",
+            "type": {
+              "defined": {
+                "name": "Side"
+              }
+            }
+          },
+          {
+            "name": "priceInTicks",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "numBaseLots",
+            "type": "u64"
+          },
+          {
+            "name": "numQuoteLots",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "minBaseLotsToFill",
+            "type": "u64"
+          },
+          {
+            "name": "minQuoteLotsToFill",
+            "type": "u64"
+          },
+          {
+            "name": "selfTradeBehavior",
+            "type": {
+              "defined": {
+                "name": "SelfTradeBehavior"
+              }
+            }
+          },
+          {
+            "name": "matchLimit",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "clientOrderId",
+            "type": "u128"
+          },
+          {
+            "name": "lastValidSlot",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "cancelExisting",
+            "type": "bool"
+          },
+          {
+            "name": "globalTraderIndexCount",
+            "type": "u8"
+          },
+          {
+            "name": "activeTraderBufferCount",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WithdrawAllCollateralParams",
+      "docs": ["Borsh payload for withdraw_all_collateral."],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "globalTraderIndexCount",
+            "type": "u8"
+          },
+          {
+            "name": "activeTraderBufferCount",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WithdrawMode",
+      "docs": [
+        "Controls how much collateral is withdrawn after the close order."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "AllFreeCollateral"
+          },
+          {
+            "name": "OrderFreeCollateralDelta"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Side",
+      "docs": [
+        "Phoenix market-order side. Use Ask to reduce a long position and Bid to reduce a short position."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Bid"
+          },
+          {
+            "name": "Ask"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SelfTradeBehavior",
+      "docs": [
+        "Phoenix self-trade policy passed through to the reduce-only market order."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Abort"
+          },
+          {
+            "name": "CancelProvide"
+          },
+          {
+            "name": "DecrementTake"
+          }
+        ]
+      }
+    }
+  ]
+}
