@@ -121,7 +121,7 @@ pub use order_tickets::{
 };
 pub use rust_decimal::Decimal;
 pub use tx_builder::{PhoenixTxBuilder, PhoenixTxBuilderError};
-pub use ws_client::{PhoenixWSClient, SubscriptionHandle, WsConnectionStatus};
+pub use ws_client::{PhoenixWSClient, SubscriptionHandle, WsConnectionStatus, WsSubscriptionEvent};
 
 pub use crate::phoenix_rise_ix::{
     CancelConditionalOrderParams, CancelId, CancelStopLossParams, CondensedOrder,

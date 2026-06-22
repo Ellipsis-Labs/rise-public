@@ -453,6 +453,7 @@ impl From<&ExchangeMarketSnapshot> for ExchangeMarketConfig {
             open_interest_cap_base_lots: market.open_interest_cap_base_lots,
             max_liquidation_size_base_lots: market.max_liquidation_size_base_lots,
             isolated_only: market.isolated_only,
+            stats_snapshot: None,
         }
     }
 }

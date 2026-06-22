@@ -506,7 +506,41 @@ fn main() {
         results.insert("ProxyInstruction".to_string(), hex_encode(&ix.data));
     }
 
-    // 24. Flight client wrapper for deterministic Flight-supported instructions.
+    // 24. Flight ProxyInstructionWithFeeOverride (wrapping a deterministic
+    //     PlaceLimitOrder)
+    {
+        let inner_params = LimitOrderParams::builder()
+            .trader(pubkeys[0])
+            .trader_account(pubkeys[1])
+            .perp_asset_map(pubkeys[2])
+            .orderbook(pubkeys[3])
+            .spline_collection(pubkeys[4])
+            .global_trader_index(vec2(5, 6))
+            .active_trader_buffer(vec2(7, 8))
+            .side(Side::Bid)
+            .price_in_ticks(1000)
+            .num_base_lots(100)
+            .build()
+            .unwrap();
+        let inner = create_place_limit_order_ix(inner_params).unwrap();
+
+        let params = phoenix_rise_ix::flight::ProxyInstructionParams::builder()
+            .builder_authority(pubkeys[9])
+            .builder_trader_account(pubkeys[10])
+            .trader_wallet(pubkeys[0])
+            .fee_bps_override(5)
+            .inner_instruction(inner)
+            .build()
+            .unwrap();
+
+        let ix = phoenix_rise_ix::flight::create_proxy_instruction_ix(params).unwrap();
+        results.insert(
+            "ProxyInstructionWithFeeOverride".to_string(),
+            hex_encode(&ix.data),
+        );
+    }
+
+    // 25. Flight client wrapper for deterministic Flight-supported instructions.
     {
         let flight_client = PhoenixFlightClient::new(pubkeys[9], 0, 0);
 

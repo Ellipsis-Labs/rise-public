@@ -55,18 +55,33 @@ impl PhoenixFlightClient {
         ix: Instruction,
         trader_wallet: Pubkey,
     ) -> Result<Instruction, PhoenixIxError> {
+        self.try_wrap_order_instruction_with_fee_bps_override(ix, trader_wallet, None)
+    }
+
+    /// Wrap `ix` in a Flight `proxy_instruction_with_fee_override` if Flight
+    /// supports routing it and `fee_bps_override` is `Some`; return it
+    /// unchanged for unsupported instructions.
+    pub fn try_wrap_order_instruction_with_fee_bps_override(
+        &self,
+        ix: Instruction,
+        trader_wallet: Pubkey,
+        fee_bps_override: Option<u64>,
+    ) -> Result<Instruction, PhoenixIxError> {
         if !is_flight_routable_instruction(&ix) {
             return Ok(ix);
         }
 
         let inner = to_phoenix_rise_ix_instruction(ix);
 
-        let params = ProxyInstructionParams::builder()
+        let mut params_builder = ProxyInstructionParams::builder()
             .builder_authority(self.builder_authority)
             .builder_trader_account(self.builder_trader_account())
             .trader_wallet(trader_wallet)
-            .inner_instruction(inner)
-            .build()?;
+            .inner_instruction(inner);
+        if let Some(fee_bps_override) = fee_bps_override {
+            params_builder = params_builder.fee_bps_override(fee_bps_override);
+        }
+        let params = params_builder.build()?;
 
         Ok(create_proxy_instruction_ix(params)?.into())
     }
@@ -166,6 +181,30 @@ mod tests {
             &crate::phoenix_rise_ix::flight::flight_proxy_instruction_discriminant()
         );
         assert_eq!(&wrapped.data[8..], &inner_data[..]);
+    }
+
+    #[test]
+    fn test_wraps_order_placing_ix_with_fee_bps_override() {
+        let client = PhoenixFlightClient::new(Pubkey::new_unique(), 0, 0);
+        let trader_wallet = Pubkey::new_unique();
+        let inner = build_sample_limit_ix();
+        let inner_data = inner.data.clone();
+
+        let wrapped = client
+            .try_wrap_order_instruction_with_fee_bps_override(inner, trader_wallet, Some(5))
+            .unwrap();
+
+        assert_eq!(
+            wrapped.program_id,
+            crate::phoenix_rise_ix::flight::FLIGHT_PROGRAM_ID
+        );
+        assert_eq!(
+            &wrapped.data[..8],
+            &crate::phoenix_rise_ix::flight::flight_proxy_instruction_with_fee_override_discriminant()
+        );
+        assert_eq!(wrapped.data[8], 1);
+        assert_eq!(&wrapped.data[9..17], &5u64.to_le_bytes());
+        assert_eq!(&wrapped.data[17..], &inner_data[..]);
     }
 
     #[test]

@@ -240,7 +240,7 @@ publish      = true
 readme       = "CRATES.md"
 repository   = "https://github.com/Ellipsis-Labs/rise"
 rust-version = "1.84.0"
-version      = "0.1.10"
+version      = "0.1.11"
 
 [workspace.dependencies]
 async-trait = "0.1"

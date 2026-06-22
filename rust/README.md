@@ -105,7 +105,9 @@ metadata rather than server-assisted order helpers.
 ### `PhoenixFlightClient`
 
 Use this when you want to wrap supported Phoenix placement instructions through
-Flight.
+Flight. Use `try_wrap_order_instruction_with_fee_bps_override(...)` when a
+specific wrapped order should use Flight's `proxy_instruction_with_fee_override`
+variant instead of the builder's registered fee.
 
 > **Use embedded wallets for Flight integrations.** Integrators are strongly
 > encouraged to provision an embedded wallet per user rather than routing

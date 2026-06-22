@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::types::js_safe_ints::JsSafeU64;
+use crate::types::js_safe_ints::{JsSafeI64, JsSafeU64};
 use crate::types::market::MarketStatus;
 
 // ============================================================================
@@ -136,6 +136,16 @@ pub struct MarketPublicMetadata {
 // Exchange Configuration
 // ============================================================================
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketStatsSnapshot {
+    pub slot: u64,
+    pub slot_index: u32,
+    pub open_interest_base_lots: JsSafeU64,
+    pub funding_start_interval_timestamp: JsSafeU64,
+    pub cumulative_funding_rate: JsSafeI64,
+}
+
 /// Static market configuration without live data like prices or open interest.
 /// Used by the `/exchange` endpoint to return market parameters.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -165,6 +175,8 @@ pub struct ExchangeMarketConfig {
     pub max_liquidation_size_base_lots: JsSafeU64,
     /// Whether this market only supports isolated margin positions.
     pub isolated_only: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stats_snapshot: Option<MarketStatsSnapshot>,
 }
 
 /// Raw response from the `/exchange` endpoint.
@@ -272,6 +284,7 @@ mod tests {
             open_interest_cap_base_lots: 1_000_000_u64.into(),
             max_liquidation_size_base_lots: 10_000_u64.into(),
             isolated_only: false,
+            stats_snapshot: None,
         };
 
         assert!((config.taker_fee - 0.0005).abs() < 1e-10);
@@ -302,6 +315,7 @@ mod tests {
                 open_interest_cap_base_lots: 1_000_000_u64.into(),
                 max_liquidation_size_base_lots: 10_000_u64.into(),
                 isolated_only: false,
+                stats_snapshot: None,
             },
         );
 

@@ -1937,6 +1937,7 @@ mod tests {
             open_interest_cap_base_lots: 0u64.into(),
             max_liquidation_size_base_lots: 0u64.into(),
             isolated_only: false,
+            stats_snapshot: None,
         }
     }
 
