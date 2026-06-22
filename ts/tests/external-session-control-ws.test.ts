@@ -33,8 +33,21 @@ const makeSnapshot = (
   };
 };
 
+const makeNextSnapshot = () =>
+  makeSnapshot({
+    sessionId: "sid-2",
+    accessJti: "jti-2",
+    refreshToken: "refresh-token-2",
+    popKey: Buffer.from(
+      Uint8Array.from({ length: 32 }, (_, index) => index + 1)
+    ).toString("base64url"),
+    expiresAt: Date.now() + 120_000,
+    refreshExpiresAt: Date.now() + 240_000,
+  });
+
 class MockWebSocket {
   static instances: MockWebSocket[] = [];
+  sent: string[] = [];
   onopen: (() => void) | null = null;
   onmessage: ((evt: { data: string }) => void) | null = null;
   onclose: ((evt: { code: number; reason?: string }) => void) | null = null;
@@ -48,9 +61,13 @@ class MockWebSocket {
     queueMicrotask(() => this.onopen?.());
   }
 
-  send() {}
+  send(payload: string) {
+    this.sent.push(payload);
+  }
 
-  close() {}
+  close() {
+    queueMicrotask(() => this.onclose?.({ code: 1000 }));
+  }
 }
 
 const stubWebSocket = () => {
@@ -66,6 +83,32 @@ const stubSuccessfulFetch = () => {
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
+};
+
+const createSessionManager = () =>
+  new auth.AuthSessionManager(new auth.MemoryAuthSessionStorage());
+
+const createExternalSessionClient = (sessionManager = createSessionManager()) =>
+  createPhoenixClient({
+    baseUrl: "https://example.com",
+    auth: true,
+    authConfig: {
+      sessionManager,
+      sessionControl: "external",
+    },
+    ws: {
+      url: "wss://example.com/v1/ws",
+      connectMode: "eager",
+    },
+  });
+
+const sentMessages = (socket: MockWebSocket | undefined): unknown[] =>
+  (socket?.sent ?? []).map((payload): unknown => JSON.parse(payload));
+
+const flushWs = async () => {
+  await Promise.resolve();
+  await Promise.resolve();
+  await vi.advanceTimersByTimeAsync(0);
 };
 
 afterEach(() => {
@@ -108,25 +151,14 @@ describe("rise external session control websocket integration", () => {
       },
     });
 
-    await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(0);
+    await flushWs();
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(MockWebSocket.instances).toHaveLength(0);
 
-    const nextSnapshot = makeSnapshot({
-      sessionId: "sid-2",
-      accessJti: "jti-2",
-      refreshToken: "refresh-token-2",
-      popKey: Buffer.from(
-        Uint8Array.from({ length: 32 }, (_, index) => index + 1)
-      ).toString("base64url"),
-      expiresAt: Date.now() + 120_000,
-      refreshExpiresAt: Date.now() + 240_000,
-    });
+    const nextSnapshot = makeNextSnapshot();
     await sessionManager.importSnapshot(nextSnapshot);
-    await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(0);
+    await flushWs();
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(MockWebSocket.instances).toHaveLength(1);
@@ -170,8 +202,7 @@ describe("rise external session control websocket integration", () => {
       },
     });
 
-    await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(0);
+    await flushWs();
 
     expect(MockWebSocket.instances).toHaveLength(1);
 
@@ -179,30 +210,164 @@ describe("rise external session control websocket integration", () => {
       code: 4401,
       reason: "invalid_access_token",
     });
-    await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(0);
+    await flushWs();
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(MockWebSocket.instances).toHaveLength(1);
 
-    const nextSnapshot = makeSnapshot({
-      sessionId: "sid-2",
-      accessJti: "jti-2",
-      refreshToken: "refresh-token-2",
-      popKey: Buffer.from(
-        Uint8Array.from({ length: 32 }, (_, index) => index + 1)
-      ).toString("base64url"),
-      expiresAt: Date.now() + 120_000,
-      refreshExpiresAt: Date.now() + 240_000,
-    });
+    const nextSnapshot = makeNextSnapshot();
     await sessionManager.importSnapshot(nextSnapshot);
-    await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(0);
+    await flushWs();
 
     expect(MockWebSocket.instances).toHaveLength(2);
     expect(MockWebSocket.instances[1].protocol).toEqual([
       "phoenix-jwt",
       nextSnapshot.accessToken,
+    ]);
+
+    client.dispose();
+  });
+
+  it("does not send auth-required subscriptions over an anonymous socket", async () => {
+    vi.useFakeTimers();
+
+    stubWebSocket();
+    const fetchMock = stubSuccessfulFetch();
+
+    const client = createExternalSessionClient();
+
+    await flushWs();
+
+    expect(MockWebSocket.instances).toHaveLength(1);
+    expect(MockWebSocket.instances[0].protocol).toBeUndefined();
+
+    client.streams?.notifications({ authority: "authority-1" });
+    await flushWs();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(sentMessages(MockWebSocket.instances[0])).toEqual([]);
+
+    client.dispose();
+  });
+
+  it("still sends public subscriptions over an anonymous socket", async () => {
+    vi.useFakeTimers();
+
+    stubWebSocket();
+    const fetchMock = stubSuccessfulFetch();
+
+    const client = createExternalSessionClient();
+
+    await flushWs();
+
+    client.streams?.allMids();
+    await flushWs();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(sentMessages(MockWebSocket.instances[0])).toEqual([
+      {
+        type: "subscribe",
+        subscription: {
+          channel: "allMids",
+        },
+      },
+    ]);
+
+    client.dispose();
+  });
+
+  it("keeps public subscriptions on the anonymous socket while private subscriptions wait for external auth", async () => {
+    vi.useFakeTimers();
+
+    stubWebSocket();
+    const fetchMock = stubSuccessfulFetch();
+
+    const sessionManager = createSessionManager();
+    const client = createExternalSessionClient(sessionManager);
+
+    await flushWs();
+
+    client.streams?.notifications({ authority: "authority-1" });
+    await flushWs();
+
+    client.streams?.allMids();
+    await flushWs();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(MockWebSocket.instances).toHaveLength(1);
+    expect(MockWebSocket.instances[0].protocol).toBeUndefined();
+    expect(sentMessages(MockWebSocket.instances[0])).toEqual([
+      {
+        type: "subscribe",
+        subscription: {
+          channel: "allMids",
+        },
+      },
+    ]);
+
+    const nextSnapshot = makeNextSnapshot();
+    await sessionManager.importSnapshot(nextSnapshot);
+    await flushWs();
+
+    expect(MockWebSocket.instances).toHaveLength(2);
+    expect(MockWebSocket.instances[1].protocol).toEqual([
+      "phoenix-jwt",
+      nextSnapshot.accessToken,
+    ]);
+    expect(sentMessages(MockWebSocket.instances[1])).toEqual([
+      {
+        type: "subscribe",
+        subscription: {
+          channel: "notifications",
+          authority: "authority-1",
+        },
+      },
+      {
+        type: "subscribe",
+        subscription: {
+          channel: "allMids",
+        },
+      },
+    ]);
+
+    client.dispose();
+  });
+
+  it("sends deferred auth-required subscriptions after an external session appears", async () => {
+    vi.useFakeTimers();
+
+    stubWebSocket();
+    const fetchMock = stubSuccessfulFetch();
+
+    const sessionManager = createSessionManager();
+    const client = createExternalSessionClient(sessionManager);
+
+    await flushWs();
+
+    client.streams?.notifications({ authority: "authority-1" });
+    await flushWs();
+
+    expect(MockWebSocket.instances).toHaveLength(1);
+    expect(sentMessages(MockWebSocket.instances[0])).toEqual([]);
+
+    const nextSnapshot = makeNextSnapshot();
+    await sessionManager.importSnapshot(nextSnapshot);
+    await flushWs();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(MockWebSocket.instances).toHaveLength(2);
+    expect(MockWebSocket.instances[1].protocol).toEqual([
+      "phoenix-jwt",
+      nextSnapshot.accessToken,
+    ]);
+    expect(sentMessages(MockWebSocket.instances[1])).toEqual([
+      {
+        type: "subscribe",
+        subscription: {
+          channel: "notifications",
+          authority: "authority-1",
+        },
+      },
     ]);
 
     client.dispose();

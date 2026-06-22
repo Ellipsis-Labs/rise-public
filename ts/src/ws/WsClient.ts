@@ -25,12 +25,20 @@ import type {
   WsServerErrorListener,
 } from "./types";
 
+const ACCESS_REFRESH_WINDOW_MS = 60_000;
+const WS_OPEN = 1;
+const DEFER_CONNECT_FOR_SESSION_OWNER = Symbol(
+  "defer-connect-for-session-owner"
+);
+const AUTH_REQUIRED_SUBSCRIPTION_CHANNELS: ReadonlySet<string> = new Set([
+  "events",
+  "notifications",
+  "trader",
+  "traderVolume",
+  "transaction",
+]);
+
 export const createWsClient = (opts: WsClientOpts): WsClient => {
-  const ACCESS_REFRESH_WINDOW_MS = 60_000;
-  const WS_OPEN = 1;
-  const DEFER_CONNECT_FOR_SESSION_OWNER = Symbol(
-    "defer-connect-for-session-owner"
-  );
   type DeferredSessionOwnerConnect = typeof DEFER_CONNECT_FOR_SESSION_OWNER;
   type ResolvedProtocol = WsClientConfig["protocol"];
   let ws: WebSocket | undefined;
@@ -135,7 +143,7 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
       onResub: () => {
         const [listener] = getListenersForRoutingKey(routingKey);
         if (!listener) return;
-        send(listener.subMsg);
+        sendSubscriptionMessage(listener.subMsg);
       },
     });
   };
@@ -144,6 +152,22 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
 
   const shouldMaintainConnection = () =>
     config.connectMode === "eager" || hasActiveSubscriptions();
+
+  const wantsAuthenticatedConnection = () => {
+    if (authMode === "authenticated") return true;
+    if (authMode === "anonymous") return false;
+    return lifecycle.knownAuthToken !== null;
+  };
+
+  const isOpenSocket = (socket: WebSocket | undefined): socket is WebSocket =>
+    socket !== undefined &&
+    (typeof socket.readyState !== "number" || socket.readyState === WS_OPEN);
+
+  const canUseAnonymousSocketWhileAwaitingAuth = () =>
+    authMode === "auto" &&
+    lifecycle.isAwaitingAuth &&
+    lifecycle.connectionAuth === "anonymous" &&
+    !wantsAuthenticatedConnection();
 
   const clearReconnectTimer = () => {
     if (!reconnectTimer) return;
@@ -188,6 +212,9 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
   const ensureConnection = () => {
     clearIdleCloseTimer();
     if (!shouldMaintainConnection()) {
+      return;
+    }
+    if (canUseAnonymousSocketWhileAwaitingAuth() && isOpenSocket(ws)) {
       return;
     }
     if (lifecycle.isConnected || connectInFlight || reconnectTimer) {
@@ -248,8 +275,6 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
     flushEffects();
   };
 
-  const scheduleReconnect = () => requestReconnect("immediate");
-
   const scheduleAuthRefreshRetry = (
     error: unknown,
     retry: () => void
@@ -273,21 +298,61 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
     lifecycle.send({ type: "AWAIT_AUTH" });
   };
 
-  const wantsAuthenticatedConnection = () => {
-    if (authMode === "authenticated") return true;
-    if (authMode === "anonymous") return false;
-    return lifecycle.knownAuthToken !== null;
+  const subscriptionRequiresAuth = (message: SubscriptionMessage): boolean => {
+    const channel = message.subscription.channel;
+    return (
+      typeof channel === "string" &&
+      AUTH_REQUIRED_SUBSCRIPTION_CHANNELS.has(channel)
+    );
   };
 
   const isCurrentSocket = (socket: WebSocket): boolean => ws === socket;
 
-  const isOpenSocket = (socket: WebSocket | undefined): socket is WebSocket =>
-    socket !== undefined &&
-    (typeof socket.readyState !== "number" || socket.readyState === WS_OPEN);
+  const canUseCurrentSocketForMessage = (
+    message: SubscriptionMessage
+  ): boolean => {
+    if (lifecycle.isConnected) return true;
+    return (
+      canUseAnonymousSocketWhileAwaitingAuth() &&
+      !subscriptionRequiresAuth(message)
+    );
+  };
+
+  const requestAuthenticatedTransport = () => {
+    if (authMode === "anonymous") return;
+    if (sessionIsExternallyManaged && !lifecycle.knownAuthToken) {
+      awaitExternalSessionChange();
+      return;
+    }
+    requestReconnect("immediate");
+  };
+
+  const canSendSubscriptionMessage = (
+    message: SubscriptionMessage
+  ): boolean => {
+    if (
+      authMode !== "anonymous" &&
+      lifecycle.connectionAuth === "anonymous" &&
+      subscriptionRequiresAuth(message)
+    ) {
+      requestAuthenticatedTransport();
+      return false;
+    }
+
+    if (
+      lifecycle.connectionAuth === "anonymous" &&
+      wantsAuthenticatedConnection()
+    ) {
+      requestReconnect("immediate");
+      return false;
+    }
+
+    return true;
+  };
 
   const sendSerialized = (payload: string) => {
     const socket = ws;
-    if (!socket || !lifecycle.isConnected || !isOpenSocket(socket)) return;
+    if (!socket || !isOpenSocket(socket)) return;
     if (
       lifecycle.connectionAuth === "anonymous" &&
       wantsAuthenticatedConnection()
@@ -298,8 +363,9 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
     socket.send(payload);
   };
 
-  const send = (obj: unknown) => {
-    sendSerialized(JSON.stringify(obj));
+  const sendSubscriptionMessage = (message: SubscriptionMessage) => {
+    if (!canSendSubscriptionMessage(message)) return;
+    sendSerialized(JSON.stringify(message));
   };
 
   const onClose = async (socket: WebSocket, evt?: CloseEvent) => {
@@ -608,16 +674,9 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
       syncRoutingSubscription(routingKey);
       ensureConnection();
 
-      if (lifecycle.isConnected) {
-        if (
-          lifecycle.connectionAuth === "anonymous" &&
-          wantsAuthenticatedConnection()
-        ) {
-          scheduleReconnect();
-          return;
-        }
+      if (canUseCurrentSocketForMessage(subMsg)) {
         if (isFirstRoutingListener || existingListener) {
-          send(subMsg);
+          sendSubscriptionMessage(subMsg);
         }
       }
     },
@@ -641,16 +700,9 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
         scheduleIdleClose();
       }
 
-      if (lifecycle.isConnected) {
-        if (
-          lifecycle.connectionAuth === "anonymous" &&
-          wantsAuthenticatedConnection()
-        ) {
-          scheduleReconnect();
-          return;
-        }
+      if (canUseCurrentSocketForMessage(unsubMsg)) {
         if (isLastRoutingListener) {
-          send(unsubMsg);
+          sendSubscriptionMessage(unsubMsg);
         }
       }
     },

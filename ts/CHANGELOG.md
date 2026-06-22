@@ -338,3 +338,22 @@ Source Phoenix commit: `2d72d1003db4c5e852d3eef26572cd24da068745`
 - `feeBpsOverride` (`bigint | null`) is an optional, additive field on both `PhoenixFlightClientConfig` and `ProxyInstructionParams`; omitting it (or passing `null`) preserves existing behavior with no code changes required.
 - When `feeBpsOverride` is provided, `buildProxyInstructionIx` validates that the value is in the range `0n–10_000n` (inclusive) and throws `"Fee bps override must be in the range 0..=10000"` if not.
 - The fee-override path emits an on-chain instruction with a different discriminant (`PROXY_INSTRUCTION_WITH_FEE_OVERRIDE`), so infrastructure that inspects raw instruction bytes or discriminants (parsers, indexers, monitoring) should be updated to recognize the new variant.
+
+## v0.4.45 - 2026-06-18
+
+Source Phoenix commit: `5b7f20375f7eee51e309f9c4bc994609f5be2d1e`
+
+### Summary
+
+- **Auth-gated channel subscriptions are now deferred on external-session clients.** Subscriptions to the `events`, `notifications`, `trader`, `traderVolume`, and `transaction` channels will no longer be sent over an anonymous WebSocket connection. If no external session has been imported yet, the subscription message is held and replayed automatically on the authenticated connection once a session arrives.
+- **Public subscriptions flow immediately over anonymous connections.** Channels not in the auth-required set (e.g. `allMids`, orderbook, trades) are sent to the server right away, even while the client is waiting for an external session to be imported — no unnecessary reconnect is triggered for these channels.
+- **Reduced reconnect churn in `external` session control mode.** When a session has not yet been provided, the client now keeps the existing anonymous socket open instead of immediately scheduling a reconnect every time a subscription is registered, resulting in fewer connection disruptions during the authentication waiting period.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- If your application subscribes to auth-required channels (`events`, `notifications`, `trader`, `traderVolume`, `transaction`) before calling `sessionManager.importSnapshot(...)`, those subscribe messages will be buffered and sent once the authenticated connection is established. No code changes are required, but you should be aware that these subscriptions are not active until authentication completes.
+- Public channel subscriptions registered before an external session is available will now be active on the anonymous socket immediately, so data for those channels will begin arriving sooner than before.
