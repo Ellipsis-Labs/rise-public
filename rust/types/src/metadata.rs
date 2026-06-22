@@ -314,6 +314,7 @@ mod tests {
             open_interest_cap_base_lots: 1_000_000_u64.into(),
             max_liquidation_size_base_lots: 10_000_u64.into(),
             isolated_only: false,
+            stats_snapshot: None,
         }
     }
 

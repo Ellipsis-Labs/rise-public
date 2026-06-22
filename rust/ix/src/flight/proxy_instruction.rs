@@ -10,10 +10,13 @@ use solana_pubkey::Pubkey;
 use crate::ix::constants::PHOENIX_PROGRAM_ID;
 use crate::ix::error::PhoenixIxError;
 use crate::ix::flight::constants::{
-    FLIGHT_PROGRAM_ID, flight_proxy_instruction_discriminant, get_flight_builder_state_address,
+    FLIGHT_PROGRAM_ID, flight_proxy_instruction_discriminant,
+    flight_proxy_instruction_with_fee_override_discriminant, get_flight_builder_state_address,
     get_flight_global_state_address,
 };
 use crate::ix::types::{AccountMeta, Instruction};
+
+const MAX_FEE_BPS_OVERRIDE: u64 = 10_000;
 
 /// Parameters for the Flight `proxy_instruction` wrapper.
 #[derive(Debug, Clone)]
@@ -28,6 +31,9 @@ pub struct ProxyInstructionParams {
     /// the Phoenix program; its accounts and data are appended verbatim to the
     /// proxy instruction.
     inner_instruction: Instruction,
+    /// Optional builder fee override in basis points. When present, the
+    /// instruction uses Flight's `proxy_instruction_with_fee_override` variant.
+    fee_bps_override: Option<u64>,
 }
 
 impl ProxyInstructionParams {
@@ -50,6 +56,10 @@ impl ProxyInstructionParams {
     pub fn inner_instruction(&self) -> &Instruction {
         &self.inner_instruction
     }
+
+    pub fn fee_bps_override(&self) -> Option<u64> {
+        self.fee_bps_override
+    }
 }
 
 #[derive(Default)]
@@ -58,6 +68,7 @@ pub struct ProxyInstructionParamsBuilder {
     builder_trader_account: Option<Pubkey>,
     trader_wallet: Option<Pubkey>,
     inner_instruction: Option<Instruction>,
+    fee_bps_override: Option<u64>,
 }
 
 impl ProxyInstructionParamsBuilder {
@@ -85,7 +96,19 @@ impl ProxyInstructionParamsBuilder {
         self
     }
 
+    pub fn fee_bps_override(mut self, fee_bps_override: u64) -> Self {
+        self.fee_bps_override = Some(fee_bps_override);
+        self
+    }
+
     pub fn build(self) -> Result<ProxyInstructionParams, PhoenixIxError> {
+        if self
+            .fee_bps_override
+            .is_some_and(|fee_bps_override| fee_bps_override > MAX_FEE_BPS_OVERRIDE)
+        {
+            return Err(PhoenixIxError::InvalidFeeBpsOverride);
+        }
+
         Ok(ProxyInstructionParams {
             builder_authority: self
                 .builder_authority
@@ -99,16 +122,19 @@ impl ProxyInstructionParamsBuilder {
             inner_instruction: self
                 .inner_instruction
                 .ok_or(PhoenixIxError::MissingField("inner_instruction"))?,
+            fee_bps_override: self.fee_bps_override,
         })
     }
 }
 
-/// Create a Flight `proxy_instruction` wrapping an inner Phoenix instruction.
+/// Create a Flight proxy instruction wrapping an inner Phoenix instruction.
 ///
 /// The inner instruction's data is appended verbatim after the Flight
 /// discriminant, and its accounts are appended verbatim after the six Flight
-/// accounts. Returns an error if `inner_instruction.program_id` is not the
-/// Phoenix program.
+/// accounts. When `fee_bps_override` is set, this emits Flight's
+/// `proxy_instruction_with_fee_override` variant with the Borsh
+/// `Option<u64>` fee prefix before the inner instruction data. Returns an
+/// error if `inner_instruction.program_id` is not the Phoenix program.
 pub fn create_proxy_instruction_ix(
     params: ProxyInstructionParams,
 ) -> Result<Instruction, PhoenixIxError> {
@@ -116,11 +142,8 @@ pub fn create_proxy_instruction_ix(
         return Err(PhoenixIxError::InvalidInnerProgram);
     }
 
-    let prefix = flight_proxy_instruction_discriminant();
     let inner_data = &params.inner_instruction().data;
-    let mut data = Vec::with_capacity(prefix.len() + inner_data.len());
-    data.extend_from_slice(&prefix);
-    data.extend_from_slice(inner_data);
+    let data = encode_proxy_instruction_data(params.fee_bps_override(), inner_data);
 
     let mut accounts = Vec::with_capacity(6 + params.inner_instruction().accounts.len());
     accounts.push(AccountMeta::readonly(get_flight_global_state_address()));
@@ -138,6 +161,27 @@ pub fn create_proxy_instruction_ix(
         accounts,
         data,
     })
+}
+
+fn encode_proxy_instruction_data(fee_bps_override: Option<u64>, inner_data: &[u8]) -> Vec<u8> {
+    match fee_bps_override {
+        Some(fee_bps_override) => {
+            let prefix = flight_proxy_instruction_with_fee_override_discriminant();
+            let mut data = Vec::with_capacity(prefix.len() + 1 + 8 + inner_data.len());
+            data.extend_from_slice(&prefix);
+            data.push(1);
+            data.extend_from_slice(&fee_bps_override.to_le_bytes());
+            data.extend_from_slice(inner_data);
+            data
+        }
+        None => {
+            let prefix = flight_proxy_instruction_discriminant();
+            let mut data = Vec::with_capacity(prefix.len() + inner_data.len());
+            data.extend_from_slice(&prefix);
+            data.extend_from_slice(inner_data);
+            data
+        }
+    }
 }
 
 #[cfg(test)]
@@ -187,6 +231,30 @@ mod tests {
         assert_eq!(ix.program_id, FLIGHT_PROGRAM_ID);
         assert_eq!(&ix.data[..8], &flight_proxy_instruction_discriminant());
         assert_eq!(&ix.data[8..], &inner_data[..]);
+    }
+
+    #[test]
+    fn test_data_with_fee_override_prefixed_with_discriminant_and_params() {
+        let inner_data = vec![0xAA, 0xBB, 0xCC];
+        let inner = make_inner_ix(inner_data.clone(), vec![]);
+        let params = ProxyInstructionParams::builder()
+            .builder_authority(Pubkey::new_unique())
+            .builder_trader_account(Pubkey::new_unique())
+            .trader_wallet(Pubkey::new_unique())
+            .fee_bps_override(5)
+            .inner_instruction(inner)
+            .build()
+            .unwrap();
+
+        let ix = create_proxy_instruction_ix(params).unwrap();
+        assert_eq!(ix.program_id, FLIGHT_PROGRAM_ID);
+        assert_eq!(
+            &ix.data[..8],
+            &flight_proxy_instruction_with_fee_override_discriminant()
+        );
+        assert_eq!(ix.data[8], 1);
+        assert_eq!(&ix.data[9..17], &5u64.to_le_bytes());
+        assert_eq!(&ix.data[17..], &inner_data[..]);
     }
 
     #[test]
@@ -255,5 +323,17 @@ mod tests {
             result,
             Err(PhoenixIxError::MissingField("inner_instruction"))
         ));
+    }
+
+    #[test]
+    fn test_invalid_fee_override() {
+        let result = ProxyInstructionParams::builder()
+            .builder_authority(Pubkey::new_unique())
+            .builder_trader_account(Pubkey::new_unique())
+            .trader_wallet(Pubkey::new_unique())
+            .fee_bps_override(10_001)
+            .inner_instruction(make_inner_ix(vec![], vec![]))
+            .build();
+        assert!(matches!(result, Err(PhoenixIxError::InvalidFeeBpsOverride)));
     }
 }

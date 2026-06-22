@@ -11,8 +11,6 @@ pub struct CreateServiceAccountRequest {
     pub description: Option<String>,
     pub client_id: String,
     #[serde(default)]
-    pub role: String,
-    #[serde(default)]
     pub scopes: Vec<String>,
     #[serde(default)]
     pub status: String,
@@ -50,7 +48,6 @@ pub struct ServiceAccountDto {
     pub name: String,
     pub description: Option<String>,
     pub client_id: String,
-    pub role: String,
     pub scopes: Vec<String>,
     pub status: String,
     pub created_at: DateTime<Utc>,

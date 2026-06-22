@@ -147,3 +147,27 @@ Source Phoenix commit: `e01d6bf79f112b8f9c7c6e7e3ad84fb83050eb43`
 - All Hawkeye view calls are **read-only simulations** — no fee payer signature required and no state is mutated on-chain.
 - Return data is versioned (`HAWKEYE_RETURN_VERSION = 1`); callers should assert `version` matches if they hard-code struct layouts.
 - `ViewBboReturn::best_bid_ticks()` / `best_ask_ticks()` return `Option<u64>` based on presence flags — a `None` means no resting orders on that side, not an error.
+
+## v0.1.11 - 2026-06-22
+
+Source Phoenix commit: `fd9d044ad0e76e6bcbef1333b1ebc8648f511b7a`
+
+### Summary
+
+- **Flight per-order fee override**: `ProxyInstructionParams::builder()` now accepts `.fee_bps_override(bps: u64)` (0–10 000). When set, `create_proxy_instruction_ix` emits the `proxy_instruction_with_fee_override` variant with a different discriminant and a Borsh `Option<u64>` prefix before the inner instruction data. `PhoenixFlightClient` gains a matching `try_wrap_order_instruction_with_fee_bps_override(ix, trader_wallet, fee_bps_override: Option<u64>)` method; the existing `try_wrap_order_instruction` is unchanged and delegates to it with `None`.
+- **WebSocket subscription event channel**: `WsSubscriptionEvent` is now a public export. Call `client.subscription_event_receiver()` (once) to receive `Status` and `Error` lifecycle events for every subscription acknowledgement or rejection. New `PhoenixWSClient::new_with_connection_status_and_auth` constructor combines authenticated and connection-status modes.
+- **Automatic auth reconnect on WS close**: The client now detects auth-related close codes (4401, 4403, 1008) and reason strings (`access_token_expired`, `invalid_access_token`, etc.), refreshes the session, reconnects, and resubmits active subscriptions transparently.
+- **`ExchangeMarketConfig` gains `stats_snapshot: Option<MarketStatsSnapshot>`**: The new field is `#[serde(default)]` so deserialization of existing payloads is unchanged, but Rust struct literal construction must now include `stats_snapshot: None`.
+- **New `JsSafeI64` type** added to `phoenix_rise::types::js_safe_ints` (mirrors `JsSafeU64` for signed values; serialises as a decimal string).
+
+### Breaking Changes
+
+- `AdminChallengeRequest` and `AdminLoginRequest` are removed from `phoenix_rise::types::auth`. Code referencing these types will fail to compile.
+- `CreateServiceAccountRequest.role` and `ServiceAccountDto.role` fields are removed. Struct construction and pattern matching on these types must be updated.
+- `ExchangeMarketConfig` requires a new `stats_snapshot` field for struct literal construction (e.g. in tests). Add `stats_snapshot: None` to any existing struct literals.
+
+### Consumer Notes
+
+- The `fee_bps_override` builder method validates the range at `build()` time and returns `PhoenixIxError::InvalidFeeBpsOverride` for values above 10 000. Pass `None` (or omit the call) to continue using the builder's registered fee.
+- `subscription_event_receiver()` takes ownership of the channel and can only be called once per client instance; subsequent calls return `None`.
+- `ServerMessage` now has a `SubscriptionStatus(SubscriptionStatusMessage)` variant — match arms with `ServerMessage::Other` that previously caught subscription-status frames will now route through the new variant instead.

@@ -59,12 +59,6 @@ pub struct WalletTransactionLoginRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct AdminChallengeRequest {
-    pub key_id: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct ServiceChallengeRequest {
     pub client_id: String,
     pub key_id: Option<String>,
@@ -77,15 +71,6 @@ pub struct ChallengeResponse {
     pub message: String,
     pub expires_at: String,
     pub key_id: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct AdminLoginRequest {
-    pub key_id: Option<String>,
-    pub nonce: String,
-    pub timestamp: String,
-    pub signature: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

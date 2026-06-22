@@ -955,6 +955,7 @@ fn phoenix_metadata_from_fixture(fixture: &SdkLocalnetFixture) -> PhoenixMetadat
                     open_interest_cap_base_lots: 0_u64.into(),
                     max_liquidation_size_base_lots: 0_u64.into(),
                     isolated_only: false,
+                    stats_snapshot: None,
                 },
             )
         })

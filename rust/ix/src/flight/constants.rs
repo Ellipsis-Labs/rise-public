@@ -17,6 +17,10 @@ pub fn flight_proxy_instruction_discriminant() -> [u8; 8] {
     compute_discriminant("global:proxy_instruction")
 }
 
+pub fn flight_proxy_instruction_with_fee_override_discriminant() -> [u8; 8] {
+    compute_discriminant("global:proxy_instruction_with_fee_override")
+}
+
 /// Derives the global state PDA for the Flight program.
 ///
 /// Seeds: [PHOENIX_PROGRAM_ID, "global_state"] against Flight program

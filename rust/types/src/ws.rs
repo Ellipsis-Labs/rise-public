@@ -140,6 +140,8 @@ pub enum ServerMessage {
     Candles(CandleData),
     #[serde(rename = "error")]
     Error(ErrorMessage),
+    #[serde(rename = "subscriptionStatus")]
+    SubscriptionStatus(SubscriptionStatusMessage),
     /// Other message types exist but are not used by this SDK.
     #[serde(other)]
     Other,
@@ -151,6 +153,15 @@ pub enum ServerMessage {
 #[serde(tag = "type", rename = "subscriptionConfirmed")]
 pub struct SubscriptionConfirmedMessage {
     pub subscription: SubscriptionRequest,
+}
+
+/// Subscription status message from server.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubscriptionStatusMessage {
+    pub status: String,
+    pub subscription: SubscriptionRequest,
+    pub client_id: String,
 }
 
 /// Subscription error message from server.
@@ -204,6 +215,34 @@ mod tests {
         let json = serde_json::to_string(&msg).unwrap();
         assert!(json.contains("subscribe"));
         assert!(json.contains("traderState"));
+    }
+
+    #[test]
+    fn test_deserialize_subscription_status_message() {
+        let json = r#"{
+            "channel": "subscriptionStatus",
+            "status": "subscribed",
+            "clientId": "client-1",
+            "subscription": {
+                "channel": "traderState",
+                "authority": "ABC123",
+                "traderPdaIndex": 0
+            }
+        }"#;
+
+        let msg: ServerMessage = serde_json::from_str(json).unwrap();
+        let ServerMessage::SubscriptionStatus(status) = msg else {
+            panic!("Expected subscriptionStatus message");
+        };
+        assert_eq!(status.status, "subscribed");
+        assert_eq!(status.client_id, "client-1");
+        assert!(matches!(
+            status.subscription,
+            SubscriptionRequest::TraderState(TraderStateSubscriptionRequest {
+                trader_pda_index: 0,
+                ..
+            })
+        ));
     }
 
     #[test]

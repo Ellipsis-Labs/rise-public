@@ -949,7 +949,9 @@ impl PhoenixClient {
                     subscribers_by_key,
                 ));
             }
-            ServerMessage::Error(_) | ServerMessage::Other => {}
+            ServerMessage::Error(_)
+            | ServerMessage::SubscriptionStatus(_)
+            | ServerMessage::Other => {}
         }
 
         stale
