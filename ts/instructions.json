@@ -1,7 +1,9 @@
 {
+  "CancelAll": "62bf4bdc732847ed",
   "CancelConditionalOrder": "52681933f83642b8010100",
   "CancelOrdersById": "eacc7e5ede168d180100000000000000e8030000000000000000000000000000",
   "CancelStopLoss": "78c90a660c096f7e00",
+  "CancelUpTo": "1ad1f4fd3bafe3360101020000000000000001e803000000000000",
   "CreateConditionalOrdersAccount": "c906703de70f39f820",
   "DepositFunds": "ca2734d33514fa580100000000000000",
   "EmberDeposit": "f223c68952e1f2b60100000000000000",
@@ -26,6 +28,7 @@
   "SyncParentToChild": "af89d90beb279613",
   "TransferCollateral": "9da33f1bf248fb610100000000000000",
   "TransferCollateralChildToParent": "3364b1738b87f78b",
+  "UncrossCrank": "c4795efd8b2afc930500000000000000",
   "UpdateFee": "e8fdc3f794d449de0100000000000000",
   "WithdrawFunds": "f1241d6fd01f68d90100000000000000"
 }

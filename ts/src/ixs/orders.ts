@@ -8,6 +8,14 @@ import {
   type CancelOrdersByIdIx,
 } from "@/core/ixBuilders/CancelOrdersById";
 import {
+  buildCancelUpToIx,
+  type CancelUpToIx,
+} from "@/core/ixBuilders/CancelUpTo";
+import {
+  buildUncrossCrankIx,
+  type UncrossCrankIx,
+} from "@/core/ixBuilders/UncrossCrank";
+import {
   buildPlaceLimitOrderIx,
   type PlaceLimitOrderIx,
 } from "@/core/ixBuilders/PlaceLimitOrder";
@@ -30,6 +38,8 @@ import {
 import type {
   BuildCancelAllIxResolvedInput,
   BuildCancelOrdersByIdIxResolvedInput,
+  BuildCancelUpToIxResolvedInput,
+  BuildUncrossCrankIxResolvedInput,
   BuildPlaceLimitOrderIxResolvedInput,
   BuildPlaceMarketOrderDelegatedIxResolvedInput,
   BuildPlaceMarketOrderIxResolvedInput,
@@ -154,6 +164,49 @@ export const buildCancelOrdersByIdIxResolved = (
     orderbook: params.market.marketAddress,
     splineCollection: params.market.splineCollection,
     orderIds: params.orderIds,
+  });
+
+export const buildCancelUpToIxResolved = (
+  params: BuildCancelUpToIxResolvedInput
+): CancelUpToIx =>
+  buildCancelUpToIx({
+    ...phoenixInstructionAddresses({
+      phoenixProgramAddress: params.exchange.phoenixProgramAddress,
+      logAuthorityAddress: params.exchange.logAuthorityAddress,
+      globalConfigurationAddress: params.exchange.globalConfigurationAddress,
+    }),
+    trader: params.trader.positionAuthority ?? params.trader.authority,
+    traderAccount: params.trader.traderAccount,
+    perpAssetMap: params.exchange.perpAssetMap,
+    globalTraderIndex: params.exchange.globalTraderIndex,
+    activeTraderBuffer: params.exchange.activeTraderBuffer,
+    orderbook: params.market.marketAddress,
+    splineCollection: params.market.splineCollection,
+    side: params.side,
+    numOrdersToCancel:
+      params.numOrdersToCancel === undefined ||
+      params.numOrdersToCancel === null
+        ? null
+        : BigInt(params.numOrdersToCancel),
+    tickLimit: params.tickLimit ?? null,
+  });
+
+export const buildUncrossCrankIxResolved = (
+  params: BuildUncrossCrankIxResolvedInput
+): UncrossCrankIx =>
+  buildUncrossCrankIx({
+    ...phoenixInstructionAddresses({
+      phoenixProgramAddress: params.exchange.phoenixProgramAddress,
+      logAuthorityAddress: params.exchange.logAuthorityAddress,
+      globalConfigurationAddress: params.exchange.globalConfigurationAddress,
+    }),
+    perpAssetMap: params.exchange.perpAssetMap,
+    globalTraderIndex: params.exchange.globalTraderIndex,
+    activeTraderBuffer: params.exchange.activeTraderBuffer,
+    orderbook: params.market.marketAddress,
+    splineCollection: params.market.splineCollection,
+    matchLimit:
+      params.matchLimit === undefined ? 100n : BigInt(params.matchLimit),
   });
 
 export const buildPlaceStopLossIxResolved = (

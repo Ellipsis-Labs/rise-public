@@ -33,6 +33,8 @@ type IxMethodName = Exclude<keyof PhoenixIxClient, "orderPackets">;
 const IX_METHOD_NAMES = [
   "buildCancelAll",
   "buildCancelOrdersById",
+  "buildCancelUpTo",
+  "buildUncrossCrank",
   "buildCancelStopLoss",
   "buildCreateConditionalOrdersAccount",
   "buildCreateEscrowRequest",
@@ -89,6 +91,10 @@ const summarizeIxParams = (params: unknown): Record<string, unknown> => {
     "subaccountIndex",
     "amount",
     "feePayer",
+    "side",
+    "numOrdersToCancel",
+    "tickLimit",
+    "matchLimit",
   ]) {
     if (key in input) {
       summary[key] = input[key];

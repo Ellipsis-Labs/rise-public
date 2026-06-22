@@ -26,7 +26,7 @@ export const buildCancelUpToIx = (params: CancelUpToParams): CancelUpToIx => {
   const accounts: CancelUpToAccounts = [
     generateReadonlyAccount(programAddress),
     generateReadonlyAccount(logAuthorityAddress),
-    generateReadonlyAccount(globalConfigurationAddress),
+    generateWritableAccount(globalConfigurationAddress),
     generateReadonlySignerAccount(params.trader),
     generateWritableAccount(params.traderAccount),
     generateWritableAccount(params.perpAssetMap),

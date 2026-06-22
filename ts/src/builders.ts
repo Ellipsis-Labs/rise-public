@@ -48,6 +48,7 @@ import type { Address, Signature } from "@solana/kit";
 import { type CancelAllIx } from "./core/ixBuilders/CancelAll";
 import { type CancelOrdersByIdIx } from "./core/ixBuilders/CancelOrdersById";
 import { type CancelStopLossIx } from "./core/ixBuilders/CancelStopLoss";
+import { type CancelUpToIx } from "./core/ixBuilders/CancelUpTo";
 import {
   buildCancelConditionalOrderIx,
   type CancelConditionalOrderIx,
@@ -77,6 +78,7 @@ import type { OnboardTraderDelegatedIx } from "./core/ixBuilders/OnboardTraderDe
 import { type SyncParentToChildIx } from "./core/ixBuilders/SyncParentToChild";
 import { type TransferCollateralChildToParentIx } from "./core/ixBuilders/TransferCollateralChildToParent";
 import { type TransferCollateralIx } from "./core/ixBuilders/TransferCollateral";
+import { type UncrossCrankIx } from "./core/ixBuilders/UncrossCrank";
 import { type WithdrawFundsIx } from "./core/ixBuilders/WithdrawFunds";
 import {
   buildDelegateTraderIxResolved,
@@ -349,12 +351,18 @@ export const cancelAllOrders = async (
   },
   options: {
     traderPdaIndex?: number;
+    traderSubaccountIndex?: number;
     commitment?: Commitment;
   } = {}
 ): Promise<Signature> =>
   sendBuiltInstruction(
     client,
-    buildCancelAll(params, client, options.traderPdaIndex ?? 0),
+    buildCancelAll(
+      params,
+      client,
+      options.traderPdaIndex ?? 0,
+      options.traderSubaccountIndex ?? 0
+    ),
     options
   );
 
@@ -405,6 +413,73 @@ export const cancelOrdersById = async (
     ),
     options
   );
+
+export const buildCancelUpTo = async (
+  params: {
+    authority: Authority;
+    positionAuthority?: Authority;
+    symbol: Symbol;
+    side: Side;
+    numOrdersToCancel?: bigint | number | null;
+    tickLimit?: bigint | null;
+  },
+  client: PhoenixInstructionClient,
+  traderPdaIndex = 0,
+  traderSubaccountIndex = 0
+): Promise<CancelUpToIx> =>
+  createLegacyPhoenixIxOperations(client).buildCancelUpTo({
+    ...params,
+    traderPdaIndex,
+    traderSubaccountIndex,
+  });
+
+export const cancelUpToOrders = async (
+  client: PhoenixInstructionClient & PhoenixTransactionClient,
+  params: {
+    authority: Authority;
+    positionAuthority?: Authority;
+    symbol: Symbol;
+    side: Side;
+    numOrdersToCancel?: bigint | number | null;
+    tickLimit?: bigint | null;
+  },
+  options: {
+    traderPdaIndex?: number;
+    traderSubaccountIndex?: number;
+    commitment?: Commitment;
+  } = {}
+): Promise<Signature> =>
+  sendBuiltInstruction(
+    client,
+    buildCancelUpTo(
+      params,
+      client,
+      options.traderPdaIndex ?? 0,
+      options.traderSubaccountIndex ?? 0
+    ),
+    options
+  );
+
+export const buildUncrossCrank = async (
+  params: {
+    symbol: Symbol;
+    matchLimit?: bigint | number;
+  },
+  client: PhoenixInstructionClient
+): Promise<UncrossCrankIx> =>
+  createLegacyPhoenixIxOperations(client).buildUncrossCrank(params);
+
+export const uncrossCrank = async (
+  client: PhoenixInstructionClient & PhoenixTransactionClient,
+  params: {
+    symbol: Symbol;
+    matchLimit?: bigint | number;
+  },
+  options: {
+    commitment?: Commitment;
+  } = {}
+): Promise<Signature> =>
+  sendBuiltInstruction(client, buildUncrossCrank(params, client), options);
 
 export const buildCancelStopLoss = async (
   params: {

@@ -7,8 +7,11 @@ import {
   buildPlaceMarketOrderDelegatedIx,
   buildPlaceMarketOrderIx,
   buildPlaceMultiLimitOrderIx,
+  buildCancelAllIx,
   buildCancelOrdersByIdIx,
   buildCancelStopLossIx,
+  buildCancelUpToIx,
+  buildUncrossCrankIx,
   buildPlaceStopLossIx,
   buildCancelConditionalOrderIx,
   buildCreateConditionalOrdersAccountIx,
@@ -175,7 +178,54 @@ try {
     results["CancelOrdersById"] = hexEncode(ix.data);
   }
 
-  // 5. CancelStopLoss
+  // 5. CancelAll
+  {
+    console.error("Building CancelAll...");
+    const ix = buildCancelAllIx({
+      traderWallet: p(0),
+      traderAccount: p(1),
+      perpAssetMap: p(2),
+      globalTraderIndex: vec2(5, 6),
+      activeTraderBuffer: vec2(7, 8),
+      orderbook: p(3),
+      splineCollection: p(4),
+    });
+    results["CancelAll"] = hexEncode(ix.data);
+  }
+
+  // 6. CancelUpTo
+  {
+    console.error("Building CancelUpTo...");
+    const ix = buildCancelUpToIx({
+      trader: p(0),
+      traderAccount: p(1),
+      perpAssetMap: p(2),
+      globalTraderIndex: vec2(5, 6),
+      activeTraderBuffer: vec2(7, 8),
+      orderbook: p(3),
+      splineCollection: p(4),
+      side: Side.Ask,
+      numOrdersToCancel: 2n,
+      tickLimit: ticks(1000n),
+    });
+    results["CancelUpTo"] = hexEncode(ix.data);
+  }
+
+  // 7. CancelStopLoss
+  {
+    console.error("Building UncrossCrank...");
+    const ix = buildUncrossCrankIx({
+      perpAssetMap: p(2),
+      globalTraderIndex: vec2(5, 6),
+      activeTraderBuffer: vec2(7, 8),
+      orderbook: p(3),
+      splineCollection: p(4),
+      matchLimit: 5n,
+    });
+    results["UncrossCrank"] = hexEncode(ix.data);
+  }
+
+  // 7. CancelStopLoss
   {
     console.error("Building CancelStopLoss...");
     const ix = buildCancelStopLossIx({

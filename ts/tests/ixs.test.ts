@@ -8,6 +8,8 @@ import {
   buildCancelAllIxResolved,
   buildCancelOrdersByIdIxResolved,
   buildCancelStopLossIxResolved,
+  buildCancelUpToIxResolved,
+  buildUncrossCrankIxResolved,
   buildCreateEscrowRequestIxResolved,
   buildDelegateTraderIxResolved,
   buildDepositFundsIxResolved,
@@ -341,6 +343,44 @@ describe("resolved ix builders", () => {
 
     expect(ix.programAddress).toBe("phoenix-program");
     expect(ix.accounts[4]?.address).toBe("trader-account");
+    expect(ix.accounts.at(-2)?.address).toBe("market-address");
+    expect(ix.accounts.at(-1)?.address).toBe("spline-address");
+  });
+
+  it("builds a resolved cancel-up-to ix synchronously", () => {
+    const ix = buildCancelUpToIxResolved({
+      ...resolvedOrderContext,
+      side: Side.Ask,
+      numOrdersToCancel: 2,
+      tickLimit: ticks(100n),
+    });
+
+    expect(ix.programAddress).toBe("phoenix-program");
+    expect(Array.from(ix.data.slice(0, 8))).toEqual(
+      Array.from(DISCRIMINANTS.CANCEL_UP_TO)
+    );
+    expect(ix.accounts[2]?.address).toBe("global-config");
+    expect(ix.accounts[2]?.role).toBe(AccountRole.WRITABLE);
+    expect(ix.accounts[3]?.address).toBe("position-authority");
+    expect(ix.accounts[4]?.address).toBe("trader-account");
+    expect(ix.accounts.at(-2)?.address).toBe("market-address");
+    expect(ix.accounts.at(-1)?.address).toBe("spline-address");
+  });
+
+  it("builds a resolved uncross-crank ix synchronously", () => {
+    const ix = buildUncrossCrankIxResolved({
+      exchange: resolvedOrderContext.exchange,
+      market: resolvedOrderContext.market,
+      matchLimit: 5n,
+    });
+
+    expect(ix.programAddress).toBe("phoenix-program");
+    expect(Array.from(ix.data.slice(0, 8))).toEqual(
+      Array.from(DISCRIMINANTS.UNCROSS_CRANK)
+    );
+    expect(ix.accounts[3]?.address).toBe("perp-asset-map");
+    expect(ix.accounts[4]?.address).toBe("gti-0");
+    expect(ix.accounts[5]?.address).toBe("atb-0");
     expect(ix.accounts.at(-2)?.address).toBe("market-address");
     expect(ix.accounts.at(-1)?.address).toBe("spline-address");
   });
