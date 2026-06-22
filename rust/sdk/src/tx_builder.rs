@@ -16,19 +16,19 @@ use crate::order_tickets::{
     DEFAULT_BRACKET_LEG_SLIPPAGE_BPS, LimitOrderTicket, MarketOrderTicket, OrderTicketMetadata,
 };
 use crate::phoenix_rise_ix::{
-    CancelId, CancelOrdersByIdParams, CancelStopLossParams, CondensedOrder,
-    CreateConditionalOrdersAccountParams, DepositFundsParams, Direction, EmberDepositParams,
-    EmberWithdrawParams, HawkeyeBboViewAccounts, HawkeyeTraderViewAccounts, IsolatedCollateralFlow,
-    IsolatedLimitOrderParams, IsolatedMarketOrderParams, LimitOrderParams,
+    CancelAllParams, CancelId, CancelOrdersByIdParams, CancelStopLossParams, CancelUpToParams,
+    CondensedOrder, CreateConditionalOrdersAccountParams, DepositFundsParams, Direction,
+    EmberDepositParams, EmberWithdrawParams, HawkeyeBboViewAccounts, HawkeyeTraderViewAccounts,
+    IsolatedCollateralFlow, IsolatedLimitOrderParams, IsolatedMarketOrderParams, LimitOrderParams,
     MarketOrderDelegatedParams, MarketOrderParams, MultiLimitOrderParams, OrderPacket,
     PHOENIX_PROGRAM_ID, PlaceLimitOrderWithConditionalsParams, PlacePositionConditionalOrderParams,
     PlaceStopLossParams, RegisterTraderParams, Side, SplApproveParams, StopLossOrderKind,
     SyncParentToChildParams, TransferCollateralChildToParentParams, TransferCollateralParams,
-    TriggerOrderParams, USDC_MINT, WithdrawFundsParams, client_order_id_to_bytes,
-    create_associated_token_account_idempotent_ix, create_cancel_orders_by_id_ix,
-    create_cancel_stop_loss_ix, create_create_conditional_orders_account_ix,
-    create_deposit_funds_ix, create_ember_deposit_ix, create_ember_withdraw_ix,
-    create_hawkeye_view_bbo_ix, create_hawkeye_view_funding_ix,
+    TriggerOrderParams, USDC_MINT, UncrossCrankParams, WithdrawFundsParams,
+    client_order_id_to_bytes, create_associated_token_account_idempotent_ix, create_cancel_all_ix,
+    create_cancel_orders_by_id_ix, create_cancel_stop_loss_ix, create_cancel_up_to_ix,
+    create_create_conditional_orders_account_ix, create_deposit_funds_ix, create_ember_deposit_ix,
+    create_ember_withdraw_ix, create_hawkeye_view_bbo_ix, create_hawkeye_view_funding_ix,
     create_hawkeye_view_liquidation_price_ix, create_hawkeye_view_margin_for_asset_ix,
     create_hawkeye_view_margin_ix, create_place_limit_order_ix,
     create_place_limit_order_with_conditionals_ix, create_place_market_order_delegated_ix,
@@ -36,8 +36,8 @@ use crate::phoenix_rise_ix::{
     create_place_position_conditional_order_ix, create_place_stop_loss_ix,
     create_register_trader_ix, create_spl_approve_ix, create_sync_parent_to_child_ix,
     create_transfer_collateral_child_to_parent_ix, create_transfer_collateral_ix,
-    create_withdraw_funds_ix, get_associated_token_address, get_conditional_orders_address,
-    get_ember_state_address, get_stop_loss_address,
+    create_uncross_crank_ix, create_withdraw_funds_ix, get_associated_token_address,
+    get_conditional_orders_address, get_ember_state_address, get_stop_loss_address,
 };
 use crate::phoenix_rise_math::{MathError, WrapperNum};
 use crate::phoenix_rise_types::accounts::StopLosses;
@@ -492,6 +492,138 @@ impl<'a> PhoenixTxBuilder<'a> {
             .build()?;
 
         let ix = create_cancel_orders_by_id_ix(params)?;
+        Ok(vec![ix.into()])
+    }
+
+    /// Build a cancel-all instruction for a market.
+    ///
+    /// # Arguments
+    ///
+    /// * `authority` - The trader's wallet address (signer)
+    /// * `trader_pda` - The trader's PDA account
+    /// * `symbol` - Market symbol
+    ///
+    /// # Returns
+    ///
+    /// A vector containing the cancel-all instruction.
+    pub fn build_cancel_all_orders(
+        &self,
+        authority: Pubkey,
+        trader_pda: Pubkey,
+        symbol: &str,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        let market = self
+            .metadata
+            .get_market(symbol)
+            .ok_or_else(|| PhoenixTxBuilderError::UnknownSymbol(symbol.to_string()))?;
+
+        let addrs = self.parse_addresses(market)?;
+
+        let params = CancelAllParams::builder()
+            .trader(authority)
+            .trader_account(trader_pda)
+            .perp_asset_map(addrs.perp_asset_map)
+            .orderbook(addrs.orderbook)
+            .spline_collection(addrs.spline_collection)
+            .global_trader_index(addrs.global_trader_index)
+            .active_trader_buffer(addrs.active_trader_buffer)
+            .build()?;
+
+        let ix = create_cancel_all_ix(params)?;
+        Ok(vec![ix.into()])
+    }
+
+    /// Build a cancel-up-to instruction for a market.
+    ///
+    /// `num_orders_to_cancel` and `tick_limit` are optional on-chain limits.
+    /// Pass `None` for either field to leave that side of the cancellation open
+    /// ended.
+    ///
+    /// # Arguments
+    ///
+    /// * `authority` - The trader's wallet address (signer)
+    /// * `trader_pda` - The trader's PDA account
+    /// * `symbol` - Market symbol
+    /// * `side` - Book side to cancel from
+    /// * `num_orders_to_cancel` - Optional maximum number of orders to cancel
+    /// * `tick_limit` - Optional price tick boundary
+    ///
+    /// # Returns
+    ///
+    /// A vector containing the cancel-up-to instruction.
+    pub fn build_cancel_up_to(
+        &self,
+        authority: Pubkey,
+        trader_pda: Pubkey,
+        symbol: &str,
+        side: Side,
+        num_orders_to_cancel: Option<u64>,
+        tick_limit: Option<u64>,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        let market = self
+            .metadata
+            .get_market(symbol)
+            .ok_or_else(|| PhoenixTxBuilderError::UnknownSymbol(symbol.to_string()))?;
+
+        let addrs = self.parse_addresses(market)?;
+
+        let mut builder = CancelUpToParams::builder()
+            .trader(authority)
+            .trader_account(trader_pda)
+            .perp_asset_map(addrs.perp_asset_map)
+            .orderbook(addrs.orderbook)
+            .spline_collection(addrs.spline_collection)
+            .global_trader_index(addrs.global_trader_index)
+            .active_trader_buffer(addrs.active_trader_buffer)
+            .side(side);
+        if let Some(num_orders_to_cancel) = num_orders_to_cancel {
+            builder = builder.num_orders_to_cancel(num_orders_to_cancel);
+        }
+        if let Some(tick_limit) = tick_limit {
+            builder = builder.tick_limit(tick_limit);
+        }
+
+        let ix = create_cancel_up_to_ix(builder.build()?)?;
+        Ok(vec![ix.into()])
+    }
+
+    /// Build an uncross-crank instruction for a market.
+    ///
+    /// This is a permissionless maintenance instruction and does not require a
+    /// trader signer. Pass `None` for `match_limit` to use the program SDK
+    /// default.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbol` - Market symbol
+    /// * `match_limit` - Optional maximum number of matches to process
+    ///
+    /// # Returns
+    ///
+    /// A vector containing the uncross-crank instruction.
+    pub fn build_uncross_crank(
+        &self,
+        symbol: &str,
+        match_limit: Option<u64>,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        let market = self
+            .metadata
+            .get_market(symbol)
+            .ok_or_else(|| PhoenixTxBuilderError::UnknownSymbol(symbol.to_string()))?;
+
+        let addrs = self.parse_addresses(market)?;
+
+        let mut builder = UncrossCrankParams::builder()
+            .perp_asset_map(addrs.perp_asset_map)
+            .orderbook(addrs.orderbook)
+            .spline_collection(addrs.spline_collection)
+            .global_trader_index(addrs.global_trader_index)
+            .active_trader_buffer(addrs.active_trader_buffer);
+        if let Some(match_limit) = match_limit {
+            builder = builder.match_limit(match_limit);
+        }
+
+        let ix = create_uncross_crank_ix(builder.build()?)?;
         Ok(vec![ix.into()])
     }
 

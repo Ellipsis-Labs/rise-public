@@ -171,3 +171,26 @@ Source Phoenix commit: `fd9d044ad0e76e6bcbef1333b1ebc8648f511b7a`
 - The `fee_bps_override` builder method validates the range at `build()` time and returns `PhoenixIxError::InvalidFeeBpsOverride` for values above 10 000. Pass `None` (or omit the call) to continue using the builder's registered fee.
 - `subscription_event_receiver()` takes ownership of the channel and can only be called once per client instance; subsequent calls return `None`.
 - `ServerMessage` now has a `SubscriptionStatus(SubscriptionStatusMessage)` variant — match arms with `ServerMessage::Other` that previously caught subscription-status frames will now route through the new variant instead.
+
+## v0.1.12 - 2026-06-22
+
+Source Phoenix commit: `a419e23d7d1b2a3e37696d76e85fac7f0a023f5e`
+
+### Summary
+
+- Three new cancellation/maintenance helpers added to `PhoenixTxBuilder`: `build_cancel_all_orders`, `build_cancel_up_to`, and `build_uncross_crank` (the crank is permissionless — no trader signer required).
+- Matching low-level params types and instruction constructors exported from `phoenix_rise_ix`: `CancelAllParams`/`create_cancel_all_ix`, `CancelUpToParams`/`create_cancel_up_to_ix`, `UncrossCrankParams`/`create_uncross_crank_ix`.
+- New granular Cargo features: `sdk`, `types`, and `test-fixture`. The default feature set changed from `[]` to `["sdk"]`.
+- New `test-fixture` feature exposes `phoenix_rise::test_fixture` with `LiteSVM`-backed `SdkLocalnetContext`, fixture deserialization types, and a bundled `default-localnet.json` for in-process localnet tests.
+- `ix` program constants (`PHOENIX_PROGRAM_ID`, `PHOENIX_LOG_AUTHORITY`, `PHOENIX_GLOBAL_CONFIGURATION`) now compile under `target_os = "solana"`, making the `ix` sub-crate usable in on-chain programs.
+
+### Breaking Changes
+
+- **Default features changed from `[]` to `["sdk"]`**: consumers who previously added `phoenix-rise` without `default-features = false` had near-zero transitive deps; they now pull in the full SDK set (`reqwest`, `tokio`, `parking_lot`, etc.). Add `default-features = false` to restore a minimal build.
+- **`solana-keypair` and `ed25519-dalek` re-exports now also require `sdk`**: `PhoenixWalletSessionManager`, `PhoenixSolanaKeypairAuthSigner`, `default_solana_keypair_path`, and `PhoenixEd25519ServiceAuthSigner` are gated on `all(feature = "sdk", feature = "solana-keypair/ed25519-dalek")`. Consumers using `default-features = false` with only those features enabled will see missing-item compile errors; add `features = ["sdk"]` to restore the exports.
+
+### Consumer Notes
+
+- `rust_decimal = []` was previously an empty stub; it now activates `dep:rust_decimal`. The feature was always advertised but did nothing; it now pulls in the crate.
+- `utoipa` and `opentelemetry` features now implicitly enable `types`/`sdk` respectively, so enabling them without `default-features = false` is safe but may add transitive deps if you were relying on those features being lighter.
+- The `test-fixture` feature is intended for test harnesses only; it adds `litesvm 0.7` and `solana-commitment-config` as optional deps and is not covered by the `sdk` default.

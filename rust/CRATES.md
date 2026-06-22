@@ -9,7 +9,7 @@
 
 ```toml
 [dependencies]
-phoenix-rise = "0.1.10"
+phoenix-rise = "0.1.12"
 ```
 
 Optional features:

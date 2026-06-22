@@ -48,9 +48,13 @@ mod spl_approve;
 mod sync_parent_to_child;
 mod transfer_collateral;
 mod types;
+mod uncross_crank;
 mod withdraw_funds;
 
-pub use cancel_orders::{CancelOrdersByIdParams, create_cancel_orders_by_id_ix};
+pub use cancel_orders::{
+    CancelAllParams, CancelOrdersByIdParams, CancelUpToParams, create_cancel_all_ix,
+    create_cancel_orders_by_id_ix, create_cancel_up_to_ix,
+};
 pub use cancel_stop_loss::{CancelStopLossParams, create_cancel_stop_loss_ix};
 pub use conditional_order::{
     CancelConditionalOrderParams, CreateConditionalOrdersAccountParams,
@@ -92,4 +96,5 @@ pub use transfer_collateral::{
     create_transfer_collateral_child_to_parent_ix, create_transfer_collateral_ix,
 };
 pub use types::*;
+pub use uncross_crank::{UncrossCrankParams, create_uncross_crank_ix};
 pub use withdraw_funds::{WithdrawFundsParams, create_withdraw_funds_ix};
