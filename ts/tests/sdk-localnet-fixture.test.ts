@@ -1,6 +1,8 @@
 import { Buffer } from "node:buffer";
 import { AccountRole } from "@solana/kit";
 import { describe, expect, test } from "vitest";
+import canonicalDefaultFixtureJson from "../../test-fixtures/default-localnet.json";
+import packagedDefaultFixtureJson from "../test-fixtures/default-localnet.json";
 import {
   DEFAULT_SDK_LOCALNET_KEYPAIR_BASE_SEED,
   createSdkLocalnetMockActions,
@@ -11,6 +13,10 @@ import {
 import { defaultSdkLocalnetFixture } from "./test-harness/default-fixture";
 
 describe("SDK localnet fixture", () => {
+  test("packaged fixture copy matches canonical fixture", () => {
+    expect(packagedDefaultFixtureJson).toEqual(canonicalDefaultFixtureJson);
+  });
+
   test("loads shared deterministic exchange setup", () => {
     expect(defaultSdkLocalnetFixture.schemaVersion).toBe(1);
     expect(defaultSdkLocalnetFixture.name).toBe("rise-sdk-default-localnet");
