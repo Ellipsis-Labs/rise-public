@@ -357,3 +357,22 @@ Source Phoenix commit: `5b7f20375f7eee51e309f9c4bc994609f5be2d1e`
 
 - If your application subscribes to auth-required channels (`events`, `notifications`, `trader`, `traderVolume`, `transaction`) before calling `sessionManager.importSnapshot(...)`, those subscribe messages will be buffered and sent once the authenticated connection is established. No code changes are required, but you should be aware that these subscriptions are not active until authentication completes.
 - Public channel subscriptions registered before an external session is available will now be active on the anonymous socket immediately, so data for those channels will begin arriving sooner than before.
+
+## v0.4.46 - 2026-06-22
+
+Source Phoenix commit: `fd9d044ad0e76e6bcbef1333b1ebc8648f511b7a`
+
+### Summary
+
+- Added `MarketStatsSnapshot` interface and `MarketStatsSnapshotSchema` as new public exports from `@ellipsis-labs/rise`.
+- `ExchangeMarketConfig` now includes an optional `statsSnapshot?: MarketStatsSnapshot` field containing slot, open interest, funding interval timestamp, and cumulative funding rate.
+- Numeric fields (`openInterestBaseLots`, `fundingStartIntervalTimestamp`, `cumulativeFundingRate`) are coerced to strings at parse time, so the API may return either strings or numbers and the SDK normalizes them.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- Access per-market stats via `market.statsSnapshot` when calling `getMarkets()`. The field is optional and will be `undefined` if the server does not include it.
+- `MarketStatsSnapshot` and `MarketStatsSnapshotSchema` are now available as named exports for consumers who want to validate or type this shape independently.

@@ -47,6 +47,8 @@ export {
   MarketCalendarSchema,
   type MarketPublicMetadata,
   MarketPublicMetadataSchema,
+  type MarketStatsSnapshot,
+  MarketStatsSnapshotSchema,
   type ExchangeSnapshotView,
   ExchangeSnapshotViewSchema,
   type ExchangeStateSnapshot,

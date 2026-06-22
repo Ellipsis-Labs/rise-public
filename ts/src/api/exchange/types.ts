@@ -173,6 +173,25 @@ export const MarketPublicMetadataSchema: z.ZodType<MarketPublicMetadata> =
     displayColor: z.string().nullable().optional(),
   });
 
+export interface MarketStatsSnapshot {
+  slot: number;
+  slotIndex: number;
+  openInterestBaseLots: string;
+  fundingStartIntervalTimestamp: string;
+  cumulativeFundingRate: string;
+}
+
+export const MarketStatsSnapshotSchema: z.ZodType<MarketStatsSnapshot> =
+  z.object({
+    slot: z.number(),
+    slotIndex: z.number(),
+    openInterestBaseLots: z.union([z.string(), z.number()]).transform(String),
+    fundingStartIntervalTimestamp: z
+      .union([z.string(), z.number()])
+      .transform(String),
+    cumulativeFundingRate: z.union([z.string(), z.number()]).transform(String),
+  });
+
 export interface ExchangeMarketConfig {
   symbol: string;
   assetId: number;
@@ -195,6 +214,7 @@ export interface ExchangeMarketConfig {
   openInterestCapBaseLots: string;
   maxLiquidationSizeBaseLots: string;
   isolatedOnly: boolean;
+  statsSnapshot?: MarketStatsSnapshot;
 }
 
 export const ExchangeMarketConfigSchema: z.ZodType<ExchangeMarketConfig> =
@@ -227,6 +247,7 @@ export const ExchangeMarketConfigSchema: z.ZodType<ExchangeMarketConfig> =
       .union([z.string(), z.number()])
       .transform(String),
     isolatedOnly: z.boolean(),
+    statsSnapshot: MarketStatsSnapshotSchema.optional(),
   });
 
 export interface ExchangeViewMarketPriceBand {
