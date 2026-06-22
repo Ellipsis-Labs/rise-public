@@ -219,6 +219,45 @@ const createTransport = (
 });
 
 describe("public client route mapping", () => {
+  it("parses optional exchange market stats snapshots", async () => {
+    const records: RequestRecord[] = [];
+    const responses = new Map<string, unknown>([
+      [
+        "/v1/view/exchange/markets",
+        [
+          {
+            ...EXCHANGE_MARKET_RESPONSE,
+            statsSnapshot: {
+              slot: 123,
+              slotIndex: 4,
+              openInterestBaseLots: 12345,
+              fundingStartIntervalTimestamp: "1700000000",
+              cumulativeFundingRate: "-42",
+            },
+          },
+        ],
+      ],
+    ]);
+    const transport = createTransport(responses, records);
+    const exchange = new V1ExchangeClient(transport);
+
+    const [market] = await exchange.getMarkets();
+
+    expect(market?.statsSnapshot).toEqual({
+      slot: 123,
+      slotIndex: 4,
+      openInterestBaseLots: "12345",
+      fundingStartIntervalTimestamp: "1700000000",
+      cumulativeFundingRate: "-42",
+    });
+
+    responses.set("/v1/view/exchange/markets", [EXCHANGE_MARKET_RESPONSE]);
+    const markets = new V1MarketsClient(transport);
+    const [legacyMarket] = await markets.getMarkets();
+
+    expect(legacyMarket?.statsSnapshot).toBeUndefined();
+  });
+
   it("uses the public exchange and market routes", async () => {
     const records: RequestRecord[] = [];
     const transport = createTransport(
