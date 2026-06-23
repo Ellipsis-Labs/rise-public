@@ -1,5 +1,5 @@
 /**
- * Minimal ix-building example mirroring rise/rust/sdk/examples/send_limit_order.rs.
+ * Minimal ix-building example mirroring rise/rust/examples/send_limit_order.rs.
  *
  * Run with:
  *   bun examples/03-build-limit-order-ix.ts [AUTHORITY_PUBKEY] [SYMBOL]

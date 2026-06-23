@@ -1,5 +1,5 @@
 /**
- * Minimal HTTP client example mirroring rise/rust/sdk/examples/http_client.rs.
+ * Minimal HTTP client example mirroring rise/rust/examples/http_client.rs.
  *
  * Run with:
  *   bun examples/01-http-client.ts [TRADER_PUBKEY]
