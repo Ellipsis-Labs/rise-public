@@ -990,23 +990,27 @@ mod tests {
             .map(|key| ((*key).to_string(), env::var_os(key)))
             .collect::<Vec<_>>();
 
-        for key in tracked_keys {
-            env::remove_var(key);
-        }
+        unsafe {
+            for key in tracked_keys {
+                env::remove_var(key);
+            }
 
-        for (key, value) in values {
-            match value {
-                Some(value) => env::set_var(key, value),
-                None => env::remove_var(key),
+            for (key, value) in values {
+                match value {
+                    Some(value) => env::set_var(key, value),
+                    None => env::remove_var(key),
+                }
             }
         }
 
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
 
-        for (key, value) in original {
-            match value {
-                Some(value) => env::set_var(&key, value),
-                None => env::remove_var(&key),
+        unsafe {
+            for (key, value) in original {
+                match value {
+                    Some(value) => env::set_var(&key, value),
+                    None => env::remove_var(&key),
+                }
             }
         }
 

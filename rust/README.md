@@ -1,48 +1,47 @@
 # Rust Rise SDK
 
-`rise/rust` is the Rust workspace for Phoenix perpetuals. It contains the
-published `phoenix-rise` crate, its source roots for instruction builders,
-math helpers, and API payload types, plus a small CLI for smoke testing.
+`rise/rust` is the Rust SDK workspace for Phoenix perpetuals. It contains the
+published `phoenix-rise` library crate, instruction builders, math helpers,
+API payload types, examples, tests, and a separate CLI crate for smoke testing.
 
-## Workspace Structure
+## Package Structure
 
 ```text
 rust/
-├── Cargo.toml               # Workspace manifest
-├── README.md                # Canonical Rust workspace guide
+├── Cargo.toml               # workspace and phoenix-rise package manifest
+├── README.md                # Canonical Rust package guide
 ├── AGENTS.md                # Pointer to this README and examples
-├── cli/                     # phoenix-rise-sdk-cli
-├── ix/                      # source for phoenix_rise::ix
-├── math/                    # source for phoenix_rise::math
-├── sdk/                     # source for the phoenix-rise library
-│   ├── AGENTS.md
-│   ├── examples/
-│   ├── src/
-│   │   ├── api/
-│   │   ├── accounts.rs
-│   │   ├── auth.rs
-│   │   ├── auth_lifecycle.rs
-│   │   ├── auth_signers.rs
-│   │   ├── client.rs
-│   │   ├── env.rs
-│   │   ├── exchange_cache.rs
-│   │   ├── flight_client.rs
-│   │   ├── http_client.rs
-│   │   ├── order_tickets.rs
-│   │   ├── transport.rs
-│   │   ├── tx_builder.rs
-│   │   └── ws_client.rs
-│   └── tests/
-└── types/                   # source for phoenix_rise::types
+├── cli/                     # phoenix-rise-sdk-cli package
+├── examples/                # runnable SDK examples
+├── src/
+│   ├── api/
+│   ├── ix/                  # phoenix_rise::ix
+│   ├── math/                # phoenix_rise::math
+│   ├── types/               # phoenix_rise::types
+│   ├── accounts.rs
+│   ├── auth.rs
+│   ├── auth_lifecycle.rs
+│   ├── auth_signers.rs
+│   ├── client.rs
+│   ├── env.rs
+│   ├── exchange_cache.rs
+│   ├── flight_client.rs
+│   ├── http_client.rs
+│   ├── order_tickets.rs
+│   ├── transport.rs
+│   ├── tx_builder.rs
+│   └── ws_client.rs
+└── tests/                   # integration tests
 ```
 
-## Workspace Packages
+## Package Targets
 
-- `phoenix-rise`: published Rust SDK crate, imported as `phoenix_rise`,
+- `phoenix-rise`: published Rust SDK library, imported as `phoenix_rise`,
   exposing the high-level HTTP, WebSocket, auth, exchange-cache, Flight, and
   transaction-builder surface, plus the lower-level `ix`, `math`, and `types`
   modules
-- `phoenix-rise-sdk-cli`: smoke-test CLI for HTTP, websocket, and auth flows
+- `phoenix-rise-sdk-cli`: separate smoke-test CLI package for HTTP,
+  websocket, and auth flows
 
 ## Changelog
 
@@ -120,7 +119,7 @@ variant instead of the builder's registered fee.
 
 ## Crate Internals By Area
 
-### `sdk/`
+### `src/`
 
 - `src/http_client.rs`: `PhoenixHttpClient` plus auth-aware builder
 - `src/ws_client.rs`: low-level typed websocket client
@@ -132,7 +131,7 @@ variant instead of the builder's registered fee.
   storage, login flows, and signer abstractions
 - `src/exchange_cache.rs`: exchange metadata storage and change events
 
-### `ix/`
+### `src/ix/`
 
 - Order placement: `limit_order.rs`, `market_order.rs`, `multi_limit_order.rs`
 - Order cancellation: `cancel_orders.rs`, `cancel_stop_loss.rs`
@@ -144,7 +143,7 @@ variant instead of the builder's registered fee.
 - Flight-specific builders: `flight/register_builder.rs`,
   `flight/update_fee.rs`, and proxy helpers
 
-### `math/`
+### `src/math/`
 
 - Price and lot conversions: `market_math.rs`, `price.rs`
 - Margin and risk: `margin.rs`, `margin_calc.rs`, `risk.rs`,
@@ -153,7 +152,7 @@ variant instead of the builder's registered fee.
   `limit_order_state.rs`
 - Quantity wrappers: `quantities/`
 
-### `types/`
+### `src/types/`
 
 - Exchange and market payloads: `exchange.rs`, `exchange_ws.rs`, `market.rs`,
   `market_state.rs`, `market_stats.rs`, `l2book.rs`, `candles.rs`, `trades.rs`
@@ -179,7 +178,7 @@ variant instead of the builder's registered fee.
 
 ## Examples
 
-Use `rise/rust/sdk/examples/` as the main reference set:
+Use `rise/rust/examples/` as the main reference set:
 
 - HTTP and auth: `http_client.rs`, `register_trader.rs`
 - WebSocket subscriptions: `subscribe_trader_state.rs`,
@@ -187,7 +186,8 @@ Use `rise/rust/sdk/examples/` as the main reference set:
   `subscribe_candles.rs`, `subscribe_trades.rs`, `ws_debug_cli.rs`
 - Transaction building and trading: `send_limit_order.rs`,
   `send_market_order.rs`, `send_flight_market_order.rs`, `cancel_order.rs`,
-  `cancel_stop_loss.rs`, `deposit_funds.rs`, `onboard_trader_delegated.rs`
+  `cancel_stop_loss.rs`, `deposit_funds.rs`, `onboard_trader_delegated.rs`,
+  `delegated_trader_management_onboarding.rs`
 - Isolated flows: `isolated_limit_order.rs`,
   `isolated_market_order_client.rs`, `isolated_market_order_server.rs`
 - Broader reference flows: `phoenix_client.rs`, `market_maker.rs`,

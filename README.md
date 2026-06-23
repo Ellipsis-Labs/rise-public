@@ -39,11 +39,11 @@ TypeScript:
 Rust:
 
 - [rise/rust/README.md](./rust/README.md)
-- [rise/rust/sdk/examples/register_trader.rs](./rust/sdk/examples/register_trader.rs)
-- [rise/rust/sdk/examples/http_client.rs](./rust/sdk/examples/http_client.rs)
-- [rise/rust/sdk/examples/send_limit_order.rs](./rust/sdk/examples/send_limit_order.rs)
-- [rise/rust/sdk/examples/send_market_order.rs](./rust/sdk/examples/send_market_order.rs)
-- [rise/rust/sdk/examples/send_flight_market_order.rs](./rust/sdk/examples/send_flight_market_order.rs)
+- [rise/rust/examples/register_trader.rs](./rust/examples/register_trader.rs)
+- [rise/rust/examples/http_client.rs](./rust/examples/http_client.rs)
+- [rise/rust/examples/send_limit_order.rs](./rust/examples/send_limit_order.rs)
+- [rise/rust/examples/send_market_order.rs](./rust/examples/send_market_order.rs)
+- [rise/rust/examples/send_flight_market_order.rs](./rust/examples/send_flight_market_order.rs)
 
 ## Onboarding: Access Code vs Referral Code
 
@@ -100,7 +100,7 @@ let trader_from_referral = client
 ```
 
 Use
-[register_trader.rs](./rust/sdk/examples/register_trader.rs)
+[register_trader.rs](./rust/examples/register_trader.rs)
 when you want a ready-to-run Rust version of this flow.
 
 ## Fetching Exchange, Market, and Trader State
@@ -307,9 +307,9 @@ Runnable examples:
 
 - [03-build-limit-order-ix.ts](./ts/examples/03-build-limit-order-ix.ts)
 - [05-cancel-all-conditional-orders.ts](./ts/examples/05-cancel-all-conditional-orders.ts)
-- [send_limit_order.rs](./rust/sdk/examples/send_limit_order.rs)
-- [send_market_order.rs](./rust/sdk/examples/send_market_order.rs)
-- [cancel_order.rs](./rust/sdk/examples/cancel_order.rs)
+- [send_limit_order.rs](./rust/examples/send_limit_order.rs)
+- [send_market_order.rs](./rust/examples/send_market_order.rs)
+- [cancel_order.rs](./rust/examples/cancel_order.rs)
 
 ## Flight Builder Activation and Routed Orders
 
@@ -416,7 +416,7 @@ let routed_ixs = builder
 Runnable Flight examples:
 
 - [06-flight-market-order.ts](./ts/examples/06-flight-market-order.ts)
-- [send_flight_market_order.rs](./rust/sdk/examples/send_flight_market_order.rs)
+- [send_flight_market_order.rs](./rust/examples/send_flight_market_order.rs)
 
 For more Flight-specific TypeScript examples, see
 [rise/ts/src/flight/README.md](./ts/src/flight/README.md).

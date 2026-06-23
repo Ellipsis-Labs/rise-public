@@ -7,18 +7,18 @@ Current crate layout:
 
 - Published crate name: `phoenix-rise`
 - Rust import path: `phoenix_rise`
-- Main source roots: `sdk/src/`, `types/src/`, `ix/src/`, `math/src/`
-- Examples: `sdk/examples/`
+- Main source root: `src/`
+- Examples: `examples/`
 
 Use the SDK examples as the main reference set:
 
-- [sdk/examples/](./sdk/examples)
-- [sdk/examples/http_client.rs](./sdk/examples/http_client.rs)
-- [sdk/examples/register_trader.rs](./sdk/examples/register_trader.rs)
-- [sdk/examples/send_limit_order.rs](./sdk/examples/send_limit_order.rs)
-- [sdk/examples/send_market_order.rs](./sdk/examples/send_market_order.rs)
-- [sdk/examples/subscribe_trader_state.rs](./sdk/examples/subscribe_trader_state.rs)
-- [sdk/examples/ws_debug_cli.rs](./sdk/examples/ws_debug_cli.rs)
+- [examples/](./examples)
+- [examples/http_client.rs](./examples/http_client.rs)
+- [examples/register_trader.rs](./examples/register_trader.rs)
+- [examples/send_limit_order.rs](./examples/send_limit_order.rs)
+- [examples/send_market_order.rs](./examples/send_market_order.rs)
+- [examples/subscribe_trader_state.rs](./examples/subscribe_trader_state.rs)
+- [examples/ws_debug_cli.rs](./examples/ws_debug_cli.rs)
 
 Run commands from `rise/rust/`:
 

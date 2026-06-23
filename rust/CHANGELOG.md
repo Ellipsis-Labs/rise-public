@@ -194,3 +194,24 @@ Source Phoenix commit: `a419e23d7d1b2a3e37696d76e85fac7f0a023f5e`
 - `rust_decimal = []` was previously an empty stub; it now activates `dep:rust_decimal`. The feature was always advertised but did nothing; it now pulls in the crate.
 - `utoipa` and `opentelemetry` features now implicitly enable `types`/`sdk` respectively, so enabling them without `default-features = false` is safe but may add transitive deps if you were relying on those features being lighter.
 - The `test-fixture` feature is intended for test harnesses only; it adds `litesvm 0.7` and `solana-commitment-config` as optional deps and is not covered by the `sdk` default.
+
+## v0.1.13 - 2026-06-23
+
+Source Phoenix commit: `d1ccda811fc68e0cbf1fbf5d3e6d0235d508c3db`
+
+### Summary
+
+- The `phoenix-rise` crate was consolidated from a multi-root workspace layout (`sdk/src/`, `ix/src/`, `math/src/`, `types/src/`) into a standard single-crate layout (`src/`). Public module paths (`phoenix_rise::ix`, `::math`, `::types`) are unchanged; this is a transparent restructure for existing crate consumers.
+- New instruction builders for permission account management: `create_permission_ix` and `set_permission_delegated_ix`, with supporting constants `TRADER_ONBOARDING_PERMISSION` and `TRADER_MANAGEMENT_PERMISSION` (in `phoenix_rise::ix`).
+- New trader capability constants exported from `phoenix_rise::ix`: `TRADER_CAPABILITY_HOT`, `TRADER_CAPABILITY_CAN_PLACE_LIMIT`, `TRADER_CAPABILITY_CAN_PLACE_MARKET`, `TRADER_CAPABILITY_CAN_RISK_INCREASE`, `TRADER_CAPABILITY_CAN_DEPOSIT`, `TRADER_CAPABILITY_CAN_WITHDRAW`, and `REQUIRED_TRADER_CAPABILITIES`. Also adds `is_trader_ready` helper.
+- New `delegated_trader_management_onboarding` example demonstrating the full off-chain integrator flow for granting and consuming delegated trader-onboarding permissions.
+
+### Breaking Changes
+
+- If you depended on `phoenix-rise-types` as a standalone crate, it is no longer published. Switch to `phoenix_rise::types` (requires the `types` feature flag on `phoenix-rise`).
+
+### Consumer Notes
+
+- Update your `Cargo.toml` to `phoenix-rise = "0.1.13"`.
+- Delegated onboarding flows that previously required manual capability bitmask construction can now use the exported `TRADER_CAPABILITY_*` constants and `is_trader_ready` to check readiness without hardcoding bit values.
+- The new `permission` instruction builders (`create_permission_ix`, `set_permission_delegated_ix`) are needed for integrators who programmatically manage delegated trader-onboarding budgets; see the `delegated_trader_management_onboarding` example for the end-to-end flow.

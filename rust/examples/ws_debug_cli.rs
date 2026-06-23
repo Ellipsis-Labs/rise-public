@@ -2,8 +2,8 @@
 //!
 //! Usage:
 //!   cargo run -p phoenix-rise --example ws_debug_cli -- --config
-//! sdk/examples/ws_debug_config.toml   cargo run -p phoenix-rise --example
-//! ws_debug_cli -- --config sdk/examples/ws_debug_config.toml --stats
+//! examples/ws_debug_config.toml   cargo run -p phoenix-rise --example
+//! ws_debug_cli -- --config examples/ws_debug_config.toml --stats
 
 use std::error::Error;
 use std::io::{self, Write};
@@ -441,7 +441,7 @@ fn usage() -> &'static str {
     "Usage: ws_debug_cli --config <path> [--stats]
 
 Examples:
-  cargo run -p phoenix-rise --example ws_debug_cli -- --config sdk/examples/ws_debug_config.toml
-  cargo run -p phoenix-rise --example ws_debug_cli -- --config sdk/examples/ws_debug_config.toml \
+  cargo run -p phoenix-rise --example ws_debug_cli -- --config examples/ws_debug_config.toml
+  cargo run -p phoenix-rise --example ws_debug_cli -- --config examples/ws_debug_config.toml \
      --stats"
 }

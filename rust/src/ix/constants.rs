@@ -238,6 +238,16 @@ pub fn set_trader_capabilities_delegated_discriminant() -> [u8; 8] {
     compute_discriminant("global:set_trader_capabilities_delegated")
 }
 
+/// Instruction discriminant for create_permission.
+pub fn create_permission_discriminant() -> [u8; 8] {
+    compute_discriminant("global:create_permission")
+}
+
+/// Instruction discriminant for set_permission_delegated.
+pub fn set_permission_delegated_discriminant() -> [u8; 8] {
+    compute_discriminant("global:set_permission_delegated")
+}
+
 /// Instruction discriminant for place_multi_limit_order.
 pub fn place_multi_limit_order_discriminant() -> [u8; 8] {
     compute_discriminant("global:place_multi_limit_order")
