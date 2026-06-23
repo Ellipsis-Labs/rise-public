@@ -1,5 +1,5 @@
 /**
- * Minimal WebSocket fills example mirroring rise/rust/sdk/examples/subscribe_trades.rs.
+ * Minimal WebSocket fills example mirroring rise/rust/examples/subscribe_trades.rs.
  *
  * Run with:
  *   bun examples/02-ws-fills.ts [SYMBOL]

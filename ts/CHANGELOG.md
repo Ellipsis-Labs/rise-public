@@ -416,3 +416,20 @@ Source Phoenix commit: `a419e23d7d1b2a3e37696d76e85fac7f0a023f5e`
 - `buildUncrossCrankIxResolved` defaults `matchLimit` to `100n` when the parameter is omitted; pass an explicit value to override.
 - `UncrossCrankParams.matchLimit` is typed as `bigint` (required, non-negative). The high-level `buildUncrossCrank` / `ClientUncrossCrankInput` accept `bigint | number` and coerce automatically.
 - All new exports are available from the package root (`@ellipsis-labs/rise`); no sub-path import changes are required.
+
+## v0.4.49 - 2026-06-23
+
+Source Phoenix commit: `e8c6dd02a2ac562e3d38cf3c4b3027b39ae8985f`
+
+### Summary
+
+- Updated example source-reference comments to reflect the current Rust example path (`rise/rust/examples/` instead of the former `rise/rust/sdk/examples/`) across `01-http-client.ts`, `02-ws-fills.ts`, `03-build-limit-order-ix.ts`, and `examples/README.md`.
+- No changes to public TypeScript exports, HTTP client, WebSocket adapters, or generated types in this release.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- None identified in the synced diff.
