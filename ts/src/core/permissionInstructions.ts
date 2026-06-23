@@ -7,6 +7,7 @@ import {
   generateReadonlyAccount,
   generateReadonlySignerAccount,
   generateWritableAccount,
+  generateWritableSignerAccount,
 } from "@/core/utils/accountMeta";
 import {
   getOptionToNullDecoder,
@@ -52,10 +53,26 @@ export interface SetPermissionParams
   permissionPda: Address;
 }
 
+export interface SetPermissionDelegatedParams
+  extends
+    PhoenixInstructionAddressOverrides,
+    Pick<SetPermissionData, "permission" | "allowedSignerActions"> {
+  authority: Address;
+  authorityPermissionAccount: Address;
+  targetPermissionAccount: Address;
+  permissionAuthority: Address;
+  delegatedKey: Address;
+}
+
 export type CreatePermissionIx = InstructionsWithAccountsAndData;
 export type CreatePermissionAccounts = readonly AccountMeta[];
 export type SetPermissionIx = InstructionsWithAccountsAndData;
 export type SetPermissionAccounts = readonly AccountMeta[];
+export type SetPermissionDelegatedIx = InstructionsWithAccountsAndData;
+export type SetPermissionDelegatedAccounts = readonly AccountMeta[];
+
+export const TRADER_ONBOARDING_PERMISSION: bigint = 1n << 4n;
+export const TRADER_MANAGEMENT_PERMISSION: bigint = 1n << 7n;
 
 export const getCreatePermissionEncoder = (): Encoder<void> =>
   getConstantEncoder(DISCRIMINANTS.CREATE_PERMISSION);
@@ -71,7 +88,7 @@ export const buildCreatePermissionIx = (
     accounts: [
       generateReadonlyAccount(programAddress),
       generateReadonlyAccount(logAuthorityAddress),
-      generateReadonlySignerAccount(params.payer),
+      generateWritableSignerAccount(params.payer),
       generateWritableAccount(params.permissionPda),
       generateReadonlyAccount(params.permissionAuthority),
       generateReadonlyAccount(params.delegatedKey),
@@ -119,6 +136,25 @@ export const getSetPermissionInstructionCodec = (): Codec<SetPermissionData> =>
     getSetPermissionInstructionDecoder()
   );
 
+export const getSetPermissionDelegatedInstructionEncoder =
+  (): Encoder<SetPermissionData> =>
+    getHiddenPrefixEncoder(getSetPermissionParamsEncoder(), [
+      getConstantEncoder(DISCRIMINANTS.SET_PERMISSION_DELEGATED),
+    ]);
+
+export const getSetPermissionDelegatedInstructionDecoder =
+  (): Decoder<SetPermissionData> =>
+    getHiddenPrefixDecoder(getSetPermissionParamsDecoder(), [
+      getConstantDecoder(DISCRIMINANTS.SET_PERMISSION_DELEGATED),
+    ]);
+
+export const getSetPermissionDelegatedInstructionCodec =
+  (): Codec<SetPermissionData> =>
+    combineCodec(
+      getSetPermissionDelegatedInstructionEncoder(),
+      getSetPermissionDelegatedInstructionDecoder()
+    );
+
 export const buildSetPermissionIx = (
   params: SetPermissionParams
 ): SetPermissionIx => {
@@ -140,4 +176,45 @@ export const buildSetPermissionIx = (
       allowedSignerActions: params.allowedSignerActions,
     }),
   };
+};
+
+export const buildSetPermissionDelegatedIx = (
+  params: SetPermissionDelegatedParams
+): SetPermissionDelegatedIx => {
+  validateSetPermissionDelegated(params);
+  const { programAddress, logAuthorityAddress, globalConfigurationAddress } =
+    getPhoenixInstructionAddresses(params);
+
+  return {
+    programAddress,
+    accounts: [
+      generateReadonlyAccount(programAddress),
+      generateReadonlyAccount(logAuthorityAddress),
+      generateReadonlyAccount(globalConfigurationAddress),
+      generateReadonlySignerAccount(params.authority),
+      generateWritableAccount(params.authorityPermissionAccount),
+      generateWritableAccount(params.targetPermissionAccount),
+      generateReadonlyAccount(params.permissionAuthority),
+      generateReadonlyAccount(params.delegatedKey),
+    ] as const,
+    data: getSetPermissionDelegatedInstructionEncoder().encode({
+      permission: params.permission,
+      expiresAtTimestamp: null,
+      allowedSignerActions: params.allowedSignerActions,
+    }),
+  };
+};
+
+const validateSetPermissionDelegated = (
+  params: SetPermissionDelegatedParams
+) => {
+  if (params.permission === 0n) {
+    throw new Error("Permission must contain at least one bit");
+  }
+  if (
+    params.allowedSignerActions !== null &&
+    params.allowedSignerActions <= 0n
+  ) {
+    throw new Error("Allowed signer actions must be positive or null");
+  }
 };

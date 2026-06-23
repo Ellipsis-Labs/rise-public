@@ -35,6 +35,7 @@ export const DISCRIMINANTS: DiscriminantMap = {
   CANCEL_STOP_LOSS: sha2_const("global:cancel_stop_loss"),
   CREATE_PERMISSION: sha2_const("global:create_permission"),
   SET_PERMISSION: sha2_const("global:set_permission"),
+  SET_PERMISSION_DELEGATED: sha2_const("global:set_permission_delegated"),
   CREATE_ESCROW_ACCOUNT: sha2_const("global:create_escrow_account"),
   CREATE_ESCROW_REQUEST: sha2_const("global:create_escrow_request"),
   ACCEPT_ESCROW_REQUEST: sha2_const("global:accept_escrow_request"),

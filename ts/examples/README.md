@@ -87,6 +87,20 @@ bun examples/07-onboard-trader-delegated.ts <TRADER_AUTHORITY> [options]
 Running this example with no arguments prints safety guidance instead of
 submitting live transactions.
 
+### 08-delegated-trader-management-onboarding.ts
+
+Shows the external team flow where Phoenix grants `user_key` a
+trader-onboarding permission budget, then `user_key` signs the transaction that
+registers and onboards a trader.
+
+```bash
+bun examples/08-delegated-trader-management-onboarding.ts <TRADER_AUTHORITY> [options]
+```
+
+Pass `--grant-manager-keypair-path` and `--grant-uses N` to include the
+Phoenix-side `SetPermissionDelegated` grant before the user-side onboarding
+transaction.
+
 ## Larger Demos
 
 ### phoenix-client-example.ts
