@@ -42,6 +42,7 @@ mod market_order;
 mod multi_limit_order;
 mod onboard_trader_delegated;
 mod order_packet;
+mod permission;
 mod place_stop_loss;
 mod register_trader;
 mod spl_approve;
@@ -82,10 +83,17 @@ pub use multi_limit_order::{
     MultiLimitOrderParams, MultiLimitOrderParamsBuilder, create_place_multi_limit_order_ix,
 };
 pub use onboard_trader_delegated::{
-    OnboardTraderDelegatedParams, create_onboard_trader_delegated_ix,
+    OnboardTraderDelegatedParams, REQUIRED_TRADER_CAPABILITIES, TRADER_CAPABILITY_CAN_DEPOSIT,
+    TRADER_CAPABILITY_CAN_PLACE_LIMIT, TRADER_CAPABILITY_CAN_PLACE_MARKET,
+    TRADER_CAPABILITY_CAN_RISK_INCREASE, TRADER_CAPABILITY_CAN_WITHDRAW, TRADER_CAPABILITY_HOT,
+    create_onboard_trader_delegated_ix, is_trader_ready,
 };
 pub use order_packet::{
     CondensedOrder, MultipleOrderPacket, OrderPacket, client_order_id_to_bytes,
+};
+pub use permission::{
+    CreatePermissionParams, SetPermissionDelegatedParams, TRADER_MANAGEMENT_PERMISSION,
+    TRADER_ONBOARDING_PERMISSION, create_create_permission_ix, create_set_permission_delegated_ix,
 };
 pub use place_stop_loss::{PlaceStopLossParams, create_place_stop_loss_ix};
 pub use register_trader::{RegisterTraderParams, create_register_trader_ix};

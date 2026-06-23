@@ -10,6 +10,32 @@ use crate::ix::constants::{
 use crate::ix::error::PhoenixIxError;
 use crate::ix::types::{AccountMeta, Instruction};
 
+/// HOT participation bit for a trader in the global trader index.
+pub const TRADER_CAPABILITY_HOT: u32 = 1 << 0;
+/// Enables resting limit order placement for hot traders.
+pub const TRADER_CAPABILITY_CAN_PLACE_LIMIT: u32 = 1 << 1;
+/// Enables market order placement and risk-reducing order flows.
+pub const TRADER_CAPABILITY_CAN_PLACE_MARKET: u32 = 1 << 2;
+/// Enables risk-increasing trades.
+pub const TRADER_CAPABILITY_CAN_RISK_INCREASE: u32 = 1 << 3;
+/// Enables collateral deposits.
+pub const TRADER_CAPABILITY_CAN_DEPOSIT: u32 = 1 << 4;
+/// Enables collateral withdrawals.
+pub const TRADER_CAPABILITY_CAN_WITHDRAW: u32 = 1 << 5;
+
+/// Capability mask needed before a trader can place market orders, deposit,
+/// and withdraw.
+pub const REQUIRED_TRADER_CAPABILITIES: u32 = TRADER_CAPABILITY_CAN_PLACE_MARKET
+    | TRADER_CAPABILITY_CAN_DEPOSIT
+    | TRADER_CAPABILITY_CAN_WITHDRAW;
+
+/// Returns true when the trader has the capabilities required for market
+/// orders, deposits, and withdrawals.
+#[inline(always)]
+pub const fn is_trader_ready(flags: u32) -> bool {
+    flags & REQUIRED_TRADER_CAPABILITIES == REQUIRED_TRADER_CAPABILITIES
+}
+
 /// Trader capability flag selected by a delegated capability update.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, BorshSerialize, BorshDeserialize)]
 #[borsh(use_discriminant = true)]

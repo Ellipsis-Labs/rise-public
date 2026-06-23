@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use base64::Engine;
-use phoenix_rise_types::accounts::{
+use phoenix_rise::types::accounts::{
     GlobalConfiguration, Orderbook, PerpAssetMap, SplineCollection, Trader,
 };
 use serde::Deserialize;
@@ -19,7 +19,7 @@ struct FixtureAccount {
 
 fn mock_bytes(file_name: &str) -> Vec<u8> {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../ts/tests/mocks")
+        .join("../ts/tests/mocks")
         .join(file_name);
     let fixture: FixtureFile =
         serde_json::from_str(&fs::read_to_string(path).expect("fixture should be readable"))

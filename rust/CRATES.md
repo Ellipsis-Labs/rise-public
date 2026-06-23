@@ -9,7 +9,7 @@
 
 ```toml
 [dependencies]
-phoenix-rise = "0.1.12"
+phoenix-rise = "0.1.13"
 ```
 
 Optional features:
@@ -25,14 +25,14 @@ Release notes are maintained in the public Rise repository:
 
 ## Source Layout
 
-The published `phoenix-rise` crate is assembled from:
+The published `phoenix-rise` crate uses the standard single-crate Cargo layout:
 
-- high-level HTTP, WebSocket, auth, and transaction-building flows in `sdk/src/`
-- API wire types in `types/src/`
-- instruction builders in `ix/src/`
-- market and margin math in `math/src/`
+- high-level HTTP, WebSocket, auth, and transaction-building flows in `src/`
+- API wire types in `src/types/`
+- instruction builders in `src/ix/`
+- market and margin math in `src/math/`
 
-Examples live in `sdk/examples/` and are wired through the root package.
+Examples live in `examples/` and integration tests live in `tests/`.
 
 ## Examples
 
@@ -41,6 +41,7 @@ Examples that use a local Solana keypair require `solana-keypair`:
 ```bash
 cargo run -p phoenix-rise --example subscribe_trader_state --features solana-keypair
 cargo run -p phoenix-rise --example onboard_trader_delegated --features solana-keypair -- <TRADER_AUTHORITY>
+cargo run -p phoenix-rise --example delegated_trader_management_onboarding --features solana-keypair -- <TRADER_AUTHORITY>
 ```
 
 Examples that do not need that feature can be run directly:

@@ -1,8 +1,8 @@
 # Tiny websocket debug config for `ws_debug_cli`.
 #
 # Run:
-# cargo run -p phoenix-rise --example ws_debug_cli -- --config sdk/examples/ws_debug_config.toml
-# cargo run -p phoenix-rise --example ws_debug_cli -- --config sdk/examples/ws_debug_config.toml --stats
+# cargo run -p phoenix-rise --example ws_debug_cli -- --config examples/ws_debug_config.toml
+# cargo run -p phoenix-rise --example ws_debug_cli -- --config examples/ws_debug_config.toml --stats
 
 [connection]
 # Optional. If omitted, PHOENIX_WS_URL/PHOENIX_API_URL env defaults are used.

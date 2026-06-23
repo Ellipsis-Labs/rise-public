@@ -37,12 +37,9 @@
 //! }
 //! ```
 
-#[path = "../../ix/src/lib.rs"]
 pub mod ix;
-#[path = "../../math/src/lib.rs"]
 pub mod math;
 #[cfg(feature = "types")]
-#[path = "../../types/src/lib.rs"]
 pub mod types;
 
 pub mod phoenix_rise_ix {
@@ -159,23 +156,27 @@ pub use ws_client::{PhoenixWSClient, SubscriptionHandle, WsConnectionStatus, WsS
 
 pub use crate::phoenix_rise_ix::{
     CancelConditionalOrderParams, CancelId, CancelStopLossParams, CondensedOrder,
-    CreateConditionalOrdersAccountParams, Direction, FifoOrderId, HAWKEYE_PROGRAM_ID,
-    HAWKEYE_RETURN_VERSION, HAWKEYE_SIMULATION_COMPUTE_UNIT_LIMIT, HAWKEYE_SIMULATION_FEE_PAYER,
-    HawkeyeBboViewAccounts, HawkeyeReturnData, HawkeyeReturnDataError, HawkeyeTraderViewAccounts,
-    IsolatedCollateralFlow, IsolatedLimitOrderParams, IsolatedMarketOrderParams,
-    MarketOrderDelegatedParams, MultiLimitOrderParams, OnboardTraderDelegatedParams, OrderFlags,
-    PhoenixHawkeyeInstruction, PlaceAttachedConditionalOrderParams,
-    PlaceLimitOrderWithConditionalsParams, PlacePositionConditionalOrderParams,
-    RegisterTraderParams, SelfTradeBehavior, Side, StopLossOrderKind, TransferCollateralParams,
-    TriggerOrderParams, VIEW_ASSET_RETURN_MAGIC, VIEW_BBO_HAS_ASK, VIEW_BBO_HAS_BID,
-    VIEW_BBO_RETURN_MAGIC, VIEW_FUNDING_HAS_ACCUMULATED, VIEW_FUNDING_HAS_UNSETTLED,
-    VIEW_FUNDING_RETURN_MAGIC, VIEW_LIQUIDATION_PRICE_RETURN_MAGIC, VIEW_MARGIN_RETURN_MAGIC,
-    ViewAssetParams, ViewAssetReturn, ViewBboReturn, ViewFundingReturn, ViewLiquidationPriceReturn,
-    ViewMarginReturn, create_hawkeye_view_bbo_ix, create_hawkeye_view_funding_ix,
-    create_hawkeye_view_liquidation_price_ix, create_hawkeye_view_margin_for_asset_ix,
-    create_hawkeye_view_margin_ix, decode_hawkeye_return, decode_hawkeye_return_data,
-    get_conditional_orders_address, phoenix_global_configuration, phoenix_instruction_addresses,
-    phoenix_log_authority, phoenix_program_id, resolve_phoenix_instruction_addresses_for_env,
+    CreateConditionalOrdersAccountParams, CreatePermissionParams, Direction, FifoOrderId,
+    HAWKEYE_PROGRAM_ID, HAWKEYE_RETURN_VERSION, HAWKEYE_SIMULATION_COMPUTE_UNIT_LIMIT,
+    HAWKEYE_SIMULATION_FEE_PAYER, HawkeyeBboViewAccounts, HawkeyeReturnData,
+    HawkeyeReturnDataError, HawkeyeTraderViewAccounts, IsolatedCollateralFlow,
+    IsolatedLimitOrderParams, IsolatedMarketOrderParams, MarketOrderDelegatedParams,
+    MultiLimitOrderParams, OnboardTraderDelegatedParams, OrderFlags, PhoenixHawkeyeInstruction,
+    PlaceAttachedConditionalOrderParams, PlaceLimitOrderWithConditionalsParams,
+    PlacePositionConditionalOrderParams, RegisterTraderParams, SelfTradeBehavior,
+    SetPermissionDelegatedParams, Side, StopLossOrderKind, TRADER_MANAGEMENT_PERMISSION,
+    TRADER_ONBOARDING_PERMISSION, TransferCollateralParams, TriggerOrderParams,
+    VIEW_ASSET_RETURN_MAGIC, VIEW_BBO_HAS_ASK, VIEW_BBO_HAS_BID, VIEW_BBO_RETURN_MAGIC,
+    VIEW_FUNDING_HAS_ACCUMULATED, VIEW_FUNDING_HAS_UNSETTLED, VIEW_FUNDING_RETURN_MAGIC,
+    VIEW_LIQUIDATION_PRICE_RETURN_MAGIC, VIEW_MARGIN_RETURN_MAGIC, ViewAssetParams,
+    ViewAssetReturn, ViewBboReturn, ViewFundingReturn, ViewLiquidationPriceReturn,
+    ViewMarginReturn, create_create_permission_ix, create_hawkeye_view_bbo_ix,
+    create_hawkeye_view_funding_ix, create_hawkeye_view_liquidation_price_ix,
+    create_hawkeye_view_margin_for_asset_ix, create_hawkeye_view_margin_ix,
+    create_set_permission_delegated_ix, decode_hawkeye_return, decode_hawkeye_return_data,
+    get_conditional_orders_address, get_permission_address, phoenix_global_configuration,
+    phoenix_instruction_addresses, phoenix_log_authority, phoenix_program_id,
+    resolve_phoenix_instruction_addresses_for_env,
 };
 // Re-export useful types from the types crate
 #[cfg(feature = "types")]
