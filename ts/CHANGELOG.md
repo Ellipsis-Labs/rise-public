@@ -433,3 +433,25 @@ Source Phoenix commit: `e8c6dd02a2ac562e3d38cf3c4b3027b39ae8985f`
 ### Consumer Notes
 
 - None identified in the synced diff.
+
+## v0.4.50 - 2026-06-23
+
+Source Phoenix commit: `d1ccda811fc68e0cbf1fbf5d3e6d0235d508c3db`
+
+### Summary
+
+- New `buildSetPermissionDelegatedIx` instruction builder and `SetPermissionDelegated` codec (encoder/decoder) allow a delegated trader-management key to grant trader-onboarding permission to a third-party user key, without requiring the risk authority to sign directly.
+- Two permission bitmask constants exported: `TRADER_ONBOARDING_PERMISSION` (`1n << 4n`) and `TRADER_MANAGEMENT_PERMISSION` (`1n << 7n`).
+- New types exported: `SetPermissionDelegatedParams`, `SetPermissionDelegatedIx`, `SetPermissionDelegatedAccounts`.
+- **Bug fix**: `buildCreatePermissionIx` now marks the `payer` account as writable (was previously readonly-signer); callers constructing transactions directly may see a changed account meta for this field.
+- New example `08-delegated-trader-management-onboarding.ts` demonstrates the full external-team onboarding flow end-to-end.
+
+### Breaking Changes
+
+- `buildCreatePermissionIx`: the `payer` account is now `writable + signer` instead of `readonly + signer`. If you are serializing or comparing raw account metas from this instruction, the account flags will differ from 0.4.49.
+
+### Consumer Notes
+
+- To use delegated trader-management onboarding, call `buildSetPermissionDelegatedIx` with a `SetPermissionDelegatedParams` — the authority can be the risk authority itself or any key that holds `TRADER_MANAGEMENT_PERMISSION`. Pass `authorityPermissionAccount` as the authority's own address when it is the risk authority, or as the PDA from `getPermissionAddress` otherwise.
+- `TRADER_ONBOARDING_PERMISSION` and `TRADER_MANAGEMENT_PERMISSION` are exported as `bigint` constants; use them for bitwise checks against `permission.permission` fields.
+- The new codec exports (`getSetPermissionDelegatedInstructionEncoder/Decoder/Codec`) follow the same pattern as the existing `SetPermission` variants and are available for manual instruction construction or decoding.
