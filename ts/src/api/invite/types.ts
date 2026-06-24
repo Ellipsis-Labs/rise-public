@@ -61,6 +61,25 @@ export const ActivateReferralRequestSchema: z.ZodType<ActivateReferralRequest> =
     referral_code: z.string(),
   });
 
+export interface ActivateReferralTxRequest {
+  referral_code: string;
+  trader_authority: string;
+  trader_pda_index?: number;
+  trader_subaccount_index?: number;
+  recent_blockhash: string;
+  transaction: string;
+}
+
+export const ActivateReferralTxRequestSchema: z.ZodType<ActivateReferralTxRequest> =
+  z.object({
+    referral_code: z.string(),
+    trader_authority: z.string(),
+    trader_pda_index: z.number().int().min(0).max(255).optional(),
+    trader_subaccount_index: z.number().int().min(0).max(255).optional(),
+    recent_blockhash: z.string(),
+    transaction: z.string(),
+  });
+
 export interface ActivateInviteResponse {
   trader_pda: string;
 }
@@ -68,4 +87,41 @@ export interface ActivateInviteResponse {
 export const ActivateInviteResponseSchema: z.ZodType<ActivateInviteResponse> =
   z.object({
     trader_pda: z.string(),
+  });
+
+export interface ActivateReferralTxResponse {
+  signature?: string;
+  trader_pda: string;
+  referral_code: string;
+  status: ActivateReferralTxStatus;
+}
+
+export const ACTIVATE_REFERRAL_TX_STATUSES = [
+  "activated",
+  "submitted",
+  "already_activated",
+] as const;
+
+export type ActivateReferralTxStatus =
+  (typeof ACTIVATE_REFERRAL_TX_STATUSES)[number];
+
+export const ActivateReferralTxResponseSchema: z.ZodType<ActivateReferralTxResponse> =
+  z.object({
+    signature: z.string().optional(),
+    trader_pda: z.string(),
+    referral_code: z.string(),
+    status: z.enum(ACTIVATE_REFERRAL_TX_STATUSES),
+  });
+
+export interface ReferralActivationPermissionResponse {
+  trader_onboarder: string;
+  risk_authority: string;
+  permission_account: string;
+}
+
+export const ReferralActivationPermissionResponseSchema: z.ZodType<ReferralActivationPermissionResponse> =
+  z.object({
+    trader_onboarder: z.string(),
+    risk_authority: z.string(),
+    permission_account: z.string(),
   });

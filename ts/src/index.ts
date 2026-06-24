@@ -106,6 +106,22 @@ export { send, get, post, put, patch, del } from "./http";
 export type { ParamValue, RateLimitRetryConfig } from "./http";
 
 export * as api from "./api";
+export {
+  buildActivateReferralTxRequest,
+  buildReferralActivationTransaction,
+  referralActivationExchangeAccountsFromSnapshot,
+  serializeReferralActivationSignedTransaction,
+  type BuildActivateReferralTxRequestParams,
+  type BuildActivateReferralTxRequestResult,
+  type BuildActivateReferralTxRequestWithClientParams,
+  type BuildReferralActivationTransactionParams,
+  type ReferralActivationExchangeAccounts,
+  type ReferralActivationSignedTransaction,
+  type ReferralActivationTransactionBuild,
+  type ReferralActivationTransactionSigner,
+  type ReferralActivationTransactionSignerContext,
+  type SerializableTransactionLike,
+} from "./api/invite";
 export { toWebSocketUrl } from "./ws";
 export * as ws from "./ws";
 export {

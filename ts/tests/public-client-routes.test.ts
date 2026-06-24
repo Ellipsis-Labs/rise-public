@@ -636,6 +636,23 @@ describe("public client route mapping", () => {
             trader_pda: "trader-pda-123",
           },
         ],
+        [
+          "/v1/referral/activation-permission",
+          {
+            trader_onboarder: "onboarder-pubkey",
+            risk_authority: "risk-authority",
+            permission_account: "permission-account",
+          },
+        ],
+        [
+          "/v1/referral/activate-tx",
+          {
+            signature: "tx-signature",
+            trader_pda: "trader-pda-456",
+            referral_code: "ref-789",
+            status: "submitted",
+          },
+        ],
       ]),
       records
     );
@@ -739,6 +756,15 @@ describe("public client route mapping", () => {
     await invite.activateReferral({
       authority: "authority-abc",
       referral_code: "ref-789",
+    });
+    await invite.getReferralActivationPermission();
+    await invite.activateReferralTx({
+      referral_code: "ref-789",
+      trader_authority: "authority-abc",
+      trader_pda_index: 1,
+      trader_subaccount_index: 2,
+      recent_blockhash: "recent-blockhash",
+      transaction: "base64-transaction",
     });
 
     expect(marketFills.data[0]?.timestamp).toBe(123);
@@ -933,6 +959,25 @@ describe("public client route mapping", () => {
           referral_code: "ref-789",
         },
         auth: "required",
+      },
+      {
+        method: "GET",
+        endpoint: "/v1/referral/activation-permission",
+        params: undefined,
+        body: undefined,
+      },
+      {
+        method: "POST",
+        endpoint: "/v1/referral/activate-tx",
+        params: undefined,
+        body: {
+          referral_code: "ref-789",
+          trader_authority: "authority-abc",
+          trader_pda_index: 1,
+          trader_subaccount_index: 2,
+          recent_blockhash: "recent-blockhash",
+          transaction: "base64-transaction",
+        },
       },
     ]);
   });

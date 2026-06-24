@@ -1,11 +1,21 @@
 import { PhoenixHttpError } from "@/errors";
 import type { HttpTransport } from "@/http/transport";
 import { get, post } from "@/http/transport";
+import { ExchangeSnapshotViewSchema } from "../exchange";
+import {
+  buildActivateReferralTxRequest,
+  referralActivationExchangeAccountsFromSnapshot,
+  type BuildActivateReferralTxRequestResult,
+  type BuildActivateReferralTxRequestWithClientParams,
+} from "./referralActivationTx";
 import type {
   ActivateInviteRequest,
   ActivateInviteResponse,
   ActivateReferralRequest,
+  ActivateReferralTxRequest,
+  ActivateReferralTxResponse,
   CheckWalletResponse,
+  ReferralActivationPermissionResponse,
   ValidateInviteRequest,
   ValidateInviteResponse,
 } from "./types";
@@ -13,7 +23,10 @@ import {
   ActivateInviteRequestSchema,
   ActivateInviteResponseSchema,
   ActivateReferralRequestSchema,
+  ActivateReferralTxRequestSchema,
+  ActivateReferralTxResponseSchema,
   CheckWalletResponseSchema,
+  ReferralActivationPermissionResponseSchema,
   ValidateInviteRequestSchema,
   ValidateInviteResponseSchema,
 } from "./types";
@@ -95,5 +108,46 @@ export class V1InviteClient {
     } catch (error) {
       withReferralActivationAuthContext(error);
     }
+  }
+
+  async getReferralActivationPermission(): Promise<ReferralActivationPermissionResponse> {
+    return get(
+      this.http,
+      "/v1/referral/activation-permission",
+      ReferralActivationPermissionResponseSchema
+    );
+  }
+
+  async activateReferralTx(
+    request: ActivateReferralTxRequest
+  ): Promise<ActivateReferralTxResponse> {
+    const payload = ActivateReferralTxRequestSchema.parse(request);
+    return post(
+      this.http,
+      "/v1/referral/activate-tx",
+      ActivateReferralTxResponseSchema,
+      payload
+    );
+  }
+
+  async buildActivateReferralTxRequest(
+    params: BuildActivateReferralTxRequestWithClientParams
+  ): Promise<BuildActivateReferralTxRequestResult> {
+    const [permission, snapshot] = await Promise.all([
+      params.permission ?? this.getReferralActivationPermission(),
+      params.exchangeAccounts
+        ? undefined
+        : get(this.http, "/v1/exchange/snapshot", ExchangeSnapshotViewSchema),
+    ]);
+
+    return buildActivateReferralTxRequest({
+      ...params,
+      permission,
+      exchangeAccounts:
+        params.exchangeAccounts ??
+        (await referralActivationExchangeAccountsFromSnapshot(
+          snapshot!.exchange
+        )),
+    });
   }
 }
