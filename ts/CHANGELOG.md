@@ -455,3 +455,24 @@ Source Phoenix commit: `d1ccda811fc68e0cbf1fbf5d3e6d0235d508c3db`
 - To use delegated trader-management onboarding, call `buildSetPermissionDelegatedIx` with a `SetPermissionDelegatedParams` — the authority can be the risk authority itself or any key that holds `TRADER_MANAGEMENT_PERMISSION`. Pass `authorityPermissionAccount` as the authority's own address when it is the risk authority, or as the PDA from `getPermissionAddress` otherwise.
 - `TRADER_ONBOARDING_PERMISSION` and `TRADER_MANAGEMENT_PERMISSION` are exported as `bigint` constants; use them for bitwise checks against `permission.permission` fields.
 - The new codec exports (`getSetPermissionDelegatedInstructionEncoder/Decoder/Codec`) follow the same pattern as the existing `SetPermission` variants and are available for manual instruction construction or decoding.
+
+## v0.4.51 - 2026-06-24
+
+Source Phoenix commit: `f437eb2cee153f012a3ab34e799623d34defb07f`
+
+### Summary
+
+- Added a transaction-based referral activation flow: `V1InviteClient` now exposes `getReferralActivationPermission()` (`GET /v1/referral/activation-permission`), `activateReferralTx(request)` (`POST /v1/referral/activate-tx`), and `buildActivateReferralTxRequest(params)`, which fetches permission and exchange state automatically, builds the Solana transaction, and invokes a caller-supplied signer callback before returning the ready-to-submit request.
+- Exported low-level transaction helpers at the package root for integrators who need finer control: `buildReferralActivationTransaction`, `buildActivateReferralTxRequest`, `referralActivationExchangeAccountsFromSnapshot`, and `serializeReferralActivationSignedTransaction`.
+- Added new public types and Zod schemas: `ActivateReferralTxRequest/Response`, `ActivateReferralTxStatus`, `ACTIVATE_REFERRAL_TX_STATUSES`, `ReferralActivationPermissionResponse`, `ReferralActivationExchangeAccounts`, `ReferralActivationTransactionBuild`, `ReferralActivationTransactionSigner`, and related builder param/result interfaces.
+- Added `encodeBytesToBase64` to the internal base64 module; works in Node (via `Buffer`), Bun, and browser (via `btoa`).
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- The `buildActivateReferralTxRequest` convenience method on `V1InviteClient` makes parallel HTTP calls for the permission account and exchange snapshot; pass pre-fetched `permission` and/or `exchangeAccounts` in the params object to skip those fetches.
+- The `signTransaction` callback in `BuildActivateReferralTxRequestParams` accepts a Kit `Transaction`, a base64 string, raw `Uint8Array`/`ArrayBuffer`, or any object with a `serialize()` method — covering both `@solana/kit` and legacy `@solana/web3.js` `VersionedTransaction` adapters.
+- `rentPayer` on `BuildReferralActivationTransactionParams` is deprecated: the tx-based activation flow no longer creates trader accounts on-chain. Register the trader before calling this flow.
