@@ -215,3 +215,26 @@ Source Phoenix commit: `d1ccda811fc68e0cbf1fbf5d3e6d0235d508c3db`
 - Update your `Cargo.toml` to `phoenix-rise = "0.1.13"`.
 - Delegated onboarding flows that previously required manual capability bitmask construction can now use the exported `TRADER_CAPABILITY_*` constants and `is_trader_ready` to check readiness without hardcoding bit values.
 - The new `permission` instruction builders (`create_permission_ix`, `set_permission_delegated_ix`) are needed for integrators who programmatically manage delegated trader-onboarding budgets; see the `delegated_trader_management_onboarding` example for the end-to-end flow.
+
+## v0.1.14 - 2026-06-24
+
+Source Phoenix commit: `f2a0ac7b66eae85ef8ddb3f21ff68ce6f7063754`
+
+### Summary
+
+- Added two new unauthenticated referral activation endpoints to `InviteClient`: `get_referral_activation_permission()` (`GET /v1/referral/activation-permission`) and `activate_referral_tx()` (`POST /v1/referral/activate-tx`), enabling a wallet-side transaction-signing flow for referral activation.
+- New public types `ActivateReferralTxRequest`, `ActivateReferralTxResponse`, and `ReferralActivationPermissionResponse` are re-exported from the crate root under the `sdk` feature flag.
+- Added `ExchangeStatusView` struct (fields: `active`, `gated`, `withdrawals_available`) and a corresponding `ExchangeClient::get_status()` method (`GET /exchange/status`).
+- Added `withdrawals_available: bool` field to `ExchangeStateSnapshot` and the `ExchangeStatusChanged` variant of `ExchangeDeltaOp`; both default to `true` when the field is absent from the wire payload (backward-compatible deserialization).
+- Added a `referral_activation_tx` example (requires `solana-keypair` feature) demonstrating the full end-to-end activate-tx wallet integration flow.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- If you pattern-match on `ExchangeDeltaOp::ExchangeStatusChanged`, you must now bind or ignore the new `withdrawals_available` field; omitting it is a compile error.
+- `ExchangeStateSnapshot` gains a `withdrawals_available` field; struct literal construction (if any) must be updated to include it.
+- `ExchangeStatusView` is a new type exported from `phoenix_rise_types`; no migration needed unless a local type of the same name exists.
+- The `activate_referral_tx` flow requires the trader account to exist on-chain before calling `/v1/referral/activate-tx`; use `--register-if-missing` (or call `register_trader` first) if the account may not exist yet.

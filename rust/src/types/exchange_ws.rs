@@ -129,6 +129,8 @@ pub struct ExchangeStateSnapshot {
     pub exchange_status_features: Vec<String>,
     pub active: bool,
     pub gated: bool,
+    #[serde(default = "default_withdrawals_available")]
+    pub withdrawals_available: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -310,6 +312,8 @@ pub enum ExchangeDeltaOp {
         disabled_features: Vec<String>,
         active: bool,
         gated: bool,
+        #[serde(default = "default_withdrawals_available")]
+        withdrawals_available: bool,
     },
     MarketAdded {
         market: ExchangeMarketSnapshot,
@@ -462,6 +466,11 @@ fn clamp_u64_to_u32(value: u64) -> u32 {
     value.min(u32::MAX as u64) as u32
 }
 
+// TODO: remove me when the migrations are finished
+fn default_withdrawals_available() -> bool {
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -520,6 +529,7 @@ mod tests {
                 exchange_status_features: vec!["active".to_string()],
                 active: true,
                 gated: false,
+                withdrawals_available: true,
             },
             markets: vec![ExchangeMarketSnapshot {
                 symbol: "SOL-PERP".to_string(),
@@ -581,6 +591,61 @@ mod tests {
                 .funding_config
                 .max_funding_rate_per_interval,
             2_500
+        );
+    }
+
+    #[test]
+    fn exchange_snapshot_defaults_missing_withdrawals_available_to_true() {
+        let mut value = serde_json::to_value(snapshot()).unwrap();
+        value
+            .get_mut("exchange")
+            .and_then(serde_json::Value::as_object_mut)
+            .unwrap()
+            .remove("withdrawalsAvailable");
+
+        let decoded: ExchangeSnapshotView = serde_json::from_value(value).unwrap();
+
+        assert!(decoded.exchange.withdrawals_available);
+    }
+
+    #[test]
+    fn exchange_status_delta_defaults_missing_withdrawals_available_to_true() {
+        let value = serde_json::json!({
+            "channel": "exchange",
+            "version": 1,
+            "sequenceNumber": 11,
+            "slot": 43,
+            "slotIndex": 0,
+            "ops": [
+                {
+                    "kind": "exchangeStatusChanged",
+                    "previous_bits": 128,
+                    "new_bits": 129,
+                    "previous_features": ["initialized"],
+                    "new_features": ["initialized", "active"],
+                    "enabled_features": ["active"],
+                    "disabled_features": [],
+                    "active": true,
+                    "gated": false
+                }
+            ]
+        });
+
+        let decoded: ExchangeDeltaMessage = serde_json::from_value(value).unwrap();
+
+        assert_eq!(
+            decoded.ops,
+            vec![ExchangeDeltaOp::ExchangeStatusChanged {
+                previous_bits: 128,
+                new_bits: 129,
+                previous_features: vec!["initialized".to_string()],
+                new_features: vec!["initialized".to_string(), "active".to_string()],
+                enabled_features: vec!["active".to_string()],
+                disabled_features: Vec::new(),
+                active: true,
+                gated: false,
+                withdrawals_available: true,
+            }]
         );
     }
 

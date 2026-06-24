@@ -1,7 +1,7 @@
 use axum::http::StatusCode;
-use axum::routing::post;
+use axum::routing::{get, post};
 use axum::{Json, Router};
-use phoenix_rise::PhoenixHttpClient;
+use phoenix_rise::{ActivateReferralTxRequest, PhoenixHttpClient};
 use serde_json::{Value, json};
 use solana_pubkey::Pubkey;
 use tokio::net::TcpListener;
@@ -10,7 +10,15 @@ use tokio::net::TcpListener;
 async fn activate_invite_parses_object_response() {
     let app = Router::new()
         .route("/v1/invite/activate", post(activate_invite_handler))
-        .route("/v1/referral/activate", post(activate_referral_handler));
+        .route("/v1/referral/activate", post(activate_referral_handler))
+        .route(
+            "/v1/referral/activation-permission",
+            get(referral_activation_permission_handler),
+        )
+        .route(
+            "/v1/referral/activate-tx",
+            post(activate_referral_tx_handler),
+        );
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -21,7 +29,7 @@ async fn activate_invite_parses_object_response() {
     let client = PhoenixHttpClient::builder(format!("http://{}", addr))
         .build()
         .unwrap();
-    let authority = Pubkey::new_unique();
+    let authority = expected_authority();
 
     let trader_pda = client
         .register_trader(&authority, "invite-code")
@@ -35,6 +43,44 @@ async fn activate_invite_parses_object_response() {
         .await
         .unwrap();
     assert_eq!(referral_pda, "Trader2222222222222222222222222222222222");
+
+    let permission = client
+        .invite()
+        .get_referral_activation_permission()
+        .await
+        .unwrap();
+    assert_eq!(
+        permission.trader_onboarder,
+        "Onboarder111111111111111111111111111111111"
+    );
+    assert_eq!(
+        permission.risk_authority,
+        "Risk1111111111111111111111111111111111111"
+    );
+    assert_eq!(
+        permission.permission_account,
+        "Permission11111111111111111111111111111111"
+    );
+
+    let activation = client
+        .invite()
+        .activate_referral_tx(&ActivateReferralTxRequest {
+            referral_code: "ref-code".to_string(),
+            trader_authority: authority.to_string(),
+            trader_pda_index: Some(1),
+            trader_subaccount_index: Some(2),
+            recent_blockhash: "recent-blockhash".to_string(),
+            transaction: "base64-transaction".to_string(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(activation.signature.as_deref(), Some("tx-signature"));
+    assert_eq!(
+        activation.trader_pda,
+        "Trader3333333333333333333333333333333333"
+    );
+    assert_eq!(activation.referral_code, "REFCODE");
+    assert_eq!(activation.status, "submitted");
 
     server.abort();
 }
@@ -93,6 +139,52 @@ async fn activate_referral_handler(Json(body): Json<Value>) -> Json<Value> {
     Json(json!({
         "trader_pda": "Trader2222222222222222222222222222222222"
     }))
+}
+
+async fn referral_activation_permission_handler() -> Json<Value> {
+    Json(json!({
+        "trader_onboarder": "Onboarder111111111111111111111111111111111",
+        "risk_authority": "Risk1111111111111111111111111111111111111",
+        "permission_account": "Permission11111111111111111111111111111111"
+    }))
+}
+
+async fn activate_referral_tx_handler(Json(body): Json<Value>) -> Json<Value> {
+    let expected_authority = expected_authority().to_string();
+    assert_eq!(
+        body.get("referral_code").and_then(Value::as_str),
+        Some("ref-code")
+    );
+    assert_eq!(
+        body.get("trader_authority").and_then(Value::as_str),
+        Some(expected_authority.as_str())
+    );
+    assert_eq!(
+        body.get("trader_pda_index").and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        body.get("trader_subaccount_index").and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        body.get("recent_blockhash").and_then(Value::as_str),
+        Some("recent-blockhash")
+    );
+    assert_eq!(
+        body.get("transaction").and_then(Value::as_str),
+        Some("base64-transaction")
+    );
+    Json(json!({
+        "signature": "tx-signature",
+        "trader_pda": "Trader3333333333333333333333333333333333",
+        "referral_code": "REFCODE",
+        "status": "submitted"
+    }))
+}
+
+fn expected_authority() -> Pubkey {
+    Pubkey::new_from_array([9; 32])
 }
 
 async fn activate_referral_requires_auth_handler() -> (StatusCode, Json<Value>) {
