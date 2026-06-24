@@ -101,8 +101,9 @@ mod ws_client;
 pub use accounts::{AccountDataFetcher, PhoenixAccountClient, PhoenixAccountClientError};
 #[cfg(feature = "sdk")]
 pub use api::{
-    CandlesClient, CollateralClient, ExchangeClient, FundingClient, InviteClient, MarketsClient,
-    OrdersClient, TradersClient, TradesClient,
+    ActivateReferralTxRequest, ActivateReferralTxResponse, CandlesClient, CollateralClient,
+    ExchangeClient, FundingClient, InviteClient, MarketsClient, OrdersClient,
+    ReferralActivationPermissionResponse, TradersClient, TradesClient,
 };
 #[cfg(all(feature = "sdk", feature = "solana-keypair"))]
 pub use auth::PhoenixWalletSessionManager;

@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use solana_pubkey::Pubkey;
 
 use crate::http_client::HttpClientInner;
@@ -51,6 +51,23 @@ impl InviteClient<'_> {
             .map_err(with_referral_activation_auth_context)?;
         Ok(response.trader_pda)
     }
+
+    pub async fn get_referral_activation_permission(
+        &self,
+    ) -> Result<ReferralActivationPermissionResponse, PhoenixHttpError> {
+        self.http
+            .get_json("/v1/referral/activation-permission")
+            .await
+    }
+
+    pub async fn activate_referral_tx(
+        &self,
+        request: &ActivateReferralTxRequest,
+    ) -> Result<ActivateReferralTxResponse, PhoenixHttpError> {
+        self.http
+            .post_json("/v1/referral/activate-tx", request)
+            .await
+    }
 }
 
 fn with_referral_activation_auth_context(error: PhoenixHttpError) -> PhoenixHttpError {
@@ -97,7 +114,35 @@ struct ActivateReferralRequest<'a> {
     referral_code: &'a str,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ActivateReferralTxRequest {
+    pub referral_code: String,
+    pub trader_authority: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trader_pda_index: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trader_subaccount_index: Option<u8>,
+    pub recent_blockhash: String,
+    pub transaction: String,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct ActivateReferralTxResponse {
+    #[serde(default)]
+    pub signature: Option<String>,
+    pub trader_pda: String,
+    pub referral_code: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct ReferralActivationPermissionResponse {
+    pub trader_onboarder: String,
+    pub risk_authority: String,
+    pub permission_account: String,
+}
+
+#[derive(Deserialize)]
 struct ActivateInviteResponse {
     trader_pda: String,
 }

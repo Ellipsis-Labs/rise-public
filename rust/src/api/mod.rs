@@ -12,7 +12,10 @@ pub use candles::CandlesClient;
 pub use collateral::CollateralClient;
 pub use exchange::ExchangeClient;
 pub use funding::FundingClient;
-pub use invite::InviteClient;
+pub use invite::{
+    ActivateReferralTxRequest, ActivateReferralTxResponse, InviteClient,
+    ReferralActivationPermissionResponse,
+};
 pub use markets::MarketsClient;
 pub use orders::OrdersClient;
 pub use traders::TradersClient;

@@ -188,6 +188,20 @@ pub struct ExchangeResponse {
     pub markets: Vec<ExchangeMarketConfig>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExchangeStatusView {
+    pub active: bool,
+    pub gated: bool,
+    #[serde(default = "default_withdrawals_available")]
+    pub withdrawals_available: bool,
+}
+
+// TODO: remove me when the migrations are finished
+fn default_withdrawals_available() -> bool {
+    true
+}
+
 /// Exchange configuration containing keys and market configs.
 ///
 /// This struct is populated by querying the Phoenix API for exchange keys
@@ -224,6 +238,17 @@ impl From<ExchangeResponse> for ExchangeView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn exchange_status_defaults_missing_withdrawals_available_to_true() {
+        let view: ExchangeStatusView = serde_json::from_value(serde_json::json!({
+            "active": true,
+            "gated": false,
+        }))
+        .unwrap();
+
+        assert!(view.withdrawals_available);
+    }
 
     #[test]
     fn test_deserialize_exchange_keys_view() {

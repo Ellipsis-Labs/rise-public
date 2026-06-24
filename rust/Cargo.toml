@@ -17,7 +17,7 @@ publish = true
 readme = "CRATES.md"
 repository = "https://github.com/Ellipsis-Labs/rise-public"
 rust-version = "1.84.0"
-version = "0.1.13"
+version = "0.1.14"
 
 [[example]]
 name              = "cancel_all_conditional_orders"
@@ -57,6 +57,10 @@ required-features = ["solana-keypair"]
 
 [[example]]
 name              = "onboard_trader_delegated"
+required-features = ["solana-keypair"]
+
+[[example]]
+name              = "referral_activation_tx"
 required-features = ["solana-keypair"]
 
 [[example]]
@@ -135,6 +139,7 @@ utoipa = { version = "5.4", features = ["chrono"], optional = true }
 
 [dev-dependencies]
 axum                            = "0.8"
+bincode                         = "1.3.3"
 litesvm                         = "0.7"
 opentelemetry_sdk               = { version = "0.31", features = ["trace"] }
 proptest                        = "1.11.0"
@@ -160,7 +165,7 @@ publish      = true
 readme       = "CRATES.md"
 repository   = "https://github.com/Ellipsis-Labs/rise-public"
 rust-version = "1.89.0"
-version      = "0.1.13"
+version      = "0.1.14"
 
 [workspace.dependencies]
 clap = { version = "4.5", features = ["derive"] }

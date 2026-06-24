@@ -210,12 +210,14 @@ impl PhoenixExchangeCacheStore {
                     new_features,
                     active,
                     gated,
+                    withdrawals_available,
                     ..
                 } => {
                     next_snapshot.exchange.exchange_status_bits = *new_bits;
                     next_snapshot.exchange.exchange_status_features = new_features.clone();
                     next_snapshot.exchange.active = *active;
                     next_snapshot.exchange.gated = *gated;
+                    next_snapshot.exchange.withdrawals_available = *withdrawals_available;
                     events.push(ExchangeCacheEvent::ExchangeUpdated {
                         change: ExchangeCacheExchangeChangeKind::Status,
                         slot: delta.slot,
@@ -534,6 +536,7 @@ mod tests {
                 exchange_status_features: vec!["initialized".to_string(), "active".to_string()],
                 active: true,
                 gated: false,
+                withdrawals_available: true,
             },
             markets: vec![ExchangeMarketSnapshot {
                 symbol: "SOL-PERP".to_string(),
