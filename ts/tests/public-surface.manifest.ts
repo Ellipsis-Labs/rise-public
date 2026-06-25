@@ -126,6 +126,8 @@ export const ROOT_PRESENT_PROPERTIES = [
   "buildHawkeyeViewFundingIx",
   "buildActivateReferralTxRequest",
   "buildReferralActivationTransaction",
+  "getReferralActivationTraderState",
+  "hasReferralActivationCapabilities",
   "referralActivationExchangeAccountsFromSnapshot",
   "serializeReferralActivationSignedTransaction",
   "decodeHawkeyeReturnData",

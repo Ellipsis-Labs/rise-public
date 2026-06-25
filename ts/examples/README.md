@@ -101,6 +101,18 @@ Pass `--grant-manager-keypair-path` and `--grant-uses N` to include the
 Phoenix-side `SetPermissionDelegated` grant before the user-side onboarding
 transaction.
 
+### 09-referral-activation-tx.ts
+
+Builds and submits the `/v1/referral/activate-tx` flow with the trader authority
+keypair. If the trader account is missing, the signed transaction includes
+`register_trader` followed by delegated onboarding. If the trader account
+already exists, the signed transaction only includes delegated onboarding.
+
+```bash
+PHOENIX_API_URL=http://127.0.0.1:8080 PHOENIX_RPC_URL=<RPC_URL> \
+bun examples/09-referral-activation-tx.ts <REFERRAL_CODE> [TRADER_KEYPAIR_PATH]
+```
+
 ## Larger Demos
 
 ### phoenix-client-example.ts

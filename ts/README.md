@@ -97,6 +97,8 @@ Use the examples as the fastest reference for intended SDK usage:
   advanced conditional-order cancellation workflow
 - [examples/06-flight-market-order.ts](./examples/06-flight-market-order.ts):
   Flight-routed market order placement with builder fee routing
+- [examples/09-referral-activation-tx.ts](./examples/09-referral-activation-tx.ts):
+  referral activation through `/v1/referral/activate-tx`
 - [examples/phoenix-client-example.ts](./examples/phoenix-client-example.ts):
   broader API walkthrough
 - [examples/phoenix-ws-example.ts](./examples/phoenix-ws-example.ts):

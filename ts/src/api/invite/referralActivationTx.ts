@@ -1,4 +1,5 @@
 import { decodeBase64ToBytes, encodeBytesToBase64 } from "@/base64";
+import { decodeTrader, type Trader } from "@/accounts";
 import {
   getPhoenixLogAuthorityAddress,
   getPhoenixTraderSubaccountAddress,
@@ -11,19 +12,26 @@ import {
   type GlobalTraderIndexAddressArray,
   type LogAuthorityAddress,
   type PhoenixProgramAddress,
+  type InstructionsWithAccountsAndData,
 } from "@/primitives";
-import { buildOnboardTraderDelegatedIxResolved } from "@/ixs/trader";
+import {
+  buildOnboardTraderDelegatedIxResolved,
+  buildRegisterTraderIxResolved,
+} from "@/ixs/trader";
 import {
   address,
   appendTransactionMessageInstructions,
   compileTransaction,
+  createSolanaRpc,
   createTransactionMessage,
+  fetchEncodedAccount,
   getBase64EncodedWireTransaction,
   setTransactionMessageFeePayer,
   setTransactionMessageLifetimeUsingBlockhash,
   type Address,
   type Blockhash,
   type Transaction,
+  type TransactionWithLifetime,
 } from "@solana/kit";
 import type { ExchangeStateSnapshot } from "../exchange";
 import type {
@@ -39,6 +47,23 @@ export interface ReferralActivationExchangeAccounts {
   activeTraderBuffer: readonly string[];
 }
 
+export type ReferralActivationTransaction = Transaction &
+  TransactionWithLifetime;
+
+export type ReferralActivationRpc = ReturnType<typeof createSolanaRpc>;
+
+export type ReferralActivationTraderStatus =
+  | "missing"
+  | "registered"
+  | "activated";
+
+export interface ReferralActivationTraderState {
+  status: ReferralActivationTraderStatus;
+  traderPda: string;
+  flags?: number;
+  trader?: Trader;
+}
+
 export interface BuildReferralActivationTransactionParams {
   referralCode: string;
   traderAuthority: string | Address;
@@ -49,8 +74,18 @@ export interface BuildReferralActivationTransactionParams {
   traderSubaccountIndex?: number;
   feePayer?: string | Address;
   /**
-   * @deprecated Referral activate-tx no longer creates trader accounts, so no
-   * rent payer is used. Register the trader before building this request.
+   * Include `register_trader` before delegated onboarding. Set this only when
+   * the trader account does not already exist.
+   */
+  includeRegisterTrader?: boolean;
+  /**
+   * Max positions used by `register_trader` when `includeRegisterTrader` is
+   * true. Must be between 32 and 128. Defaults to 128.
+   */
+  registerTraderMaxPositions?: bigint;
+  /**
+   * @deprecated Use `feePayer`. When `includeRegisterTrader` is true, this is
+   * treated as a fallback fee payer for compatibility with older callers.
    */
   rentPayer?: string | Address;
   lastValidBlockHeight?: bigint;
@@ -58,7 +93,7 @@ export interface BuildReferralActivationTransactionParams {
 
 export interface ReferralActivationTransactionBuild {
   requestFields: Omit<ActivateReferralTxRequest, "transaction">;
-  transaction: Transaction;
+  transaction: ReferralActivationTransaction;
   unsignedTransactionBase64: string;
   /**
    * Full unsigned wire transaction bytes. Browser wallet adapters that use
@@ -84,7 +119,7 @@ export type ReferralActivationTransactionSignerContext =
   ReferralActivationTransactionBuild;
 
 export type ReferralActivationTransactionSigner = (
-  transaction: Transaction,
+  transaction: ReferralActivationTransaction,
   context: ReferralActivationTransactionSignerContext
 ) =>
   | ReferralActivationSignedTransaction
@@ -92,6 +127,15 @@ export type ReferralActivationTransactionSigner = (
 
 export interface BuildActivateReferralTxRequestParams extends BuildReferralActivationTransactionParams {
   signTransaction: ReferralActivationTransactionSigner;
+  /**
+   * Optional Solana RPC client used to inspect the trader account and choose
+   * whether to include `register_trader`.
+   */
+  rpc?: ReferralActivationRpc;
+  /**
+   * Optional Solana RPC URL. Used only when `rpc` is omitted.
+   */
+  rpcUrl?: string;
 }
 
 export interface BuildActivateReferralTxRequestWithClientParams extends Omit<
@@ -105,11 +149,16 @@ export interface BuildActivateReferralTxRequestWithClientParams extends Omit<
 export interface BuildActivateReferralTxRequestResult extends ReferralActivationTransactionBuild {
   request: ActivateReferralTxRequest;
   signedTransactionBase64: string;
+  includeRegisterTrader: boolean;
+  traderActivationState?: ReferralActivationTraderState;
 }
 
 const DEFAULT_TRADER_PDA_INDEX = 0;
 const DEFAULT_TRADER_SUBACCOUNT_INDEX = 0;
+const MIN_REGISTER_TRADER_MAX_POSITIONS = 32n;
+const DEFAULT_REGISTER_TRADER_MAX_POSITIONS = 128n;
 const DEFAULT_LAST_VALID_BLOCK_HEIGHT = 0n;
+const TRADER_CAPABILITY_CAN_DEPOSIT = 1 << 4;
 
 const toAddress = <T extends Address>(value: string | Address): T =>
   address(value) as T;
@@ -122,6 +171,29 @@ const toNonEmptyAddressArray = <T extends [Address, ...Address[]]>(
     throw new Error(`${fieldName} must include at least one address`);
   }
   return values.map((value) => address(value)) as unknown as T;
+};
+
+const resolveRegisterTraderMaxPositions = (value?: bigint): bigint => {
+  const maxPositions = value ?? DEFAULT_REGISTER_TRADER_MAX_POSITIONS;
+  if (
+    maxPositions < MIN_REGISTER_TRADER_MAX_POSITIONS ||
+    maxPositions > DEFAULT_REGISTER_TRADER_MAX_POSITIONS
+  ) {
+    throw new Error("registerTraderMaxPositions must be between 32 and 128");
+  }
+  return maxPositions;
+};
+
+export const hasReferralActivationCapabilities = (flags: number): boolean =>
+  (flags & TRADER_CAPABILITY_CAN_DEPOSIT) === TRADER_CAPABILITY_CAN_DEPOSIT;
+
+const resolveReferralActivationRpc = (params: {
+  rpc?: ReferralActivationRpc;
+  rpcUrl?: string;
+}): ReferralActivationRpc | undefined => {
+  if (params.rpc) return params.rpc;
+  if (params.rpcUrl) return createSolanaRpc(params.rpcUrl);
+  return undefined;
 };
 
 const isKitTransaction = (value: unknown): value is Transaction => {
@@ -178,11 +250,65 @@ export const referralActivationExchangeAccountsFromSnapshot = async (
   };
 };
 
+export const getReferralActivationTraderState = async (params: {
+  traderAuthority: string | Address;
+  exchangeAccounts: ReferralActivationExchangeAccounts;
+  traderPdaIndex?: number;
+  traderSubaccountIndex?: number;
+  rpc?: ReferralActivationRpc;
+  rpcUrl?: string;
+}): Promise<ReferralActivationTraderState> => {
+  const rpc = resolveReferralActivationRpc(params);
+  if (!rpc) {
+    throw new Error(
+      "RPC client is required to inspect referral activation trader state. Pass rpc or rpcUrl."
+    );
+  }
+
+  const traderAuthority = toAddress<Authority>(params.traderAuthority);
+  const phoenixProgramAddress = toAddress<PhoenixProgramAddress>(
+    params.exchangeAccounts.phoenixProgramAddress
+  );
+  const traderPdaIndex = params.traderPdaIndex ?? DEFAULT_TRADER_PDA_INDEX;
+  const traderSubaccountIndex =
+    params.traderSubaccountIndex ?? DEFAULT_TRADER_SUBACCOUNT_INDEX;
+  const traderPda = await getPhoenixTraderSubaccountAddress({
+    authority: traderAuthority,
+    traderPdaIndex,
+    subaccountIndex: traderSubaccountIndex,
+    phoenixProgramAddress,
+  });
+
+  const account = await fetchEncodedAccount(rpc, traderPda);
+  if (!account.exists || !account.data || account.data.length === 0) {
+    return {
+      status: "missing",
+      traderPda,
+    };
+  }
+
+  const trader = decodeTrader(account.data);
+  const flags = trader.state.flags;
+  return {
+    status: hasReferralActivationCapabilities(flags)
+      ? "activated"
+      : "registered",
+    traderPda,
+    flags,
+    trader,
+  };
+};
+
 export const buildReferralActivationTransaction = async (
   params: BuildReferralActivationTransactionParams
 ): Promise<ReferralActivationTransactionBuild> => {
   const traderAuthority = toAddress<Authority>(params.traderAuthority);
-  const feePayer = toAddress<Address>(params.feePayer ?? traderAuthority);
+  const includeRegisterTrader = params.includeRegisterTrader === true;
+  const feePayer = toAddress<Authority>(
+    params.feePayer ??
+      (includeRegisterTrader ? params.rentPayer : undefined) ??
+      traderAuthority
+  );
   const traderPdaIndex = params.traderPdaIndex ?? DEFAULT_TRADER_PDA_INDEX;
   const traderSubaccountIndex =
     params.traderSubaccountIndex ?? DEFAULT_TRADER_SUBACCOUNT_INDEX;
@@ -214,6 +340,25 @@ export const buildReferralActivationTransaction = async (
     phoenixProgramAddress: exchange.phoenixProgramAddress,
   });
 
+  const instructions: InstructionsWithAccountsAndData[] = [];
+  if (includeRegisterTrader) {
+    instructions.push(
+      buildRegisterTraderIxResolved({
+        exchange,
+        trader: {
+          payer: feePayer,
+          authority: traderAuthority,
+          traderAccount,
+        },
+        maxPositions: resolveRegisterTraderMaxPositions(
+          params.registerTraderMaxPositions
+        ),
+        traderPdaIndex,
+        traderSubaccountIndex,
+      })
+    );
+  }
+
   const onboardTraderIx = buildOnboardTraderDelegatedIxResolved({
     exchange,
     trader: {
@@ -234,9 +379,10 @@ export const buildReferralActivationTransaction = async (
             generateReadonlySignerAccount(traderAuthority),
           ],
         };
+  instructions.push(activationIx);
 
   const message = appendTransactionMessageInstructions(
-    [activationIx],
+    instructions,
     setTransactionMessageLifetimeUsingBlockhash(
       {
         blockhash: params.recentBlockhash as Blockhash,
@@ -271,10 +417,25 @@ export const buildReferralActivationTransaction = async (
 export const buildActivateReferralTxRequest = async (
   params: BuildActivateReferralTxRequestParams
 ): Promise<BuildActivateReferralTxRequestResult> => {
+  const traderActivationState =
+    params.includeRegisterTrader === undefined &&
+    (params.rpc !== undefined || params.rpcUrl !== undefined)
+      ? await getReferralActivationTraderState({
+          traderAuthority: params.traderAuthority,
+          exchangeAccounts: params.exchangeAccounts,
+          traderPdaIndex: params.traderPdaIndex,
+          traderSubaccountIndex: params.traderSubaccountIndex,
+          rpc: params.rpc,
+          rpcUrl: params.rpcUrl,
+        })
+      : undefined;
+  const includeRegisterTrader =
+    params.includeRegisterTrader ?? traderActivationState?.status === "missing";
   const build = await buildReferralActivationTransaction({
     ...params,
     permission: params.permission,
     exchangeAccounts: params.exchangeAccounts,
+    includeRegisterTrader,
   });
   const signedTransaction = await params.signTransaction(
     build.transaction,
@@ -290,5 +451,7 @@ export const buildActivateReferralTxRequest = async (
       transaction: signedTransactionBase64,
     },
     signedTransactionBase64,
+    includeRegisterTrader,
+    traderActivationState,
   };
 };
