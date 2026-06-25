@@ -128,6 +128,14 @@ export {
   type ReferralActivationTransactionSignerContext,
   type SerializableTransactionLike,
 } from "./api/invite";
+export type {
+  BuildRegisterIxsRequest,
+  BuildRegisterIxsResponse,
+  RegisterIxAccountMeta,
+  RegisterIxInstruction,
+  SendRegisterIxsRequest,
+  SendRegisterIxsResponse,
+} from "./api/exchange";
 export { toWebSocketUrl } from "./ws";
 export * as ws from "./ws";
 export {

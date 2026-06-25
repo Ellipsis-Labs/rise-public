@@ -55,6 +55,106 @@ export const ExchangeKeysSchema: z.ZodType<ExchangeKeys> = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Register Ixs
+// ---------------------------------------------------------------------------
+
+export interface RegisterIxAccountMeta {
+  pubkey: string;
+  isSigner: boolean;
+  isWritable: boolean;
+}
+
+export const RegisterIxAccountMetaSchema: z.ZodType<RegisterIxAccountMeta> =
+  z.object({
+    pubkey: z.string(),
+    isSigner: z.boolean(),
+    isWritable: z.boolean(),
+  });
+
+export interface RegisterIxInstruction {
+  data: number[];
+  keys: RegisterIxAccountMeta[];
+  programId: string;
+}
+
+export const RegisterIxInstructionSchema: z.ZodType<RegisterIxInstruction> =
+  z.object({
+    data: z.array(z.number().int().min(0).max(255)),
+    keys: z.array(RegisterIxAccountMetaSchema),
+    programId: z.string(),
+  });
+
+export interface BuildRegisterIxsRequest {
+  traderAuthority: string;
+  txFeePayer: string;
+  maxPositions?: number;
+}
+
+export const BuildRegisterIxsRequestSchema: z.ZodType<BuildRegisterIxsRequest> =
+  z.object({
+    traderAuthority: z.string(),
+    txFeePayer: z.string(),
+    maxPositions: z.number().int().min(32).max(128).optional(),
+  });
+
+export interface BuildRegisterIxsResponse {
+  instructions: RegisterIxInstruction[];
+  traderPda: string;
+  traderOnboarder: string;
+  txFeePayer: string;
+  maxPositions: number;
+  includeRegisterTrader: boolean;
+}
+
+export const BuildRegisterIxsResponseSchema: z.ZodType<BuildRegisterIxsResponse> =
+  z.object({
+    instructions: z.array(RegisterIxInstructionSchema),
+    traderPda: z.string(),
+    traderOnboarder: z.string(),
+    txFeePayer: z.string(),
+    maxPositions: z.number().int(),
+    includeRegisterTrader: z.boolean(),
+  });
+
+export interface SendRegisterIxsRequest {
+  transaction: string;
+  traderAuthority: string;
+  txFeePayer: string;
+  maxPositions?: number;
+  traderPdaIndex?: number;
+  traderSubaccountIndex?: number;
+}
+
+export const SendRegisterIxsRequestSchema: z.ZodType<SendRegisterIxsRequest> =
+  z.object({
+    transaction: z.string(),
+    traderAuthority: z.string(),
+    txFeePayer: z.string(),
+    maxPositions: z.number().int().min(32).max(128).optional(),
+    traderPdaIndex: z.number().int().min(0).max(255).optional(),
+    traderSubaccountIndex: z.number().int().min(0).max(255).optional(),
+  });
+
+export interface SendRegisterIxsResponse {
+  signature: string;
+  traderPda: string;
+  traderOnboarder: string;
+  txFeePayer: string;
+  maxPositions: number;
+  includeRegisterTrader: boolean;
+}
+
+export const SendRegisterIxsResponseSchema: z.ZodType<SendRegisterIxsResponse> =
+  z.object({
+    signature: z.string(),
+    traderPda: z.string(),
+    traderOnboarder: z.string(),
+    txFeePayer: z.string(),
+    maxPositions: z.number().int(),
+    includeRegisterTrader: z.boolean(),
+  });
+
+// ---------------------------------------------------------------------------
 // Exchange Status View
 // ---------------------------------------------------------------------------
 

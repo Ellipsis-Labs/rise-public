@@ -99,6 +99,9 @@ Use the examples as the fastest reference for intended SDK usage:
   Flight-routed market order placement with builder fee routing
 - [examples/09-referral-activation-tx.ts](./examples/09-referral-activation-tx.ts):
   referral activation through `/v1/referral/activate-tx`
+- [examples/10-builder-onboarding-tx.ts](./examples/10-builder-onboarding-tx.ts):
+  builder onboarding without a referral code through
+  `/v1/exchange/build-register-ixs` and `/v1/exchange/send-register-ixs`
 - [examples/phoenix-client-example.ts](./examples/phoenix-client-example.ts):
   broader API walkthrough
 - [examples/phoenix-ws-example.ts](./examples/phoenix-ws-example.ts):

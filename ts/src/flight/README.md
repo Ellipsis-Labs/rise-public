@@ -30,6 +30,8 @@ When you do that:
   instruction
 - `client.api.orders().placeIsolatedLimitOrder(...)`,
   `client.api.orders().placeIsolatedMarketOrder(...)`,
+  `client.api.orders().placeIsolatedLimitOrderEnhanced(...)`,
+  `client.api.orders().placeIsolatedMarketOrderEnhanced(...)`,
   `client.api.orders().placeIsolatedLimitOrderWithConditionals(...)`,
   `client.api.orders().placeStopLossOrder(...)`,
   `client.api.orders().placeAttachedConditionalOrder(...)`, and

@@ -656,6 +656,40 @@ describe("public client route mapping", () => {
             status: "submitted",
           },
         ],
+        [
+          "/v1/exchange/build-register-ixs",
+          {
+            instructions: [
+              {
+                data: [1, 2, 3],
+                keys: [
+                  {
+                    pubkey: "fee-payer-abc",
+                    isSigner: true,
+                    isWritable: true,
+                  },
+                ],
+                programId: "program-abc",
+              },
+            ],
+            traderPda: "trader-pda-789",
+            traderOnboarder: "onboarder-pubkey",
+            txFeePayer: "fee-payer-abc",
+            maxPositions: 128,
+            includeRegisterTrader: true,
+          },
+        ],
+        [
+          "/v1/exchange/send-register-ixs",
+          {
+            signature: "tx-signature-789",
+            traderPda: "trader-pda-789",
+            traderOnboarder: "onboarder-pubkey",
+            txFeePayer: "fee-payer-abc",
+            maxPositions: 128,
+            includeRegisterTrader: true,
+          },
+        ],
       ]),
       records
     );
@@ -663,6 +697,7 @@ describe("public client route mapping", () => {
     const traders = new V1TradersClient(transport);
     const collateral = new V1CollateralClient(transport);
     const funding = new V1FundingClient(transport);
+    const exchange = new V1ExchangeClient(transport);
     const invite = new V1InviteClient(transport);
     const orders = new V1OrdersClient(transport);
     const trades = new V1TradesClient(transport);
@@ -768,6 +803,19 @@ describe("public client route mapping", () => {
       trader_subaccount_index: 2,
       recent_blockhash: "recent-blockhash",
       transaction: "base64-transaction",
+    });
+    await exchange.buildRegisterIxs({
+      traderAuthority: "authority-abc",
+      txFeePayer: "fee-payer-abc",
+      maxPositions: 128,
+    });
+    await exchange.sendRegisterIxs({
+      transaction: "base64-transaction",
+      traderAuthority: "authority-abc",
+      txFeePayer: "fee-payer-abc",
+      maxPositions: 128,
+      traderPdaIndex: 0,
+      traderSubaccountIndex: 0,
     });
 
     expect(marketFills.data[0]?.timestamp).toBe(123);
@@ -980,6 +1028,29 @@ describe("public client route mapping", () => {
           trader_subaccount_index: 2,
           recent_blockhash: "recent-blockhash",
           transaction: "base64-transaction",
+        },
+      },
+      {
+        method: "POST",
+        endpoint: "/v1/exchange/build-register-ixs",
+        params: undefined,
+        body: {
+          traderAuthority: "authority-abc",
+          txFeePayer: "fee-payer-abc",
+          maxPositions: 128,
+        },
+      },
+      {
+        method: "POST",
+        endpoint: "/v1/exchange/send-register-ixs",
+        params: undefined,
+        body: {
+          transaction: "base64-transaction",
+          traderAuthority: "authority-abc",
+          txFeePayer: "fee-payer-abc",
+          maxPositions: 128,
+          traderPdaIndex: 0,
+          traderSubaccountIndex: 0,
         },
       },
     ]);
