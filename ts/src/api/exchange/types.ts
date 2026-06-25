@@ -61,12 +61,14 @@ export const ExchangeKeysSchema: z.ZodType<ExchangeKeys> = z.object({
 export interface ExchangeStatusView {
   active: boolean;
   gated: boolean;
+  withdrawalsAvailable: boolean;
 }
 
 export const ExchangeStatusViewSchema: z.ZodType<ExchangeStatusView> = z.object(
   {
     active: z.boolean(),
     gated: z.boolean(),
+    withdrawalsAvailable: z.boolean().default(true),
   }
 );
 
@@ -447,6 +449,7 @@ export interface ExchangeStateSnapshot {
   exchangeStatusFeatures: string[];
   active: boolean;
   gated: boolean;
+  withdrawalsAvailable: boolean;
 }
 
 export const ExchangeStateSnapshotSchema: z.ZodType<ExchangeStateSnapshot> =
@@ -465,6 +468,7 @@ export const ExchangeStateSnapshotSchema: z.ZodType<ExchangeStateSnapshot> =
     exchangeStatusFeatures: z.array(z.string()),
     active: z.boolean(),
     gated: z.boolean(),
+    withdrawalsAvailable: z.boolean().default(true),
   });
 
 export interface ExchangeMarketSnapshot {

@@ -58,6 +58,7 @@ const buildSnapshot = (
     exchangeStatusFeatures: ["initialized", "active"],
     active: true,
     gated: false,
+    withdrawalsAvailable: true,
   },
   markets: [
     {

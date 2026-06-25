@@ -75,6 +75,7 @@ const buildSnapshotPayload = () => ({
     exchangeStatusFeatures: ["initialized", "active"],
     active: true,
     gated: false,
+    withdrawalsAvailable: true,
   },
   markets: [
     {
@@ -181,6 +182,38 @@ describe("exchange adapter", () => {
     abort.abort();
   });
 
+  it("defaults missing withdrawalsAvailable in snapshot frames to true", async () => {
+    const { ws, subscriptions } = createFakeWs();
+    const adapter = createExchangeAdapter(ws);
+    const abort = new AbortController();
+    const iterator = adapter(abort.signal)[Symbol.asyncIterator]();
+    const nextMessage = iterator.next();
+    const [subscription] = [...subscriptions.values()];
+
+    const payload = buildSnapshotPayload();
+    delete (payload.exchange as { withdrawalsAvailable?: boolean })
+      .withdrawalsAvailable;
+
+    subscription?.onMessage({
+      channel: "exchange",
+      messageType: "snapshot",
+      ...payload,
+    });
+
+    const result = await nextMessage;
+    if (result.done) {
+      throw new Error("expected exchange snapshot");
+    }
+
+    expect(result.value.messageType).toBe("snapshot");
+    if (result.value.messageType !== "snapshot") {
+      throw new Error("expected snapshot message");
+    }
+    expect(result.value.exchange.withdrawalsAvailable).toBe(true);
+
+    abort.abort();
+  });
+
   it("normalizes snake_case delta op fields from the exchange stream", async () => {
     const { ws, subscriptions } = createFakeWs();
     const adapter = createExchangeAdapter(ws);
@@ -256,6 +289,7 @@ describe("exchange adapter", () => {
       disabledFeatures: [],
       active: true,
       gated: false,
+      withdrawalsAvailable: true,
     });
     expect(result.value.ops[1]).toMatchObject({
       kind: "marketStatusChanged",

@@ -1,9 +1,14 @@
 import {
   decodeGlobalConfiguration,
   decodePerpAssetMap,
+  fetchWithdrawQueueHeader,
   fetchOrderbookHeader,
 } from "@/accounts";
-import type { GlobalConfiguration, PerpAssetMetadata } from "@/accounts";
+import type {
+  GlobalConfiguration,
+  PerpAssetMetadata,
+  WithdrawQueueHeader,
+} from "@/accounts";
 import type { AccountFetcherClient } from "@/accounts/fetcherFactory";
 import type {
   ExchangeMarketSnapshot,
@@ -103,11 +108,15 @@ const toMarketStatus = (status: number): string => {
 
 const toExchangeStateSnapshot = (
   globalConfiguration: GlobalConfiguration,
+  withdrawQueueHeader: WithdrawQueueHeader | null,
   globalTraderIndex: string[],
   activeTraderBuffer: string[],
   programId: PhoenixProgramAddress
 ): ExchangeStateSnapshot => {
   const exchangeStatusBits = globalConfiguration.exchangeStatus;
+  const active =
+    (exchangeStatusBits & 0b1000_0000) !== 0 &&
+    (exchangeStatusBits & 0b0000_0001) !== 0;
   return {
     programId,
     globalConfig: globalConfiguration.accountKey,
@@ -130,12 +139,14 @@ const toExchangeStateSnapshot = (
     withdrawQueue: globalConfiguration.withdrawQueueKey,
     exchangeStatusBits,
     exchangeStatusFeatures: toExchangeStatusFeatures(exchangeStatusBits),
-    active:
-      (exchangeStatusBits & 0b1000_0000) !== 0 &&
-      (exchangeStatusBits & 0b0000_0001) !== 0,
+    active,
     gated:
       (exchangeStatusBits & 0b1000_0000) !== 0 &&
       (exchangeStatusBits & 0b0000_0010) !== 0,
+    withdrawalsAvailable:
+      active &&
+      (withdrawQueueHeader === null ||
+        withdrawQueueHeader.withdrawThrottle.maxBudget !== 0n),
   };
 };
 
@@ -563,21 +574,26 @@ export const loadRpcSnapshot = async (
     ]),
   };
 
-  const [globalTraderIndex, activeTraderBuffer, markets] = await Promise.all([
-    getGlobalTraderIndexAddresses(helperClientWithCache),
-    getActiveTraderBufferAddresses(helperClientWithCache),
-    Promise.all(
-      perpAssetMap.metadata.entries.map(({ key, value }) =>
-        toMarketSnapshot(
-          value,
-          key,
-          fetcher,
-          pdaClient,
-          globalConfiguration.quoteDecimals
+  const [withdrawQueueHeader, globalTraderIndex, activeTraderBuffer, markets] =
+    await Promise.all([
+      fetchWithdrawQueueHeader({
+        client: helperClientWithCache,
+        address: globalConfiguration.withdrawQueueKey,
+      }).catch(() => null),
+      getGlobalTraderIndexAddresses(helperClientWithCache),
+      getActiveTraderBufferAddresses(helperClientWithCache),
+      Promise.all(
+        perpAssetMap.metadata.entries.map(({ key, value }) =>
+          toMarketSnapshot(
+            value,
+            key,
+            fetcher,
+            pdaClient,
+            globalConfiguration.quoteDecimals
+          )
         )
-      )
-    ),
-  ]);
+      ),
+    ]);
 
   return {
     version: 1,
@@ -585,6 +601,7 @@ export const loadRpcSnapshot = async (
     slotIndex: 0,
     exchange: toExchangeStateSnapshot(
       globalConfiguration,
+      withdrawQueueHeader,
       globalTraderIndex,
       activeTraderBuffer,
       phoenixProgramAddress
@@ -600,7 +617,8 @@ const determineExchangeChange = (
   if (
     previous.exchangeStatusBits !== next.exchangeStatusBits ||
     previous.active !== next.active ||
-    previous.gated !== next.gated
+    previous.gated !== next.gated ||
+    previous.withdrawalsAvailable !== next.withdrawalsAvailable
   ) {
     return "status";
   }

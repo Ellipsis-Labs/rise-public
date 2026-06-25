@@ -33,6 +33,7 @@ export interface ExchangeStatusChangedOp {
   disabledFeatures: string[];
   active: boolean;
   gated: boolean;
+  withdrawalsAvailable: boolean;
 }
 
 export interface MarketAddedOp {
@@ -327,6 +328,9 @@ const normalizeExchangeDeltaOp = (value: unknown): unknown => {
       if (op.disabledFeatures === undefined) {
         op.disabledFeatures = op.disabled_features;
       }
+      if (op.withdrawalsAvailable === undefined) {
+        op.withdrawalsAvailable = op.withdrawals_available ?? true;
+      }
       return op;
     case "marketStatusChanged":
       if (op.previousMarketStatus === undefined) {
@@ -398,6 +402,7 @@ const ExchangeStatusChangedOpSchema = z.object({
   disabledFeatures: z.array(z.string()),
   active: z.boolean(),
   gated: z.boolean(),
+  withdrawalsAvailable: z.boolean().default(true),
 });
 
 const ExchangeKeysUpdatedOpSchema = z.object({
