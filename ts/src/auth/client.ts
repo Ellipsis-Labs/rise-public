@@ -28,6 +28,13 @@ import {
   type WalletTransactionChallengeResponse,
   type WalletTransactionLoginRequest,
 } from "./types";
+import {
+  loginWithServiceAccountCredential,
+  loginWithServiceAccountFromEnv,
+  loginWithServiceAccountSigner,
+  type PhoenixServiceAccountAuthSigner,
+  type PhoenixServiceAccountCredential,
+} from "./serviceAccount";
 
 export interface PhoenixAuthClientConfig extends PhoenixApiUrlConfig {
   timeout?: number;
@@ -320,6 +327,22 @@ export class PhoenixAuthClient {
       request
     );
     return this.handleAuthResponse(response);
+  }
+
+  async loginWithServiceAccountSigner(
+    signer: PhoenixServiceAccountAuthSigner
+  ): Promise<AuthSession> {
+    return loginWithServiceAccountSigner(this, signer);
+  }
+
+  async loginWithServiceAccountCredential(
+    credential: PhoenixServiceAccountCredential
+  ): Promise<AuthSession> {
+    return loginWithServiceAccountCredential(this, credential);
+  }
+
+  async loginWithServiceAccountFromEnv(): Promise<AuthSession | null> {
+    return loginWithServiceAccountFromEnv(this);
   }
 
   async refresh(refreshToken: string): Promise<AuthSession> {
