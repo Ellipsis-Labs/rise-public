@@ -31,6 +31,10 @@ export {
 export {
   type AuthoritySet,
   AuthoritySetSchema,
+  type BuildRegisterIxsRequest,
+  BuildRegisterIxsRequestSchema,
+  type BuildRegisterIxsResponse,
+  BuildRegisterIxsResponseSchema,
   type ExchangeConfig,
   ExchangeConfigSchema,
   type ExchangeKeys,
@@ -69,6 +73,14 @@ export {
   ExchangeWsMarkPriceParametersSchema,
   type ExchangeWsMarketPriceBand,
   ExchangeWsMarketPriceBandSchema,
+  type RegisterIxAccountMeta,
+  RegisterIxAccountMetaSchema,
+  type RegisterIxInstruction,
+  RegisterIxInstructionSchema,
+  type SendRegisterIxsRequest,
+  SendRegisterIxsRequestSchema,
+  type SendRegisterIxsResponse,
+  SendRegisterIxsResponseSchema,
 } from "../api/exchange/types";
 
 export {

@@ -51,7 +51,7 @@ export const HTTP_RESOURCE_PRESENT_METHODS = {
     "getNextMarketCalendarTransition",
     "getMarketCalendar",
   ],
-  exchange: ["getSnapshot"],
+  exchange: ["buildRegisterIxs", "getSnapshot", "sendRegisterIxs"],
   orderbook: ["getOrderbook"],
   funding: ["getTraderFundingHistory", "getUserFundingHourly"],
   invite: [

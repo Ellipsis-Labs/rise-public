@@ -538,3 +538,22 @@ Source Phoenix commit: `190b6af2b821bd0670b4a1aea8dad552bcd62482`
 - Credential file loading (`PHOENIX_SERVICE_ACCOUNT_CREDENTIAL` / `loadServiceAccountCredentialFromPath`) uses `node:fs/promises` and is only available in Node.js and Bun environments; browser bundles that import `loadServiceAccountCredentialFromEnv` with a file path will throw at runtime. Split env-var loading has no Node dependency and works anywhere `process.env` is accessible.
 - Partial split-env configuration (some but not all of `CLIENT_ID`, `KEY_ID`, `PRIVATE_KEY` present) throws `PhoenixAuthError` with code `incomplete_service_account_credential_env` rather than silently falling through.
 - Private keys must be 32-byte Ed25519 seeds encoded as base64url (no padding); a mismatched length throws `PhoenixAuthError` with code `invalid_service_account_private_key`.
+
+## v0.4.55 - 2026-06-25
+
+Source Phoenix commit: `2f2bb2ba1256f28465278ff1c00d61f0ffc2c5f2`
+
+### Summary
+
+- Added two new methods to `V1ExchangeClient`: `buildRegisterIxs` (calls `POST /v1/exchange/build-register-ixs`) and `sendRegisterIxs` (calls `POST /v1/exchange/send-register-ixs`), enabling builders to register and onboard a trader without a referral code.
+- Exported six new public types and their Zod schemas from both the package root (`index.ts`) and the public-api-schemas barrel: `BuildRegisterIxsRequest`, `BuildRegisterIxsResponse`, `SendRegisterIxsRequest`, `SendRegisterIxsResponse`, `RegisterIxInstruction`, and `RegisterIxAccountMeta`.
+- Added `examples/10-builder-onboarding-tx.ts`, a runnable end-to-end example of the builder onboarding flow: fetch instructions, partially sign locally, submit to the API for co-signing, simulation, and broadcast.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- The builder onboarding flow is two steps: call `client.api.exchange().buildRegisterIxs({ traderAuthority, txFeePayer, maxPositions? })` to receive the instruction list, build and partially sign the transaction, then call `client.api.exchange().sendRegisterIxs({ transaction, traderAuthority, txFeePayer, ... })` to have the API validate, co-sign as onboarder, simulate, and send. `maxPositions` is optional on both calls (32–128; default 128).
+- This onboarding path is distinct from the referral-code path (`POST /v1/referral/activate-tx`) and the access-code path (`POST /v1/invite/activate`). Use `build-register-ixs` / `send-register-ixs` when the builder controls the fee payer and no referral code is involved.
