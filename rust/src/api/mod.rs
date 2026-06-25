@@ -14,7 +14,9 @@ pub use exchange::ExchangeClient;
 pub use funding::FundingClient;
 pub use invite::{
     ActivateReferralTxRequest, ActivateReferralTxResponse, InviteClient,
-    ReferralActivationPermissionResponse,
+    ReferralActivationPermissionResponse, ReferralActivationTraderStatus,
+    ReferralActivationTraderStatusError, fetch_referral_activation_trader_status,
+    has_referral_activation_capabilities, referral_activation_trader_status,
 };
 pub use markets::MarketsClient;
 pub use orders::OrdersClient;

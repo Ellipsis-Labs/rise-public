@@ -1,7 +1,16 @@
+use std::fs;
+use std::path::PathBuf;
+
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use phoenix_rise::{ActivateReferralTxRequest, PhoenixHttpClient};
+use base64::Engine;
+use phoenix_rise::phoenix_rise_ix::TRADER_CAPABILITY_CAN_DEPOSIT;
+use phoenix_rise::phoenix_rise_types::accounts::Trader;
+use phoenix_rise::{
+    ActivateReferralTxRequest, PhoenixHttpClient, ReferralActivationTraderStatus,
+    has_referral_activation_capabilities, referral_activation_trader_status,
+};
 use serde_json::{Value, json};
 use solana_pubkey::Pubkey;
 use tokio::net::TcpListener;
@@ -121,6 +130,31 @@ async fn activate_referral_explains_user_auth_requirement() {
     server.abort();
 }
 
+#[test]
+fn referral_activation_trader_status_tracks_deposit_capability() {
+    assert_eq!(
+        referral_activation_trader_status(None),
+        ReferralActivationTraderStatus::Missing
+    );
+    assert!(!ReferralActivationTraderStatus::Registered.should_include_register_trader());
+    assert!(ReferralActivationTraderStatus::Missing.should_include_register_trader());
+
+    let mut trader = Trader::try_from_account_bytes(&mock_account_bytes("trader.json"))
+        .expect("trader fixture should decode");
+    assert_eq!(
+        referral_activation_trader_status(Some(&trader)),
+        ReferralActivationTraderStatus::Activated
+    );
+    assert!(has_referral_activation_capabilities(trader.state.flags));
+
+    trader.state.flags &= !TRADER_CAPABILITY_CAN_DEPOSIT;
+    assert_eq!(
+        referral_activation_trader_status(Some(&trader)),
+        ReferralActivationTraderStatus::Registered
+    );
+    assert!(!has_referral_activation_capabilities(trader.state.flags));
+}
+
 async fn activate_invite_handler(Json(body): Json<Value>) -> Json<Value> {
     assert_eq!(
         body.get("code").and_then(Value::as_str),
@@ -185,6 +219,21 @@ async fn activate_referral_tx_handler(Json(body): Json<Value>) -> Json<Value> {
 
 fn expected_authority() -> Pubkey {
     Pubkey::new_from_array([9; 32])
+}
+
+fn mock_account_bytes(file_name: &str) -> Vec<u8> {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../ts/tests/mocks")
+        .join(file_name);
+    let fixture: Value =
+        serde_json::from_str(&fs::read_to_string(path).expect("fixture should be readable"))
+            .expect("fixture should parse");
+    let data = fixture["account"]["data"][0]
+        .as_str()
+        .expect("fixture account data should be base64");
+    base64::engine::general_purpose::STANDARD
+        .decode(data)
+        .expect("fixture should contain base64 account bytes")
 }
 
 async fn activate_referral_requires_auth_handler() -> (StatusCode, Json<Value>) {

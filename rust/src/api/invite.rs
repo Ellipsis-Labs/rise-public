@@ -1,8 +1,13 @@
 use serde::{Deserialize, Serialize};
 use solana_pubkey::Pubkey;
+use solana_rpc_client::nonblocking::rpc_client::RpcClient;
+use solana_rpc_client_api::client_error::Error as RpcClientError;
+use thiserror::Error;
 
 use crate::http_client::HttpClientInner;
+use crate::phoenix_rise_ix::TRADER_CAPABILITY_CAN_DEPOSIT;
 use crate::phoenix_rise_types::PhoenixHttpError;
+use crate::phoenix_rise_types::accounts::{AccountDeserializeError, Trader};
 
 const REFERRAL_ACTIVATION_AUTH_MESSAGE: &str = concat!(
     "Referral activation requires an authenticated user session for the authority wallet. ",
@@ -68,6 +73,75 @@ impl InviteClient<'_> {
             .post_json("/v1/referral/activate-tx", request)
             .await
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReferralActivationTraderStatus {
+    Missing,
+    Registered,
+    Activated,
+}
+
+impl ReferralActivationTraderStatus {
+    pub const fn should_include_register_trader(self) -> bool {
+        matches!(self, Self::Missing)
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum ReferralActivationTraderStatusError {
+    #[error("failed to fetch trader account {trader}: {source}")]
+    Fetch {
+        trader: Pubkey,
+        source: RpcClientError,
+    },
+
+    #[error("failed to decode trader account {trader}: {source}")]
+    Decode {
+        trader: Pubkey,
+        source: AccountDeserializeError,
+    },
+}
+
+pub const fn has_referral_activation_capabilities(flags: u32) -> bool {
+    flags & TRADER_CAPABILITY_CAN_DEPOSIT == TRADER_CAPABILITY_CAN_DEPOSIT
+}
+
+pub fn referral_activation_trader_status(
+    trader: Option<&Trader>,
+) -> ReferralActivationTraderStatus {
+    match trader {
+        None => ReferralActivationTraderStatus::Missing,
+        Some(trader) if has_referral_activation_capabilities(trader.state.flags) => {
+            ReferralActivationTraderStatus::Activated
+        }
+        Some(_) => ReferralActivationTraderStatus::Registered,
+    }
+}
+
+pub async fn fetch_referral_activation_trader_status(
+    rpc: &RpcClient,
+    trader: &Pubkey,
+) -> Result<ReferralActivationTraderStatus, ReferralActivationTraderStatusError> {
+    let Some(account) = rpc
+        .get_account_with_commitment(trader, rpc.commitment())
+        .await
+        .map_err(|source| ReferralActivationTraderStatusError::Fetch {
+            trader: *trader,
+            source,
+        })?
+        .value
+    else {
+        return Ok(ReferralActivationTraderStatus::Missing);
+    };
+
+    let trader_account = Trader::try_from_account_bytes(&account.data).map_err(|source| {
+        ReferralActivationTraderStatusError::Decode {
+            trader: *trader,
+            source,
+        }
+    })?;
+    Ok(referral_activation_trader_status(Some(&trader_account)))
 }
 
 fn with_referral_activation_auth_context(error: PhoenixHttpError) -> PhoenixHttpError {

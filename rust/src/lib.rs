@@ -103,7 +103,10 @@ pub use accounts::{AccountDataFetcher, PhoenixAccountClient, PhoenixAccountClien
 pub use api::{
     ActivateReferralTxRequest, ActivateReferralTxResponse, CandlesClient, CollateralClient,
     ExchangeClient, FundingClient, InviteClient, MarketsClient, OrdersClient,
-    ReferralActivationPermissionResponse, TradersClient, TradesClient,
+    ReferralActivationPermissionResponse, ReferralActivationTraderStatus,
+    ReferralActivationTraderStatusError, TradersClient, TradesClient,
+    fetch_referral_activation_trader_status, has_referral_activation_capabilities,
+    referral_activation_trader_status,
 };
 #[cfg(all(feature = "sdk", feature = "solana-keypair"))]
 pub use auth::PhoenixWalletSessionManager;
