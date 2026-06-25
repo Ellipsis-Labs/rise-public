@@ -258,3 +258,25 @@ Source Phoenix commit: `823bb5e64efafb221f37a7e0a8f8720da843741c`
 - The `referral_activation_tx` example no longer requires `--register-if-missing`; the flag is accepted but silently ignored for backward compatibility. Remove it from any example invocations you have documented.
 - If you call `fetch_referral_activation_trader_status` and receive `ReferralActivationTraderStatus::Missing`, pass `should_include_register_trader() == true` (and a valid `max_positions` in the range 32–128) to your transaction builder. Accounts in the `Registered` or `Activated` states skip registration and only set capabilities.
 - `--max-positions` in the example binary now enforces a minimum of 32 (previously 1). This affects the example only and does not change the library API.
+
+## v0.1.16 - 2026-06-25
+
+Source Phoenix commit: `2f2bb2ba1256f28465278ff1c00d61f0ffc2c5f2`
+
+### Summary
+
+- Added builder-initiated trader onboarding support: two new `ExchangeClient` methods — `build_register_ixs` and `send_register_ixs` — let a builder register and onboard a trader without a referral code, using `POST /v1/exchange/build-register-ixs` and `POST /v1/exchange/send-register-ixs`.
+- Six new public types exported from the crate root (under the `sdk` feature): `BuildRegisterIxsRequest`, `BuildRegisterIxsResponse`, `SendRegisterIxsRequest`, `SendRegisterIxsResponse`, `ApiInstructionResponse`, and `ApiAccountMeta`.
+- New `builder_onboarding_tx` example (requires `solana-keypair` feature) demonstrates the full build-sign-submit flow; run with `--trader-keypair-path` and an optional `--fee-payer-keypair-path`.
+- Documentation updated to clarify the three distinct onboarding paths: access-code (`/v1/invite/activate`), referral-code (`/v1/referral/activate-tx`), and builder (`/v1/exchange/build-register-ixs` + `/v1/exchange/send-register-ixs`).
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- To use the new builder onboarding APIs, call `client.exchange().build_register_ixs(...)` with a `BuildRegisterIxsRequest` (trader authority, fee payer, optional `max_positions`), sign the returned instructions locally, then submit the base64-encoded signed transaction via `client.exchange().send_register_ixs(...)`. The API validates, co-signs, simulates, and broadcasts the transaction.
+- `ApiInstructionResponse` and `ApiAccountMeta` are the deserialized instruction shapes returned by `build_register_ixs`; downstream code that builds transactions from the response will need to import these types.
+- The `max_positions` field on both request types is optional (serialized only when `Some`); defaults to 128 on the server side.
+- `trader_pda_index` and `trader_subaccount_index` on `SendRegisterIxsRequest` are also optional; omit them to accept server defaults.
