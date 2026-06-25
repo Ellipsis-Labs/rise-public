@@ -63,6 +63,7 @@ const buildSnapshot = (): ExchangeSnapshotView => ({
     exchangeStatusFeatures: ["initialized", "active"],
     active: true,
     gated: false,
+    withdrawalsAvailable: true,
   },
   markets: [
     {
@@ -462,7 +463,7 @@ describe("exchange metadata client integration", () => {
     expect(snapshot.slot).toBe(415023825n);
     expect(snapshot.slotIndex).toBe(0);
     expect(snapshot.markets.length).toBeGreaterThan(0);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchOrderbookHeaderSpy).toHaveBeenCalled();
     expect(getGlobalTraderIndexAddressesSpy).toHaveBeenCalledOnce();
     expect(getActiveTraderBufferAddressesSpy).toHaveBeenCalledOnce();

@@ -563,6 +563,7 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
             exchangeStatusFeatures: [...op.newFeatures],
             active: op.active,
             gated: op.gated,
+            withdrawalsAvailable: op.withdrawalsAvailable,
           };
           events.push({
             type: "exchangeUpdated",

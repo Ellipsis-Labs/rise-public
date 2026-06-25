@@ -476,3 +476,23 @@ Source Phoenix commit: `f437eb2cee153f012a3ab34e799623d34defb07f`
 - The `buildActivateReferralTxRequest` convenience method on `V1InviteClient` makes parallel HTTP calls for the permission account and exchange snapshot; pass pre-fetched `permission` and/or `exchangeAccounts` in the params object to skip those fetches.
 - The `signTransaction` callback in `BuildActivateReferralTxRequestParams` accepts a Kit `Transaction`, a base64 string, raw `Uint8Array`/`ArrayBuffer`, or any object with a `serialize()` method — covering both `@solana/kit` and legacy `@solana/web3.js` `VersionedTransaction` adapters.
 - `rentPayer` on `BuildReferralActivationTransactionParams` is deprecated: the tx-based activation flow no longer creates trader accounts on-chain. Register the trader before calling this flow.
+
+## v0.4.52 - 2026-06-25
+
+Source Phoenix commit: `f9c0326d728b06047d21c64915a6a72f8bcb1afb`
+
+### Summary
+
+- Added `withdrawalsAvailable: boolean` to `ExchangeStatusView`, `ExchangeStateSnapshot`, `ExchangeStatusChangedOp`, and `ExchangeStatusPayload` — reflects whether the exchange withdraw queue is open for withdrawals (requires exchange to be active and withdraw throttle budget to be non-zero).
+- RPC snapshot loading now fetches the withdraw queue header in parallel, using it to populate `withdrawalsAvailable`; a fetch failure is treated as available (`true`).
+- `exchangeUpdated` events in the cache store now include `withdrawalsAvailable`, and a change in its value triggers a `"status"` exchange change notification.
+- Wire adapters normalize the snake_case alias `withdrawals_available` from the server to `withdrawalsAvailable`, defaulting to `true` when the field is absent (backward-compatible with older server payloads).
+
+### Breaking Changes
+
+- `ExchangeStatusView`, `ExchangeStateSnapshot`, `ExchangeStatusChangedOp`, and `ExchangeStatusPayload` each gain a required `withdrawalsAvailable: boolean` field. Consumers who construct or assert on these types directly (e.g., in tests or typed fixtures) must add this field. Wire-parsed values from the server default to `true` when the field is missing, so runtime parsing is non-breaking.
+
+### Consumer Notes
+
+- Read `snapshot.exchange.withdrawalsAvailable` or `status.withdrawalsAvailable` to determine whether withdrawals are currently permitted before initiating a withdrawal flow.
+- No action needed for pure subscribers: existing server messages without `withdrawalsAvailable` are handled transparently with a `true` default.

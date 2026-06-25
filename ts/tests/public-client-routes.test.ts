@@ -339,9 +339,9 @@ describe("public client route mapping", () => {
     const markets = new V1MarketsClient(transport);
 
     await exchange.getExchange();
-    await exchange.getSnapshot();
+    const snapshot = await exchange.getSnapshot();
     await exchange.getMarket("SOL");
-    await exchange.getStatus();
+    const status = await exchange.getStatus();
     await exchange.getKeys();
     await exchange.getMarkets();
     await markets.getMarkets();
@@ -351,6 +351,9 @@ describe("public client route mapping", () => {
     await markets.getNextMarketCalendarTransition("XAU");
     await markets.getCommodityMarketCalendar();
     await markets.getMarketCalendar("XAU");
+
+    expect(snapshot.exchange.withdrawalsAvailable).toBe(true);
+    expect(status.withdrawalsAvailable).toBe(true);
 
     expect(records).toEqual([
       {

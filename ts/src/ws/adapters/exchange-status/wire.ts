@@ -5,6 +5,7 @@ export interface ExchangeStatusPayload {
   previousExchangeStatusBits: number;
   active: boolean;
   gated: boolean;
+  withdrawalsAvailable: boolean;
   authority: string;
   [key: string]: unknown;
 }
@@ -41,6 +42,7 @@ const ExchangeStatusPayloadSchema: z.ZodType<ExchangeStatusPayload> = z
       }),
     active: z.boolean(),
     gated: z.boolean(),
+    withdrawalsAvailable: z.boolean().default(true),
     authority: z.string(),
   })
   .passthrough();

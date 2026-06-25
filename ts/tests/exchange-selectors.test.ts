@@ -150,6 +150,7 @@ const createExchangeStoreState = (
         exchangeStatusFeatures: ["initialized", "active"],
         active: true,
         gated: false,
+        withdrawalsAvailable: true,
       },
       markets: [...markets],
     },
