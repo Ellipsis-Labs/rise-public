@@ -496,3 +496,25 @@ Source Phoenix commit: `f9c0326d728b06047d21c64915a6a72f8bcb1afb`
 
 - Read `snapshot.exchange.withdrawalsAvailable` or `status.withdrawalsAvailable` to determine whether withdrawals are currently permitted before initiating a withdrawal flow.
 - No action needed for pure subscribers: existing server messages without `withdrawalsAvailable` are handled transparently with a `true` default.
+
+## v0.4.53 - 2026-06-25
+
+Source Phoenix commit: `823bb5e64efafb221f37a7e0a8f8720da843741c`
+
+### Summary
+
+- **Automatic trader account detection**: `buildActivateReferralTxRequest` now accepts optional `rpc` or `rpcUrl` parameters. When provided and `includeRegisterTrader` is not set explicitly, the SDK queries the on-chain trader account and automatically prepends `register_trader` if the account does not exist.
+- **Opt-in trader registration in a single transaction**: `buildReferralActivationTransaction` and `buildActivateReferralTxRequest` accept two new optional fields — `includeRegisterTrader: boolean` and `registerTraderMaxPositions?: bigint` (32–128, default 128) — to prepend `register_trader` before delegated onboarding.
+- **New utility exports**: `getReferralActivationTraderState` inspects whether a trader PDA is `"missing"`, `"registered"`, or `"activated"`; `hasReferralActivationCapabilities` tests raw trader capability flags.
+- **New types exported**: `ReferralActivationRpc`, `ReferralActivationTraderState`, `ReferralActivationTraderStatus`, and `ReferralActivationTransaction`.
+- **Enriched result from `buildActivateReferralTxRequest`**: the returned object now includes `includeRegisterTrader: boolean` and `traderActivationState?: ReferralActivationTraderState`.
+
+### Breaking Changes
+
+- `ReferralActivationTransactionBuild.transaction` is now typed as `ReferralActivationTransaction` (`Transaction & TransactionWithLifetime`) instead of plain `Transaction`. Existing callers assigning the result to a `Transaction`-typed variable will still compile, but implementors of `ReferralActivationTransactionSigner` whose callback is explicitly annotated with the old `(transaction: Transaction, ...) => ...` signature may see a type mismatch when the annotation is updated to the new stricter type — update to `ReferralActivationTransaction` or remove the explicit annotation.
+
+### Consumer Notes
+
+- `rentPayer` is still deprecated, but its behavior changed: when `includeRegisterTrader: true` is set and no `feePayer` is provided, `rentPayer` is now used as the fallback fee payer for the registration instruction. Existing callers that pass `rentPayer` without `includeRegisterTrader: true` are unaffected — it continues to be ignored in that case.
+- `registerTraderMaxPositions` must be between `32n` and `128n`; passing a value outside this range throws synchronously before any RPC call.
+- To use auto-detection, pass `rpc` (a `createSolanaRpc` instance) or `rpcUrl` to `buildActivateReferralTxRequest` and omit `includeRegisterTrader`. The returned `traderActivationState` reflects what the SDK observed on-chain.
