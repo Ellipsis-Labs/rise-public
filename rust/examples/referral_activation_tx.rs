@@ -3,14 +3,13 @@
 //! This flow mirrors a wallet integration:
 //!
 //! 1. Fetch `/v1/referral/activation-permission`.
-//! 2. Build the delegated onboarding/capability transaction.
+//! 2. Build the activation transaction. If the trader account is missing, the
+//!    transaction includes `register_trader` followed by delegated onboarding.
+//!    If the trader account exists, it includes only delegated onboarding.
 //! 3. Sign it with the trader authority.
 //! 4. Submit it to `/v1/referral/activate-tx`; the API adds the onboarder
 //!    signature, submits the transaction, and waits for activation.
 //! 5. Wait 5s, then fetch and print the trader account from RPC.
-//!
-//! The activate-tx endpoint does not create the trader account. Pass
-//! `--register-if-missing` to register the trader first with the same keypair.
 //!
 //! Run with:
 //!   PHOENIX_ENV=beta \
@@ -18,8 +17,7 @@
 //!     --features solana-keypair -- <REFERRAL_CODE> \
 //!     --api-url http://127.0.0.1:8080 \
 //!     --rpc-url <RPC_URL> \
-//!     --trader-keypair-path ~/.config/solana/id.json \
-//!     --register-if-missing
+//!     --trader-keypair-path ~/.config/solana/id.json
 
 use std::str::FromStr;
 use std::time::Duration;
@@ -32,7 +30,10 @@ use phoenix_rise::phoenix_rise_ix::{
     OnboardTraderDelegatedParams, RegisterTraderParams, TRADER_ONBOARDING_PERMISSION,
     create_onboard_trader_delegated_ix, create_register_trader_ix,
 };
-use phoenix_rise::{ActivateReferralTxRequest, PhoenixHttpClient, PhoenixMetadata, TraderKey};
+use phoenix_rise::{
+    ActivateReferralTxRequest, PhoenixHttpClient, PhoenixMetadata, ReferralActivationTraderStatus,
+    TraderKey, fetch_referral_activation_trader_status,
+};
 use solana_commitment_config::CommitmentConfig;
 use solana_keypair::read_keypair_file;
 use solana_pubkey::Pubkey;
@@ -52,10 +53,10 @@ Options:
   --api-url <url>                       Phoenix API URL
   --rpc-url <url>                       Solana RPC URL
   --trader-keypair-path <path>          Trader authority keypair path
-  --trader-pda-index <n>                Trader PDA index (default: 0)
+  --trader-pda-index <n>                Trader PDA index (default: 0; activate-tx currently supports 0 only)
   --trader-subaccount-index <n>         Trader subaccount index (default: 0; activate-tx currently supports 0 only)
-  --register-if-missing                 Create the trader account first if it is missing
-  --max-positions <n>                   Max positions for --register-if-missing (default: 128)
+  --register-if-missing                 Deprecated no-op; missing traders are registered in the activation tx
+  --max-positions <n>                   Max positions when registering a missing trader (32-128, default: 128)
   --post-submit-wait-seconds <n>        Seconds to wait before printing the RPC trader account (default: 5)
   -h, --help                            Show this help
 
@@ -73,7 +74,6 @@ struct CliArgs {
     trader_keypair_path: String,
     trader_pda_index: u8,
     trader_subaccount_index: u8,
-    register_if_missing: bool,
     max_positions: u64,
     post_submit_wait: Duration,
 }
@@ -104,8 +104,8 @@ fn parse_u64(value: &str, flag: &str) -> u64 {
 
 fn parse_max_positions(value: &str) -> u64 {
     let max_positions = parse_u64(value, "--max-positions");
-    if max_positions == 0 || max_positions > DEFAULT_MAX_POSITIONS {
-        fail("--max-positions must be between 1 and 128");
+    if !(32..=DEFAULT_MAX_POSITIONS).contains(&max_positions) {
+        fail("--max-positions must be between 32 and 128");
     }
     max_positions
 }
@@ -120,7 +120,6 @@ fn parse_args(argv: Vec<String>) -> CliArgs {
         .unwrap_or_else(|_| default_keypair_path());
     let mut trader_pda_index = 0;
     let mut trader_subaccount_index = 0;
-    let mut register_if_missing = false;
     let mut max_positions = DEFAULT_MAX_POSITIONS;
     let mut post_submit_wait = Duration::from_secs(DEFAULT_POST_SUBMIT_WAIT_SECONDS);
     let mut referral_code = None::<String>;
@@ -156,7 +155,7 @@ fn parse_args(argv: Vec<String>) -> CliArgs {
                 trader_subaccount_index = parse_u8(&value, "--trader-subaccount-index");
             }
             "--register-if-missing" => {
-                register_if_missing = true;
+                // Retained for compatibility with older example invocations.
             }
             "--max-positions" => {
                 let value = args
@@ -185,6 +184,9 @@ fn parse_args(argv: Vec<String>) -> CliArgs {
         }
     }
 
+    if trader_pda_index != 0 {
+        fail("--trader-pda-index must be 0 for /v1/referral/activate-tx");
+    }
     if trader_subaccount_index != 0 {
         fail("--trader-subaccount-index must be 0 for /v1/referral/activate-tx");
     }
@@ -197,7 +199,6 @@ fn parse_args(argv: Vec<String>) -> CliArgs {
         trader_keypair_path,
         trader_pda_index,
         trader_subaccount_index,
-        register_if_missing,
         max_positions,
         post_submit_wait,
     }
@@ -215,40 +216,6 @@ async fn fetch_trader(
         return Ok(None);
     };
     Ok(Some(Trader::try_from_account_bytes(&account.data)?))
-}
-
-async fn register_trader_if_missing(
-    rpc: &RpcClient,
-    trader_keypair: &solana_keypair::Keypair,
-    trader: &TraderKey,
-    max_positions: u64,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if fetch_trader(rpc, &trader.pda()).await?.is_some() {
-        println!("Trader account already exists; skipping registration.");
-        return Ok(());
-    }
-
-    let register_params = RegisterTraderParams::builder()
-        .payer(trader_keypair.pubkey())
-        .trader(trader.authority())
-        .trader_account(trader.pda())
-        .max_positions(max_positions)
-        .trader_pda_index(trader.pda_index)
-        .subaccount_index(trader.subaccount_index)
-        .build()?;
-    let instruction: solana_instruction::Instruction =
-        create_register_trader_ix(register_params)?.into();
-    let blockhash = rpc.get_latest_blockhash().await?;
-    let tx = Transaction::new_signed_with_payer(
-        &[instruction],
-        Some(&trader_keypair.pubkey()),
-        &[trader_keypair],
-        blockhash,
-    );
-    let signature = rpc.send_and_confirm_transaction(&tx).await?;
-    println!("Registered trader account.");
-    println!("Register signature: {signature}");
-    Ok(())
 }
 
 async fn fetch_permission_account(
@@ -298,12 +265,27 @@ fn parse_pubkey(value: &str, field: &str) -> Result<Pubkey, Box<dyn std::error::
 async fn build_signed_activation_transaction_base64(
     trader_keypair: &solana_keypair::Keypair,
     trader: &TraderKey,
+    include_register_trader: bool,
+    max_positions: u64,
     trader_onboarder: Pubkey,
     permission_account: Pubkey,
     global_trader_index: Vec<Pubkey>,
     active_trader_buffer: Vec<Pubkey>,
     rpc: &RpcClient,
 ) -> Result<(String, String), Box<dyn std::error::Error>> {
+    let mut instructions = Vec::<solana_instruction::Instruction>::new();
+    if include_register_trader {
+        let register_params = RegisterTraderParams::builder()
+            .payer(trader_keypair.pubkey())
+            .trader(trader.authority())
+            .trader_account(trader.pda())
+            .max_positions(max_positions)
+            .trader_pda_index(trader.pda_index)
+            .subaccount_index(trader.subaccount_index)
+            .build()?;
+        instructions.push(create_register_trader_ix(register_params)?.into());
+    }
+
     let onboard_params = OnboardTraderDelegatedParams::builder()
         .authority(trader_onboarder)
         .permission_account(permission_account)
@@ -313,8 +295,9 @@ async fn build_signed_activation_transaction_base64(
         .build()?;
     let instruction: solana_instruction::Instruction =
         create_onboard_trader_delegated_ix(onboard_params)?.into();
+    instructions.push(instruction);
 
-    let mut tx = Transaction::new_with_payer(&[instruction], Some(&trader_keypair.pubkey()));
+    let mut tx = Transaction::new_with_payer(&instructions, Some(&trader_keypair.pubkey()));
     let recent_blockhash = rpc.get_latest_blockhash().await?;
     tx.try_partial_sign(&[trader_keypair], recent_blockhash)?;
     let versioned = VersionedTransaction::from(tx);
@@ -347,13 +330,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Trader account:      {}", trader.pda());
     println!("Referral code:       {}", args.referral_code);
 
-    if args.register_if_missing {
-        register_trader_if_missing(&rpc, &trader_keypair, &trader, args.max_positions).await?;
-    } else if fetch_trader(&rpc, &trader.pda()).await?.is_none() {
-        return Err(
-            "Trader account is missing. Re-run with --register-if-missing or register it first."
-                .into(),
-        );
+    let trader_status = fetch_referral_activation_trader_status(&rpc, &trader.pda()).await?;
+    match trader_status {
+        ReferralActivationTraderStatus::Missing => {
+            println!("Trader account missing; activation tx will register and set capabilities.");
+        }
+        ReferralActivationTraderStatus::Registered => {
+            println!(
+                "Trader account exists without activation capabilities; activation tx will only \
+                 set capabilities."
+            );
+        }
+        ReferralActivationTraderStatus::Activated => {
+            println!(
+                "Trader account already has activation capabilities; activation tx will only set \
+                 capabilities."
+            );
+        }
     }
 
     println!("\nFetching referral activation permission...");
@@ -391,6 +384,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (transaction, recent_blockhash) = build_signed_activation_transaction_base64(
         &trader_keypair,
         &trader,
+        trader_status.should_include_register_trader(),
+        args.max_positions,
         trader_onboarder,
         permission_account,
         global_trader_index,

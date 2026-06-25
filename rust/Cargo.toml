@@ -17,7 +17,7 @@ publish = true
 readme = "CRATES.md"
 repository = "https://github.com/Ellipsis-Labs/rise-public"
 rust-version = "1.84.0"
-version = "0.1.14"
+version = "0.1.15"
 
 [[example]]
 name              = "cancel_all_conditional_orders"
@@ -165,7 +165,7 @@ publish      = true
 readme       = "CRATES.md"
 repository   = "https://github.com/Ellipsis-Labs/rise-public"
 rust-version = "1.89.0"
-version      = "0.1.14"
+version      = "0.1.15"
 
 [workspace.dependencies]
 clap = { version = "4.5", features = ["derive"] }

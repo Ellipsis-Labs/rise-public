@@ -238,3 +238,23 @@ Source Phoenix commit: `f2a0ac7b66eae85ef8ddb3f21ff68ce6f7063754`
 - `ExchangeStateSnapshot` gains a `withdrawals_available` field; struct literal construction (if any) must be updated to include it.
 - `ExchangeStatusView` is a new type exported from `phoenix_rise_types`; no migration needed unless a local type of the same name exists.
 - The `activate_referral_tx` flow requires the trader account to exist on-chain before calling `/v1/referral/activate-tx`; use `--register-if-missing` (or call `register_trader` first) if the account may not exist yet.
+
+## v0.1.15 - 2026-06-25
+
+Source Phoenix commit: `823bb5e64efafb221f37a7e0a8f8720da843741c`
+
+### Summary
+
+- Added new public exports for inspecting trader activation status before building a referral activation transaction: `ReferralActivationTraderStatus` enum, `ReferralActivationTraderStatusError` error enum, `fetch_referral_activation_trader_status` async function, `has_referral_activation_capabilities` const function, and `referral_activation_trader_status` function.
+- The referral activation transaction now handles missing trader accounts automatically: when the trader account does not exist, the built transaction includes `register_trader` followed by delegated onboarding in a single atomic transaction. No separate registration step is required.
+- `ReferralActivationTraderStatus::should_include_register_trader()` returns `true` only for the `Missing` variant, making it straightforward to conditionally include the registration instruction when constructing activation transactions manually.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- The `referral_activation_tx` example no longer requires `--register-if-missing`; the flag is accepted but silently ignored for backward compatibility. Remove it from any example invocations you have documented.
+- If you call `fetch_referral_activation_trader_status` and receive `ReferralActivationTraderStatus::Missing`, pass `should_include_register_trader() == true` (and a valid `max_positions` in the range 32–128) to your transaction builder. Accounts in the `Registered` or `Activated` states skip registration and only set capabilities.
+- `--max-positions` in the example binary now enforces a minimum of 32 (previously 1). This affects the example only and does not change the library API.
