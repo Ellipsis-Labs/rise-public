@@ -31,6 +31,8 @@ TypeScript:
 - [rise/ts/examples/04-trader-state-store.ts](./ts/examples/04-trader-state-store.ts)
 - [rise/ts/examples/05-cancel-all-conditional-orders.ts](./ts/examples/05-cancel-all-conditional-orders.ts)
 - [rise/ts/examples/06-flight-market-order.ts](./ts/examples/06-flight-market-order.ts)
+- [rise/ts/examples/09-referral-activation-tx.ts](./ts/examples/09-referral-activation-tx.ts)
+- [rise/ts/examples/10-builder-onboarding-tx.ts](./ts/examples/10-builder-onboarding-tx.ts)
 - [rise/ts/examples/phoenix-client-example.ts](./ts/examples/phoenix-client-example.ts)
 - [rise/ts/examples/phoenix-ws-example.ts](./ts/examples/phoenix-ws-example.ts)
 - [rise/ts/README.md](./ts/README.md)
@@ -44,16 +46,34 @@ Rust:
 - [rise/rust/examples/send_limit_order.rs](./rust/examples/send_limit_order.rs)
 - [rise/rust/examples/send_market_order.rs](./rust/examples/send_market_order.rs)
 - [rise/rust/examples/send_flight_market_order.rs](./rust/examples/send_flight_market_order.rs)
+- [rise/rust/examples/referral_activation_tx.rs](./rust/examples/referral_activation_tx.rs)
+- [rise/rust/examples/builder_onboarding_tx.rs](./rust/examples/builder_onboarding_tx.rs)
 
-## Onboarding: Access Code vs Referral Code
+## Onboarding Paths
 
-These invite routes are not interchangeable:
+These onboarding routes are not interchangeable:
 
 - Use `POST /v1/invite/activate` when you have an access code / allowlist code.
   Send that value as `code`.
-- Use `POST /v1/referral/activate` when you have a referral code. Send that
-  value as `referral_code`. This route requires a user auth session for the
-  same authority wallet being activated.
+- Use `POST /v1/referral/activate-tx` when you have a referral code and want
+  delegated onboarding. The referral code is required, and the trader authority
+  must sign the transaction.
+- Use `POST /v1/exchange/build-register-ixs` followed by
+  `POST /v1/exchange/send-register-ixs` when a builder wants to register and
+  onboard a trader without a referral code. The builder chooses the transaction
+  fee payer, and the API signs only after validating and simulating the
+  submitted transaction.
+
+For copyable Rust and TypeScript examples of both delegated onboarding paths,
+see [sdk/delegated-onboarding.mdx](../sdk/delegated-onboarding.mdx). Runnable
+examples are also available in
+[09-referral-activation-tx.ts](./ts/examples/09-referral-activation-tx.ts),
+[10-builder-onboarding-tx.ts](./ts/examples/10-builder-onboarding-tx.ts),
+[referral_activation_tx.rs](./rust/examples/referral_activation_tx.rs), and
+[builder_onboarding_tx.rs](./rust/examples/builder_onboarding_tx.rs).
+
+The access-code route remains simpler because the user already has an allowlist
+code:
 
 TypeScript:
 
@@ -71,11 +91,6 @@ const activatedWithAccessCode = await client.invite().activateInvite({
   authority,
   code: "ACCESS_CODE",
 });
-
-const activatedWithReferral = await client.invite().activateReferral({
-  authority,
-  referral_code: "REF_CODE",
-});
 ```
 
 Rust:
@@ -92,16 +107,11 @@ let trader_from_access = client
     .invite()
     .activate_invite(&authority, "ACCESS_CODE")
     .await?;
-
-let trader_from_referral = client
-    .invite()
-    .activate_referral(&authority, "REF_CODE")
-    .await?;
 ```
 
 Use
 [register_trader.rs](./rust/examples/register_trader.rs)
-when you want a ready-to-run Rust version of this flow.
+when you want a ready-to-run Rust access-code example.
 
 ## Fetching Exchange, Market, and Trader State
 

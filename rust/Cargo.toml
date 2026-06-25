@@ -17,7 +17,7 @@ publish = true
 readme = "CRATES.md"
 repository = "https://github.com/Ellipsis-Labs/rise-public"
 rust-version = "1.84.0"
-version = "0.1.15"
+version = "0.1.16"
 
 [[example]]
 name              = "cancel_all_conditional_orders"
@@ -37,6 +37,10 @@ required-features = ["solana-keypair"]
 
 [[example]]
 name              = "delegated_trader_management_onboarding"
+required-features = ["solana-keypair"]
+
+[[example]]
+name              = "builder_onboarding_tx"
 required-features = ["solana-keypair"]
 
 [[example]]
@@ -165,7 +169,7 @@ publish      = true
 readme       = "CRATES.md"
 repository   = "https://github.com/Ellipsis-Labs/rise-public"
 rust-version = "1.89.0"
-version      = "0.1.15"
+version      = "0.1.16"
 
 [workspace.dependencies]
 clap = { version = "4.5", features = ["derive"] }

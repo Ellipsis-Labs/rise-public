@@ -10,7 +10,10 @@ mod trades;
 
 pub use candles::CandlesClient;
 pub use collateral::CollateralClient;
-pub use exchange::ExchangeClient;
+pub use exchange::{
+    ApiAccountMeta, ApiInstructionResponse, BuildRegisterIxsRequest, BuildRegisterIxsResponse,
+    ExchangeClient, SendRegisterIxsRequest, SendRegisterIxsResponse,
+};
 pub use funding::FundingClient;
 pub use invite::{
     ActivateReferralTxRequest, ActivateReferralTxResponse, InviteClient,
