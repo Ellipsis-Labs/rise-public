@@ -9,7 +9,7 @@
 
 ```toml
 [dependencies]
-phoenix-rise = "0.1.15"
+phoenix-rise = "0.1.16"
 ```
 
 Optional features:
@@ -40,9 +40,16 @@ Examples that use a local Solana keypair require `solana-keypair`:
 
 ```bash
 cargo run -p phoenix-rise --example subscribe_trader_state --features solana-keypair
+cargo run -p phoenix-rise --example referral_activation_tx --features solana-keypair -- REFERRAL_CODE --trader-keypair-path ~/.config/solana/id.json
+cargo run -p phoenix-rise --example builder_onboarding_tx --features solana-keypair -- --trader-keypair-path ~/.config/solana/id.json
 cargo run -p phoenix-rise --example onboard_trader_delegated --features solana-keypair -- <TRADER_AUTHORITY>
 cargo run -p phoenix-rise --example delegated_trader_management_onboarding --features solana-keypair -- <TRADER_AUTHORITY>
 ```
+
+`referral_activation_tx` demonstrates delegated onboarding with a referral code
+through `/v1/referral/activate-tx`. `builder_onboarding_tx` demonstrates
+registering a trader without a referral code through
+`/v1/exchange/build-register-ixs` and `/v1/exchange/send-register-ixs`.
 
 Examples that do not need that feature can be run directly:
 

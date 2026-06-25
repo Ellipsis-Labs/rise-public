@@ -8,8 +8,9 @@ use base64::Engine;
 use phoenix_rise::phoenix_rise_ix::TRADER_CAPABILITY_CAN_DEPOSIT;
 use phoenix_rise::phoenix_rise_types::accounts::Trader;
 use phoenix_rise::{
-    ActivateReferralTxRequest, PhoenixHttpClient, ReferralActivationTraderStatus,
-    has_referral_activation_capabilities, referral_activation_trader_status,
+    ActivateReferralTxRequest, BuildRegisterIxsRequest, PhoenixHttpClient,
+    ReferralActivationTraderStatus, SendRegisterIxsRequest, has_referral_activation_capabilities,
+    referral_activation_trader_status,
 };
 use serde_json::{Value, json};
 use solana_pubkey::Pubkey;
@@ -27,6 +28,14 @@ async fn activate_invite_parses_object_response() {
         .route(
             "/v1/referral/activate-tx",
             post(activate_referral_tx_handler),
+        )
+        .route(
+            "/v1/exchange/build-register-ixs",
+            post(build_register_ixs_handler),
+        )
+        .route(
+            "/v1/exchange/send-register-ixs",
+            post(send_register_ixs_handler),
         );
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -90,6 +99,43 @@ async fn activate_invite_parses_object_response() {
     );
     assert_eq!(activation.referral_code, "REFCODE");
     assert_eq!(activation.status, "submitted");
+
+    let onboarding = client
+        .exchange()
+        .build_register_ixs(&BuildRegisterIxsRequest {
+            trader_authority: authority.to_string(),
+            tx_fee_payer: "FeePayer11111111111111111111111111111111".to_string(),
+            max_positions: Some(128),
+        })
+        .await
+        .unwrap();
+    assert_eq!(onboarding.instructions.len(), 1);
+    assert_eq!(
+        onboarding.trader_pda,
+        "Trader4444444444444444444444444444444444"
+    );
+    assert_eq!(onboarding.max_positions, 128);
+    assert!(onboarding.include_register_trader);
+
+    let submitted = client
+        .exchange()
+        .send_register_ixs(&SendRegisterIxsRequest {
+            transaction: "base64-user-signed-tx".to_string(),
+            trader_authority: authority.to_string(),
+            tx_fee_payer: "FeePayer11111111111111111111111111111111".to_string(),
+            max_positions: Some(128),
+            trader_pda_index: Some(0),
+            trader_subaccount_index: Some(0),
+        })
+        .await
+        .unwrap();
+    assert_eq!(submitted.signature, "sent-register-signature");
+    assert_eq!(
+        submitted.trader_pda,
+        "Trader4444444444444444444444444444444444"
+    );
+    assert_eq!(submitted.max_positions, 128);
+    assert!(submitted.include_register_trader);
 
     server.abort();
 }
@@ -214,6 +260,69 @@ async fn activate_referral_tx_handler(Json(body): Json<Value>) -> Json<Value> {
         "trader_pda": "Trader3333333333333333333333333333333333",
         "referral_code": "REFCODE",
         "status": "submitted"
+    }))
+}
+
+async fn build_register_ixs_handler(Json(body): Json<Value>) -> Json<Value> {
+    let expected_authority = expected_authority().to_string();
+    assert_eq!(
+        body.get("traderAuthority").and_then(Value::as_str),
+        Some(expected_authority.as_str())
+    );
+    assert_eq!(
+        body.get("txFeePayer").and_then(Value::as_str),
+        Some("FeePayer11111111111111111111111111111111")
+    );
+    assert_eq!(body.get("maxPositions").and_then(Value::as_u64), Some(128));
+    Json(json!({
+        "instructions": [
+            {
+                "programId": "Program1111111111111111111111111111111111",
+                "keys": [
+                    {
+                        "pubkey": "FeePayer11111111111111111111111111111111",
+                        "isSigner": true,
+                        "isWritable": true
+                    }
+                ],
+                "data": [1, 2, 3]
+            }
+        ],
+        "traderPda": "Trader4444444444444444444444444444444444",
+        "traderOnboarder": "Onboarder111111111111111111111111111111111",
+        "txFeePayer": "FeePayer11111111111111111111111111111111",
+        "maxPositions": 128,
+        "includeRegisterTrader": true
+    }))
+}
+
+async fn send_register_ixs_handler(Json(body): Json<Value>) -> Json<Value> {
+    let expected_authority = expected_authority().to_string();
+    assert_eq!(
+        body.get("transaction").and_then(Value::as_str),
+        Some("base64-user-signed-tx")
+    );
+    assert_eq!(
+        body.get("traderAuthority").and_then(Value::as_str),
+        Some(expected_authority.as_str())
+    );
+    assert_eq!(
+        body.get("txFeePayer").and_then(Value::as_str),
+        Some("FeePayer11111111111111111111111111111111")
+    );
+    assert_eq!(body.get("maxPositions").and_then(Value::as_u64), Some(128));
+    assert_eq!(body.get("traderPdaIndex").and_then(Value::as_u64), Some(0));
+    assert_eq!(
+        body.get("traderSubaccountIndex").and_then(Value::as_u64),
+        Some(0)
+    );
+    Json(json!({
+        "signature": "sent-register-signature",
+        "traderPda": "Trader4444444444444444444444444444444444",
+        "traderOnboarder": "Onboarder111111111111111111111111111111111",
+        "txFeePayer": "FeePayer11111111111111111111111111111111",
+        "maxPositions": 128,
+        "includeRegisterTrader": true
     }))
 }
 
