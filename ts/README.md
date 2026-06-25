@@ -494,6 +494,31 @@ It does not force an eager login flow. Built-in route clients use the shared
 session opportunistically when one exists. For custom transport calls, use
 `RequestOptions.auth` to disable auth or require it explicitly.
 
+### Service-account sessions
+
+Server-side tools can authenticate with the same service-account credential env
+vars supported by Rise Rust:
+
+- `PHOENIX_SERVICE_ACCOUNT_CREDENTIAL`: path to a JSON credential with
+  `client_id`, `key_id`, and `private_key`
+- `PHOENIX_SERVICE_ACCOUNT_CLIENT_ID`
+- `PHOENIX_SERVICE_ACCOUNT_KEY_ID`
+- `PHOENIX_SERVICE_ACCOUNT_PRIVATE_KEY`
+
+The split vars also accept the legacy `PHOENIX_SERVICE_CLIENT_ID`,
+`PHOENIX_SERVICE_KEY_ID`, and `PHOENIX_SERVICE_PRIVATE_KEY` aliases.
+
+```ts
+import { createPhoenixClient } from "@ellipsis-labs/rise";
+
+const client = createPhoenixClient({
+  apiUrl: "https://perp-api.phoenix.trade",
+  auth: true,
+});
+
+await client.auth!.loginWithServiceAccountFromEnv();
+```
+
 ## WebSocket Streams
 
 If you only need streams, you can construct the WS client directly:

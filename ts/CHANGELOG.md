@@ -518,3 +518,23 @@ Source Phoenix commit: `823bb5e64efafb221f37a7e0a8f8720da843741c`
 - `rentPayer` is still deprecated, but its behavior changed: when `includeRegisterTrader: true` is set and no `feePayer` is provided, `rentPayer` is now used as the fallback fee payer for the registration instruction. Existing callers that pass `rentPayer` without `includeRegisterTrader: true` are unaffected — it continues to be ignored in that case.
 - `registerTraderMaxPositions` must be between `32n` and `128n`; passing a value outside this range throws synchronously before any RPC call.
 - To use auto-detection, pass `rpc` (a `createSolanaRpc` instance) or `rpcUrl` to `buildActivateReferralTxRequest` and omit `includeRegisterTrader`. The returned `traderActivationState` reflects what the SDK observed on-chain.
+
+## v0.4.54 - 2026-06-25
+
+Source Phoenix commit: `190b6af2b821bd0670b4a1aea8dad552bcd62482`
+
+### Summary
+
+- **Service-account authentication for server-side tools.** `PhoenixAuthClient` gains three new methods — `loginWithServiceAccountSigner`, `loginWithServiceAccountCredential`, and `loginWithServiceAccountFromEnv` — enabling non-interactive authentication using Ed25519 keypair credentials.
+- **New public exports from `@ellipsis-labs/rise/auth`:** `PhoenixServiceAccountCredential`, `PhoenixServiceAccountAuthSigner`, `PhoenixServiceAccountAuthClient`, `PhoenixServiceAccountCredentialEnv`, `createServiceAccountAuthSigner`, `loginWithServiceAccountCredential`, `loginWithServiceAccountSigner`, `loginWithServiceAccountFromEnv`, `loadServiceAccountCredentialFromEnv`, and `loadServiceAccountCredentialFromPath`.
+- **Env-var credential loading** mirrors the Rise Rust SDK: set `PHOENIX_SERVICE_ACCOUNT_CREDENTIAL` (path to a JSON file) or the split vars `PHOENIX_SERVICE_ACCOUNT_CLIENT_ID` / `PHOENIX_SERVICE_ACCOUNT_KEY_ID` / `PHOENIX_SERVICE_ACCOUNT_PRIVATE_KEY`. Legacy `PHOENIX_SERVICE_CLIENT_ID`, `PHOENIX_SERVICE_KEY_ID`, and `PHOENIX_SERVICE_PRIVATE_KEY` aliases are also accepted.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- Credential file loading (`PHOENIX_SERVICE_ACCOUNT_CREDENTIAL` / `loadServiceAccountCredentialFromPath`) uses `node:fs/promises` and is only available in Node.js and Bun environments; browser bundles that import `loadServiceAccountCredentialFromEnv` with a file path will throw at runtime. Split env-var loading has no Node dependency and works anywhere `process.env` is accessible.
+- Partial split-env configuration (some but not all of `CLIENT_ID`, `KEY_ID`, `PRIVATE_KEY` present) throws `PhoenixAuthError` with code `incomplete_service_account_credential_env` rather than silently falling through.
+- Private keys must be 32-byte Ed25519 seeds encoded as base64url (no padding); a mismatched length throws `PhoenixAuthError` with code `invalid_service_account_private_key`.
