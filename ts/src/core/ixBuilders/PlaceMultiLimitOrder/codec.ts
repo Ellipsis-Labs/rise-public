@@ -3,7 +3,7 @@ import {
   getMultipleOrderPacketDecoder,
   getMultipleOrderPacketEncoder,
   type MultipleOrderPacket,
-} from "@/primitives";
+} from "@/primitives/OrderPacket";
 import {
   combineCodec,
   getConstantDecoder,

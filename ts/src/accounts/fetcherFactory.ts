@@ -4,6 +4,20 @@ export interface AccountFetcherClient {
   fetchAccount: (address: Address) => Promise<{
     readonly data: ReadonlyUint8Array;
   }>;
+  /**
+   * Optional batch fetch backed by a single `getMultipleAccounts` round-trip
+   * (the implementation may chunk internally to respect the 100-account RPC
+   * limit). Returns one entry per input address, in order, with `null` for
+   * accounts that do not exist — unlike a strict batch fetch, missing accounts
+   * are tolerated rather than throwing, which is what makes it usable for
+   * sparse scans (e.g. isolated-subaccount allocation). When present, callers
+   * that would otherwise probe many addresses sequentially collapse those
+   * round-trips into one; clients that do not implement it fall back to
+   * per-address `fetchAccount`/`accountExists`.
+   */
+  fetchMaybeAccounts?: (
+    addresses: readonly Address[]
+  ) => Promise<ReadonlyArray<{ readonly data: ReadonlyUint8Array } | null>>;
   readonly _accountCache?: Map<string, unknown>;
   readonly _cacheEnabled?: boolean;
 }

@@ -157,6 +157,35 @@ export class PhoenixRpcAccountFetcherClient implements AccountFetcherClient {
       ),
     };
   }
+
+  async fetchMaybeAccounts(
+    addresses: readonly Address[]
+  ): Promise<ReadonlyArray<{ readonly data: Uint8Array } | null>> {
+    if (addresses.length === 0) {
+      return [];
+    }
+
+    // getMultipleAccounts caps at 100 accounts per request; chunk to be safe.
+    const results: ({ readonly data: Uint8Array } | null)[] = [];
+    for (let start = 0; start < addresses.length; start += 100) {
+      const chunk = addresses.slice(start, start + 100);
+      const result = await this.request<RpcMultipleAccountsResult>(
+        "getMultipleAccounts",
+        [chunk, { encoding: "base64", commitment: "confirmed" }]
+      );
+      const values = result.value ?? [];
+      for (let i = 0; i < chunk.length; i++) {
+        const encoded = values[i]?.data;
+        // Tolerate gaps: a missing account is `null`, not an error.
+        results.push(
+          encoded && encoded[1] === "base64"
+            ? { data: decodeBase64ToBytes(encoded[0]) }
+            : null
+        );
+      }
+    }
+    return results;
+  }
 }
 
 export interface PhoenixRpcClient {

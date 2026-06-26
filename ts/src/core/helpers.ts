@@ -1,4 +1,9 @@
-import { AccountFetchers, fetchPerpAssetMap, fetchTrader } from "@/accounts";
+import {
+  AccountFetchers,
+  decodeTrader,
+  fetchPerpAssetMap,
+  fetchTrader,
+} from "@/accounts";
 import type { ExchangeInstructionContext } from "@/exchange-cache/types";
 import {
   getSequenceNumberDecoder,
@@ -10,7 +15,10 @@ import {
   SPL_TOKEN_PROGRAM_ADDRESS,
   SYSTEM_PROGRAM_ADDRESS,
 } from "@/core/constants";
-import type { PhoenixInstructionClient } from "@/core/clientTypes";
+import type {
+  PhoenixAccountExistenceClient,
+  PhoenixInstructionClient,
+} from "@/core/clientTypes";
 import { ACCOUNT_DISCRIMINANTS } from "@/core/discriminants";
 import { getFixedLengthArrayCodec } from "@/primitives/_utilityTypes/FixedLengthArray";
 import type { InstructionsWithAccountsAndData } from "@/primitives/_utilityTypes";
@@ -512,6 +520,172 @@ export const fetchSubaccountForAsset = async (
     `No suitable ${marginTypeStr} subaccount found for trader ${authority} and asset ${assetId}. ` +
       `For isolated margin, you need either an empty subaccount or one with an existing position in asset ${assetId}.`
   );
+};
+
+export interface IsolatedSubaccountAllocation {
+  index: number;
+  address: TraderAddress;
+  /** True when the subaccount does not exist yet and must be registered first. */
+  needsRegistration: boolean;
+}
+
+/** Eligibility of an existing subaccount for an isolated order on an asset. */
+type IsolatedSubaccountClass = "asset" | "empty" | "occupied" | "ineligible";
+
+const classifyIsolatedTrader = (
+  trader: ReturnType<typeof decodeTrader>,
+  assetId: number,
+  isolatedMaxPositions: bigint
+): IsolatedSubaccountClass => {
+  // Only isolated subaccounts (max_positions === 1) are eligible.
+  if (trader.maxPositions !== isolatedMaxPositions) {
+    return "ineligible";
+  }
+  if (trader.positions.entries.some(({ key }) => key === BigInt(assetId))) {
+    return "asset";
+  }
+  if (trader.positions.len === 0n) {
+    return "empty";
+  }
+  return "occupied";
+};
+
+/**
+ * Pick the isolated subaccount to use for an order on `assetId`, mirroring the
+ * backend `find_or_allocate_isolated_subaccount`. Subaccount 0 is reserved for
+ * cross margin, so isolated subaccounts start at index 1. Preference order:
+ *   1. an existing isolated subaccount already holding a position in `assetId`,
+ *   2. an existing empty isolated subaccount (reused, no registration),
+ *   3. the first unregistered index (caller must register it first).
+ *
+ * Unlike {@link fetchSubaccountForAsset}, this never throws on "nothing
+ * exists" — it returns the first free index with `needsRegistration: true` so
+ * the caller can prepend a `register_trader` instruction.
+ *
+ * When the client implements {@link AccountFetcherClient.fetchMaybeAccounts},
+ * the whole subaccount range is read in a single `getMultipleAccounts`
+ * round-trip; otherwise it falls back to a per-address scan (early-returning on
+ * an asset match to limit round-trips).
+ */
+export const allocateIsolatedSubaccount = async (
+  client: PhoenixInstructionClient & PhoenixAccountExistenceClient,
+  authority: Authority,
+  traderPdaIndex: number,
+  assetId: number
+): Promise<IsolatedSubaccountAllocation> => {
+  const isolatedMaxPositions = toMaxPositions(MarginType.Isolated);
+
+  // Subaccount 0 is reserved for cross margin; derive isolated slots 1..MAX.
+  // Address derivation is local, so deriving the full range up front is cheap.
+  const candidates = await Promise.all(
+    Array.from({ length: MAX_SUBACCOUNTS }, (_unused, i) => i + 1).map(
+      async (index) => ({
+        index,
+        address: await getPhoenixTraderSubaccountAddress({
+          authority,
+          traderPdaIndex,
+          subaccountIndex: index,
+          phoenixProgramAddress: client.addresses.phoenixProgramAddress,
+        }),
+      })
+    )
+  );
+
+  let firstEmpty: { index: number; address: TraderAddress } | undefined;
+  let firstUnregistered: { index: number; address: TraderAddress } | undefined;
+
+  const recordEmpty = (slot: { index: number; address: TraderAddress }) => {
+    if (firstEmpty === undefined) {
+      firstEmpty = slot;
+    }
+  };
+  const recordUnregistered = (slot: {
+    index: number;
+    address: TraderAddress;
+  }) => {
+    if (firstUnregistered === undefined) {
+      firstUnregistered = slot;
+    }
+  };
+
+  const resolve = (): IsolatedSubaccountAllocation => {
+    if (firstEmpty !== undefined) {
+      return { ...firstEmpty, needsRegistration: false };
+    }
+    if (firstUnregistered !== undefined) {
+      return { ...firstUnregistered, needsRegistration: true };
+    }
+    throw new Error(
+      `No available isolated subaccount slot for trader ${authority} and asset ${assetId} ` +
+        `(all ${MAX_SUBACCOUNTS} subaccounts are in use by other assets).`
+    );
+  };
+
+  // Fast path: a single batched fetch for the entire range.
+  if (client.fetchMaybeAccounts !== undefined) {
+    const accounts = await client.fetchMaybeAccounts(
+      candidates.map((candidate) => candidate.address)
+    );
+    for (let i = 0; i < candidates.length; i++) {
+      const { index, address } = candidates[i];
+      const account = accounts[i];
+      if (!account) {
+        recordUnregistered({ index, address });
+        continue;
+      }
+      let trader: ReturnType<typeof decodeTrader>;
+      try {
+        // decode only reads; the readonly view is safe to pass as the buffer.
+        trader = decodeTrader(account.data as Uint8Array);
+      } catch {
+        // Exists but not a decodable trader account; skip it.
+        continue;
+      }
+      const classification = classifyIsolatedTrader(
+        trader,
+        assetId,
+        isolatedMaxPositions
+      );
+      if (classification === "asset") {
+        return { index, address, needsRegistration: false };
+      }
+      if (classification === "empty") {
+        recordEmpty({ index, address });
+      }
+    }
+    return resolve();
+  }
+
+  // Fallback: per-address probe for clients without batch support.
+  for (const { index, address } of candidates) {
+    if (!(await client.accountExists(address))) {
+      recordUnregistered({ index, address });
+      continue;
+    }
+
+    let trader;
+    try {
+      trader = await fetchTrader({ client, address, skipCache: true });
+    } catch {
+      // Account exists but could not be decoded as a trader; skip it rather
+      // than risk reusing or re-registering an incompatible account.
+      continue;
+    }
+
+    const classification = classifyIsolatedTrader(
+      trader,
+      assetId,
+      isolatedMaxPositions
+    );
+    if (classification === "asset") {
+      return { index, address, needsRegistration: false };
+    }
+    if (classification === "empty") {
+      recordEmpty({ index, address });
+    }
+  }
+
+  return resolve();
 };
 
 export const buildCreateAssociatedTokenAccountIdempotent = async (params: {
