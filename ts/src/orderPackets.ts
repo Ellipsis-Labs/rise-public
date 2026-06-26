@@ -132,6 +132,38 @@ export const priceUsdToTicksWithMarketParams = (
   return ticks(scaledNumerator / denominator);
 };
 
+/**
+ * Inverse of {@link priceUsdToTicksWithMarketParams}: convert an integer tick
+ * price back to a human-readable USD price for display/preview. The forward
+ * conversion floors, so this returns the USD value of the tick boundary itself
+ * (not the original pre-snap price). Returned as a `number` for display; the
+ * exact tick value remains the source of truth.
+ */
+export const ticksToUsdWithMarketParams = (
+  priceInTicks: number | string | bigint,
+  marketParams: OrderPacketMarketParams
+): number => {
+  const tickValue = toBigIntStrict(priceInTicks, "priceInTicks");
+  const tickSize = toBigIntStrict(marketParams.tickSize, "tickSize");
+  if (tickSize <= 0n) {
+    throw new Error("tickSize must be greater than zero");
+  }
+
+  const decimals = marketParams.baseLotsDecimals;
+  const decimalScale = 10n ** BigInt(Math.abs(decimals));
+
+  // Forward (decimals >= 0): ticks = priceMicros / (tickSize * decimalScale)
+  // Forward (decimals  < 0): ticks = priceMicros * decimalScale / tickSize
+  // Invert each, then divide micro-USD -> USD with a single float op so the
+  // bigint multiplications stay exact.
+  if (decimals >= 0) {
+    return Number(tickValue * tickSize * decimalScale) / Number(MICRO_USD);
+  }
+  return (
+    Number(tickValue * tickSize) / (Number(decimalScale) * Number(MICRO_USD))
+  );
+};
+
 export const baseUnitsToBaseLotsWithMarketParams = (
   baseUnits: number | string | bigint,
   marketParams: Pick<OrderPacketMarketParams, "baseLotsDecimals">

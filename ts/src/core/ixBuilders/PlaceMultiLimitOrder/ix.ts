@@ -26,7 +26,7 @@ export const buildPlaceMultiLimitOrderIx = (
   const accounts: PlaceMultiLimitOrderAccounts = [
     generateReadonlyAccount(programAddress),
     generateReadonlyAccount(logAuthorityAddress),
-    generateReadonlyAccount(globalConfigurationAddress),
+    generateWritableAccount(globalConfigurationAddress),
     generateReadonlySignerAccount(params.trader),
     generateWritableAccount(params.traderAccount),
     generateWritableAccount(params.perpAssetMap),

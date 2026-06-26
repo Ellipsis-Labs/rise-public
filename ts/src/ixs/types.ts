@@ -58,6 +58,7 @@ import type { InstructionsWithAccountsAndData } from "@/primitives/_utilityTypes
 import type {
   ImmediateOrCancelOrderPacket,
   LimitOrderPacket,
+  MultipleOrderPacket,
 } from "@/primitives/OrderPacket";
 import type { Address } from "@solana/kit";
 import type { TriggerOrderParamsInput } from "../conditionalOrders";
@@ -95,6 +96,10 @@ export interface BuildPlaceMarketOrderDelegatedIxResolvedInput extends ResolvedP
   orderPacket: ImmediateOrCancelOrderPacket;
   traderWallet?: Authority;
   permissionAccount?: Address;
+}
+
+export interface BuildPlaceMultiLimitOrderIxResolvedInput extends ResolvedPlaceOrderContext {
+  multipleOrderPacket: MultipleOrderPacket;
 }
 
 export interface BuildPlacePostOnlyOrderIxResolvedInput extends ResolvedPlaceOrderContext {

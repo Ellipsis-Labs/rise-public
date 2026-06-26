@@ -19,6 +19,7 @@ import {
   buildPlaceLimitOrderIxResolved,
   buildPlaceMarketOrderDelegatedIxResolved,
   buildPlaceMarketOrderIxResolved,
+  buildPlaceMultiLimitOrderIx,
   buildPlacePostOnlyOrderIxResolved,
   buildPlaceStopLossIxResolved,
   buildRegisterTraderIxResolved,
@@ -796,5 +797,43 @@ describe("resolved ix builders", () => {
     expect(result.named.emberWithdraw.accounts[3]?.address).toBe(
       "phoenix-mint"
     );
+  });
+});
+
+describe("buildPlaceMultiLimitOrderIx", () => {
+  const buildIx = () =>
+    buildPlaceMultiLimitOrderIx({
+      programAddress: "phoenix-program" as never,
+      logAuthorityAddress: "log-authority" as never,
+      globalConfigurationAddress: "global-config" as never,
+      trader: "trader" as never,
+      traderAccount: "trader-account" as never,
+      perpAssetMap: "perp-asset-map" as never,
+      orderbook: "orderbook" as never,
+      splineCollection: "spline-collection" as never,
+      globalTraderIndex: ["gti-0"] as never,
+      activeTraderBuffer: ["atb-0"] as never,
+      multipleOrderPacket: {
+        bids: [],
+        asks: [{ priceInTicks: 1n, sizeInBaseLots: 1n, lastValidSlot: null }],
+        clientOrderId: null,
+        slide: false,
+      },
+    });
+
+  // The on-chain program loads `LimitOrderInstructionGroup`, which binds the
+  // global configuration as `GlobalConfigurationAccount<Writable>`. A readonly
+  // flag here makes the loader reject the tx with InvalidAccountData (the same
+  // account layout single `place_limit_order` uses).
+  it("marks the global configuration account writable", () => {
+    const ix = buildIx();
+    expect(ix.accounts[2]?.address).toBe("global-config");
+    expect(ix.accounts[2]?.role).toBe(AccountRole.WRITABLE);
+  });
+
+  it("keeps the trader at index 3 as a readonly signer", () => {
+    const ix = buildIx();
+    expect(ix.accounts[3]?.address).toBe("trader");
+    expect(ix.accounts[3]?.role).toBe(AccountRole.READONLY_SIGNER);
   });
 });

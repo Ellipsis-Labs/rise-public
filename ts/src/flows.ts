@@ -10,6 +10,7 @@ import {
 } from "@/core/clientTypes";
 import { OrderFlags, SelfTradeBehavior } from "@/primitives/OrderPacket";
 import {
+  allocateIsolatedSubaccount,
   buildCreateAssociatedTokenAccountIdempotent,
   buildCreateAssociatedTokenAccountIdempotentSync,
   buildSplTokenApprove,
@@ -28,6 +29,8 @@ import {
   buildDepositFunds,
   buildEmberDeposit,
   buildEmberWithdraw,
+  buildRegisterTrader,
+  buildSyncParentToChild,
   buildTransferCollateral,
   buildTransferCollateralChildToParent,
   buildWithdrawFunds,
@@ -45,6 +48,7 @@ import {
   type QuoteLots,
   type InstructionsWithAccountsAndData,
   type TokenAccountAddress,
+  type TraderAddress,
 } from "@/primitives";
 import {
   getPhoenixPermissionAddress,
@@ -56,7 +60,14 @@ import { deriveFlameDepositAddresses } from "@/flame";
 import { address, type Address } from "@solana/kit";
 import { buildPlaceLimitOrderIx } from "./core/ixBuilders/PlaceLimitOrder";
 import { buildPlaceMarketOrderIx } from "./core/ixBuilders/PlaceMarketOrder";
+import { buildPlaceMultiLimitOrderIx } from "./core/ixBuilders/PlaceMultiLimitOrder";
 import { buildPlacePostOnlyOrderIx } from "./core/ixBuilders/PlacePostOnlyOrder";
+import {
+  chunkScaleLevelsForTx,
+  MAX_SCALE_ORDERS,
+  scaleLevelsToMultipleOrderPacket,
+  type ScaleOrderLevel,
+} from "./scaleOrders";
 import { isFlightClient } from "./flight/client.js";
 
 const ALLOW_ESCROW_REQUEST_PERMISSION = 1n << 8n;
@@ -212,6 +223,52 @@ export interface PlaceMarketOrderFlowInstructions {
 export interface PlaceMarketOrderFlowResult {
   instructions: InstructionsWithAccountsAndData[];
   named: PlaceMarketOrderFlowInstructions;
+  subaccountIndex: number;
+}
+
+export interface PlaceMultiLimitOrderFlowParams {
+  authority: Authority;
+  positionAuthority?: Authority;
+  symbol: Symbol;
+  side: Side;
+  /** Pre-computed ladder levels (e.g. from `computeScaleOrderLevels`). */
+  levels: ScaleOrderLevel[];
+  marginType: MarginType;
+  /** Collateral to move into the isolated child before placing (cross ignores). */
+  transferAmount?: bigint;
+  subaccountIndex?: number;
+  pdaIndex?: number;
+  slide?: boolean;
+  clientOrderId?: bigint | null;
+  /** Max sub-orders per transaction; defaults to `DEFAULT_MAX_ORDERS_PER_TX`. */
+  maxOrdersPerTx?: number;
+  skipTransferToParent?: boolean;
+}
+
+export interface PlaceMultiLimitOrderFlowBatchInstructions {
+  /** Isolated-only: registers the child subaccount when it does not exist yet. */
+  registerTrader?: InstructionsWithAccountsAndData;
+  /** Isolated-only: syncs parent (cross) state into the child before funding. */
+  syncParentToChild?: InstructionsWithAccountsAndData;
+  transferCollateral?: InstructionsWithAccountsAndData;
+  placeMultiLimitOrder: InstructionsWithAccountsAndData;
+  transferCollateralChildToParent?: InstructionsWithAccountsAndData;
+}
+
+/**
+ * One transaction's worth of instructions. A large ladder spans several
+ * batches; the caller submits each batch as its own transaction (adding a
+ * compute-budget instruction sized to the order count). Batches are NOT atomic
+ * across transactions — a later failure can leave a partial ladder, and for
+ * isolated margin, collateral funded but not yet swept back.
+ */
+export interface PlaceMultiLimitOrderFlowBatch {
+  instructions: InstructionsWithAccountsAndData[];
+  named: PlaceMultiLimitOrderFlowBatchInstructions;
+}
+
+export interface PlaceMultiLimitOrderFlowResult {
+  batches: PlaceMultiLimitOrderFlowBatch[];
   subaccountIndex: number;
 }
 
@@ -801,6 +858,222 @@ export const buildPlaceMarketOrderFlow = async (
     named,
     subaccountIndex,
   };
+};
+
+/**
+ * Build a scale (multi-limit) order: a laddered set of PostOnly limit orders
+ * placed via `place_multi_limit_order`. Works for both cross (subaccount 0) and
+ * isolated margin.
+ *
+ * **Cross** targets subaccount 0 directly and may span several transaction
+ * batches (a full 64-order side does not fit one transaction); the caller
+ * submits each batch in order.
+ *
+ * **Isolated** mirrors the backend `place-isolated-*` endpoints: it allocates
+ * (and, when missing, registers) the child subaccount, syncs parent → child,
+ * funds the child, places the ladder, then sweeps the child back to the parent.
+ * The register/sync/fund setup lands in the first batch and the sweep in the
+ * last, so a single-batch ladder is fully atomic. Larger isolated ladders may
+ * span several batches (like cross) up to the {@link MAX_SCALE_ORDERS} per-side
+ * cap; batches are NOT atomic across transactions, so a mid-batch failure can
+ * leave a partial ladder and collateral funded-but-not-yet-swept. Callers that
+ * need atomicity should keep isolated ladders to a single batch (size the order
+ * count to `maxOrdersPerTx`).
+ */
+export const buildPlaceMultiLimitOrderFlow = async (
+  params: PlaceMultiLimitOrderFlowParams,
+  client: PhoenixInstructionClient &
+    PhoenixMarketDataClient &
+    PhoenixAccountExistenceClient
+): Promise<PlaceMultiLimitOrderFlowResult> => {
+  const {
+    authority,
+    positionAuthority,
+    symbol: marketSymbol,
+    side,
+    levels,
+    marginType,
+    transferAmount,
+    subaccountIndex: explicitSubaccountIndex,
+    pdaIndex = 0,
+    slide = false,
+    clientOrderId = null,
+    maxOrdersPerTx,
+    skipTransferToParent = false,
+  } = params;
+
+  const placeableLevels = levels.filter((level) => level.sizeBaseLots > 0);
+  if (placeableLevels.length === 0) {
+    throw new Error("Scale order has no levels with positive size");
+  }
+  if (placeableLevels.length > MAX_SCALE_ORDERS) {
+    throw new Error(
+      `Scale order side may have at most ${MAX_SCALE_ORDERS} orders; got ${placeableLevels.length}`
+    );
+  }
+
+  const { globalConfiguration, arenaAddresses, globalTraderIndexAddresses } =
+    await fetchRequiredAccounts(client);
+
+  const isIsolated = marginType === MarginType.Isolated;
+
+  let subaccountIndex: number;
+  let subaccountAddress: TraderAddress;
+  let marketAccount: MarketAddress;
+  let needsRegistration = false;
+
+  if (isIsolated && explicitSubaccountIndex === undefined) {
+    if (transferAmount === undefined || transferAmount <= 0n) {
+      throw new Error(
+        "transfer_amount is required (and must be > 0) for isolated scale orders when subaccount_index is not specified. " +
+          "It funds the isolated child subaccount."
+      );
+    }
+    const metadata = await resolveMarketMetadata(
+      marketSymbol,
+      globalConfiguration,
+      client
+    );
+    marketAccount = metadata.marketAccount;
+    const allocation = await allocateIsolatedSubaccount(
+      client,
+      authority,
+      pdaIndex,
+      metadata.assetId
+    );
+    subaccountIndex = allocation.index;
+    subaccountAddress = allocation.address;
+    needsRegistration = allocation.needsRegistration;
+  } else {
+    const resolved = await resolveSubaccount(
+      client,
+      globalConfiguration,
+      authority,
+      marketSymbol,
+      marginType,
+      explicitSubaccountIndex,
+      transferAmount,
+      pdaIndex
+    );
+    subaccountIndex = resolved.subaccountIndex;
+    subaccountAddress = resolved.subaccountAddress;
+    marketAccount = resolved.marketAccount;
+  }
+
+  const splineCollection = await getPhoenixSplineCollectionAddress(
+    marketAccount,
+    client.addresses.phoenixProgramAddress
+  );
+
+  const registerIx =
+    isIsolated && needsRegistration
+      ? await buildRegisterTrader(
+          {
+            authority,
+            marginType: MarginType.Isolated,
+            traderPdaIndex: pdaIndex,
+            traderSubaccountIndex: subaccountIndex,
+          },
+          client
+        )
+      : undefined;
+
+  const syncIx = isIsolated
+    ? await buildSyncParentToChild(
+        {
+          traderWallet: authority,
+          traderPdaIndex: pdaIndex,
+          traderSubaccountIndex: subaccountIndex,
+        },
+        client
+      )
+    : undefined;
+
+  const transferIx =
+    transferAmount !== undefined && transferAmount > 0n
+      ? await buildTransferCollateral(
+          {
+            authority,
+            positionAuthority,
+            srcSubaccountIndex: 0,
+            dstSubaccountIndex: subaccountIndex,
+            traderPdaIndex: pdaIndex,
+            amount: transferAmount,
+          },
+          client
+        )
+      : undefined;
+
+  const sweepIx =
+    !skipTransferToParent && subaccountIndex > 0
+      ? await buildTransferCollateralChildToParent(
+          {
+            authority,
+            positionAuthority,
+            traderPdaIndex: pdaIndex,
+            childSubaccountIndex: subaccountIndex,
+          },
+          client
+        )
+      : undefined;
+
+  const chunks = chunkScaleLevelsForTx(placeableLevels, { maxOrdersPerTx });
+  const batches: PlaceMultiLimitOrderFlowBatch[] = [];
+
+  for (let i = 0; i < chunks.length; i++) {
+    const multipleOrderPacket = scaleLevelsToMultipleOrderPacket(
+      chunks[i],
+      side,
+      { slide, clientOrderId }
+    );
+
+    const placeIx = buildPlaceMultiLimitOrderIx({
+      ...clientPhoenixInstructionAddresses(client),
+      trader: positionAuthority ?? authority,
+      traderAccount: subaccountAddress,
+      perpAssetMap: globalConfiguration.perpAssetMapKey,
+      orderbook: marketAccount,
+      splineCollection,
+      activeTraderBuffer: arenaAddresses,
+      globalTraderIndex: globalTraderIndexAddresses,
+      multipleOrderPacket,
+    });
+
+    const placeMultiLimitOrder = isFlightClient(client)
+      ? await client.tryWrapFlightInstruction(placeIx, authority)
+      : placeIx;
+
+    const instructions: InstructionsWithAccountsAndData[] = [];
+    const named: PlaceMultiLimitOrderFlowBatchInstructions = {
+      placeMultiLimitOrder,
+    };
+
+    if (i === 0) {
+      // Isolated setup runs once, before the first placement: register (if
+      // new) → sync parent→child → fund the child.
+      if (registerIx !== undefined) {
+        instructions.push(registerIx);
+        named.registerTrader = registerIx;
+      }
+      if (syncIx !== undefined) {
+        instructions.push(syncIx);
+        named.syncParentToChild = syncIx;
+      }
+      if (transferIx !== undefined) {
+        instructions.push(transferIx);
+        named.transferCollateral = transferIx;
+      }
+    }
+    instructions.push(placeMultiLimitOrder);
+    if (i === chunks.length - 1 && sweepIx !== undefined) {
+      instructions.push(sweepIx);
+      named.transferCollateralChildToParent = sweepIx;
+    }
+
+    batches.push({ instructions, named });
+  }
+
+  return { batches, subaccountIndex };
 };
 
 export const buildGrantEscrowPermissionFlow = async (

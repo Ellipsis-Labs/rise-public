@@ -557,3 +557,25 @@ Source Phoenix commit: `2f2bb2ba1256f28465278ff1c00d61f0ffc2c5f2`
 
 - The builder onboarding flow is two steps: call `client.api.exchange().buildRegisterIxs({ traderAuthority, txFeePayer, maxPositions? })` to receive the instruction list, build and partially sign the transaction, then call `client.api.exchange().sendRegisterIxs({ transaction, traderAuthority, txFeePayer, ... })` to have the API validate, co-sign as onboarder, simulate, and send. `maxPositions` is optional on both calls (32–128; default 128).
 - This onboarding path is distinct from the referral-code path (`POST /v1/referral/activate-tx`) and the access-code path (`POST /v1/invite/activate`). Use `build-register-ixs` / `send-register-ixs` when the builder controls the fee payer and no referral code is involved.
+
+## v0.4.56 - 2026-06-26
+
+Source Phoenix commit: `0034c63597c926482b11094a6ab661ffcc127896`
+
+### Summary
+
+- **Scale order API** (`scaleOrders.ts`) is now exported from the package root: `computeScaleOrderLevels`, `previewScaleOrder`, `scaleLevelsToMultipleOrderPacket`, `chunkScaleLevelsForTx`, their associated types (`ScaleOrderInput`, `ScaleOrderLevel`, `ScaleOrderPreview`, `ScaleOrderWarning`, `ScaleOrderWarningCode`, `ScaleLevelsToPacketOptions`), and constants (`MIN_SCALE_ORDERS`, `MAX_SCALE_ORDERS`, `MIN_SCALE_BIAS`, `MAX_SCALE_BIAS`, `DEFAULT_MIN_BASE_LOTS_PER_ORDER`, `DEFAULT_MAX_ORDERS_PER_TX`).
+- **`buildPlaceMultiLimitOrderFlow`** and its four types (`PlaceMultiLimitOrderFlowParams`, `PlaceMultiLimitOrderFlowBatch`, `PlaceMultiLimitOrderFlowBatchInstructions`, `PlaceMultiLimitOrderFlowResult`) are now exported — a high-level flow that handles subaccount allocation, optional registration, collateral transfer, and post-placement sweep for both cross and isolated margin, splitting large ladders across transaction batches automatically.
+- **`buildPlaceMultiLimitOrderIxResolved`** / **`BuildPlaceMultiLimitOrderIxResolvedInput`** added alongside the existing resolved instruction builders.
+- **`ticksToUsdWithMarketParams`** is now exported from the package root — the inverse of `priceUsdToTicksWithMarketParams`, useful for converting on-chain tick prices back to human-readable USD for display or preview.
+- **`AccountFetcherClient`** gains an optional `fetchMaybeAccounts` method; `PhoenixRpcAccountFetcherClient` now implements it, batching up to 100 addresses per `getMultipleAccounts` round-trip and returning `null` for missing accounts.
+
+### Breaking Changes
+
+- **`buildPlaceMultiLimitOrderIx` now marks `globalConfigurationAddress` writable.** The on-chain program requires this account writable; the previous readonly flag caused transactions to be rejected at the program loader. Any caller constructing this instruction manually should update their account-role assumptions.
+
+### Consumer Notes
+
+- Scale ladders larger than `DEFAULT_MAX_ORDERS_PER_TX` (30) produce multiple `PlaceMultiLimitOrderFlowBatch` entries in `PlaceMultiLimitOrderFlowResult.batches`; each batch must be submitted as a separate transaction. Batches are **not atomic across transactions** — a mid-ladder failure can leave a partial position, and for isolated margin, collateral may be funded but not yet swept back to the parent.
+- For isolated margin without an explicit `subaccountIndex`, `buildPlaceMultiLimitOrderFlow` requires `transferAmount > 0` to fund the child subaccount; omitting it throws at construction time.
+- The `fetchMaybeAccounts` addition to `AccountFetcherClient` is **optional** — existing client implementations that do not implement it continue to work via the per-address fallback path.
