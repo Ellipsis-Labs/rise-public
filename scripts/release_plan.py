@@ -10,6 +10,7 @@ import argparse
 import dataclasses
 import json
 import os
+import re
 import subprocess
 import sys
 import tomllib
@@ -93,6 +94,12 @@ PACKAGE_SPECS = (
     ),
 )
 
+CHANGELOG_VERSION_HEADING = re.compile(
+    r"^##\s+\[?v?"
+    r"(?P<version>[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)"
+    r"\]?(?:\s|$)"
+)
+
 
 def metadata_for_spec(spec: PackageSpec) -> PackageMetadata:
     text = (REPO_ROOT / spec.metadata_path).read_text(encoding="utf-8")
@@ -171,7 +178,7 @@ def latest_changelog_entry(path: Path, source_ref: str | None = None) -> str:
     heading_indexes = [
         index
         for index, line in enumerate(lines)
-        if line.startswith("## ") and not line.startswith("### ")
+        if CHANGELOG_VERSION_HEADING.match(line)
     ]
     if not heading_indexes:
         return f"No versioned changelog entry was found in `{path}`."
