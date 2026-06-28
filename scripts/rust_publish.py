@@ -14,7 +14,6 @@ import socket
 import subprocess
 import sys
 import time
-import tomllib
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -23,7 +22,6 @@ from typing import Any, NoReturn
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_WORKSPACE = REPO_ROOT / "rust"
-DEFAULT_ORDER_FILE = DEFAULT_WORKSPACE / "publish-order.toml"
 DEFAULT_REGISTRY_URL = "https://crates.io"
 USER_AGENT = "Ellipsis-Labs/rise-release-ci"
 
@@ -49,7 +47,6 @@ class Workspace:
 class ValidatedOrder:
     workspace: Workspace
     order: list[str]
-    absent_entries: list[str]
     version: str | None
 
 
@@ -98,26 +95,6 @@ def is_publishable(package: Package) -> bool:
     return True
 
 
-def load_order(path: Path) -> list[str]:
-    if not path.exists():
-        fail(f"publish order file does not exist: {path}")
-    payload = tomllib.loads(path.read_text(encoding="utf-8"))
-    crates = payload.get("crates")
-    if not isinstance(crates, list) or not all(isinstance(item, str) for item in crates):
-        fail(f"{path} must contain a `crates = [...]` string array")
-
-    seen: set[str] = set()
-    duplicates: list[str] = []
-    for crate in crates:
-        if crate in seen and crate not in duplicates:
-            duplicates.append(crate)
-        seen.add(crate)
-    if duplicates:
-        fail("duplicate crates in publish order: " + ", ".join(duplicates))
-
-    return crates
-
-
 def load_workspace(workspace: Path, toolchain: str | None) -> Workspace:
     result = run(
         cargo_command(toolchain) + ["metadata", "--format-version", "1", "--locked", "--no-deps"],
@@ -125,7 +102,7 @@ def load_workspace(workspace: Path, toolchain: str | None) -> Workspace:
         capture=True,
     )
     metadata = json.loads(result.stdout)
-    workspace_members = set(metadata["workspace_members"])
+    workspace_members = metadata["workspace_members"]
     packages_by_id = {package["id"]: package for package in metadata["packages"]}
 
     packages: dict[str, Package] = {}
@@ -151,27 +128,73 @@ def load_workspace(workspace: Path, toolchain: str | None) -> Workspace:
     return Workspace(root=workspace, packages=packages, publishable=publishable)
 
 
+def internal_dependencies(workspace: Workspace, package: Package) -> set[str]:
+    dependencies: set[str] = set()
+    for dependency in package.dependencies:
+        dependency_name = dependency["name"]
+        dependency_package = workspace.packages.get(dependency_name)
+        if dependency_package is None:
+            continue
+        if not is_publishable(dependency_package):
+            fail(
+                f"publishable crate {package.name} depends on non-publishable "
+                f"workspace crate {dependency_name}"
+            )
+
+        dependency_req = dependency.get("req", "").replace(" ", "")
+        expected_req = f"={dependency_package.version}"
+        if dependency_req != expected_req:
+            fail(
+                f"{package.name} depends on {dependency_name} with version requirement "
+                f"{dependency_req!r}; expected exact requirement {expected_req!r}"
+            )
+
+        dependencies.add(dependency_name)
+    return dependencies
+
+
+def generated_publish_order(workspace: Workspace) -> list[str]:
+    """Return a deterministic topological publish order from cargo metadata."""
+    base_order = [name for name in workspace.packages if name in workspace.publishable]
+    dependencies = {
+        name: internal_dependencies(workspace, package)
+        for name, package in workspace.publishable.items()
+    }
+
+    ordered: list[str] = []
+    emitted: set[str] = set()
+    remaining = set(base_order)
+    while remaining:
+        progressed = False
+        for name in base_order:
+            if name not in remaining:
+                continue
+            missing_dependencies = dependencies[name] - emitted
+            if missing_dependencies:
+                continue
+            ordered.append(name)
+            emitted.add(name)
+            remaining.remove(name)
+            progressed = True
+
+        if not progressed:
+            cycle_details = ", ".join(
+                f"{name} -> {', '.join(sorted(dependencies[name] & remaining))}"
+                for name in sorted(remaining)
+            )
+            fail("cyclic publishable Rust workspace dependencies: " + cycle_details)
+
+    return ordered
+
+
 def validate_order(
     *,
     workspace_path: Path,
-    order_file: Path,
     expected_version: str | None,
     toolchain: str | None,
 ) -> ValidatedOrder:
-    manual_order = load_order(order_file)
     workspace = load_workspace(workspace_path, toolchain)
-
-    missing_from_order = sorted(set(workspace.publishable) - set(manual_order))
-    if missing_from_order:
-        fail(
-            "publishable Rust crates are missing from "
-            f"{order_file}: " + ", ".join(missing_from_order)
-        )
-
-    ordered_present = [name for name in manual_order if name in workspace.publishable]
-    absent_entries = [name for name in manual_order if name not in workspace.packages]
-    for name in absent_entries:
-        print(f"publish-order entry is not in this workspace yet; ignoring: {name}")
+    order = generated_publish_order(workspace)
 
     versions = {package.version for package in workspace.publishable.values()}
     if expected_version is not None:
@@ -194,48 +217,14 @@ def validate_order(
     else:
         version = next(iter(versions), None)
 
-    positions = {name: index for index, name in enumerate(ordered_present)}
-    for package_name in ordered_present:
-        package = workspace.publishable[package_name]
-        package_position = positions[package_name]
-        for dependency in package.dependencies:
-            dependency_name = dependency["name"]
-            dependency_package = workspace.packages.get(dependency_name)
-            if dependency_package is None:
-                continue
-            if not is_publishable(dependency_package):
-                fail(
-                    f"publishable crate {package.name} depends on non-publishable "
-                    f"workspace crate {dependency_name}"
-                )
-            dependency_position = positions.get(dependency_name)
-            if dependency_position is None:
-                fail(
-                    f"publishable dependency {dependency_name} for {package.name} "
-                    "is missing from the active publish order"
-                )
-            if dependency_position >= package_position:
-                fail(
-                    f"{dependency_name} must appear before {package.name} in {order_file}"
-                )
-
-            dependency_req = dependency.get("req", "").replace(" ", "")
-            expected_req = f"={dependency_package.version}"
-            if dependency_req != expected_req:
-                fail(
-                    f"{package.name} depends on {dependency_name} with version requirement "
-                    f"{dependency_req!r}; expected exact requirement {expected_req!r}"
-                )
-
-    print("Rust publish order:")
-    for index, name in enumerate(ordered_present, start=1):
+    print("Generated Rust publish order:")
+    for index, name in enumerate(order, start=1):
         package = workspace.publishable[name]
         print(f"{index}. {package.name} v{package.version}")
 
     return ValidatedOrder(
         workspace=workspace,
-        order=ordered_present,
-        absent_entries=absent_entries,
+        order=order,
         version=version,
     )
 
@@ -348,7 +337,6 @@ def write_plan_outputs(
 def command_validate(args: argparse.Namespace) -> None:
     validate_order(
         workspace_path=args.workspace,
-        order_file=args.order_file,
         expected_version=args.expected_version,
         toolchain=args.toolchain,
     )
@@ -357,7 +345,6 @@ def command_validate(args: argparse.Namespace) -> None:
 def command_plan(args: argparse.Namespace) -> None:
     order = validate_order(
         workspace_path=args.workspace,
-        order_file=args.order_file,
         expected_version=args.expected_version,
         toolchain=args.toolchain,
     )
@@ -373,15 +360,39 @@ def command_plan(args: argparse.Namespace) -> None:
 def command_package(args: argparse.Namespace) -> None:
     order = validate_order(
         workspace_path=args.workspace,
-        order_file=args.order_file,
         expected_version=args.expected_version,
         toolchain=args.toolchain,
     )
+    package_order(order, args.toolchain)
+
+
+def package_order(order: ValidatedOrder, toolchain: str | None) -> None:
     for name in order.order:
         run(
-            cargo_command(args.toolchain) + ["package", "-p", name, "--locked"],
-            cwd=args.workspace,
+            cargo_command(toolchain) + ["package", "-p", name, "--locked"],
+            cwd=order.workspace.root,
         )
+
+
+def command_ci(args: argparse.Namespace) -> None:
+    order = validate_order(
+        workspace_path=args.workspace,
+        expected_version=args.expected_version,
+        toolchain=args.toolchain,
+    )
+    package_order(order, args.toolchain)
+    run(
+        cargo_command(args.toolchain)
+        + [
+            "nextest",
+            "run",
+            "--manifest-path",
+            str(args.workspace / "Cargo.toml"),
+            "--workspace",
+            "--locked",
+        ],
+        cwd=REPO_ROOT,
+    )
 
 
 def wait_for_published_version(
@@ -414,7 +425,6 @@ def wait_for_published_version(
 def command_publish(args: argparse.Namespace) -> None:
     order = validate_order(
         workspace_path=args.workspace,
-        order_file=args.order_file,
         expected_version=args.expected_version,
         toolchain=args.toolchain,
     )
@@ -425,6 +435,9 @@ def command_publish(args: argparse.Namespace) -> None:
         status_retry_delay=args.status_retry_delay,
     )
 
+    if missing:
+        package_order(order, args.toolchain)
+
     if args.dry_run:
         if missing:
             print("Dry run: would publish missing crates in this order:")
@@ -432,6 +445,16 @@ def command_publish(args: argparse.Namespace) -> None:
                 print(f"- {item['name']} v{item['version']}")
         else:
             print("Dry run: no missing crates to publish")
+        write_output("published_any", "false")
+        write_json_output("published", [])
+        write_plan_outputs(missing=missing, existing=existing, order=order)
+        return
+
+    if args.publish_disabled:
+        if missing:
+            print("RISE_RELEASE_PUBLISH_ENABLED is not true; skipping crates.io publish")
+        else:
+            print("No missing crates to publish")
         write_output("published_any", "false")
         write_json_output("published", [])
         write_plan_outputs(missing=missing, existing=existing, order=order)
@@ -519,12 +542,6 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
         help="Path to the Rust workspace",
     )
     parser.add_argument(
-        "--order-file",
-        type=Path,
-        default=DEFAULT_ORDER_FILE,
-        help="Manual crate publish order file",
-    )
-    parser.add_argument(
         "--expected-version",
         help="Expected shared version for all publishable Rust crates",
     )
@@ -548,9 +565,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    validate = subparsers.add_parser("validate", help="Validate manual publish order")
+    validate = subparsers.add_parser("validate", help="Validate generated publish order")
     add_common_args(validate)
     validate.set_defaults(func=command_validate)
+
+    ci = subparsers.add_parser("ci", help="Run Rust package and nextest checks")
+    add_common_args(ci)
+    ci.set_defaults(func=command_ci)
 
     package = subparsers.add_parser("package", help="Package publishable crates")
     add_common_args(package)
@@ -565,6 +586,7 @@ def parse_args() -> argparse.Namespace:
     add_common_args(publish)
     add_registry_args(publish)
     publish.add_argument("--dry-run", action="store_true")
+    publish.add_argument("--publish-disabled", action="store_true")
     publish.add_argument("--publish-attempts", type=int, default=3)
     publish.add_argument("--publish-retry-delay", type=float, default=30)
     publish.add_argument("--registry-timeout", type=float, default=600)

@@ -174,8 +174,8 @@ jobs:
     if: needs.plan.outputs.should_release == 'true' && needs.plan.outputs.package_key == 'rust'
     runs-on: ubuntu-latest
     outputs:
-      package_published: ${{ steps.publish-state.outputs.package_published }}
-      release_ready: ${{ steps.publish-state.outputs.release_ready }}
+      package_published: ${{ steps.publish-crates.outputs.published_any }}
+      release_ready: ${{ steps.publish-crates.outputs.all_published }}
     permissions:
       contents: read
       id-token: write
@@ -191,16 +191,9 @@ jobs:
       - name: Install Rust toolchain
         run: rustup toolchain install 1.91.1 --profile minimal
 
-      - name: Validate Rust publish order
-        run: uv run --script scripts/rust_publish.py validate --toolchain 1.91.1 --expected-version "${RUST_VERSION}"
-
       - name: Plan crates.io publishes
         id: crate-status
         run: uv run --script scripts/rust_publish.py plan --toolchain 1.91.1 --expected-version "${RUST_VERSION}"
-
-      - name: Package publishable Rust crates
-        if: steps.crate-status.outputs.publish_required == 'true'
-        run: uv run --script scripts/rust_publish.py package --toolchain 1.91.1 --expected-version "${RUST_VERSION}"
 
       - name: Authenticate to crates.io
         if: >
@@ -212,53 +205,18 @@ jobs:
 
       - name: Publish missing Rust crates
         id: publish-crates
-        if: >
-          steps.crate-status.outputs.publish_required == 'true' &&
-          (env.DRY_RUN == 'true' || env.PUBLISH_ENABLED == 'true')
         run: |
           set -euo pipefail
           args=(publish --toolchain 1.91.1 --expected-version "${RUST_VERSION}")
           if [[ "${DRY_RUN}" == "true" ]]; then
             args+=(--dry-run)
           fi
+          if [[ "${PUBLISH_ENABLED}" != "true" ]]; then
+            args+=(--publish-disabled)
+          fi
           uv run --script scripts/rust_publish.py "${args[@]}"
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.cargo-auth.outputs.token }}
-
-      - name: Report disabled crate publish
-        if: >
-          steps.crate-status.outputs.publish_required == 'true' &&
-          env.DRY_RUN != 'true' &&
-          env.PUBLISH_ENABLED != 'true'
-        run: echo "RISE_RELEASE_PUBLISH_ENABLED is not true; skipping crates.io publish"
-
-      - name: Confirm crates.io publish state
-        id: final-status
-        if: >
-          always() &&
-          steps.crate-status.outcome == 'success' &&
-          env.DRY_RUN != 'true' &&
-          env.PUBLISH_ENABLED == 'true'
-        run: uv run --script scripts/rust_publish.py plan --toolchain 1.91.1 --expected-version "${RUST_VERSION}"
-
-      - name: Report crate publish result
-        id: publish-state
-        if: always()
-        env:
-          ALL_PUBLISHED: ${{ steps.final-status.outputs.all_published || steps.publish-crates.outputs.all_published || steps.crate-status.outputs.all_published || 'false' }}
-          PUBLISHED_ANY: ${{ steps.publish-crates.outputs.published_any || 'false' }}
-        run: |
-          if [[ "${PUBLISHED_ANY}" == "true" && "${DRY_RUN}" != "true" && "${PUBLISH_ENABLED}" == "true" ]]; then
-            echo "package_published=true" >> "${GITHUB_OUTPUT}"
-          else
-            echo "package_published=false" >> "${GITHUB_OUTPUT}"
-          fi
-
-          if [[ "${ALL_PUBLISHED}" == "true" && "${DRY_RUN}" != "true" && "${PUBLISH_ENABLED}" == "true" ]]; then
-            echo "release_ready=true" >> "${GITHUB_OUTPUT}"
-          else
-            echo "release_ready=false" >> "${GITHUB_OUTPUT}"
-          fi
 
   release:
     needs:

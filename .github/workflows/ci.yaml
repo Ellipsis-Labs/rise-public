@@ -98,11 +98,5 @@ jobs:
       - name: Install cargo-nextest
         uses: taiki-e/install-action@nextest
 
-      - name: Validate Rust publish order
-        run: uv run --script scripts/rust_publish.py validate --toolchain 1.91.1
-
-      - name: Package publishable Rust crates
-        run: uv run --script scripts/rust_publish.py package --toolchain 1.91.1
-
-      - name: Test Rust workspace
-        run: cargo +1.91.1 nextest run --manifest-path rust/Cargo.toml --workspace --locked
+      - name: Check Rust workspace
+        run: uv run --script scripts/rust_publish.py ci --toolchain 1.91.1
