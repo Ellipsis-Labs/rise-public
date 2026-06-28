@@ -176,8 +176,9 @@ def latest_changelog_entry(path: Path, source_ref: str | None = None) -> str:
     if not heading_indexes:
         return f"No versioned changelog entry was found in `{path}`."
 
-    start = heading_indexes[-1]
-    return "\n".join(lines[start:]).strip()
+    start = heading_indexes[0]
+    end = heading_indexes[1] if len(heading_indexes) > 1 else len(lines)
+    return "\n".join(lines[start:end]).strip()
 
 
 def demote_headings(markdown: str) -> str:
