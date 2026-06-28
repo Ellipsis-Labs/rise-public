@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Run publish commands in dry-run mode."
+        description: "Run the release workflow without uploading packages."
         default: "true"
         required: true
         type: choice
@@ -175,94 +175,89 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       package_published: ${{ steps.publish-state.outputs.package_published }}
+      release_ready: ${{ steps.publish-state.outputs.release_ready }}
     permissions:
       contents: read
       id-token: write
-    defaults:
-      run:
-        working-directory: rust
     env:
       DRY_RUN: ${{ inputs.dry_run || 'false' }}
       PUBLISH_ENABLED: ${{ vars.RISE_RELEASE_PUBLISH_ENABLED || 'false' }}
-      RUST_NAME: ${{ needs.plan.outputs.rust_name }}
       RUST_VERSION: ${{ needs.plan.outputs.rust_version }}
     steps:
       - uses: actions/checkout@v6
 
+      - uses: astral-sh/setup-uv@v7
+
       - name: Install Rust toolchain
         run: rustup toolchain install 1.91.1 --profile minimal
 
-      - name: Check crates.io version
+      - name: Validate Rust publish order
+        run: uv run --script scripts/rust_publish.py validate --toolchain 1.91.1 --expected-version "${RUST_VERSION}"
+
+      - name: Plan crates.io publishes
         id: crate-status
-        run: |
-          set -euo pipefail
-          status="$(
-            curl \
-              -sS \
-              -o /tmp/crate-version.json \
-              -w '%{http_code}' \
-              -H 'User-Agent: Ellipsis-Labs/rise-release-ci' \
-              "https://crates.io/api/v1/crates/${RUST_NAME}/${RUST_VERSION}"
-          )"
+        run: uv run --script scripts/rust_publish.py plan --toolchain 1.91.1 --expected-version "${RUST_VERSION}"
 
-          case "${status}" in
-            200)
-              echo "publish=false" >> "${GITHUB_OUTPUT}"
-              echo "${RUST_NAME} ${RUST_VERSION} is already published"
-              ;;
-            404)
-              echo "publish=true" >> "${GITHUB_OUTPUT}"
-              echo "${RUST_NAME} ${RUST_VERSION} is not yet published"
-              ;;
-            *)
-              cat /tmp/crate-version.json >&2
-              exit 1
-              ;;
-          esac
-
-      - name: Test
-        if: steps.crate-status.outputs.publish == 'true'
-        run: cargo +1.91.1 test --locked
+      - name: Package publishable Rust crates
+        if: steps.crate-status.outputs.publish_required == 'true'
+        run: uv run --script scripts/rust_publish.py package --toolchain 1.91.1 --expected-version "${RUST_VERSION}"
 
       - name: Authenticate to crates.io
         if: >
-          steps.crate-status.outputs.publish == 'true' &&
+          steps.crate-status.outputs.publish_required == 'true' &&
           env.DRY_RUN != 'true' &&
           env.PUBLISH_ENABLED == 'true'
         id: cargo-auth
         uses: rust-lang/crates-io-auth-action@v1
 
-      - name: Publish crate
+      - name: Publish missing Rust crates
+        id: publish-crates
         if: >
-          steps.crate-status.outputs.publish == 'true' &&
+          steps.crate-status.outputs.publish_required == 'true' &&
           (env.DRY_RUN == 'true' || env.PUBLISH_ENABLED == 'true')
         run: |
           set -euo pipefail
-          args=(--locked)
+          args=(publish --toolchain 1.91.1 --expected-version "${RUST_VERSION}")
           if [[ "${DRY_RUN}" == "true" ]]; then
             args+=(--dry-run)
           fi
-          cargo +1.91.1 publish "${args[@]}"
+          uv run --script scripts/rust_publish.py "${args[@]}"
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.cargo-auth.outputs.token }}
 
       - name: Report disabled crate publish
         if: >
-          steps.crate-status.outputs.publish == 'true' &&
+          steps.crate-status.outputs.publish_required == 'true' &&
           env.DRY_RUN != 'true' &&
           env.PUBLISH_ENABLED != 'true'
         run: echo "RISE_RELEASE_PUBLISH_ENABLED is not true; skipping crates.io publish"
+
+      - name: Confirm crates.io publish state
+        id: final-status
+        if: >
+          always() &&
+          steps.crate-status.outcome == 'success' &&
+          env.DRY_RUN != 'true' &&
+          env.PUBLISH_ENABLED == 'true'
+        run: uv run --script scripts/rust_publish.py plan --toolchain 1.91.1 --expected-version "${RUST_VERSION}"
 
       - name: Report crate publish result
         id: publish-state
         if: always()
         env:
-          PACKAGE_NEEDS_PUBLISH: ${{ steps.crate-status.outputs.publish || 'false' }}
+          ALL_PUBLISHED: ${{ steps.final-status.outputs.all_published || steps.publish-crates.outputs.all_published || steps.crate-status.outputs.all_published || 'false' }}
+          PUBLISHED_ANY: ${{ steps.publish-crates.outputs.published_any || 'false' }}
         run: |
-          if [[ "${PACKAGE_NEEDS_PUBLISH}" == "true" && "${DRY_RUN}" != "true" && "${PUBLISH_ENABLED}" == "true" ]]; then
+          if [[ "${PUBLISHED_ANY}" == "true" && "${DRY_RUN}" != "true" && "${PUBLISH_ENABLED}" == "true" ]]; then
             echo "package_published=true" >> "${GITHUB_OUTPUT}"
           else
             echo "package_published=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+          if [[ "${ALL_PUBLISHED}" == "true" && "${DRY_RUN}" != "true" && "${PUBLISH_ENABLED}" == "true" ]]; then
+            echo "release_ready=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "release_ready=false" >> "${GITHUB_OUTPUT}"
           fi
 
   release:
@@ -276,7 +271,7 @@ jobs:
       && needs.plan.outputs.should_release == 'true'
       && (needs.publish-typescript.result == 'success' || needs.publish-typescript.result == 'skipped')
       && (needs.publish-rust.result == 'success' || needs.publish-rust.result == 'skipped')
-      && (needs.publish-typescript.outputs.package_published == 'true' || needs.publish-rust.outputs.package_published == 'true')
+      && (needs.publish-typescript.outputs.package_published == 'true' || needs.publish-rust.outputs.release_ready == 'true')
       && vars.RISE_RELEASE_PUBLISH_ENABLED == 'true'
       && (github.event_name != 'workflow_dispatch' || inputs.dry_run == 'false')
     runs-on: ubuntu-latest

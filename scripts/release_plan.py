@@ -60,10 +60,15 @@ def load_ts_metadata(text: str) -> tuple[str, str]:
 
 def load_rust_metadata(text: str) -> tuple[str, str]:
     payload = tomllib.loads(text)
-    package = payload["package"]
+    workspace_package = payload.get("workspace", {}).get("package", {})
+    package = payload.get("package")
+    if package is None:
+        version = workspace_package["version"]
+        return "phoenix-rise workspace", str(version)
+
     version = package["version"]
     if isinstance(version, dict) and version.get("workspace") is True:
-        version = payload["workspace"]["package"]["version"]
+        version = workspace_package["version"]
     return package["name"], str(version)
 
 
