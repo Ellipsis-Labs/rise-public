@@ -10,6 +10,7 @@ import argparse
 import dataclasses
 import json
 import os
+import re
 import subprocess
 import sys
 import tomllib
@@ -60,10 +61,15 @@ def load_ts_metadata(text: str) -> tuple[str, str]:
 
 def load_rust_metadata(text: str) -> tuple[str, str]:
     payload = tomllib.loads(text)
-    package = payload["package"]
+    workspace_package = payload.get("workspace", {}).get("package", {})
+    package = payload.get("package")
+    if package is None:
+        version = workspace_package["version"]
+        return "phoenix-rise workspace", str(version)
+
     version = package["version"]
     if isinstance(version, dict) and version.get("workspace") is True:
-        version = payload["workspace"]["package"]["version"]
+        version = workspace_package["version"]
     return package["name"], str(version)
 
 
@@ -86,6 +92,12 @@ PACKAGE_SPECS = (
         changelog_path=Path("rust/CHANGELOG.md"),
         loader=load_rust_metadata,
     ),
+)
+
+CHANGELOG_VERSION_HEADING = re.compile(
+    r"^##\s+\[?v?"
+    r"(?P<version>[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)"
+    r"\]?(?:\s|$)"
 )
 
 
@@ -166,13 +178,14 @@ def latest_changelog_entry(path: Path, source_ref: str | None = None) -> str:
     heading_indexes = [
         index
         for index, line in enumerate(lines)
-        if line.startswith("## ") and not line.startswith("### ")
+        if CHANGELOG_VERSION_HEADING.match(line)
     ]
     if not heading_indexes:
         return f"No versioned changelog entry was found in `{path}`."
 
-    start = heading_indexes[-1]
-    return "\n".join(lines[start:]).strip()
+    start = heading_indexes[0]
+    end = heading_indexes[1] if len(heading_indexes) > 1 else len(lines)
+    return "\n".join(lines[start:end]).strip()
 
 
 def demote_headings(markdown: str) -> str:

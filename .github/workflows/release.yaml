@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Run publish commands in dry-run mode."
+        description: "Run the release workflow without uploading packages."
         default: "true"
         required: true
         type: choice
@@ -174,96 +174,49 @@ jobs:
     if: needs.plan.outputs.should_release == 'true' && needs.plan.outputs.package_key == 'rust'
     runs-on: ubuntu-latest
     outputs:
-      package_published: ${{ steps.publish-state.outputs.package_published }}
+      package_published: ${{ steps.publish-crates.outputs.published_any }}
+      release_ready: ${{ steps.publish-crates.outputs.all_published }}
     permissions:
       contents: read
       id-token: write
-    defaults:
-      run:
-        working-directory: rust
     env:
       DRY_RUN: ${{ inputs.dry_run || 'false' }}
       PUBLISH_ENABLED: ${{ vars.RISE_RELEASE_PUBLISH_ENABLED || 'false' }}
-      RUST_NAME: ${{ needs.plan.outputs.rust_name }}
       RUST_VERSION: ${{ needs.plan.outputs.rust_version }}
     steps:
       - uses: actions/checkout@v6
 
+      - uses: astral-sh/setup-uv@v7
+
       - name: Install Rust toolchain
         run: rustup toolchain install 1.91.1 --profile minimal
 
-      - name: Check crates.io version
+      - name: Plan crates.io publishes
         id: crate-status
-        run: |
-          set -euo pipefail
-          status="$(
-            curl \
-              -sS \
-              -o /tmp/crate-version.json \
-              -w '%{http_code}' \
-              -H 'User-Agent: Ellipsis-Labs/rise-release-ci' \
-              "https://crates.io/api/v1/crates/${RUST_NAME}/${RUST_VERSION}"
-          )"
-
-          case "${status}" in
-            200)
-              echo "publish=false" >> "${GITHUB_OUTPUT}"
-              echo "${RUST_NAME} ${RUST_VERSION} is already published"
-              ;;
-            404)
-              echo "publish=true" >> "${GITHUB_OUTPUT}"
-              echo "${RUST_NAME} ${RUST_VERSION} is not yet published"
-              ;;
-            *)
-              cat /tmp/crate-version.json >&2
-              exit 1
-              ;;
-          esac
-
-      - name: Test
-        if: steps.crate-status.outputs.publish == 'true'
-        run: cargo +1.91.1 test --locked
+        run: uv run --script scripts/rust_publish.py plan --toolchain 1.91.1 --expected-version "${RUST_VERSION}"
 
       - name: Authenticate to crates.io
         if: >
-          steps.crate-status.outputs.publish == 'true' &&
+          steps.crate-status.outputs.publish_required == 'true' &&
           env.DRY_RUN != 'true' &&
           env.PUBLISH_ENABLED == 'true'
         id: cargo-auth
         uses: rust-lang/crates-io-auth-action@v1
 
-      - name: Publish crate
-        if: >
-          steps.crate-status.outputs.publish == 'true' &&
-          (env.DRY_RUN == 'true' || env.PUBLISH_ENABLED == 'true')
+      - name: Publish missing Rust crates
+        id: publish-crates
         run: |
           set -euo pipefail
-          args=(--locked)
+          args=(publish --toolchain 1.91.1 --expected-version "${RUST_VERSION}")
           if [[ "${DRY_RUN}" == "true" ]]; then
             args+=(--dry-run)
           fi
-          cargo +1.91.1 publish "${args[@]}"
+          if [[ "${PUBLISH_ENABLED}" != "true" ]]; then
+            args+=(--publish-disabled)
+          fi
+          uv run --script scripts/rust_publish.py "${args[@]}"
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.cargo-auth.outputs.token }}
-
-      - name: Report disabled crate publish
-        if: >
-          steps.crate-status.outputs.publish == 'true' &&
-          env.DRY_RUN != 'true' &&
-          env.PUBLISH_ENABLED != 'true'
-        run: echo "RISE_RELEASE_PUBLISH_ENABLED is not true; skipping crates.io publish"
-
-      - name: Report crate publish result
-        id: publish-state
-        if: always()
-        env:
-          PACKAGE_NEEDS_PUBLISH: ${{ steps.crate-status.outputs.publish || 'false' }}
-        run: |
-          if [[ "${PACKAGE_NEEDS_PUBLISH}" == "true" && "${DRY_RUN}" != "true" && "${PUBLISH_ENABLED}" == "true" ]]; then
-            echo "package_published=true" >> "${GITHUB_OUTPUT}"
-          else
-            echo "package_published=false" >> "${GITHUB_OUTPUT}"
-          fi
 
   release:
     needs:
@@ -276,7 +229,7 @@ jobs:
       && needs.plan.outputs.should_release == 'true'
       && (needs.publish-typescript.result == 'success' || needs.publish-typescript.result == 'skipped')
       && (needs.publish-rust.result == 'success' || needs.publish-rust.result == 'skipped')
-      && (needs.publish-typescript.outputs.package_published == 'true' || needs.publish-rust.outputs.package_published == 'true')
+      && (needs.publish-typescript.outputs.package_published == 'true' || needs.publish-rust.outputs.release_ready == 'true')
       && vars.RISE_RELEASE_PUBLISH_ENABLED == 'true'
       && (github.event_name != 'workflow_dispatch' || inputs.dry_run == 'false')
     runs-on: ubuntu-latest
@@ -313,66 +266,7 @@ jobs:
       - name: Collect release PR metadata
         id: release-pr
         if: env.RISE_RELEASE_SLACK_WEBHOOK_CONFIGURED == 'true'
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json
-          import os
-          import subprocess
-
-          def write_output(key, value):
-              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
-                  handle.write(f"{key}={value}\n")
-
-          def gh_api(path):
-              result = subprocess.run(
-                  [
-                      "gh",
-                      "api",
-                      "-H",
-                      "Accept: application/vnd.github+json",
-                      path,
-                  ],
-                  check=False,
-                  capture_output=True,
-                  text=True,
-              )
-              if result.returncode != 0:
-                  print(result.stderr.strip() or result.stdout.strip())
-                  return None
-              return json.loads(result.stdout)
-
-          repo = os.environ["GITHUB_REPOSITORY"]
-          sha = os.environ["GITHUB_SHA"]
-          prs = gh_api(f"/repos/{repo}/commits/{sha}/pulls") or []
-          merged_prs = [pr for pr in prs if pr.get("merged_at")]
-          pr = merged_prs[0] if merged_prs else (prs[0] if prs else None)
-          if pr is None:
-              write_output("pr_number", "")
-              write_output("pr_url", "")
-              write_output("stamped_by", "")
-              write_output("merged_by", os.environ.get("GITHUB_ACTOR", ""))
-              raise SystemExit(0)
-
-          pr_number = str(pr["number"])
-          pr_details = gh_api(f"/repos/{repo}/pulls/{pr_number}") or pr
-          reviews = gh_api(f"/repos/{repo}/pulls/{pr_number}/reviews") or []
-          approvals = [
-              review
-              for review in reviews
-              if review.get("state") == "APPROVED" and review.get("user")
-          ]
-          stamped_by = approvals[-1]["user"]["login"] if approvals else ""
-          merged_by = (
-              (pr_details.get("merged_by") or {}).get("login")
-              or os.environ.get("GITHUB_ACTOR", "")
-          )
-
-          write_output("pr_number", pr_number)
-          write_output("pr_url", pr_details.get("html_url") or pr.get("html_url") or "")
-          write_output("stamped_by", stamped_by)
-          write_output("merged_by", merged_by)
-          PY
+        run: uv run --script .github/scripts/collect_release_pr_metadata.py
 
       - name: Notify Slack
         if: env.RISE_RELEASE_SLACK_WEBHOOK_CONFIGURED == 'true'
@@ -382,51 +276,4 @@ jobs:
           RELEASE_PR_URL: ${{ steps.release-pr.outputs.pr_url }}
           RELEASE_STAMPED_BY: ${{ steps.release-pr.outputs.stamped_by }}
           RELEASE_MERGED_BY: ${{ steps.release-pr.outputs.merged_by }}
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          release_title = os.environ["RELEASE_TITLE"]
-          release_tag = os.environ["RELEASE_TAG"]
-          release_url = (
-              f"https://github.com/{os.environ['GITHUB_REPOSITORY']}"
-              f"/releases/tag/{release_tag}"
-          )
-          release_notes = Path("release-notes.md").read_text(encoding="utf-8").strip()
-          title_heading = f"# {release_title}"
-          if release_notes.startswith(title_heading):
-              release_notes = release_notes[len(title_heading):].strip()
-
-          metadata = []
-          if os.environ.get("RELEASE_PR_NUMBER") and os.environ.get("RELEASE_PR_URL"):
-              metadata.append(
-                  f"*PR:* <{os.environ['RELEASE_PR_URL']}|#{os.environ['RELEASE_PR_NUMBER']}>"
-              )
-          if os.environ.get("RELEASE_STAMPED_BY"):
-              metadata.append(f"*Stamped by:* @{os.environ['RELEASE_STAMPED_BY']}")
-          if os.environ.get("RELEASE_MERGED_BY"):
-              metadata.append(f"*Merged by:* @{os.environ['RELEASE_MERGED_BY']}")
-
-          body_parts = []
-          if metadata:
-              body_parts.append("\n".join(metadata))
-          if release_notes:
-              body_parts.append(release_notes)
-
-          payload = {
-              "text": f"*<{release_url}|{release_title}>*\n\n" + "\n\n".join(body_parts),
-          }
-          Path("slack-payload.json").write_text(
-              json.dumps(payload, ensure_ascii=False) + "\n",
-              encoding="utf-8",
-          )
-          PY
-
-          curl --fail-with-body -sS \
-            -X POST \
-            -H 'Content-Type: application/json' \
-            --data @slack-payload.json \
-            "${SLACK_WEBHOOK_URL}"
+        run: uv run --script .github/scripts/notify_slack_release.py

@@ -4,16 +4,36 @@ on:
   pull_request:
     branches:
       - master
-  push:
-    branches:
-      - master
 
 permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.changed.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: changed
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_BASE_REF}" --prune
+          changed_paths="$(git diff --name-only "origin/${GITHUB_BASE_REF}" HEAD)"
+
+          rust=false
+          if grep -Eq '^rust/' <<<"${changed_paths}"; then
+            rust=true
+          fi
+
+          echo "rust=${rust}" >> "${GITHUB_OUTPUT}"
+          printf '%s\n' "${changed_paths}"
+
   release-order:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -61,15 +81,22 @@ jobs:
         run: bun run build
 
   rust:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: rust
+        working-directory: .
     steps:
       - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install 1.91.1 --profile minimal
 
-      - name: Test
-        run: cargo +1.91.1 test --locked
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Check Rust workspace
+        run: uv run --script scripts/rust_publish.py ci --toolchain 1.91.1

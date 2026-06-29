@@ -92,6 +92,7 @@ class PackageSpec:
     key: str
     label: str
     metadata_path: str
+    changelog_path: str
     loader: Callable[[str], tuple[str, str]]
 
 
@@ -101,6 +102,13 @@ class PackageMetadata:
     label: str
     name: str
     version: str
+
+
+@dataclasses.dataclass(frozen=True)
+class ChangelogEntry:
+    version: Semver
+    heading: str
+    line_number: int
 
 
 def fail(message: str, code: int = 1) -> NoReturn:
@@ -126,8 +134,11 @@ def load_ts_metadata(text: str) -> tuple[str, str]:
 
 def load_rust_metadata(text: str) -> tuple[str, str]:
     payload = tomllib.loads(text)
-    package = payload["package"]
     workspace_package = payload.get("workspace", {}).get("package", {})
+    package = payload.get("package")
+    if package is None:
+        return "phoenix-rise workspace", str(workspace_package["version"])
+
     name = package["name"]
     version_value = package["version"]
     if isinstance(version_value, dict):
@@ -143,14 +154,22 @@ PACKAGE_SPECS = (
         key="ts",
         label="TypeScript",
         metadata_path="ts/package.json",
+        changelog_path="ts/CHANGELOG.md",
         loader=load_ts_metadata,
     ),
     PackageSpec(
         key="rust",
         label="Rust",
         metadata_path="rust/Cargo.toml",
+        changelog_path="rust/CHANGELOG.md",
         loader=load_rust_metadata,
     ),
+)
+
+CHANGELOG_VERSION_HEADING = re.compile(
+    r"^##\s+\[?v?"
+    r"(?P<version>[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)"
+    r"\]?(?:\s|$)"
 )
 
 
@@ -178,6 +197,48 @@ def metadata_for_ref(ref: str) -> dict[str, PackageMetadata]:
             version=version,
         )
     return metadata
+
+
+def changelog_entries_for_ref(ref: str, spec: PackageSpec) -> list[ChangelogEntry]:
+    text = git_show_text(ref, spec.changelog_path)
+    if text is None:
+        fail(f"{spec.label} changelog does not exist: {spec.changelog_path}")
+
+    entries: list[ChangelogEntry] = []
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        match = CHANGELOG_VERSION_HEADING.match(line)
+        if match is None:
+            continue
+        entries.append(
+            ChangelogEntry(
+                version=Semver.parse(match.group("version")),
+                heading=line,
+                line_number=line_number,
+            )
+        )
+
+    if not entries:
+        fail(f"{spec.label} changelog has no versioned entries: {spec.changelog_path}")
+
+    return entries
+
+
+def validate_changelog_order(ref: str, spec: PackageSpec, metadata: PackageMetadata) -> None:
+    entries = changelog_entries_for_ref(ref, spec)
+    package_version = Semver.parse(metadata.version)
+    if entries[0].version.compare(package_version) != 0:
+        fail(
+            f"{spec.label} changelog top entry {entries[0].heading!r} does not "
+            f"match package version {metadata.version}; keep the newest release first"
+        )
+
+    for previous, current in zip(entries, entries[1:], strict=False):
+        if previous.version.compare(current.version) <= 0:
+            fail(
+                f"{spec.label} changelog must be sorted newest to oldest; "
+                f"{current.heading!r} on line {current.line_number} appears after "
+                f"{previous.heading!r} on line {previous.line_number}"
+            )
 
 
 def is_allowed_next_version(base: Semver, head: Semver) -> bool:
@@ -214,6 +275,11 @@ def validate_branch_name(branch: str, change: PackageMetadata) -> None:
 def validate_release_order(base_ref: str, head_ref: str, head_branch: str) -> None:
     base_versions = metadata_for_ref(base_ref)
     head_versions = metadata_for_ref(head_ref)
+    for spec in PACKAGE_SPECS:
+        head = head_versions.get(spec.key)
+        if head is not None:
+            validate_changelog_order(head_ref, spec, head)
+
     changed: list[tuple[PackageMetadata | None, PackageMetadata]] = []
 
     for spec in PACKAGE_SPECS:
