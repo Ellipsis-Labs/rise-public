@@ -1,0 +1,46 @@
+[package]
+description  = "Phoenix instruction encoders and CPI-oriented layouts for Rise"
+edition      = { workspace = true }
+homepage     = { workspace = true }
+license      = { workspace = true }
+name         = "phoenix-rise-ix"
+publish      = { workspace = true }
+readme       = "README.md"
+repository   = { workspace = true }
+rust-version = { workspace = true }
+version      = { workspace = true }
+
+[package.metadata.workspace-lints]
+feature-exceptions = ["solana-pubkey"]
+
+[features]
+accounts = ["dep:phoenix-rise-accounts"]
+cpi      = ["dep:pinocchio"]
+default  = []
+serde    = ["dep:serde", "solana-pubkey/serde", "phoenix-rise-accounts?/serde"]
+solana   = ["dep:solana-instruction"]
+
+[dependencies]
+borsh = { workspace = true }
+bytemuck = { workspace = true }
+phoenix-rise-accounts = { workspace = true, optional = true }
+pinocchio = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+sha2 = { workspace = true }
+sha2-const-stable = { workspace = true }
+solana-instruction = { workspace = true, optional = true }
+solana-pubkey = { version = "~2.4", default-features = false, features = [
+  "curve25519",
+] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+solana-pubkey = { version = "~2.4", default-features = false, features = [
+  "curve25519",
+  "rand",
+] }
+
+[lints.rust.unexpected_cfgs]
+check-cfg = ['cfg(target_os, values("solana"))']
+level     = "warn"

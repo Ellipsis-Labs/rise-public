@@ -363,11 +363,41 @@ def command_package(args: argparse.Namespace) -> None:
         expected_version=args.expected_version,
         toolchain=args.toolchain,
     )
-    package_order(order, args.toolchain)
+    list_package_contents(order, args.toolchain)
+    package_order(
+        order,
+        args.toolchain,
+        skip_internal_dependencies=args.skip_internal_dependencies,
+    )
 
 
-def package_order(order: ValidatedOrder, toolchain: str | None) -> None:
+def list_package_contents(order: ValidatedOrder, toolchain: str | None) -> None:
     for name in order.order:
+        result = run(
+            cargo_command(toolchain) + ["package", "-p", name, "--locked", "--list"],
+            cwd=order.workspace.root,
+            capture=True,
+        )
+        package_file_count = len(result.stdout.splitlines())
+        print(f"Package file list ok for {name}: {package_file_count} files")
+
+
+def package_order(
+    order: ValidatedOrder,
+    toolchain: str | None,
+    *,
+    skip_internal_dependencies: bool,
+) -> None:
+    for name in order.order:
+        package = order.workspace.publishable[name]
+        dependencies = internal_dependencies(order.workspace, package)
+        if skip_internal_dependencies and dependencies:
+            print(
+                f"Skipping cargo package -p {name}: internal workspace dependencies "
+                "must be published to crates.io before Cargo can package this crate"
+            )
+            continue
+
         run(
             cargo_command(toolchain) + ["package", "-p", name, "--locked"],
             cwd=order.workspace.root,
@@ -380,7 +410,8 @@ def command_ci(args: argparse.Namespace) -> None:
         expected_version=args.expected_version,
         toolchain=args.toolchain,
     )
-    package_order(order, args.toolchain)
+    list_package_contents(order, args.toolchain)
+    package_order(order, args.toolchain, skip_internal_dependencies=True)
     run(
         cargo_command(args.toolchain)
         + [
@@ -436,7 +467,8 @@ def command_publish(args: argparse.Namespace) -> None:
     )
 
     if missing:
-        package_order(order, args.toolchain)
+        list_package_contents(order, args.toolchain)
+        package_order(order, args.toolchain, skip_internal_dependencies=True)
 
     if args.dry_run:
         if missing:
@@ -575,6 +607,14 @@ def parse_args() -> argparse.Namespace:
 
     package = subparsers.add_parser("package", help="Package publishable crates")
     add_common_args(package)
+    package.add_argument(
+        "--skip-internal-dependencies",
+        action="store_true",
+        help=(
+            "Skip crates with publishable workspace dependencies that Cargo cannot "
+            "package until those dependencies are published to crates.io"
+        ),
+    )
     package.set_defaults(func=command_package)
 
     plan = subparsers.add_parser("plan", help="Plan missing crates.io publishes")

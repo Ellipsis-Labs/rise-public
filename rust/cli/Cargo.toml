@@ -1,22 +1,51 @@
 [package]
-description  = { workspace = true }
+description  = "CLI for Phoenix Rise API, WebSocket, and RPC account inspection"
 edition      = { workspace = true }
 homepage     = { workspace = true }
+include      = ["Cargo.toml", "README.md", "scripts/**", "src/**"]
 license      = { workspace = true }
-name         = "phoenix-rise-sdk-cli"
-publish      = false
-readme       = { workspace = true }
+name         = "phoenix-rise-cli"
+publish      = { workspace = true }
+readme       = "README.md"
 repository   = { workspace = true }
 rust-version = { workspace = true }
 version      = { workspace = true }
 
-[dependencies]
-phoenix-rise = { path = "..", features = ["opentelemetry", "solana-keypair"] }
+[[bin]]
+name = "phoenix-rise"
+path = "src/main.rs"
 
-clap           = { workspace = true }
-serde          = { workspace = true }
-serde_json     = { workspace = true }
-solana-keypair = { workspace = true }
-solana-pubkey  = { workspace = true }
-tokio          = { workspace = true }
-url            = { workspace = true }
+[[bin]]
+name = "generate-cli-docs"
+path = "src/bin/generate_cli_docs.rs"
+
+[dependencies]
+phoenix-rise = { workspace = true, features = [
+  "api",
+  "events",
+  "serde",
+  "tx-builder",
+  "ws",
+] }
+
+base64                                 = { workspace = true }
+bincode                                = { workspace = true }
+bs58                                   = { workspace = true }
+chrono                                 = { workspace = true }
+clap                                   = { workspace = true }
+serde                                  = { workspace = true }
+serde_json                             = { workspace = true }
+sha2                                   = { workspace = true }
+solana-commitment-config               = { workspace = true }
+solana-instruction                     = { workspace = true }
+solana-keypair                         = { workspace = true }
+solana-message                         = { workspace = true }
+solana-pubkey                          = { workspace = true }
+solana-rpc-client                      = { workspace = true }
+solana-rpc-client-api                  = { workspace = true }
+solana-signature                       = { workspace = true }
+solana-signer                          = { workspace = true }
+solana-transaction                     = { workspace = true }
+solana-transaction-status-client-types = { workspace = true }
+tokio                                  = { workspace = true }
+url                                    = { workspace = true }

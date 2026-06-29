@@ -8,8 +8,8 @@ mod withdraw_all;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use close_position::ClosePositionContext;
-pub use ix::{SelfTradeBehavior, Side};
-use phoenix_rise::ix;
+use phoenix_rise::ix::constants::compute_discriminant;
+pub use phoenix_rise::ix::types::{SelfTradeBehavior, Side};
 use pinocchio::account_info::AccountInfo;
 use pinocchio::program_error::ProgramError;
 use pinocchio::pubkey::Pubkey;
@@ -59,13 +59,13 @@ enum PhoenixCloseAndWithdrawInstruction {
 
 impl PhoenixCloseAndWithdrawInstruction {
     fn from_tag(tag: &[u8]) -> Option<Self> {
-        if tag == ix::compute_discriminant("global:close_position_and_withdraw") {
+        if tag == compute_discriminant("global:close_position_and_withdraw") {
             return Some(Self::ClosePositionAndWithdraw);
         }
-        if tag == ix::compute_discriminant("global:close_position_and_withdraw_with_builders") {
+        if tag == compute_discriminant("global:close_position_and_withdraw_with_builders") {
             return Some(Self::ClosePositionAndWithdrawWithBuilders);
         }
-        if tag == ix::compute_discriminant("global:withdraw_all_collateral") {
+        if tag == compute_discriminant("global:withdraw_all_collateral") {
             return Some(Self::WithdrawAllCollateral);
         }
         None

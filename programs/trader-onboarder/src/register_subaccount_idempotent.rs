@@ -1,4 +1,10 @@
-use phoenix_rise::ix;
+use phoenix_rise::ix::constants::{
+    PHOENIX_GLOBAL_CONFIGURATION, PHOENIX_LOG_AUTHORITY, PHOENIX_PROGRAM_ID, SYSTEM_PROGRAM_ID,
+};
+use phoenix_rise::ix::register_trader::{RegisterTraderParams, create_register_trader_ix};
+use phoenix_rise::ix::sync_parent_to_child::{
+    SyncParentToChildParams, create_sync_parent_to_child_ix,
+};
 use pinocchio::account_info::AccountInfo;
 use pinocchio::cpi::slice_invoke_signed;
 use pinocchio::instruction::{AccountMeta, Instruction};
@@ -100,19 +106,19 @@ pub(crate) fn process_register_subaccount_idempotent(
         .iter()
         .collect();
 
-    if phoenix_program_key != *ix::PHOENIX_PROGRAM_ID {
+    if phoenix_program_key != *PHOENIX_PROGRAM_ID {
         msg!("trader-onboarder: Phoenix program id mismatch");
         return Err(TraderOnboarderError::InvalidAccountKey.into());
     }
-    if phoenix_log_authority_key != *ix::PHOENIX_LOG_AUTHORITY {
+    if phoenix_log_authority_key != *PHOENIX_LOG_AUTHORITY {
         msg!("trader-onboarder: Phoenix log authority mismatch");
         return Err(TraderOnboarderError::InvalidAccountKey.into());
     }
-    if phoenix_global_config_key != *ix::PHOENIX_GLOBAL_CONFIGURATION {
+    if phoenix_global_config_key != *PHOENIX_GLOBAL_CONFIGURATION {
         msg!("trader-onboarder: Phoenix global configuration account mismatch");
         return Err(TraderOnboarderError::InvalidAccountKey.into());
     }
-    if system_program_key != ix::SYSTEM_PROGRAM_ID {
+    if system_program_key != SYSTEM_PROGRAM_ID {
         msg!("trader-onboarder: System program id mismatch");
         return Err(TraderOnboarderError::InvalidAccountKey.into());
     }
@@ -204,7 +210,7 @@ pub(crate) fn process_register_subaccount_idempotent(
 
     let registered_child_this_call = if child_trader_account.data_is_empty() {
         msg!("trader-onboarder: subaccount trader missing; invoking Phoenix RegisterTrader");
-        let register_params = ix::RegisterTraderParams::builder()
+        let register_params = RegisterTraderParams::builder()
             .payer(payer_key)
             .trader(trader_authority_key)
             .trader_account(child_trader_account_key)
@@ -218,7 +224,7 @@ pub(crate) fn process_register_subaccount_idempotent(
                 ));
                 TraderOnboarderError::PhoenixIxBuildFailed
             })?;
-        let register_ix = ix::create_register_trader_ix(register_params).map_err(|error| {
+        let register_ix = create_register_trader_ix(register_params).map_err(|error| {
             msg!(&format!(
                 "trader-onboarder: failed to build RegisterTrader ix: {error}"
             ));
@@ -328,7 +334,7 @@ pub(crate) fn process_register_subaccount_idempotent(
         .iter()
         .map(|account| SolanaPubkey::new_from_array(*account.key()))
         .collect();
-    let sync_params = ix::SyncParentToChildParams::builder()
+    let sync_params = SyncParentToChildParams::builder()
         .trader_wallet(trader_authority_key)
         .parent_trader_account(parent_trader_account_key)
         .child_trader_account(child_trader_account_key)
@@ -340,7 +346,7 @@ pub(crate) fn process_register_subaccount_idempotent(
             ));
             TraderOnboarderError::PhoenixIxBuildFailed
         })?;
-    let sync_ix = ix::create_sync_parent_to_child_ix(sync_params).map_err(|error| {
+    let sync_ix = create_sync_parent_to_child_ix(sync_params).map_err(|error| {
         msg!(&format!(
             "trader-onboarder: failed to build SyncParentToChild ix: {error}"
         ));

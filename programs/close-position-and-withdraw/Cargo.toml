@@ -14,27 +14,29 @@ borsh = { version = "=1.6.0", features = ["derive"] }
 borsh-derive = "=1.6.0"
 bytemuck = { version = "1.21", features = ["derive"] }
 indexmap = "=2.13.0"
-phoenix-rise = { path = "../../rust", default-features = false }
+phoenix-rise = { path = "../../rust/sdk", default-features = false, features = [
+  "cpi",
+] }
 pinocchio = "0.9.2"
 pinocchio-pubkey = "0.3.0"
 pinocchio-token = "0.4.0"
 proc-macro-crate = "=3.4.0"
 sha2 = "0.10"
 sha2-const-stable = "0.1"
-solana-instruction = { version = "~2.3", default-features = false, features = [
-  "std",
-] }
-solana-pubkey = { version = "~2.4", features = ["curve25519"] }
-thiserror = "2.0"
+solana-pubkey = { version = "~2.4", default-features = false }
 toml_parser = "=1.0.6"
 zeroize = "=1.8.2"
 
 [dev-dependencies]
-phoenix-rise = { path = "../../rust", default-features = false, features = [
-  "test-fixture",
+phoenix-rise = { path = "../../rust/sdk", default-features = false, features = [
+  "core",
 ] }
+phoenix-rise-litesvm-test = { path = "../../rust/litesvm-test" }
 solana-account = "~2.2"
 solana-compute-budget-interface = "~2.2"
+solana-instruction = { version = "~2.3", default-features = false, features = [
+  "std",
+] }
 
 [profile.ci]
 inherits = "dev"

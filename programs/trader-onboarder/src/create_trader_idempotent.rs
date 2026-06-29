@@ -1,4 +1,11 @@
-use phoenix_rise::ix;
+use phoenix_rise::accounts::trader::capabilities::is_trader_ready;
+use phoenix_rise::ix::constants::{
+    PHOENIX_GLOBAL_CONFIGURATION, PHOENIX_LOG_AUTHORITY, PHOENIX_PROGRAM_ID, SYSTEM_PROGRAM_ID,
+};
+use phoenix_rise::ix::onboard_trader_delegated::{
+    OnboardTraderDelegatedParams, create_onboard_trader_delegated_ix,
+};
+use phoenix_rise::ix::register_trader::{RegisterTraderParams, create_register_trader_ix};
 use pinocchio::account_info::AccountInfo;
 use pinocchio::cpi::slice_invoke_signed;
 use pinocchio::instruction::{AccountMeta, Instruction, Signer};
@@ -136,19 +143,19 @@ pub(crate) fn process_create_trader_idempotent(accounts: &[AccountInfo]) -> Prog
         .iter()
         .collect();
 
-    if phoenix_program_key != *ix::PHOENIX_PROGRAM_ID {
+    if phoenix_program_key != *PHOENIX_PROGRAM_ID {
         msg!("trader-onboarder: Phoenix program id mismatch");
         return Err(TraderOnboarderError::InvalidAccountKey.into());
     }
-    if phoenix_log_authority_key != *ix::PHOENIX_LOG_AUTHORITY {
+    if phoenix_log_authority_key != *PHOENIX_LOG_AUTHORITY {
         msg!("trader-onboarder: Phoenix log authority mismatch");
         return Err(TraderOnboarderError::InvalidAccountKey.into());
     }
-    if phoenix_global_config_key != *ix::PHOENIX_GLOBAL_CONFIGURATION {
+    if phoenix_global_config_key != *PHOENIX_GLOBAL_CONFIGURATION {
         msg!("trader-onboarder: Phoenix global configuration account mismatch");
         return Err(TraderOnboarderError::InvalidAccountKey.into());
     }
-    if system_program_key != ix::SYSTEM_PROGRAM_ID {
+    if system_program_key != SYSTEM_PROGRAM_ID {
         msg!("trader-onboarder: System program id mismatch");
         return Err(TraderOnboarderError::InvalidAccountKey.into());
     }
@@ -245,7 +252,7 @@ pub(crate) fn process_create_trader_idempotent(accounts: &[AccountInfo]) -> Prog
 
     let registered_trader_this_call = if trader_account.data_is_empty() {
         msg!("trader-onboarder: trader missing; invoking Phoenix RegisterTrader");
-        let register_params = ix::RegisterTraderParams::builder()
+        let register_params = RegisterTraderParams::builder()
             .payer(payer_key)
             .trader(trader_authority_key)
             .trader_account(trader_account_key)
@@ -259,7 +266,7 @@ pub(crate) fn process_create_trader_idempotent(accounts: &[AccountInfo]) -> Prog
                 ));
                 TraderOnboarderError::PhoenixIxBuildFailed
             })?;
-        let register_ix = ix::create_register_trader_ix(register_params).map_err(|error| {
+        let register_ix = create_register_trader_ix(register_params).map_err(|error| {
             msg!(&format!(
                 "trader-onboarder: failed to build RegisterTrader ix: {error}"
             ));
@@ -360,7 +367,7 @@ pub(crate) fn process_create_trader_idempotent(accounts: &[AccountInfo]) -> Prog
         ));
         trader.flags()
     };
-    if ix::is_trader_ready(trader_flags) {
+    if is_trader_ready(trader_flags) {
         msg!(&format!(
             "trader-onboarder: trader already has required capabilities; flags={trader_flags}"
         ));
@@ -378,7 +385,7 @@ pub(crate) fn process_create_trader_idempotent(accounts: &[AccountInfo]) -> Prog
         .iter()
         .map(|account| SolanaPubkey::new_from_array(*account.key()))
         .collect();
-    let onboard_params = ix::OnboardTraderDelegatedParams::builder()
+    let onboard_params = OnboardTraderDelegatedParams::builder()
         .authority(onboarder_authority_key)
         .permission_account(permission_account_key)
         .trader_account(trader_account_key)
@@ -391,7 +398,7 @@ pub(crate) fn process_create_trader_idempotent(accounts: &[AccountInfo]) -> Prog
             ));
             TraderOnboarderError::PhoenixIxBuildFailed
         })?;
-    let onboard_ix = ix::create_onboard_trader_delegated_ix(onboard_params).map_err(|error| {
+    let onboard_ix = create_onboard_trader_delegated_ix(onboard_params).map_err(|error| {
         msg!(&format!(
             "trader-onboarder: failed to build OnboardTraderDelegated ix: {error}"
         ));

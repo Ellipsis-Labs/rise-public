@@ -1,0 +1,26 @@
+[package]
+description  = "Owned Phoenix domain and API types for Rise"
+edition      = { workspace = true }
+homepage     = { workspace = true }
+license      = { workspace = true }
+name         = "phoenix-rise-types"
+publish      = { workspace = true }
+readme       = "README.md"
+repository   = { workspace = true }
+rust-version = { workspace = true }
+version      = { workspace = true }
+
+[features]
+default = []
+serde   = ["dep:chrono", "dep:serde", "dep:serde_json", "dep:serde_with"]
+utoipa  = ["serde", "dep:utoipa"]
+
+[dependencies]
+chrono     = { workspace = true, optional = true }
+serde      = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+serde_with = { workspace = true, optional = true }
+utoipa     = { workspace = true, optional = true }
+
+[dev-dependencies]
+serde_urlencoded = { workspace = true }

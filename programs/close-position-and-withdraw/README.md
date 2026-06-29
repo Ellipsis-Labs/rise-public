@@ -45,7 +45,7 @@ trader authority, because Phoenix withdraws into it and Ember burns from it.
 owned by the signing trader authority. The program never allows this owner check
 to be skipped.
 
-The tests use `phoenix_rise::test_fixture`. Set
+The tests use `phoenix-rise-litesvm-test` directly. Set
 `PHOENIX_MAINNET_BPF_PROGRAMS=1` to fetch Phoenix, Ember, Hawkeye, and Flight
 BPF from mainnet when a fresh cached copy is unavailable. The fixture caches
 those programs under `target/deploy/.cache` for 24 hours by default; set

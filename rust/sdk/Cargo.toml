@@ -1,0 +1,235 @@
+[package]
+description = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+include = [
+  "Cargo.toml",
+  "../CRATES.md",
+  "../LICENSE",
+  "../README.md",
+  "README.md",
+  "examples/**",
+  "src/**",
+]
+license = { workspace = true }
+name = "phoenix-rise"
+publish = { workspace = true }
+readme = "README.md"
+repository = { workspace = true }
+rust-version = { workspace = true }
+version = { workspace = true }
+
+[features]
+accounts = ["dep:phoenix-rise-accounts"]
+api = ["dep:phoenix-rise-api", "types"]
+core = ["tx-builder"]
+cpi = [
+  "accounts",
+  "dep:phoenix-rise-ix",
+  "phoenix-rise-ix/accounts",
+  "phoenix-rise-ix/cpi",
+]
+default = ["api", "sdk", "tx-builder", "ws"]
+ed25519-dalek = ["api"]
+events = ["dep:phoenix-rise-events", "tx-builder", "phoenix-rise-core/events"]
+ix = [
+  "dep:phoenix-rise-ix",
+  "phoenix-rise-ix/accounts",
+  "phoenix-rise-ix/solana",
+]
+math = ["dep:phoenix-rise-math", "phoenix-rise-math/solana"]
+opentelemetry = ["api", "phoenix-rise-api/opentelemetry"]
+sdk = ["accounts", "ix", "math", "types"]
+serde = [
+  "accounts",
+  "ix",
+  "types",
+  "phoenix-rise-accounts/serde",
+  "phoenix-rise-events?/serde",
+  "phoenix-rise-ix/serde",
+  "phoenix-rise-math/serde",
+  "phoenix-rise-types/serde",
+]
+solana-keypair = ["api"]
+tx-builder = ["api", "sdk", "dep:phoenix-rise-core"]
+types = ["dep:phoenix-rise-types", "phoenix-rise-types/serde"]
+types-sdk = ["types"]
+utoipa = ["types", "phoenix-rise-types/utoipa"]
+ws = ["api", "phoenix-rise-api/ws"]
+
+[dependencies]
+phoenix-rise-accounts = { workspace = true, optional = true }
+phoenix-rise-api      = { workspace = true, optional = true }
+phoenix-rise-core     = { workspace = true, optional = true }
+phoenix-rise-events   = { workspace = true, optional = true }
+phoenix-rise-ix       = { workspace = true, optional = true }
+phoenix-rise-math     = { workspace = true, optional = true }
+phoenix-rise-types    = { workspace = true, optional = true }
+
+[dev-dependencies]
+axum                            = { workspace = true }
+base64                          = { workspace = true }
+bincode                         = { workspace = true }
+borsh                           = { workspace = true }
+chrono                          = { workspace = true }
+litesvm                         = { workspace = true }
+opentelemetry_sdk               = { workspace = true }
+parking_lot                     = { workspace = true }
+proptest                        = { workspace = true }
+rand                            = { workspace = true }
+rust_decimal                    = { workspace = true }
+serde                           = { workspace = true }
+serde_json                      = { workspace = true }
+sha2                            = { workspace = true }
+solana-commitment-config        = { workspace = true }
+solana-compute-budget-interface = { workspace = true }
+solana-instruction              = { workspace = true }
+solana-keypair                  = { workspace = true }
+solana-pubkey                   = { workspace = true }
+solana-rpc-client               = { workspace = true }
+solana-signer                   = { workspace = true }
+solana-transaction              = { workspace = true }
+thiserror                       = { workspace = true }
+tokio                           = { workspace = true }
+toml                            = { workspace = true }
+tracing                         = { workspace = true }
+tracing-subscriber              = { workspace = true }
+
+[[example]]
+name              = "build_all_ix"
+required-features = ["api"]
+
+[[example]]
+name              = "builder_onboarding_tx"
+required-features = ["api"]
+
+[[example]]
+name              = "cancel_all_conditional_orders"
+required-features = ["api", "tx-builder"]
+
+[[example]]
+name              = "cancel_order"
+required-features = ["api", "tx-builder"]
+
+[[example]]
+name              = "cancel_stop_loss"
+required-features = ["api", "tx-builder"]
+
+[[example]]
+name              = "compute_trader_margin"
+required-features = ["ws"]
+
+[[example]]
+name              = "deposit_funds"
+required-features = ["api", "tx-builder"]
+
+[[example]]
+name              = "fetch_on_chain_accounts"
+required-features = ["tx-builder"]
+
+[[example]]
+name              = "http_client"
+required-features = ["api"]
+
+[[example]]
+name              = "isolated_limit_order"
+required-features = ["ws", "tx-builder"]
+
+[[example]]
+name              = "isolated_market_order_client"
+required-features = ["ws", "tx-builder"]
+
+[[example]]
+name              = "isolated_market_order_server"
+required-features = ["api", "tx-builder"]
+
+[[example]]
+name              = "market_maker"
+required-features = ["ws", "tx-builder"]
+
+[[example]]
+name              = "onboard_trader_delegated"
+required-features = ["api", "tx-builder"]
+
+[[example]]
+name              = "phoenix_client"
+required-features = ["ws"]
+
+[[example]]
+name              = "referral_activation_tx"
+required-features = ["tx-builder", "solana-keypair"]
+
+[[example]]
+name              = "register_trader"
+required-features = ["api"]
+
+[[example]]
+name              = "send_flight_market_order"
+required-features = ["api", "tx-builder"]
+
+[[example]]
+name              = "send_limit_order"
+required-features = ["api", "tx-builder"]
+
+[[example]]
+name              = "send_market_order"
+required-features = ["api", "tx-builder"]
+
+[[example]]
+name              = "subscribe_candles"
+required-features = ["ws"]
+
+[[example]]
+name              = "subscribe_l2_book"
+required-features = ["ws"]
+
+[[example]]
+name              = "subscribe_market_stats"
+required-features = ["ws"]
+
+[[example]]
+name              = "subscribe_trader_state"
+required-features = ["ws"]
+
+[[example]]
+name              = "subscribe_trades"
+required-features = ["ws"]
+
+[[example]]
+name              = "ws_debug_cli"
+required-features = ["ws"]
+
+[[test]]
+name              = "auth_config_tests"
+required-features = ["api"]
+
+[[test]]
+name              = "client_identity_tests"
+required-features = ["api"]
+
+[[test]]
+name              = "file_auth_session_store_tests"
+required-features = ["api"]
+
+[[test]]
+name              = "http_retry_tests"
+required-features = ["api"]
+
+[[test]]
+name              = "invite_client_tests"
+required-features = ["api"]
+
+[[test]]
+name              = "opentelemetry_feature_tests"
+required-features = ["opentelemetry"]
+
+[[test]]
+name              = "sdk_localnet_fixture_tests"
+required-features = ["tx-builder"]
+
+[[test]]
+name              = "trader_state_tests"
+required-features = ["api"]
+
+[package.metadata.cargo-machete]
+ignored = ["borsh", "litesvm", "proptest", "rand", "serde_json", "sha2"]

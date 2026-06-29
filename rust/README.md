@@ -1,47 +1,60 @@
 # Rust Rise SDK
 
 `rise/rust` is the Rust SDK workspace for Phoenix perpetuals. It contains the
-published `phoenix-rise` library crate, instruction builders, math helpers,
-API payload types, examples, tests, and a separate CLI crate for smoke testing.
+published `phoenix-rise` facade crate plus separately usable account, ix, math,
+types, and API crates. The facade keeps the ergonomic SDK surface while the
+lower-level crates can be enabled independently by CPI integrations, API-only
+users, and math consumers.
+
+Protocol and product documentation lives at
+[docs.phoenix.trade](https://docs.phoenix.trade/).
 
 ## Package Structure
 
 ```text
 rust/
-├── Cargo.toml               # workspace and phoenix-rise package manifest
+├── Cargo.toml               # workspace manifest and shared dependency table
 ├── README.md                # Canonical Rust package guide
 ├── AGENTS.md                # Pointer to this README and examples
-├── cli/                     # phoenix-rise-sdk-cli package
-├── examples/                # runnable SDK examples
-├── src/
-│   ├── api/
-│   ├── ix/                  # phoenix_rise::ix
-│   ├── math/                # phoenix_rise::math
-│   ├── types/               # phoenix_rise::types
-│   ├── accounts.rs
-│   ├── auth.rs
-│   ├── auth_lifecycle.rs
-│   ├── auth_signers.rs
-│   ├── client.rs
-│   ├── env.rs
-│   ├── exchange_cache.rs
-│   ├── flight_client.rs
-│   ├── http_client.rs
-│   ├── order_tickets.rs
-│   ├── transport.rs
-│   ├── tx_builder.rs
-│   └── ws_client.rs
-└── tests/                   # integration tests
+├── accounts/                # phoenix-rise-accounts package
+├── api/                     # phoenix-rise-api package
+├── cli/                     # phoenix-rise-cli package
+├── core/                    # phoenix-rise-core package
+├── events/                  # phoenix-rise-events package
+├── ix/                      # phoenix-rise-ix package
+├── math/                    # phoenix-rise-math package
+├── sdk/                     # phoenix-rise facade package
+│   ├── examples/            # runnable SDK examples
+│   ├── src/                 # facade exports and transaction helpers
+│   └── tests/               # facade integration tests
+├── litesvm-test/            # phoenix-rise-litesvm-test fixture/helper package
+└── types/                   # phoenix-rise-types package
 ```
 
 ## Package Targets
 
-- `phoenix-rise`: published Rust SDK library, imported as `phoenix_rise`,
-  exposing the high-level HTTP, WebSocket, auth, exchange-cache, Flight, and
-  transaction-builder surface, plus the lower-level `ix`, `math`, and `types`
-  modules
-- `phoenix-rise-sdk-cli`: separate smoke-test CLI package for HTTP,
-  websocket, and auth flows
+- [`phoenix-rise`](sdk/README.md): facade crate imported as `phoenix_rise`,
+  exposing the high-level SDK surface plus optional reexports of the
+  lower-level crates
+- [`phoenix-rise-accounts`](accounts/README.md): borrowed account views,
+  account discriminators, PDA helpers, and account layout helpers
+- [`phoenix-rise-ix`](ix/README.md): Phoenix, Ember, Flight, and Hawkeye
+  instruction builders and instruction/account metadata
+- [`phoenix-rise-math`](math/README.md): market math, margin/risk
+  calculations, funding helpers, price conversions, and quantity wrappers
+- [`phoenix-rise-events`](events/README.md): market event parsing from Phoenix
+  `Log` and `LogEventLengths` batches
+- [`phoenix-rise-types`](types/README.md): owned/materialized API, websocket,
+  trader, market, and account snapshot types
+- [`phoenix-rise-api`](api/README.md): HTTP, websocket, auth, exchange-cache,
+  Flight, Hawkeye, and transport clients
+- [`phoenix-rise-core`](core/README.md): account fetchers, order tickets, and
+  transaction builders
+- [`phoenix-rise-cli`](cli/README.md): CLI package for HTTP API calls,
+  websocket probes, RPC account deserialization, and PerpAssetMap metadata
+  inspection
+- [`phoenix-rise-litesvm-test`](litesvm-test/README.md): LiteSVM fixture and
+  localnet helpers for tests
 
 ## Changelog
 
@@ -119,19 +132,16 @@ variant instead of the builder's registered fee.
 
 ## Crate Internals By Area
 
-### `src/`
+### `accounts/src/`
 
-- `src/http_client.rs`: `PhoenixHttpClient` plus auth-aware builder
-- `src/ws_client.rs`: low-level typed websocket client
-- `src/client.rs`: reconnecting high-level `PhoenixClient`
-- `src/tx_builder.rs`: metadata-backed transaction builder
-- `src/order_tickets.rs`: typed tickets consumed by `PhoenixTxBuilder`
-- `src/flight_client.rs`: Flight wrapper for supported order instructions
-- `src/auth.rs`, `src/auth_lifecycle.rs`, `src/auth_signers.rs`: session
-  storage, login flows, and signer abstractions
-- `src/exchange_cache.rs`: exchange metadata storage and change events
+- Raw views for Phoenix account data: `trader.rs`,
+  `perp_asset_map.rs`, `global_config.rs`, `permission.rs`,
+  `conditional_orders.rs`, `stop_losses.rs`, and withdrawal/escrow layouts
+- `owned/`: optional serde-backed owned account readers for off-chain decoding
+- `discriminants.rs`: account discriminator constants
+- `common.rs`: shared parsing and account-data helpers
 
-### `src/ix/`
+### `ix/src/`
 
 - Order placement: `limit_order.rs`, `market_order.rs`, `multi_limit_order.rs`
 - Order cancellation: `cancel_orders.rs`, `cancel_stop_loss.rs`
@@ -142,8 +152,9 @@ variant instead of the builder's registered fee.
 - Ember conversions: `ember_deposit.rs`, `ember_withdraw.rs`
 - Flight-specific builders: `flight/register_builder.rs`,
   `flight/update_fee.rs`, and proxy helpers
+- Hawkeye view instructions and return-data decoding: `hawkeye.rs`
 
-### `src/math/`
+### `math/src/`
 
 - Price and lot conversions: `market_math.rs`, `price.rs`
 - Margin and risk: `margin.rs`, `margin_calc.rs`, `risk.rs`,
@@ -152,33 +163,67 @@ variant instead of the builder's registered fee.
   `limit_order_state.rs`
 - Quantity wrappers: `quantities/`
 
-### `src/types/`
+### `types/src/`
 
 - Exchange and market payloads: `exchange.rs`, `exchange_ws.rs`, `market.rs`,
   `market_state.rs`, `market_stats.rs`, `l2book.rs`, `candles.rs`, `trades.rs`
-- Trader payloads: `trader.rs`, `trader_http.rs`, `trader_key.rs`,
-  `trader_state.rs`
-- Shared protocol types: `ws.rs`, `ws_error.rs`, `subscription_key.rs`,
-  `client.rs`, `core.rs`, `http_error.rs`, `ix.rs`
-- Account-backed types: `accounts/`
+- Trader payloads: `trader.rs`, `trader_http.rs`
+- Shared protocol types: `auth.rs`, `core.rs`, `ix.rs`, `service_accounts.rs`,
+  `ws.rs`
+
+### `api/src/`
+
+- `http_client.rs`: `PhoenixHttpClient` plus auth-aware builder
+- `ws_client.rs`: low-level typed websocket client
+- `client.rs`: reconnecting high-level `PhoenixClient`
+- `flight_client.rs`: Flight wrapper for supported order instructions
+- `hawkeye_client.rs`: Hawkeye simulation helpers
+- `auth.rs`, `auth_lifecycle.rs`, `auth_signers.rs`: session storage, login
+  flows, and signer abstractions
+- `exchange_cache.rs`: exchange metadata storage and change events
+- `routes/`: REST route client modules
+
+### `core/src/`
+
+- `account_client.rs`: fetcher trait and account-data decoding client
+- `tx_builder.rs`: metadata-backed transaction builder
+- `order_tickets.rs`: typed tickets consumed by `PhoenixTxBuilder`
+- `hawkeye_client.rs`: Hawkeye simulation helpers
+
+### `sdk/src/`
+
+- `lib.rs`: facade exports for the split crates and high-level SDK types
 
 ## Features
 
 - `phoenix-rise`
-  - `solana-keypair`: enables wallet-keypair login helpers
-  - `ed25519-dalek`: enables Ed25519 service-account auth signing helpers
-  - `opentelemetry`: enables W3C trace-context propagation on outbound HTTP
-    requests and websocket handshakes. When this feature is enabled,
-    `PhoenixHttpClient::builder(...)` exposes
-    `with_trace_context_provider(...)`, and `PhoenixWSClient` exposes
-    trace-context-aware websocket constructors for callers that need to pass an
-    existing OpenTelemetry parent context.
-  - `rust_decimal`: enables decimal-backed helpers
+  - `default = ["api", "ws", "sdk", "tx-builder"]`: HTTP/websocket clients,
+    account fetchers, transaction builders, account views, instruction
+    builders, and math
+  - `sdk`: account views, instruction builders, math, and domain types,
+    without API transport or RPC dependencies
+  - `api`: enables the `phoenix-rise-api` HTTP/auth surface
+  - `ws`: enables websocket clients and live trader-state helpers on top of
+    `api`
+  - `tx-builder`: enables local transaction helpers and RPC-backed bracket
+    flows plus account fetchers through `phoenix-rise-core`
+  - `core`: compatibility alias for `tx-builder`
+  - `events`: enables market event parsing and core adapters for RPC and
+    Yellowstone-style transaction instruction streams
+  - `cpi`: program-friendly facade profile for account byte decoders,
+    instruction layouts, and Pinocchio CPI helpers without API, RPC,
+    websocket, math, type DTO, or `solana-instruction` dependencies
+  - `types-sdk`: enables client-side owned API/domain helpers such as
+    `TraderKey`, `Trader`, and `PhoenixMetadata`
+  - `solana-keypair`, `ed25519-dalek`: compatibility aliases for `api`
+  - `opentelemetry`: enables API trace propagation and trace headers
+  - `serde`: JSON serialization for account views, instruction params, math
+    wrappers, and API DTOs
   - `utoipa`: enables OpenAPI schema derivations where needed
 
 ## Examples
 
-Use `rise/rust/examples/` as the main reference set:
+Use `rise/rust/sdk/examples/` as the main reference set:
 
 - HTTP and auth: `http_client.rs`, `register_trader.rs`
 - WebSocket subscriptions: `subscribe_trader_state.rs`,
@@ -187,8 +232,7 @@ Use `rise/rust/examples/` as the main reference set:
 - Transaction building and trading: `send_limit_order.rs`,
   `send_market_order.rs`, `send_flight_market_order.rs`, `cancel_order.rs`,
   `cancel_stop_loss.rs`, `deposit_funds.rs`, `referral_activation_tx.rs`,
-  `builder_onboarding_tx.rs`, `onboard_trader_delegated.rs`,
-  `delegated_trader_management_onboarding.rs`
+  `builder_onboarding_tx.rs`, `onboard_trader_delegated.rs`
 - Isolated flows: `isolated_limit_order.rs`,
   `isolated_market_order_client.rs`, `isolated_market_order_server.rs`
 - Broader reference flows: `phoenix_client.rs`, `market_maker.rs`,
@@ -206,16 +250,22 @@ cargo test
 # PHOENIX_API_URL=https://perp-api.phoenix.trade
 # PHOENIX_WS_URL=wss://perp-api.phoenix.trade/v1/ws
 
-cargo run -p phoenix-rise --example http_client
-cargo run -p phoenix-rise --example subscribe_l2_book -- SOL
-cargo run -p phoenix-rise --example subscribe_trader_state --features solana-keypair
-cargo run -p phoenix-rise --example referral_activation_tx --features solana-keypair -- \
+cargo run -p phoenix-rise --example http_client --features api
+cargo run -p phoenix-rise --example subscribe_l2_book --features ws -- SOL
+cargo run -p phoenix-rise --example subscribe_trader_state --features ws
+cargo run -p phoenix-rise --example referral_activation_tx --features api,tx-builder -- \
     REFERRAL_CODE --trader-keypair-path ~/.config/solana/id.json
-cargo run -p phoenix-rise --example builder_onboarding_tx --features solana-keypair -- \
+cargo run -p phoenix-rise --example builder_onboarding_tx --features api -- \
     --trader-keypair-path ~/.config/solana/id.json
-cargo run -p phoenix-rise --example send_market_order --features solana-keypair -- SOL
-cargo run -p phoenix-rise --example send_flight_market_order --features solana-keypair -- \
+cargo run -p phoenix-rise --example send_market_order --features api,tx-builder -- SOL
+cargo run -p phoenix-rise --example send_flight_market_order --features api,tx-builder -- \
     Builder1111111111111111111111111111111111 0 0 SOL bid 67
+
+cargo run -p phoenix-rise-cli -- --json market list
+cargo run -p phoenix-rise-cli -- --rpc-url http://localhost:8899 --json rpc account \
+    --address <ACCOUNT_PUBKEY> --account-type perp-asset-map
+cargo run -p phoenix-rise-cli -- --rpc-url http://localhost:8899 --json rpc perp-asset \
+    --perp-asset-map <PERP_ASSET_MAP_PUBKEY> --symbol SOL
 ```
 
 `referral_activation_tx` uses `/v1/referral/activate-tx` when the user has a

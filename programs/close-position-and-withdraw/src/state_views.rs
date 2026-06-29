@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use phoenix_rise::ix;
+use phoenix_rise::ix::constants::compute_discriminant;
 use pinocchio::msg;
 use pinocchio::program_error::ProgramError;
 use pinocchio::pubkey::Pubkey;
@@ -70,7 +70,7 @@ impl PhoenixGlobalConfigurationView {
         load_account_view(
             data,
             "Phoenix global configuration",
-            ix::compute_discriminant("account:global_configuration"),
+            compute_discriminant("account:global_configuration"),
         )
     }
 }
@@ -80,7 +80,7 @@ impl EmberStateView {
         load_account_view(
             data,
             "Ember state",
-            ix::compute_discriminant("account:state_account"),
+            compute_discriminant("account:state_account"),
         )
     }
 }

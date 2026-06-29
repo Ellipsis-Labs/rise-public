@@ -1,0 +1,62 @@
+[package]
+description  = "Phoenix HTTP, WebSocket, and auth clients for Rise"
+edition      = { workspace = true }
+homepage     = { workspace = true }
+license      = { workspace = true }
+name         = "phoenix-rise-api"
+publish      = { workspace = true }
+readme       = "README.md"
+repository   = { workspace = true }
+rust-version = { workspace = true }
+version      = { workspace = true }
+
+[features]
+default = ["ws"]
+opentelemetry = [
+  "dep:opentelemetry",
+  "dep:opentelemetry-http",
+  "dep:tracing-opentelemetry",
+]
+ws = ["dep:futures-util", "dep:tokio-stream", "dep:tokio-tungstenite"]
+
+[dependencies]
+async-trait                            = { workspace = true }
+base64                                 = { workspace = true }
+bs58                                   = { workspace = true }
+bytemuck                               = { workspace = true }
+chrono                                 = { workspace = true }
+ed25519-dalek                          = { workspace = true }
+futures-util                           = { workspace = true, optional = true }
+opentelemetry                          = { workspace = true, optional = true }
+opentelemetry-http                     = { workspace = true, optional = true }
+parking_lot                            = { workspace = true }
+phoenix-rise-accounts                  = { workspace = true }
+phoenix-rise-ix                        = { workspace = true, features = ["accounts", "solana"] }
+phoenix-rise-math                      = { workspace = true, features = ["solana"] }
+phoenix-rise-types                     = { workspace = true, features = ["serde"] }
+rand                                   = { workspace = true }
+reqwest                                = { workspace = true }
+rust_decimal                           = { workspace = true }
+serde                                  = { workspace = true }
+serde_json                             = { workspace = true }
+serde_urlencoded                       = { workspace = true }
+solana-compute-budget-interface        = { workspace = true }
+solana-instruction                     = { workspace = true }
+solana-keypair                         = { workspace = true }
+solana-pubkey                          = { workspace = true }
+solana-rpc-client                      = { workspace = true }
+solana-rpc-client-api                  = { workspace = true }
+solana-signer                          = { workspace = true }
+solana-transaction                     = { workspace = true }
+solana-transaction-error               = { workspace = true }
+solana-transaction-status-client-types = { workspace = true }
+thiserror                              = { workspace = true }
+tokio                                  = { workspace = true }
+tokio-stream                           = { workspace = true, optional = true }
+tokio-tungstenite                      = { workspace = true, optional = true }
+tracing                                = { workspace = true }
+tracing-opentelemetry                  = { workspace = true, optional = true }
+url                                    = { workspace = true }
+
+[dev-dependencies]
+opentelemetry_sdk = { workspace = true }

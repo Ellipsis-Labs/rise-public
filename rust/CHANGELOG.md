@@ -3,6 +3,106 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.2.0 - 2026-06-29
+
+Source Phoenix commit: `d087e01780d6f8cfadb10005c6607f7de59d3de2`
+
+### Summary
+
+- **Rust SDK split into focused crates**: `phoenix-rise` is now a facade over
+  dedicated crates: `phoenix-rise-accounts`, `phoenix-rise-api`,
+  `phoenix-rise-core`, `phoenix-rise-events`, `phoenix-rise-ix`,
+  `phoenix-rise-math`, `phoenix-rise-types`, and
+  `phoenix-rise-litesvm-test`. The facade still imports as `phoenix_rise`, but
+  the implementation and feature graph are now organized by use case.
+- **On-chain program support is now first-class**: `phoenix-rise` exposes a
+  minimal `cpi` feature profile for Solana programs that need borrowed account
+  views, instruction layouts, and Pinocchio CPI helpers without pulling in the
+  HTTP, WebSocket, RPC, DTO, or `solana-instruction` client stack.
+- **Dedicated account decoding crate**: `phoenix-rise-accounts` provides
+  borrowed account views, account discriminators, PDA helpers, and owned
+  off-chain account readers under `phoenix_rise::accounts`.
+- **Dedicated instruction crate**: `phoenix-rise-ix` provides raw Phoenix,
+  Ember, Flight, and Hawkeye instruction builders, typed discriminants, return
+  data helpers, and `ix::cpi` helpers.
+- **Dedicated client and transaction crates**: `phoenix-rise-api` now owns the
+  HTTP, WebSocket, auth, exchange-cache, Flight, and Hawkeye client surfaces;
+  `phoenix-rise-core` owns account fetchers, order tickets, and
+  `PhoenixTxBuilder`.
+- **Dedicated test fixture crate**: LiteSVM localnet fixtures and helpers moved
+  into `phoenix-rise-litesvm-test` so integration tests can opt in explicitly.
+- **New `events` crate**: Market event parsing from Phoenix `Log` and
+  `LogEventLengths` instruction payloads is available through
+  `phoenix-rise-events` and the facade `events` feature.
+
+### Breaking Changes
+
+- **Feature flags were reorganized around the split crates**:
+  - Default features are now `["api", "ws", "sdk", "tx-builder"]`. The default
+    `phoenix-rise` dependency remains the full off-chain SDK bundle.
+  - The old broad `core` feature is now a compatibility alias for
+    `tx-builder`.
+  - `sdk` now means account views, instruction builders, math, and domain
+    types, without API transport or RPC-backed transaction helpers.
+  - `api`, `ws`, `tx-builder`, `accounts`, `ix`, `math`, `events`, `types`,
+    `types-sdk`, and `cpi` are now the main selection points for slim builds.
+- **Minimal/off-chain feature selections may need updates**: if your
+  `Cargo.toml` used `default-features = false`, add the explicit features that
+  match your imports:
+  - HTTP/auth/Flight clients: `features = ["api"]`
+  - WebSocket clients: `features = ["ws"]`
+  - `PhoenixTxBuilder`, order tickets, or account fetchers:
+    `features = ["tx-builder"]`
+  - Raw instruction builders: `features = ["ix"]`
+  - Account byte decoding: `features = ["accounts"]`
+  - Math helpers: `features = ["math"]`
+  - On-chain CPI/program usage: `features = ["cpi"]`
+- **`PhoenixTxBuilder` moved behind `phoenix_rise::core` and `tx-builder`**:
+  code that imported transaction-building types from the old monolithic SDK
+  surface should import from `phoenix_rise::core::{PhoenixTxBuilder, ...}` and
+  enable `tx-builder`.
+- **HTTP, WebSocket, auth, Flight, and Hawkeye clients moved behind
+  `phoenix_rise::api` and `api`/`ws`**: update imports such as
+  `PhoenixHttpClient`, `PhoenixWSClient`, `PhoenixClient`, auth signers, and
+  Flight helpers to use `phoenix_rise::api::{...}` when relying on the facade.
+- **Low-level account imports changed**: borrowed account views are under
+  modules such as `phoenix_rise::accounts::trader`,
+  `phoenix_rise::accounts::perp_asset_map`, and
+  `phoenix_rise::accounts::global_config`; serde-friendly/materialized account
+  readers are under `phoenix_rise::accounts::owned`.
+- **LiteSVM fixture helpers are no longer part of the facade**:
+  `phoenix_rise::test_fixture` was removed. Test code should depend on
+  `phoenix-rise-litesvm-test` directly and import
+  `SdkLocalnetContext`, `default_sdk_localnet_fixture`, and related helpers from
+  that crate.
+- **Standalone permission instruction module was removed from `ix`**: callers
+  using the old `phoenix_rise::ix::permission::*` builders should migrate to
+  the current delegated onboarding / permission flows exposed by the SDK
+  examples and the account/PDA helpers in `phoenix_rise::accounts`.
+- **`rust_decimal` is now a normal math dependency**: decimal price conversion
+  support is no longer guarded by the old `rust_decimal` feature wiring, so
+  minimal builds that enable math should account for that dependency.
+
+### Consumer Notes
+
+- Most off-chain applications can keep a single dependency:
+  `phoenix-rise = "0.2"`. The facade re-exports the split crates through
+  `phoenix_rise::{accounts, api, core, events, ix, math, types}` according to
+  enabled features.
+- On-chain programs should prefer the slim facade profile:
+  `phoenix-rise = { version = "0.2", default-features = false, features = ["cpi"] }`.
+  Direct dependencies on `phoenix-rise-accounts` and `phoenix-rise-ix` are also
+  supported when you want only those crates.
+- API-only tools can use:
+  `phoenix-rise = { version = "0.2", default-features = false, features = ["api"] }`.
+  Add `ws` for WebSocket support or `tx-builder` for local transaction
+  construction.
+- The old `delegated_trader_management_onboarding` example has been replaced by
+  `sdk/examples/onboard_trader_delegated.rs`; CPI-oriented examples now live
+  under `rise/programs/`.
+- New `math::quantities::serde_numeric` helpers provide optional serde support
+  for quantity types when the `serde` feature is enabled.
+
 ## v0.1.16 - 2026-06-25
 
 Source Phoenix commit: `2f2bb2ba1256f28465278ff1c00d61f0ffc2c5f2`
