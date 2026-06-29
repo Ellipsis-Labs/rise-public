@@ -1,6 +1,6 @@
 {
   "name": "@ellipsis-labs/rise",
-  "version": "0.4.56",
+  "version": "0.4.57",
   "packageManager": "bun@1.3.13",
   "repository": {
     "type": "git",
@@ -32,6 +32,8 @@
       "default": "./dist/index.js"
     },
     "./test-fixtures/default-localnet.json": "./test-fixtures/default-localnet.json",
+    "./test-fixtures/sdk-account-fixtures.json": "./test-fixtures/sdk-account-fixtures.json",
+    "./test-fixtures/sdk-instruction-fixtures.json": "./test-fixtures/sdk-instruction-fixtures.json",
     "./package.json": "./package.json"
   },
   "scripts": {

@@ -221,7 +221,14 @@
                   "slot": "409475522",
                   "staleThreshold": "25",
                   "weight": "100"
-                }
+                },
+                "oracleLastUpdatedTimestamps": [
+                  "0",
+                  "1774719482349",
+                  "1774719482345",
+                  "1774719483451",
+                  "0"
+                ]
               },
               "priceSequenceNumber": {
                 "lastUpdateSlot": "409475522",
@@ -441,7 +448,14 @@
                   "slot": "409475522",
                   "staleThreshold": "25",
                   "weight": "100"
-                }
+                },
+                "oracleLastUpdatedTimestamps": [
+                  "0",
+                  "1774719482349",
+                  "1774719482345",
+                  "1774719483451",
+                  "0"
+                ]
               },
               "priceSequenceNumber": {
                 "lastUpdateSlot": "409475522",
@@ -661,7 +675,14 @@
                   "slot": "409475522",
                   "staleThreshold": "25",
                   "weight": "100"
-                }
+                },
+                "oracleLastUpdatedTimestamps": [
+                  "0",
+                  "1774719482349",
+                  "1774719482345",
+                  "1774719483451",
+                  "0"
+                ]
               },
               "priceSequenceNumber": {
                 "lastUpdateSlot": "409475522",
@@ -881,7 +902,14 @@
                   "slot": "409475522",
                   "staleThreshold": "25",
                   "weight": "100"
-                }
+                },
+                "oracleLastUpdatedTimestamps": [
+                  "0",
+                  "1774719482349",
+                  "1774719482345",
+                  "1774719483451",
+                  "0"
+                ]
               },
               "priceSequenceNumber": {
                 "lastUpdateSlot": "409475522",
@@ -1101,7 +1129,14 @@
                   "slot": "409475522",
                   "staleThreshold": "25",
                   "weight": "100"
-                }
+                },
+                "oracleLastUpdatedTimestamps": [
+                  "0",
+                  "1774719482345",
+                  "1774719482349",
+                  "1774719483451",
+                  "0"
+                ]
               },
               "priceSequenceNumber": {
                 "lastUpdateSlot": "409475522",
@@ -1321,7 +1356,14 @@
                   "slot": "409475522",
                   "staleThreshold": "25",
                   "weight": "100"
-                }
+                },
+                "oracleLastUpdatedTimestamps": [
+                  "0",
+                  "1774719483451",
+                  "1774719482345",
+                  "1774719482349",
+                  "0"
+                ]
               },
               "priceSequenceNumber": {
                 "lastUpdateSlot": "409475522",
@@ -1541,7 +1583,14 @@
                   "slot": "409475522",
                   "staleThreshold": "25",
                   "weight": "100"
-                }
+                },
+                "oracleLastUpdatedTimestamps": [
+                  "0",
+                  "1774719482345",
+                  "1774719482349",
+                  "1774719483451",
+                  "0"
+                ]
               },
               "priceSequenceNumber": {
                 "lastUpdateSlot": "409475522",
@@ -1761,7 +1810,14 @@
                   "slot": "409475522",
                   "staleThreshold": "25",
                   "weight": "100"
-                }
+                },
+                "oracleLastUpdatedTimestamps": [
+                  "0",
+                  "1774719482345",
+                  "1774719482349",
+                  "1774719483451",
+                  "0"
+                ]
               },
               "priceSequenceNumber": {
                 "lastUpdateSlot": "409475522",
@@ -1981,7 +2037,14 @@
                   "slot": "409475522",
                   "staleThreshold": "25",
                   "weight": "100"
-                }
+                },
+                "oracleLastUpdatedTimestamps": [
+                  "0",
+                  "1774719482345",
+                  "1774719483451",
+                  "1774719482349",
+                  "0"
+                ]
               },
               "priceSequenceNumber": {
                 "lastUpdateSlot": "409475522",
@@ -2201,7 +2264,14 @@
                   "slot": "409475522",
                   "staleThreshold": "25",
                   "weight": "100"
-                }
+                },
+                "oracleLastUpdatedTimestamps": [
+                  "0",
+                  "1774719482349",
+                  "1774719482345",
+                  "1774719483451",
+                  "0"
+                ]
               },
               "priceSequenceNumber": {
                 "lastUpdateSlot": "409475522",
@@ -2421,7 +2491,14 @@
                   "slot": "409475522",
                   "staleThreshold": "25",
                   "weight": "100"
-                }
+                },
+                "oracleLastUpdatedTimestamps": [
+                  "0",
+                  "1774719482345",
+                  "1774719482349",
+                  "1774719483451",
+                  "0"
+                ]
               },
               "priceSequenceNumber": {
                 "lastUpdateSlot": "409475522",
@@ -2636,7 +2713,14 @@
                   "slot": "409475522",
                   "staleThreshold": "25",
                   "weight": "100"
-                }
+                },
+                "oracleLastUpdatedTimestamps": [
+                  "0",
+                  "1774719483451",
+                  "1774719482345",
+                  "1774719482349",
+                  "0"
+                ]
               },
               "priceSequenceNumber": {
                 "lastUpdateSlot": "409475522",

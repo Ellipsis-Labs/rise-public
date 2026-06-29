@@ -51,6 +51,16 @@ export const HAWKEYE_VIEW_INSTRUCTIONS: HawkeyeViewInstructionDiscriminators = {
   funding: "global:view_funding",
 };
 
+type DiscriminantMap = Record<string, Uint8Array>;
+
+export const HAWKEYE_DISCRIMINANTS: DiscriminantMap = {
+  VIEW_MARGIN: sha2_const(HAWKEYE_VIEW_INSTRUCTIONS.margin),
+  VIEW_MARGIN_FOR_ASSET: sha2_const(HAWKEYE_VIEW_INSTRUCTIONS.asset),
+  VIEW_LIQUIDATION_PRICE: sha2_const(HAWKEYE_VIEW_INSTRUCTIONS.liquidation),
+  VIEW_BBO: sha2_const(HAWKEYE_VIEW_INSTRUCTIONS.bbo),
+  VIEW_FUNDING: sha2_const(HAWKEYE_VIEW_INSTRUCTIONS.funding),
+};
+
 export type HawkeyeReturnLabels = {
   readonly margin: "view_margin";
   readonly asset: "view_margin_for_asset";

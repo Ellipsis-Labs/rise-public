@@ -116,6 +116,9 @@ export const ROOT_ABSENT_PROPERTIES = [
 
 export const ROOT_PRESENT_PROPERTIES = [
   "auth",
+  "decodePerpAssetMap",
+  "fetchPerpAssetMap",
+  "getPerpAssetMapDecoder",
   "createPhoenixClient",
   "createPhoenixIxClient",
   "createPhoenixRpcClient",

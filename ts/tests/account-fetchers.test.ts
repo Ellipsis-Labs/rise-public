@@ -4,6 +4,7 @@ import {
   fetchConditionalOrderCollection,
   fetchGlobalConfiguration,
   fetchMint,
+  fetchPerpAssetMap,
   getMintEncoder,
   type AccountFetcherClientWithAddresses,
   type Mint,
@@ -133,6 +134,29 @@ describe("account fetchers", () => {
     expect(AccountFetchers.ConditionalOrderCollection).toBe(
       fetchConditionalOrderCollection
     );
+  });
+
+  it("fetches PerpAssetMap accounts", async () => {
+    const perpAssetMapAddress = addressFromFill(5);
+    const client = {
+      fetchAccount: vi.fn(async () => ({
+        data: loadMockBytes("perp_asset_map.json"),
+      })),
+      _accountCache: new Map<string, unknown>(),
+      _cacheEnabled: true,
+    };
+
+    const map = await fetchPerpAssetMap({
+      client,
+      address: perpAssetMapAddress,
+    });
+
+    expect(client.fetchAccount).toHaveBeenCalledWith(perpAssetMapAddress);
+    expect(map.numAssets).toBe(12);
+    expect(map.metadata.entries.some((entry) => entry.key === "SOL")).toBe(
+      true
+    );
+    expect(AccountFetchers.PerpAssetMap).toBe(fetchPerpAssetMap);
   });
 
   it("fetches Flight GlobalState using the derived PDA by default", async () => {

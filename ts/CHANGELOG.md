@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.57 - 2026-06-29
+
+Source Phoenix commit: `d087e01780d6f8cfadb10005c6607f7de59d3de2`
+
+### Summary
+
+- New Spline instruction builders (`buildRegisterSplineIx`, `buildDeactivateSplineIx`, `buildUpdateSplinePriceIx`, `buildUpdateSplinePriceWithOrderingIx`, `buildUpdateSplineParametersWithOrderingIx`, `buildUpdateSplinePositionLimitsConfigIx`) plus all associated parameter types, account types, and codecs are now publicly exported.
+- `decodePerpAssetMap`, `fetchPerpAssetMap`, and `getPerpAssetMapDecoder` are now exported from the package root.
+- `HAWKEYE_DISCRIMINANTS` is now exported from `hawkeye.ts`; `FLIGHT_DISCRIMINANTS` gains five additional entries (`INIT`, `NAME_SUCCESSOR`, `CLAIM_SUCCESSOR`, `UPDATE_GLOBAL_STATE`, `UPDATE_BUILDER_STATUS`); `DISCRIMINANTS` gains five Spline entries.
+- Two new test-fixture files (`sdk-account-fixtures.json`, `sdk-instruction-fixtures.json`) are now listed in the package `exports` map and accessible as subpath imports.
+
+### Breaking Changes
+
+- **`MarkPrice.oracleLastUpdatedTimestamps` is now a required field (`bigint[]`).** Previously this field was decoded but silently dropped; it is now part of the public `MarkPrice` interface. TypeScript builds that construct `MarkPrice` objects directly (e.g. in mocks or tests) or that use exhaustive destructuring will fail to compile until the field is added.
+
+### Consumer Notes
+
+- Spline instructions follow the same two-argument pattern as other update builders: `buildUpdateSpline*(accounts: SplineUpdateAccounts, params: ...)`. Register and deactivate take a single params object that includes account fields.
+- `clientOrderId` in ordering variants is an optional `Uint8Array` of exactly 16 bytes; omitting it defaults to a zero-filled 16-byte array. `overrideSequenceNumber` defaults to `false` when omitted.
+- `MAX_SPLINE_REGIONS` (= 10) is exported as a named constant; `buildUpdateSplineParametersWithOrderingIx` will throw at call-time if either `bidRegions` or `askRegions` exceeds this limit, or if both arrays are empty.
+- `PositionSizeLimit` is a discriminated union `{ __kind: "Disabled" } | { __kind: "Limit"; value: PositionSizeLimits }`; pass `null` for `maxPositionSize` or `leverageDecreaseInBps` to leave that field unchanged (at least one must be non-null or the builder throws).
+
 ## v0.4.56 - 2026-06-26
 
 Source Phoenix commit: `0034c63597c926482b11094a6ab661ffcc127896`

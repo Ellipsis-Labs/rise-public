@@ -152,6 +152,13 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                   "oraclePubkey": "11111111111111111111111111111111",
                 },
               ],
+              "oracleLastUpdatedTimestamps": [
+                "0",
+                "1774719482349",
+                "1774719482345",
+                "1774719483451",
+                "0",
+              ],
               "oracleParameters": {
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
@@ -618,6 +625,13 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                   "divergenceScore": 0,
                   "oraclePubkey": "11111111111111111111111111111111",
                 },
+              ],
+              "oracleLastUpdatedTimestamps": [
+                "0",
+                "1774719482349",
+                "1774719482345",
+                "1774719483451",
+                "0",
               ],
               "oracleParameters": {
                 "minOracleResponses": 1,
@@ -1086,6 +1100,13 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                   "oraclePubkey": "11111111111111111111111111111111",
                 },
               ],
+              "oracleLastUpdatedTimestamps": [
+                "0",
+                "1774719482349",
+                "1774719482345",
+                "1774719483451",
+                "0",
+              ],
               "oracleParameters": {
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
@@ -1552,6 +1573,13 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                   "divergenceScore": 0,
                   "oraclePubkey": "11111111111111111111111111111111",
                 },
+              ],
+              "oracleLastUpdatedTimestamps": [
+                "0",
+                "1774719482349",
+                "1774719482345",
+                "1774719483451",
+                "0",
               ],
               "oracleParameters": {
                 "minOracleResponses": 1,
@@ -2020,6 +2048,13 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                   "oraclePubkey": "11111111111111111111111111111111",
                 },
               ],
+              "oracleLastUpdatedTimestamps": [
+                "0",
+                "1774719482345",
+                "1774719482349",
+                "1774719483451",
+                "0",
+              ],
               "oracleParameters": {
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
@@ -2486,6 +2521,13 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                   "divergenceScore": 0,
                   "oraclePubkey": "11111111111111111111111111111111",
                 },
+              ],
+              "oracleLastUpdatedTimestamps": [
+                "0",
+                "1774719483451",
+                "1774719482345",
+                "1774719482349",
+                "0",
               ],
               "oracleParameters": {
                 "minOracleResponses": 1,
@@ -2954,6 +2996,13 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                   "oraclePubkey": "11111111111111111111111111111111",
                 },
               ],
+              "oracleLastUpdatedTimestamps": [
+                "0",
+                "1774719482345",
+                "1774719482349",
+                "1774719483451",
+                "0",
+              ],
               "oracleParameters": {
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
@@ -3420,6 +3469,13 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                   "divergenceScore": 0,
                   "oraclePubkey": "11111111111111111111111111111111",
                 },
+              ],
+              "oracleLastUpdatedTimestamps": [
+                "0",
+                "1774719482345",
+                "1774719482349",
+                "1774719483451",
+                "0",
               ],
               "oracleParameters": {
                 "minOracleResponses": 1,
@@ -3888,6 +3944,13 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                   "oraclePubkey": "11111111111111111111111111111111",
                 },
               ],
+              "oracleLastUpdatedTimestamps": [
+                "0",
+                "1774719482345",
+                "1774719483451",
+                "1774719482349",
+                "0",
+              ],
               "oracleParameters": {
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
@@ -4354,6 +4417,13 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                   "divergenceScore": 0,
                   "oraclePubkey": "11111111111111111111111111111111",
                 },
+              ],
+              "oracleLastUpdatedTimestamps": [
+                "0",
+                "1774719482349",
+                "1774719482345",
+                "1774719483451",
+                "0",
               ],
               "oracleParameters": {
                 "minOracleResponses": 1,
@@ -4822,6 +4892,13 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                   "oraclePubkey": "11111111111111111111111111111111",
                 },
               ],
+              "oracleLastUpdatedTimestamps": [
+                "0",
+                "1774719482345",
+                "1774719482349",
+                "1774719483451",
+                "0",
+              ],
               "oracleParameters": {
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
@@ -5288,6 +5365,13 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                   "divergenceScore": 0,
                   "oraclePubkey": "11111111111111111111111111111111",
                 },
+              ],
+              "oracleLastUpdatedTimestamps": [
+                "0",
+                "1774719483451",
+                "1774719482345",
+                "1774719482349",
+                "0",
               ],
               "oracleParameters": {
                 "minOracleResponses": 1,
