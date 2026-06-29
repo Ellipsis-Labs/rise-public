@@ -1,0 +1,42 @@
+[package]
+description  = "Phoenix Rise core off-chain account and transaction helpers"
+edition      = { workspace = true }
+homepage     = { workspace = true }
+license      = { workspace = true }
+name         = "phoenix-rise-core"
+publish      = { workspace = true }
+readme       = "README.md"
+repository   = { workspace = true }
+rust-version = { workspace = true }
+version      = { workspace = true }
+
+[package.metadata.workspace-lints]
+feature-exceptions = ["phoenix-rise-accounts"]
+
+[features]
+default = []
+events  = ["dep:phoenix-rise-events"]
+
+[dependencies]
+base64                                 = { workspace = true }
+bytemuck                               = { workspace = true }
+phoenix-rise-accounts                  = { workspace = true, features = ["serde"] }
+phoenix-rise-api                       = { workspace = true }
+phoenix-rise-events                    = { workspace = true, optional = true }
+phoenix-rise-ix                        = { workspace = true, features = ["accounts", "solana"] }
+phoenix-rise-math                      = { workspace = true, features = ["solana"] }
+solana-compute-budget-interface        = { workspace = true }
+solana-instruction                     = { workspace = true }
+solana-pubkey                          = { workspace = true }
+solana-rpc-client                      = { workspace = true }
+solana-rpc-client-api                  = { workspace = true }
+solana-transaction                     = { workspace = true }
+solana-transaction-error               = { workspace = true }
+solana-transaction-status-client-types = { workspace = true }
+thiserror                              = { workspace = true }
+
+[dev-dependencies]
+borsh      = { workspace = true }
+bs58       = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }

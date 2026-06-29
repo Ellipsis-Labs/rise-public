@@ -1,0 +1,38 @@
+[package]
+description = "Phoenix Rise LiteSVM test fixtures and localnet helpers"
+edition = { workspace = true }
+homepage = { workspace = true }
+include = [
+  "Cargo.toml",
+  "../CRATES.md",
+  "../LICENSE",
+  "../README.md",
+  "README.md",
+  "src/**",
+  "test-fixtures/**",
+]
+license = { workspace = true }
+name = "phoenix-rise-litesvm-test"
+publish = { workspace = true }
+readme = "README.md"
+repository = { workspace = true }
+rust-version = { workspace = true }
+version = { workspace = true }
+
+[dependencies]
+base64                   = { workspace = true }
+borsh                    = { workspace = true }
+litesvm                  = { workspace = true }
+phoenix-rise-api         = { workspace = true }
+phoenix-rise-ix          = { workspace = true, features = ["accounts", "solana"] }
+serde                    = { workspace = true }
+serde_json               = { workspace = true }
+sha2                     = { workspace = true }
+solana-commitment-config = { workspace = true }
+solana-instruction       = { workspace = true }
+solana-keypair           = { workspace = true }
+solana-pubkey            = { workspace = true }
+solana-rpc-client        = { workspace = true }
+solana-signer            = { workspace = true }
+solana-transaction       = { workspace = true }
+thiserror                = { workspace = true }

@@ -17,9 +17,11 @@ Optional:
   --keypair-path <path>      Solana keypair path for auth + authority lookup
                              (default: ~/.config/solana/id.json)
   --symbol <symbol>          Market symbol (default: SOL)
+  --calendar-symbol <symbol> Market symbol with a configured market calendar
+                             (default: WTIOIL)
   --timeframe <tf>           Candle timeframe (default: 1m)
   --limit <n>                Limit for history endpoints (default: 10)
-  --cli-cmd <cmd>            CLI invocation prefix (default: "cargo run -q -p phoenix-rise-sdk-cli --")
+  --cli-cmd <cmd>            CLI invocation prefix (default: "cargo run -q -p phoenix-rise-cli --bin phoenix-rise --")
 
 Auth behavior:
   If --service-credential-file is provided, the script logs in with that service account.
@@ -46,10 +48,11 @@ AUTH_CLIENT_ID="${PHOENIX_AUTH_CLIENT_ID:-}"
 AUTH_KEY_ID="${PHOENIX_AUTH_KEY_ID:-}"
 SERVICE_CREDENTIAL_FILE="${PHOENIX_SERVICE_ACCOUNT_CREDENTIAL:-}"
 SYMBOL="SOL"
+CALENDAR_SYMBOL="WTIOIL"
 TIMEFRAME="1m"
 LIMIT="10"
 KEYPAIR_PATH="${HOME}/.config/solana/id.json"
-CLI_CMD="cargo run -q -p phoenix-rise-sdk-cli --"
+CLI_CMD="cargo run -q -p phoenix-rise-cli --bin phoenix-rise --"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -79,6 +82,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --symbol)
       SYMBOL="${2:-}"
+      shift 2
+      ;;
+    --calendar-symbol)
+      CALENDAR_SYMBOL="${2:-}"
       shift 2
       ;;
     --timeframe)
@@ -117,21 +124,22 @@ if [[ ! -d "$RUN_DIR" || ! -f "$RUN_DIR/Cargo.toml" ]]; then
   exit 1
 fi
 
-if [[ -z "$AUTHORITY" ]]; then
+if ! [[ "$LIMIT" =~ ^[0-9]+$ ]] || [[ "$LIMIT" -lt 1 ]]; then
+  echo "--limit must be a positive integer" >&2
+  exit 1
+fi
+
+if [[ -z "$AUTHORITY" && -f "$KEYPAIR_PATH" ]]; then
   if ! command -v solana-keygen >/dev/null 2>&1; then
-    echo "--authority not provided and solana-keygen is not available" >&2
-    usage >&2
-    exit 1
+    echo "--authority not provided and solana-keygen is not available; skipping trader checks" >&2
+  else
+    AUTHORITY="$(solana-keygen pubkey "$KEYPAIR_PATH" 2>/dev/null || true)"
+    if [[ -n "$AUTHORITY" ]]; then
+      echo "Using authority from $KEYPAIR_PATH: $AUTHORITY"
+    else
+      echo "Failed to read $KEYPAIR_PATH via solana-keygen; skipping trader checks" >&2
+    fi
   fi
-
-  AUTHORITY="$(solana-keygen pubkey "$KEYPAIR_PATH" 2>/dev/null || true)"
-  if [[ -z "$AUTHORITY" ]]; then
-    echo "--authority not provided and failed to read $KEYPAIR_PATH via solana-keygen" >&2
-    usage >&2
-    exit 1
-  fi
-
-  echo "Using authority from $KEYPAIR_PATH: $AUTHORITY"
 fi
 
 read -r -a base <<< "$CLI_CMD"
@@ -141,18 +149,94 @@ fi
 
 failures=()
 
+json_validator() {
+  if command -v jq >/dev/null 2>&1; then
+    jq empty >/dev/null
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import json, sys; json.load(sys.stdin)' >/dev/null
+  else
+    echo "Neither jq nor python3 is available to validate JSON output" >&2
+    return 1
+  fi
+}
+
+print_failure_context() {
+  local stdout_file="$1"
+  local stderr_file="$2"
+
+  if [[ -s "$stderr_file" ]]; then
+    echo "  stderr:" >&2
+    sed -n '1,40p' "$stderr_file" >&2
+  fi
+  if [[ -s "$stdout_file" ]]; then
+    echo "  stdout:" >&2
+    sed -n '1,20p' "$stdout_file" >&2
+  fi
+}
+
 run_check() {
   local name="$1"
   shift
 
+  local stdout_file=""
+  local stderr_file=""
+  stdout_file="$(mktemp -t phoenix-rise-smoke-stdout.XXXXXX)"
+  stderr_file="$(mktemp -t phoenix-rise-smoke-stderr.XXXXXX)"
+
   echo "==> $name"
-  if ( cd "$RUN_DIR" && "${base[@]}" "$@" >/dev/null ); then
-    echo "  OK"
-  else
-    echo "  FAIL"
+  if ( cd "$RUN_DIR" && "${base[@]}" --json "$@" >"$stdout_file" 2>"$stderr_file" ); then
+    if json_validator <"$stdout_file"; then
+      rm -f "$stdout_file" "$stderr_file"
+      echo "  OK"
+      return 0
+    fi
+
+    echo "  FAIL: stdout was not valid JSON"
+    print_failure_context "$stdout_file" "$stderr_file"
+    rm -f "$stdout_file" "$stderr_file"
     failures+=("$name")
+    return 1
+  else
+    echo "  FAIL: command failed"
+    print_failure_context "$stdout_file" "$stderr_file"
+    rm -f "$stdout_file" "$stderr_file"
+    failures+=("$name")
+    return 1
   fi
 }
+
+run_auth_env_capture() {
+  local name="$1"
+  shift
+
+  local output=""
+  echo "==> $name"
+  if output="$(cd "$RUN_DIR" && "${base[@]}" "$@")"; then
+    if apply_env_output "$output"; then
+      echo "  OK"
+      return 0
+    fi
+  fi
+
+  echo "  FAIL"
+  failures+=("$name")
+  return 1
+}
+
+bounded_page_size() {
+  local requested="$1"
+  local max="$2"
+
+  if [[ "$requested" -gt "$max" ]]; then
+    echo "$max"
+  else
+    echo "$requested"
+  fi
+}
+
+HISTORY_PAGE_SIZE="$(bounded_page_size "$LIMIT" 1000)"
+LIQUIDATION_PAGE_SIZE="$(bounded_page_size "$LIMIT" 100)"
+CANDLE_PAGE_SIZE="$(bounded_page_size "$LIMIT" 2500)"
 
 apply_env_output() {
   local output="$1"
@@ -175,24 +259,6 @@ apply_env_output() {
   done <<< "$output"
 
   [[ $saw_assignment -eq 1 ]]
-}
-
-run_auth_env_capture() {
-  local name="$1"
-  shift
-
-  local output=""
-  echo "==> $name"
-  if output="$(cd "$RUN_DIR" && "${base[@]}" "$@")"; then
-    if apply_env_output "$output"; then
-      echo "  OK"
-      return 0
-    fi
-  fi
-
-  echo "  FAIL"
-  failures+=("$name")
-  return 1
 }
 
 have_access_session() {
@@ -221,28 +287,28 @@ if [[ -n "$SERVICE_CREDENTIAL_FILE" ]]; then
     failures+=("auth-login")
   else
     echo "Using service-account auth from $SERVICE_CREDENTIAL_FILE"
-    login_args=( http auth login --output env --service-credential-file "$SERVICE_CREDENTIAL_FILE" )
+    login_args=( auth login --output env --service-credential-file "$SERVICE_CREDENTIAL_FILE" )
     run_auth_env_capture "auth-login" "${login_args[@]}"
 
     if have_access_session; then
       clear_auth_signer_env
-      run_auth_env_capture "auth-refresh" http auth refresh --output env
+      run_auth_env_capture "auth-refresh" auth refresh --output env
     fi
   fi
 elif [[ -f "$KEYPAIR_PATH" ]]; then
   echo "Using Solana wallet auth from $KEYPAIR_PATH"
-  login_args=( http auth login --output env --keypair-path "$KEYPAIR_PATH" )
+  login_args=( auth login --output env --keypair-path "$KEYPAIR_PATH" )
   run_auth_env_capture "auth-login" "${login_args[@]}"
 
   if have_access_session; then
     clear_auth_signer_env
-    run_auth_env_capture "auth-refresh" http auth refresh --output env
+    run_auth_env_capture "auth-refresh" auth refresh --output env
   fi
 elif have_access_session; then
   clear_auth_signer_env
   echo "Using existing PHOENIX_ACCESS_TOKEN / PHOENIX_POP_KEY from the environment"
   if [[ -n "${PHOENIX_REFRESH_TOKEN:-}" ]]; then
-    run_auth_env_capture "auth-refresh" http auth refresh --output env
+    run_auth_env_capture "auth-refresh" auth refresh --output env
   else
     echo "Skipping auth refresh: PHOENIX_REFRESH_TOKEN is not set"
   fi
@@ -253,16 +319,36 @@ fi
 
 clear_auth_signer_env
 
-run_check "exchange-keys" http exchange-keys
-run_check "markets" http markets
-run_check "market" http market --symbol "$SYMBOL"
-run_check "exchange" http exchange
-run_check "traders" http traders --authority "$AUTHORITY"
-run_check "collateral-history" http collateral-history --authority "$AUTHORITY" --pda-index 0 --limit "$LIMIT"
-run_check "funding-history" http funding-history --authority "$AUTHORITY" --pda-index 0 --symbol "$SYMBOL" --limit "$LIMIT"
-run_check "order-history" http order-history --authority "$AUTHORITY" --limit "$LIMIT" --trader-pda-index 0 --market-symbol "$SYMBOL"
-run_check "candles" http candles --symbol "$SYMBOL" --timeframe "$TIMEFRAME" --limit "$LIMIT"
-run_check "trade-history" http trade-history --authority "$AUTHORITY" --pda-index 0 --market-symbol "$SYMBOL" --limit "$LIMIT"
+run_check "exchange-keys" exchange keys
+run_check "exchange-config" exchange config
+run_check "exchange-snapshot" exchange snapshot
+run_check "exchange-status" exchange status
+run_check "referral-activation-permission" exchange referral-activation-permission
+
+run_check "markets" market list
+run_check "market" market show --symbol "$SYMBOL"
+run_check "orderbook" market orderbook --symbol "$SYMBOL"
+run_check "mark-price" market mark-price --symbol "$SYMBOL"
+run_check "market-calendar" market calendar --symbol "$CALENDAR_SYMBOL"
+run_check "commodity-market-calendar" market commodity-calendar
+run_check "next-market-calendar-transition" market next-transition --symbol "$CALENDAR_SYMBOL"
+run_check "next-commodity-market-transition" market next-commodity-transition
+run_check "funding-rates" market funding-rates --symbol "$SYMBOL" --limit "$LIMIT"
+run_check "candles" market candles --symbol "$SYMBOL" --timeframe "$TIMEFRAME" --lookback 1h --page-size "$CANDLE_PAGE_SIZE" --max-items "$LIMIT"
+
+if [[ -n "$AUTHORITY" ]]; then
+  run_check "trader-state" trader state --authority "$AUTHORITY"
+  run_check "trader-summary" trader summary --authority "$AUTHORITY" --limit "$LIMIT"
+  run_check "collateral-history" trader collateral-history --authority "$AUTHORITY" --pda-index 0 --limit "$LIMIT"
+  run_check "funding-history" trader funding-history --authority "$AUTHORITY" --pda-index 0 --symbol "$SYMBOL" --page-size "$HISTORY_PAGE_SIZE" --max-items "$LIMIT"
+  run_check "funding-hourly" trader funding-hourly --authority "$AUTHORITY" --pda-index 0 --symbol "$SYMBOL" --limit "$LIMIT"
+  run_check "pnl" trader pnl --authority "$AUTHORITY" --limit "$LIMIT"
+  run_check "order-history" trader order-history --authority "$AUTHORITY" --pda-index 0 --market-symbol "$SYMBOL" --page-size "$HISTORY_PAGE_SIZE" --max-items "$LIMIT"
+  run_check "trade-history" trader trade-history --authority "$AUTHORITY" --pda-index 0 --market-symbol "$SYMBOL" --page-size "$HISTORY_PAGE_SIZE" --max-items "$LIMIT"
+  run_check "liquidation-history" trader liquidation-history --authority "$AUTHORITY" --pda-index 0 --symbol "$SYMBOL" --page-size "$LIQUIDATION_PAGE_SIZE" --max-items "$LIMIT"
+else
+  echo "Skipping trader/history smoke checks because no --authority or readable keypair was provided"
+fi
 
 echo
 if [[ ${#failures[@]} -eq 0 ]]; then

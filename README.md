@@ -20,6 +20,10 @@ If you are deciding where to start:
   typed live adapters
 - Reach for `PhoenixTxBuilder` in Rust when you want to construct and sign your
   own Solana instructions
+- Reach for `phoenix_rise::accounts::{TraderHeader, TraderPositions,
+PerpAssetMap, GlobalConfig, PermissionAccount}` when an on-chain CPI integration needs
+  borrowed Phoenix account views without pulling in the full off-chain SDK
+  surface
 
 ## Runnable Entry Points
 
@@ -41,13 +45,19 @@ TypeScript:
 Rust:
 
 - [rise/rust/README.md](./rust/README.md)
-- [rise/rust/examples/register_trader.rs](./rust/examples/register_trader.rs)
-- [rise/rust/examples/http_client.rs](./rust/examples/http_client.rs)
-- [rise/rust/examples/send_limit_order.rs](./rust/examples/send_limit_order.rs)
-- [rise/rust/examples/send_market_order.rs](./rust/examples/send_market_order.rs)
-- [rise/rust/examples/send_flight_market_order.rs](./rust/examples/send_flight_market_order.rs)
-- [rise/rust/examples/referral_activation_tx.rs](./rust/examples/referral_activation_tx.rs)
-- [rise/rust/examples/builder_onboarding_tx.rs](./rust/examples/builder_onboarding_tx.rs)
+- [rise/rust/sdk/examples/register_trader.rs](./rust/sdk/examples/register_trader.rs)
+- [rise/rust/sdk/examples/http_client.rs](./rust/sdk/examples/http_client.rs)
+- [rise/rust/sdk/examples/send_limit_order.rs](./rust/sdk/examples/send_limit_order.rs)
+- [rise/rust/sdk/examples/send_market_order.rs](./rust/sdk/examples/send_market_order.rs)
+- [rise/rust/sdk/examples/send_flight_market_order.rs](./rust/sdk/examples/send_flight_market_order.rs)
+- [rise/rust/sdk/examples/referral_activation_tx.rs](./rust/sdk/examples/referral_activation_tx.rs)
+- [rise/rust/sdk/examples/builder_onboarding_tx.rs](./rust/sdk/examples/builder_onboarding_tx.rs)
+
+On-chain CPI examples:
+
+- [rise/programs/close-position-and-withdraw](./programs/close-position-and-withdraw)
+- [rise/programs/example-program](./programs/example-program)
+- [rise/programs/trader-onboarder](./programs/trader-onboarder)
 
 ## Onboarding Paths
 
@@ -69,8 +79,8 @@ see [sdk/delegated-onboarding.mdx](../sdk/delegated-onboarding.mdx). Runnable
 examples are also available in
 [09-referral-activation-tx.ts](./ts/examples/09-referral-activation-tx.ts),
 [10-builder-onboarding-tx.ts](./ts/examples/10-builder-onboarding-tx.ts),
-[referral_activation_tx.rs](./rust/examples/referral_activation_tx.rs), and
-[builder_onboarding_tx.rs](./rust/examples/builder_onboarding_tx.rs).
+[referral_activation_tx.rs](./rust/sdk/examples/referral_activation_tx.rs), and
+[builder_onboarding_tx.rs](./rust/sdk/examples/builder_onboarding_tx.rs).
 
 The access-code route remains simpler because the user already has an allowlist
 code:
@@ -96,7 +106,7 @@ const activatedWithAccessCode = await client.invite().activateInvite({
 Rust:
 
 ```rust
-use phoenix_rise::PhoenixHttpClient;
+use phoenix_rise::api::PhoenixHttpClient;
 use solana_pubkey::Pubkey;
 use std::str::FromStr;
 
@@ -110,8 +120,8 @@ let trader_from_access = client
 ```
 
 Use
-[register_trader.rs](./rust/examples/register_trader.rs)
-when you want a ready-to-run Rust access-code example.
+[register_trader.rs](./rust/sdk/examples/register_trader.rs)
+when you want a ready-to-run Rust version of this flow.
 
 ## Fetching Exchange, Market, and Trader State
 
@@ -150,7 +160,7 @@ const [snapshot, market, orderbook, trader] = await Promise.all([
 Rust:
 
 ```rust
-use phoenix_rise::PhoenixHttpClient;
+use phoenix_rise::api::PhoenixHttpClient;
 use solana_pubkey::Pubkey;
 use std::str::FromStr;
 
@@ -317,9 +327,9 @@ Runnable examples:
 
 - [03-build-limit-order-ix.ts](./ts/examples/03-build-limit-order-ix.ts)
 - [05-cancel-all-conditional-orders.ts](./ts/examples/05-cancel-all-conditional-orders.ts)
-- [send_limit_order.rs](./rust/examples/send_limit_order.rs)
-- [send_market_order.rs](./rust/examples/send_market_order.rs)
-- [cancel_order.rs](./rust/examples/cancel_order.rs)
+- [send_limit_order.rs](./rust/sdk/examples/send_limit_order.rs)
+- [send_market_order.rs](./rust/sdk/examples/send_market_order.rs)
+- [cancel_order.rs](./rust/sdk/examples/cancel_order.rs)
 
 ## Flight Builder Activation and Routed Orders
 
@@ -426,7 +436,7 @@ let routed_ixs = builder
 Runnable Flight examples:
 
 - [06-flight-market-order.ts](./ts/examples/06-flight-market-order.ts)
-- [send_flight_market_order.rs](./rust/examples/send_flight_market_order.rs)
+- [send_flight_market_order.rs](./rust/sdk/examples/send_flight_market_order.rs)
 
 For more Flight-specific TypeScript examples, see
 [rise/ts/src/flight/README.md](./ts/src/flight/README.md).

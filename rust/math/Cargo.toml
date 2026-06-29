@@ -1,0 +1,32 @@
+[package]
+description  = "Pure Phoenix math helpers for Rise"
+edition      = { workspace = true }
+homepage     = { workspace = true }
+license      = { workspace = true }
+name         = "phoenix-rise-math"
+publish      = { workspace = true }
+readme       = "README.md"
+repository   = { workspace = true }
+rust-version = { workspace = true }
+version      = { workspace = true }
+
+[features]
+default = []
+serde   = ["dep:serde"]
+solana  = ["dep:solana-pubkey"]
+
+[dependencies]
+borsh             = { workspace = true }
+bytemuck          = { workspace = true }
+fixed             = { workspace = true }
+pastey            = { workspace = true }
+rand              = { workspace = true }
+rust_decimal      = { workspace = true }
+serde             = { workspace = true, optional = true }
+sha2-const-stable = { workspace = true }
+solana-pubkey     = { workspace = true, optional = true }
+thiserror         = { workspace = true }
+
+[dev-dependencies]
+proptest   = { workspace = true }
+serde_json = { workspace = true }

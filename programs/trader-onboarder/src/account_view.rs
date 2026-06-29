@@ -1,4 +1,5 @@
-use phoenix_rise::ix;
+use phoenix_rise::accounts::trader::capabilities::TRADER_CAPABILITY_HOT;
+use phoenix_rise::ix::constants::compute_discriminant;
 
 /// Permission bit used by delegated trader onboarding flows.
 pub const TRADER_ONBOARDING_PERMISSION: u64 = 1 << 4;
@@ -152,7 +153,7 @@ impl TraderHeaderView {
     }
 
     pub const fn is_hot(&self) -> bool {
-        self.flags & ix::TRADER_CAPABILITY_HOT != 0
+        self.flags & TRADER_CAPABILITY_HOT != 0
     }
 
     pub const fn is_cold(&self) -> bool {
@@ -189,7 +190,7 @@ fn verify_discriminant(
         return Err("account data too short");
     }
     let discriminant = data.get(..8).ok_or("account data too short")?;
-    let expected = ix::compute_discriminant(discriminant_seed);
+    let expected = compute_discriminant(discriminant_seed);
     if discriminant != expected.as_ref() {
         return Err("account discriminant mismatch");
     }

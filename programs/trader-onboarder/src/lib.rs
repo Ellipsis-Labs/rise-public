@@ -5,7 +5,7 @@ mod register_subaccount_idempotent;
 
 use create_trader_idempotent::process_create_trader_idempotent;
 pub use error::TraderOnboarderError;
-use phoenix_rise::ix;
+use phoenix_rise::ix::constants::compute_discriminant;
 use pinocchio::account_info::AccountInfo;
 use pinocchio::program_error::ProgramError;
 use pinocchio::pubkey::Pubkey;
@@ -26,10 +26,10 @@ enum TraderOnboarderInstruction {
 
 impl TraderOnboarderInstruction {
     fn from_tag(tag: &[u8]) -> Option<Self> {
-        if tag == ix::compute_discriminant("global:create_trader_idempotent") {
+        if tag == compute_discriminant("global:create_trader_idempotent") {
             return Some(Self::CreateTraderIdempotent);
         }
-        if tag == ix::compute_discriminant("global:register_subaccount_idempotent") {
+        if tag == compute_discriminant("global:register_subaccount_idempotent") {
             return Some(Self::RegisterSubaccountIdempotent);
         }
         None

@@ -6,9 +6,15 @@ use std::str::FromStr;
 
 use borsh::to_vec;
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use phoenix_rise::{
-    PhoenixHttpClient, PhoenixMetadata, TraderKey, TraderStateResponse, TraderView, ix,
+use phoenix_rise::api::{PhoenixHttpClient, PhoenixMetadata, TraderKey};
+use phoenix_rise::ix;
+use phoenix_rise::ix::constants::{
+    EMBER_PROGRAM_ID, PROD_PHOENIX_GLOBAL_CONFIGURATION, PROD_PHOENIX_LOG_AUTHORITY,
+    PROD_PHOENIX_PROGRAM_ID, SPL_TOKEN_PROGRAM_ID, USDC_MINT, compute_discriminant,
+    get_associated_token_address, get_ember_state_address, get_ember_vault_address,
 };
+use phoenix_rise::ix::create_ata::create_associated_token_account_idempotent_ix;
+use phoenix_rise::types::prelude::{ExchangeKeysView, TraderStateResponse, TraderView};
 use rise_close_position_and_withdraw::{
     ClosePositionAndWithdrawParams, SelfTradeBehavior, Side, WithdrawAllCollateralParams,
     WithdrawMode,
@@ -59,7 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let withdraw_queue = parse_pubkey(&keys.withdraw_queue, "withdraw queue")?;
     let global_trader_index = parse_pubkeys(&keys.global_trader_index, "global trader index")?;
     let active_trader_buffer = parse_pubkeys(&keys.active_trader_buffer, "active trader buffer")?;
-    let usdc_mint = ix::USDC_MINT;
+    let usdc_mint = USDC_MINT;
 
     let close_target = match &config.command {
         Command::Close { symbol, .. } => {
@@ -111,9 +117,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await
         .map_err(|error| format!("trader account {trader_account} was not found: {error}"))?;
 
-    let trader_phoenix_token_account = config
-        .trader_phoenix_token_account
-        .unwrap_or_else(|| ix::get_associated_token_address(&authority, &canonical_mint));
+    let trader_phoenix_token_account = match config.trader_phoenix_token_account {
+        Some(account) => account,
+        None => get_associated_token_address(&authority, &canonical_mint)?,
+    };
     let usdc_wallet = config.usdc_wallet.unwrap_or(authority);
     if config.trader_usdc_token_account.is_none() && usdc_wallet != authority {
         return Err("--usdc-wallet must match the signing authority unless \
@@ -122,9 +129,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     authority"
             .into());
     }
-    let trader_usdc_token_account = config
-        .trader_usdc_token_account
-        .unwrap_or_else(|| ix::get_associated_token_address(&usdc_wallet, &usdc_mint));
+    let trader_usdc_token_account = match config.trader_usdc_token_account {
+        Some(account) => account,
+        None => get_associated_token_address(&usdc_wallet, &usdc_mint)?,
+    };
 
     let mut instructions = Vec::new();
     if config.compute_unit_limit > 0 {
@@ -140,22 +148,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if config.create_atas {
         if config.trader_phoenix_token_account.is_none() {
             instructions.push(
-                ix::create_associated_token_account_idempotent_ix(
+                create_associated_token_account_idempotent_ix(
                     authority,
                     authority,
                     canonical_mint,
-                )
+                )?
                 .into(),
             );
         }
         if config.trader_usdc_token_account.is_none() {
             instructions.push(
-                ix::create_associated_token_account_idempotent_ix(
-                    authority,
-                    usdc_wallet,
-                    usdc_mint,
-                )
-                .into(),
+                create_associated_token_account_idempotent_ix(authority, usdc_wallet, usdc_mint)?
+                    .into(),
             );
         }
     }
@@ -594,11 +598,11 @@ fn build_withdraw_all_instruction(
         global_trader_index_count: account_count(accounts.global_trader_index.len())?,
         active_trader_buffer_count: account_count(accounts.active_trader_buffer.len())?,
     };
-    let mut data = ix::compute_discriminant("global:withdraw_all_collateral").to_vec();
+    let mut data = compute_discriminant("global:withdraw_all_collateral").to_vec();
     data.extend_from_slice(&to_vec(&params)?);
     Ok(Instruction {
         program_id: config.close_position_program_id,
-        accounts: shared_account_metas(accounts, false),
+        accounts: shared_account_metas(accounts, false)?,
         data,
     })
 }
@@ -638,10 +642,10 @@ fn build_close_instruction(
     } else {
         "global:close_position_and_withdraw"
     };
-    let mut data = ix::compute_discriminant(discriminant).to_vec();
+    let mut data = compute_discriminant(discriminant).to_vec();
     data.extend_from_slice(&to_vec(&params)?);
 
-    let mut metas = shared_account_metas(accounts, true);
+    let mut metas = shared_account_metas(accounts, true)?;
     metas.push(AccountMeta::new(orderbook, false));
     metas.push(AccountMeta::new(spline_collection, false));
     if request.use_builders {
@@ -658,11 +662,11 @@ fn build_close_instruction(
         metas.push(AccountMeta::new_readonly(builder_authority, false));
         metas.push(AccountMeta::new(builder_trader_account, false));
         metas.push(AccountMeta::new_readonly(
-            ix::flight::get_flight_global_state_address(),
+            ix::flight::get_flight_global_state_address()?,
             false,
         ));
         metas.push(AccountMeta::new_readonly(
-            ix::flight::get_flight_builder_state_address(&builder_authority),
+            ix::flight::get_flight_builder_state_address(&builder_authority)?,
             false,
         ));
     }
@@ -675,14 +679,17 @@ fn build_close_instruction(
     })
 }
 
-fn shared_account_metas(accounts: &DemoAccounts, omit_dynamic_tail: bool) -> Vec<AccountMeta> {
+fn shared_account_metas(
+    accounts: &DemoAccounts,
+    omit_dynamic_tail: bool,
+) -> Result<Vec<AccountMeta>, Box<dyn std::error::Error>> {
     let mut metas = vec![
         AccountMeta::new_readonly(accounts.authority, true),
-        AccountMeta::new_readonly(ix::PROD_PHOENIX_PROGRAM_ID, false),
+        AccountMeta::new_readonly(PROD_PHOENIX_PROGRAM_ID, false),
         AccountMeta::new_readonly(ix::HAWKEYE_PROGRAM_ID, false),
-        AccountMeta::new_readonly(ix::EMBER_PROGRAM_ID, false),
-        AccountMeta::new_readonly(ix::PROD_PHOENIX_LOG_AUTHORITY, false),
-        AccountMeta::new(ix::PROD_PHOENIX_GLOBAL_CONFIGURATION, false),
+        AccountMeta::new_readonly(EMBER_PROGRAM_ID, false),
+        AccountMeta::new_readonly(PROD_PHOENIX_LOG_AUTHORITY, false),
+        AccountMeta::new(PROD_PHOENIX_GLOBAL_CONFIGURATION, false),
         AccountMeta::new(accounts.trader_account, false),
         AccountMeta::new(accounts.perp_asset_map, false),
         AccountMeta::new(accounts.global_vault, false),
@@ -691,14 +698,14 @@ fn shared_account_metas(accounts: &DemoAccounts, omit_dynamic_tail: bool) -> Vec
         AccountMeta::new_readonly(accounts.usdc_mint, false),
         AccountMeta::new(accounts.canonical_mint, false),
         AccountMeta::new(accounts.trader_usdc_token_account, false),
-        AccountMeta::new_readonly(ix::get_ember_state_address(), false),
-        AccountMeta::new(ix::get_ember_vault_address(), false),
-        AccountMeta::new_readonly(ix::SPL_TOKEN_PROGRAM_ID, false),
+        AccountMeta::new_readonly(get_ember_state_address()?, false),
+        AccountMeta::new(get_ember_vault_address()?, false),
+        AccountMeta::new_readonly(SPL_TOKEN_PROGRAM_ID, false),
     ];
     if !omit_dynamic_tail {
         append_dynamic_accounts(&mut metas, accounts);
     }
-    metas
+    Ok(metas)
 }
 
 fn append_dynamic_accounts(metas: &mut Vec<AccountMeta>, accounts: &DemoAccounts) {
@@ -718,21 +725,19 @@ fn append_dynamic_accounts(metas: &mut Vec<AccountMeta>, accounts: &DemoAccounts
     );
 }
 
-fn assert_mainnet_keys(
-    keys: &phoenix_rise::ExchangeKeysView,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn assert_mainnet_keys(keys: &ExchangeKeysView) -> Result<(), Box<dyn std::error::Error>> {
     let api_program = keys
         .program_id
         .as_deref()
-        .unwrap_or(&ix::PROD_PHOENIX_PROGRAM_ID.to_string())
+        .unwrap_or(&PROD_PHOENIX_PROGRAM_ID.to_string())
         .parse::<Pubkey>()?;
-    if api_program != ix::PROD_PHOENIX_PROGRAM_ID {
+    if api_program != PROD_PHOENIX_PROGRAM_ID {
         return Err(
             format!("Phoenix API is not returning mainnet program id: {api_program}").into(),
         );
     }
     let api_global_config = keys.global_config.parse::<Pubkey>()?;
-    if api_global_config != ix::PROD_PHOENIX_GLOBAL_CONFIGURATION {
+    if api_global_config != PROD_PHOENIX_GLOBAL_CONFIGURATION {
         return Err(format!(
             "Phoenix API is not returning mainnet global config: {api_global_config}"
         )

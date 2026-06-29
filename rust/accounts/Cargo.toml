@@ -1,0 +1,46 @@
+[package]
+description  = "Borrowed Phoenix account views for Rise"
+edition      = { workspace = true }
+homepage     = { workspace = true }
+license      = { workspace = true }
+name         = "phoenix-rise-accounts"
+publish      = { workspace = true }
+readme       = "README.md"
+repository   = { workspace = true }
+rust-version = { workspace = true }
+version      = { workspace = true }
+
+[package.metadata.workspace-lints]
+feature-exceptions = ["solana-pubkey"]
+
+[features]
+default = []
+serde = [
+  "dep:bs58",
+  "dep:phoenix-rise-math",
+  "dep:serde",
+  "solana-pubkey/serde",
+]
+
+[dependencies]
+borsh = { workspace = true }
+bs58 = { workspace = true, optional = true }
+bytemuck = { workspace = true }
+phoenix-rise-math = { workspace = true, features = ["solana"], optional = true }
+serde = { workspace = true, optional = true }
+sha2-const-stable = { workspace = true }
+solana-pubkey = { version = "~2.4", default-features = false, features = [
+  "curve25519",
+] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+solana-pubkey = { version = "~2.4", default-features = false, features = [
+  "curve25519",
+  "rand",
+] }
+
+[lints.rust.unexpected_cfgs]
+check-cfg = ['cfg(target_os, values("solana"))']
+level     = "warn"

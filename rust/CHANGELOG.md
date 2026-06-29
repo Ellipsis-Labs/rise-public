@@ -3,6 +3,31 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.2.0 - 2026-06-29
+
+Source Phoenix commit: `d087e01780d6f8cfadb10005c6607f7de59d3de2`
+
+### Summary
+
+- **Workspace split**: `phoenix-rise` is now a facade over dedicated sub-crates (`accounts`, `api`, `core`, `events`, `ix`, `math`, `types`, `litesvm-test`). The public `phoenix_rise::*` import path is preserved; consumers do not need to change `Cargo.toml` unless they want to depend on a sub-crate directly.
+- **New `accounts` module**: Adds borrowed zero-copy account views (`trader`, `escrow`, `stop_losses`, `perp_asset_map`, `spline_collection`, `withdraw_queue`, `permission`, `global_config`, `conditional_orders`) alongside PDA helpers and trader capability flags under `phoenix_rise::accounts`.
+- **New `ix::cpi` module**: Adds Pinocchio CPI helpers for on-chain callers that want to invoke Phoenix instructions directly from a Solana program without going through the off-chain builders.
+- **New `ix` additions**: `spline`, `claim_fees`, `delegate_trader`, `discriminants`, and `return_data` instruction builders and typed discriminants are now part of the public surface.
+- **New `events` module**: Market event parsing from `Log` / `LogEventLengths` instruction payloads is now exposed under `phoenix_rise::core::events` (backed by `phoenix-rise-events`).
+
+### Breaking Changes
+
+- **`src/ix/permission.rs` removed**: The standalone permission-account instruction builders (`GrantPermission`, `RevokePermission`, etc.) have been deleted with no direct replacement visible in this diff. Callers that used `phoenix_rise::ix::permission::*` will need to migrate.
+- **`src/test_fixture.rs` removed**: The monolithic `SdkTestFixture` / localnet fixture helpers previously under `phoenix_rise` are gone. The replacement is the `phoenix-rise-litesvm-test` crate (`litesvm-test/src/`), which must be added as a dev-dependency explicitly.
+- **Account type import paths changed**: Types previously re-exported from `phoenix_rise::accounts` (via the old `src/types/accounts` tree) now live under `phoenix_rise::accounts::owned`. Code referencing specific account struct paths may require updating.
+- **`math` quantity `serde` gating changed**: `rust_decimal` usage in `math::price` is now unconditional (the `#[cfg(feature = "rust_decimal")]` guard was removed). If you previously compiled without that feature, the dependency is now always required.
+
+### Consumer Notes
+
+- The `phoenix-rise` crate remains the recommended single dependency; all sub-crates are re-exported through it. Direct sub-crate dependencies are possible for size-sensitive on-chain use cases (e.g., `phoenix-rise-ix` or `phoenix-rise-accounts` without API/WebSocket deps).
+- The `delegated_trader_management_onboarding` example has been removed; refer to the new `onboard_trader_delegated` example in `sdk/examples/` and the new `example-program` Pinocchio CPI program for updated patterns.
+- New `math::quantities::serde_numeric` module provides optional serde support for quantity types when the `serde` feature is enabled.
+
 ## v0.1.16 - 2026-06-25
 
 Source Phoenix commit: `2f2bb2ba1256f28465278ff1c00d61f0ffc2c5f2`

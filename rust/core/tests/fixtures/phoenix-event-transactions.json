@@ -1,0 +1,778 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-26T16:49:28.308399Z",
+  "source": {
+    "kind": "heliusGetTransactionsForAddressReduced",
+    "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+    "address": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+    "includedSignatures": [
+      "35BixDuj5FXJiCeuPsbabZffB4FDrgjqnhZEnGvsxEYpve8QaFvKcmCbc4VwJaUpaxrvcTuRzusNXj7TogASDecG",
+      "3mkjrZJcK5U8fgW1jkDSnRWa19K8epxYs2W537TTW86L2uUJLNq6LDS25PG3e58TsNRfWRyQKYYiTxLHtgzxoHKt",
+      "42JA1dY1tsfvovxdWrMzFVNXA1ErBYk9RqZ1KoQRpdE9WPUvFnGEDfHJ3J4xsWv6BQULJ8j2FhRNoccy2ThGke69",
+      "4yC2GCqYVixWMsMD3AibE4sUBVcXGk4MwDZduc2bCKT6P6bjd49unwziYZBAV8Lr3HZpBkDjELbA85tjLvmbVURF",
+      "7wrxAgETB5LXMSr6AxmC6PCkevev7xu4Qrob2bhvqGSHUCtJpzVUXoRTUewwvCqseFLvsQHTiDWCNf15FmKaKAh",
+      "pht86ojuPewFmZUnqJ4Y9v9LNdg7K6wLRxj5iTHebMBYaPopPHxdDHqkP6id4zn8DuumYHjyheRsyHEtLiV41Nt"
+    ]
+  },
+  "analysis": {
+    "transactionsScanned": 10006,
+    "decodedTransactions": 10006,
+    "phoenixTransactions": 10006,
+    "eventTransactions": 8329,
+    "selectedTransactions": 10,
+    "byEventVariant": {
+      "AdminParameterUpdated": 1,
+      "Header": 314,
+      "Liquidation": 1,
+      "LiquidationTransfer": 1,
+      "LiquidationTransferSummary": 1,
+      "MarketAdded": 1,
+      "MarketClosed": 1,
+      "MarketDeleted": 1,
+      "MarketSummary": 141,
+      "MarketTombstoned": 1,
+      "OrderModified": 123,
+      "OrderPacket": 305,
+      "OrderPlaced": 123,
+      "PnL": 183,
+      "PricesUpdated": 963,
+      "SlotContext": 8329,
+      "SplineFilled": 182,
+      "SplineParametersUpdatedWithOrdering": 7167,
+      "StopLossCancelled": 6,
+      "StopLossPlaced": 6,
+      "TradeSummary": 182,
+      "TraderCollateralTransferred": 1,
+      "TraderFundingSettled": 2,
+      "TraderRegistered": 1
+    },
+    "uniqueEventVariantSets": [
+      {
+        "signature": "4yC2GCqYVixWMsMD3AibE4sUBVcXGk4MwDZduc2bCKT6P6bjd49unwziYZBAV8Lr3HZpBkDjELbA85tjLvmbVURF",
+        "eventVariants": [
+          "Header",
+          "Liquidation",
+          "MarketSummary",
+          "OrderPacket",
+          "PnL",
+          "PricesUpdated",
+          "SlotContext",
+          "SplineFilled",
+          "TradeSummary",
+          "TraderFundingSettled"
+        ],
+        "score": 152973
+      },
+      {
+        "signature": "35BixDuj5FXJiCeuPsbabZffB4FDrgjqnhZEnGvsxEYpve8QaFvKcmCbc4VwJaUpaxrvcTuRzusNXj7TogASDecG",
+        "eventVariants": ["Header", "MarketAdded", "SlotContext"],
+        "score": 100314
+      },
+      {
+        "signature": "3mkjrZJcK5U8fgW1jkDSnRWa19K8epxYs2W537TTW86L2uUJLNq6LDS25PG3e58TsNRfWRyQKYYiTxLHtgzxoHKt",
+        "eventVariants": ["AdminParameterUpdated", "SlotContext"],
+        "score": 100005
+      },
+      {
+        "signature": "42JA1dY1tsfvovxdWrMzFVNXA1ErBYk9RqZ1KoQRpdE9WPUvFnGEDfHJ3J4xsWv6BQULJ8j2FhRNoccy2ThGke69",
+        "eventVariants": [
+          "Header",
+          "MarketDeleted",
+          "MarketTombstoned",
+          "SlotContext"
+        ],
+        "score": 200317
+      },
+      {
+        "signature": "pht86ojuPewFmZUnqJ4Y9v9LNdg7K6wLRxj5iTHebMBYaPopPHxdDHqkP6id4zn8DuumYHjyheRsyHEtLiV41Nt",
+        "eventVariants": ["Header", "MarketClosed", "SlotContext"],
+        "score": 100314
+      },
+      {
+        "signature": "7wrxAgETB5LXMSr6AxmC6PCkevev7xu4Qrob2bhvqGSHUCtJpzVUXoRTUewwvCqseFLvsQHTiDWCNf15FmKaKAh",
+        "eventVariants": [
+          "LiquidationTransfer",
+          "LiquidationTransferSummary",
+          "PnL",
+          "SlotContext",
+          "TraderFundingSettled"
+        ],
+        "score": 250548
+      },
+      {
+        "signature": "4JEjMHo2kGf1czzexkTB1LCZjxti1hxpRCkMPm8mzeA6C7HPY7JeujZcFL2XdKkZUztrpnkrhrYuR6JbSx9PG1gy",
+        "eventVariants": [
+          "Header",
+          "MarketSummary",
+          "OrderPacket",
+          "PnL",
+          "PricesUpdated",
+          "SlotContext",
+          "SplineFilled",
+          "TradeSummary",
+          "TraderCollateralTransferred",
+          "TraderRegistered"
+        ],
+        "score": 202976
+      },
+      {
+        "signature": "3Mwi3H9mXUNzemzgJghJX8WTWMdmoBHZ8LtykmrMt4sZU85EAhbg1tKTP9aNcDbUwxLW6YuvxcynDrhb6SjUAZZp",
+        "eventVariants": [
+          "Header",
+          "SlotContext",
+          "StopLossCancelled",
+          "StopLossPlaced"
+        ],
+        "score": 33639
+      },
+      {
+        "signature": "3nmWVUHdEPXAfesziqBBAMPRuAQofoRknSnfretLT7tDdnjiMjxKGQpPKT9B1CZXtqztvDisChfvi4DVuk1UDL5f",
+        "eventVariants": [
+          "Header",
+          "OrderModified",
+          "OrderPacket",
+          "OrderPlaced",
+          "PricesUpdated",
+          "SlotContext"
+        ],
+        "score": 2297
+      },
+      {
+        "signature": "LyM6JUvMShyeWu1cvJiiz8LMowpBPUovNvFbeeArvVy1MZEm6376XErD9dH7JsSLLqFJqUSrfvLHSk4JfaFUsB2",
+        "eventVariants": ["SlotContext", "SplineParametersUpdatedWithOrdering"],
+        "score": 13
+      }
+    ],
+    "parseErrors": []
+  },
+  "transactions": [
+    {
+      "signature": "4yC2GCqYVixWMsMD3AibE4sUBVcXGk4MwDZduc2bCKT6P6bjd49unwziYZBAV8Lr3HZpBkDjELbA85tjLvmbVURF",
+      "slot": 429053028,
+      "transactionIndex": null,
+      "blockTime": 1782489661,
+      "eventsCount": 12,
+      "eventVariants": [
+        "Header",
+        "Liquidation",
+        "MarketSummary",
+        "OrderPacket",
+        "PnL",
+        "PricesUpdated",
+        "SlotContext",
+        "SplineFilled",
+        "TradeSummary",
+        "TraderFundingSettled"
+      ],
+      "instructions": [
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [3],
+          "dataBase64": "+/G4bEZGf8YF0IygQ37nVitmSOdtUJSvNQtXw4ILZxb8lud31Emp3ZUcAAAAAAAATUAAAAAAAAAA"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [3, 0],
+          "dataBase64": "9weGy7VHmUcAAAAADAAAABEATQBlAGsAYgBlAGYAZQBqAGYATwA/AA=="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [3, 1],
+          "dataBase64": "jebW8gnRz6oAAAAADAAAAAA9oj5qAAAAAGTUkhkAAAAAEmqMfwrOR7cYjPl2k8c/h9KY9bILwDDkc4pLpwPxDszNQURBAAAAAAAAAAAAAAAAACQAAAAzEPb//////5L2////////HOlEBgAAAAAlaox/Cs5HtxiM+XaTxz+H0pj1sgvAMORzikunA/EOzM0kAAAAQURBAAAAAAAAAAAAAAAAAAAAAAAAAAAAMxD2//////9r4////////2vj////////4ooYPgAAAADiihg+AAAAAAFf+QAAAAAAAFrUkhkAAAAAQURBAAAAAAAAAAAAAAAAACQAAAAKAAAAAAaaP2pagFCTq22DvlYEgbLsDrp/7Aa+4CyBxfvtWjsbKWqMfwrOR7cYjPl2k8c/h9KY9bILwDDkc4pLpwPxDszNLAIAAU1AAAAAAAAAlRwAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAACAAGqMfwrOR7cYjPl2k8c/h9KY9bILwDDkc4pLpwPxDszNGQAAAAAAAAAluUizlF/28+usK/488pHS+JM4wxRUiOqHLoMbq4JIDLkkAAAAQURBAAAAAAAAAAAAAAAAAGsIkgIAAAAAAAAAAAAAAAApmAAAAAAAAJR7AAAAAAAA/WMtsv7///8EFuLw/v///wULtUEAAAAAAAF5OgAAAAAAAJUcAAAAAAAAcrpGQQAAAAC5SLOUX/bz66wr/jzykdL4kzjDFFSI6ocugxurgkgMuQAAAACUewAAAAAAAAQW4vD+////3ZO75MkBAACS9v///////yVqjH8Kzke3GIz5dpPHP4fSmPWyC8Aw5HOKS6cD8Q7MzSQAAABBREEAAAAAAAAAAAAAAAAAcNDR/P////8AAAAAAAAAAGvj////////AAAAAAAAAADiihg+AAAAAAAAAAAAAAAABmqMfwrOR7cYjPl2k8c/h9KY9bILwDDkc4pLpwPxDszNLvkAAAAAAABa1JIZAAAAAACVHAAAAAAAAHK6RkEAAAAAjkMFAAAAAAAAAAAAAAAAAAAAAAAAAAAA/nURAwAAAACS9v///////yCaP2pagFCTq22DvlYEgbLsDrp/7Aa+4CyBxfvtWjsbKWqMfwrOR7cYjPl2k8c/h9KY9bILwDDkc4pLpwPxDszNJAAAAJUcAAAAAAAAdToAAAAAAACVHAAAAAAAAAD+S0EAAAAAAR0AQURBAAAAAAAAAAAAAAAAACQAAAABdDoAAAAAAAABeToAAAAAAAAAAAAB9P////////91OgAAAAAAAAAAAEiGPgAAAAAAYtSSGQAAAAAIQURBAAAAAAAAAAAAAAAAACQAAABdnAAAAAAAAAGh2wYAAAAAAAGTkKsCAAAAAHU6AAAAAAAAejoAAAAAAAA="
+        }
+      ],
+      "expected": {
+        "instructions": [
+          {
+            "instructionTagHex": "0xc67f46466cb8f1fb",
+            "stackPath": [3],
+            "eventsCount": 12,
+            "eventVariants": [
+              "Header",
+              "Liquidation",
+              "MarketSummary",
+              "OrderPacket",
+              "PnL",
+              "PricesUpdated",
+              "SlotContext",
+              "SplineFilled",
+              "TradeSummary",
+              "TraderFundingSettled"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "signature": "35BixDuj5FXJiCeuPsbabZffB4FDrgjqnhZEnGvsxEYpve8QaFvKcmCbc4VwJaUpaxrvcTuRzusNXj7TogASDecG",
+      "slot": 428391572,
+      "transactionIndex": null,
+      "blockTime": 1782224375,
+      "eventsCount": 3,
+      "eventVariants": ["Header", "MarketAdded", "SlotContext"],
+      "instructions": [
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1],
+          "dataBase64": "KYm5fkWL/jdBTUQAAAAAAAAAAAAAAAAA0G5XAAAAAAAKAAAAAAAAABAnAAAAAAAAuHJXAAAAAAABAAAAAAAAABAnAAAAAAAAoHZXAAAAAAABAAAAAAAAABAnAAAAAAAAiHpXAAAAAAABAAAAAAAAABAnAAAAAAAAAAEKAAAAAAAAAANeAQAAMgAAABAnAAAAAAAAZAAAAAAAAACIE9AH6ANMHZCyCAAAAAAAoIYBAAAAAABkAAAAAAAAACChBwAAAAAAyAAAAAAAAABAQg8AAAAAACwBAAAAAAAAgJaYAAAAAACQAQAAAAAAANBuVwAAAAAAdwEAAAAAAAA8CgAAAAAAADwKAAAAAAAAZAAAAAAAAABkAAAAAAAAAGQAAAAAAAAAAAAAAPQBAQoKAAUBgFEBAAAAAAABEA4AAAAAAAABsAQAAAAAAADoAwAAAAAAAA=="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1, 3],
+          "dataBase64": "9weGy7VHmUcAAAAAAwAAABEAawABAA=="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1, 4],
+          "dataBase64": "jebW8gnRz6oAAAAAAwAAAAD3lTpqAAAAAJS8iBkAAAAAAQEAAAAAAAAAlLyIGQAAAABBTUQAAAAAAAAAAAAAAAAALQAAAAoAAAADBulgjWBs2MehO1BMbI64Ll/9mT7UBNlF55IND05CVqIvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY"
+        }
+      ],
+      "expected": {
+        "instructions": [
+          {
+            "instructionTagHex": "0x37fe8b457eb98929",
+            "stackPath": [1],
+            "eventsCount": 3,
+            "eventVariants": ["Header", "MarketAdded", "SlotContext"]
+          }
+        ]
+      }
+    },
+    {
+      "signature": "3mkjrZJcK5U8fgW1jkDSnRWa19K8epxYs2W537TTW86L2uUJLNq6LDS25PG3e58TsNRfWRyQKYYiTxLHtgzxoHKt",
+      "slot": 427105023,
+      "transactionIndex": null,
+      "blockTime": 1781713169,
+      "eventsCount": 4,
+      "eventVariants": ["AdminParameterUpdated", "SlotContext"],
+      "instructions": [
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 0],
+          "dataBase64": "S4l0BVB7a7FTUENYAAAAAAAAAAAAAAAAtiAEAwAAAAA="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 0, 0],
+          "dataBase64": "9weGy7VHmUcAAAAAAgAAABEASAA="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 0, 1],
+          "dataBase64": "jebW8gnRz6oAAAAAAgAAAAARyTJqAAAAAP8adRkAAAAAMHX1Qjs1DPUd9w/wA4sBuJUDmCaAEkU9Rc6N00bMeJZ0AVNQQ1gAAAAAAAAAAAAAAAABKQAAAASAjVsAAAAAALYgBAMAAAAA"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 1],
+          "dataBase64": "bt/0YyJTYXlTUENYAAAAAAAAAAAAAAAAtiAEAwAAAAAPAAAAAAAAABAnAAAAAAAAtyAEAwAAAAABAAAAAAAAABAnAAAAAAAAuCAEAwAAAAABAAAAAAAAABAnAAAAAAAAuSAEAwAAAAABAAAAAAAAABAnAAAAAAAA"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 1, 0],
+          "dataBase64": "9weGy7VHmUcAAAAAAgAAABEA+AA="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 1, 1],
+          "dataBase64": "jebW8gnRz6oAAAAAAgAAAAARyTJqAAAAAP8adRkAAAAAMHX1Qjs1DPUd9w/wA4sBuJUDmCaAEkU9Rc6N00bMeJZ0AVNQQ1gAAAAAAAAAAAAAAAABKQAAAAKAjVsAAAAAAA8AAAAAAAAAECcAAAAAAABokVsAAAAAAAEAAAAAAAAAECcAAAAAAABQlVsAAAAAAAEAAAAAAAAAECcAAAAAAAA4mVsAAAAAAAEAAAAAAAAAECcAAAAAAAC2IAQDAAAAAA8AAAAAAAAAECcAAAAAAAC3IAQDAAAAAAEAAAAAAAAAECcAAAAAAAC4IAQDAAAAAAEAAAAAAAAAECcAAAAAAAC5IAQDAAAAAAEAAAAAAAAAECcAAAAAAAA="
+        }
+      ],
+      "expected": {
+        "instructions": [
+          {
+            "instructionTagHex": "0xb16b7b500574894b",
+            "stackPath": [2, 0],
+            "eventsCount": 2,
+            "eventVariants": ["AdminParameterUpdated", "SlotContext"]
+          },
+          {
+            "instructionTagHex": "0x7961532263f4df6e",
+            "stackPath": [2, 1],
+            "eventsCount": 2,
+            "eventVariants": ["AdminParameterUpdated", "SlotContext"]
+          }
+        ]
+      }
+    },
+    {
+      "signature": "42JA1dY1tsfvovxdWrMzFVNXA1ErBYk9RqZ1KoQRpdE9WPUvFnGEDfHJ3J4xsWv6BQULJ8j2FhRNoccy2ThGke69",
+      "slot": 427096957,
+      "transactionIndex": null,
+      "blockTime": 1781709962,
+      "eventsCount": 6,
+      "eventVariants": [
+        "Header",
+        "MarketDeleted",
+        "MarketTombstoned",
+        "SlotContext"
+      ],
+      "instructions": [
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 0],
+          "dataBase64": "WrERWFULsWA="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 0, 0],
+          "dataBase64": "9weGy7VHmUcAAAAAAwAAABEAawAaAA=="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 0, 1],
+          "dataBase64": "jebW8gnRz6oAAAAAAwAAAACKvDJqAAAAAH37dBkAAAAAAdXiAQAAAAAAYvV0GQAAAABUT04AAAAAAAAAAAAAAAAAFwAAAAoAAAABBnX1Qjs1DPUd9w/wA4sBuJUDmCaAEkU9Rc6N00bMeJZ0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABABNXiAQAAAAAA85sBAAAAAAD5AAAAAAAAAA=="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 1],
+          "dataBase64": "khH8dN5xNGY="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 1, 0],
+          "dataBase64": "9weGy7VHmUcAAAAAAwAAABEAawANAA=="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 1, 1],
+          "dataBase64": "jebW8gnRz6oAAAAAAwAAAACKvDJqAAAAAH37dBkAAAAAAdXiAQAAAAAAYvV0GQAAAABUT04AAAAAAAAAAAAAAAAAFwAAAAoAAAABBnX1Qjs1DPUd9w/wA4sBuJUDmCaAEkU9Rc6N00bMeJZ0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzFwAAAIBLZOwBAAAA"
+        }
+      ],
+      "expected": {
+        "instructions": [
+          {
+            "instructionTagHex": "0x60b10b555811b15a",
+            "stackPath": [2, 0],
+            "eventsCount": 3,
+            "eventVariants": ["Header", "MarketTombstoned", "SlotContext"]
+          },
+          {
+            "instructionTagHex": "0x663471de74fc1192",
+            "stackPath": [2, 1],
+            "eventsCount": 3,
+            "eventVariants": ["Header", "MarketDeleted", "SlotContext"]
+          }
+        ]
+      }
+    },
+    {
+      "signature": "pht86ojuPewFmZUnqJ4Y9v9LNdg7K6wLRxj5iTHebMBYaPopPHxdDHqkP6id4zn8DuumYHjyheRsyHEtLiV41Nt",
+      "slot": 427093972,
+      "transactionIndex": null,
+      "blockTime": 1781708778,
+      "eventsCount": 3,
+      "eventVariants": ["Header", "MarketClosed", "SlotContext"],
+      "instructions": [
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 0],
+          "dataBase64": "WJr4ujAOe/Q="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 0, 0],
+          "dataBase64": "9weGy7VHmUcAAAAAAwAAABEAawAKAA=="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 0, 1],
+          "dataBase64": "jebW8gnRz6oAAAAAAwAAAADqtzJqAAAAANTvdBkAAAAAAcziAQAAAAAAi4dyGQAAAABUT04AAAAAAAAAAAAAAAAAFwAAAAoAAAABBnX1Qjs1DPUd9w/wA4sBuJUDmCaAEkU9Rc6N00bMeJZ0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAyA2pAAAAAAAAA"
+        }
+      ],
+      "expected": {
+        "instructions": [
+          {
+            "instructionTagHex": "0xf47b0e30baf89a58",
+            "stackPath": [2, 0],
+            "eventsCount": 3,
+            "eventVariants": ["Header", "MarketClosed", "SlotContext"]
+          }
+        ]
+      }
+    },
+    {
+      "signature": "7wrxAgETB5LXMSr6AxmC6PCkevev7xu4Qrob2bhvqGSHUCtJpzVUXoRTUewwvCqseFLvsQHTiDWCNf15FmKaKAh",
+      "slot": 424149650,
+      "transactionIndex": null,
+      "blockTime": 1780538693,
+      "eventsCount": 7,
+      "eventVariants": [
+        "LiquidationTransfer",
+        "LiquidationTransferSummary",
+        "PnL",
+        "SlotContext",
+        "TraderFundingSettled"
+      ],
+      "instructions": [
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1],
+          "dataBase64": "OdrXRK4XzH8BAAAAAAAAAAAAAAAoAAAAAAAAAAA="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1, 0],
+          "dataBase64": "9weGy7VHmUcAAAAABwAAABEATQBlAGUAZQBrAF0A"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1, 1],
+          "dataBase64": "jebW8gnRz6oAAAAABwAAAABF3SBqAAAAAJICSBkAAAAAElxBQ6ZH1COfkgUp7aM/2S+GBaGd7NOwXHDSp7cqWp0IU09MAAAAAAAAAAAAAAAAAAAAAADA8Pf//////9QLAAAAAAAAlQR9AAAAAAAlXEFDpkfUI5+SBSntoz/ZL4YFoZ3s07BccNKntypanQgAAAAAU09MAAAAAAAAAAAAAAAAAAAAAAAAAAAAwPD3//////8wAAAAAAAAADAAAAAAAAAAG1+e/f////8bX579/////yVcQUOmR9Qjn5IFKe2jP9kvhgWhnezTsFxw0qe3KlqdCAAAAABTT0wAAAAAAAAAAAAAAAAATJuc//////8AAAAAAAAAADAAAAAAAAAACAAAAAAAAAAbX579/////y9lmv//////JeKxSp/IV6XFbG035qv0wbterZZWNDfzNP+O+6j5Hd9iAAAAAFNPTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoAAAAAAAAAAAAAAAAAAAAoF5n/v////8fXEFDpkfUI5+SBSntoz/ZL4YFoZ3s07BccNKntypanQjisUqfyFelxWxtN+ar9MG7Xq2WVjQ38zT/jvuo+R3fYgAAAAAAAAAAKAAAAAAAAACgXmf+/////2QATJuc//////8AAAAAAAAAAB5cQUOmR9Qjn5IFKe2jP9kvhgWhnezTsFxw0qe3KlqdCOKxSp/IV6XFbG035qv0wbterZZWNDfzNP+O+6j5Hd9iAQAAANqcm///////cv4AAAAAAABy/gAAAAAAAA=="
+        }
+      ],
+      "expected": {
+        "instructions": [
+          {
+            "instructionTagHex": "0x7fcc17ae44d7da39",
+            "stackPath": [1],
+            "eventsCount": 7,
+            "eventVariants": [
+              "LiquidationTransfer",
+              "LiquidationTransferSummary",
+              "PnL",
+              "SlotContext",
+              "TraderFundingSettled"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "signature": "4JEjMHo2kGf1czzexkTB1LCZjxti1hxpRCkMPm8mzeA6C7HPY7JeujZcFL2XdKkZUztrpnkrhrYuR6JbSx9PG1gy",
+      "slot": 429059856,
+      "transactionIndex": 1162,
+      "blockTime": 1782492410,
+      "eventsCount": 15,
+      "eventVariants": [
+        "Header",
+        "MarketSummary",
+        "OrderPacket",
+        "PnL",
+        "PricesUpdated",
+        "SlotContext",
+        "SplineFilled",
+        "TradeSummary",
+        "TraderCollateralTransferred",
+        "TraderRegistered"
+      ],
+      "instructions": [
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2],
+          "dataBase64": "S/PgpwEFMyABAAAAAAAAAAAB"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 3],
+          "dataBase64": "9weGy7VHmUcAAAAAAgAAABEAUwA="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [2, 4],
+          "dataBase64": "jebW8gnRz6oAAAAAAgAAAAD6rD5qAAAAABDvkhkAAAAACQEAAAAAAAAA5z02iG10tqPFZp3XOQsm2seyEyhZCkR5SnMVoIKQGF/1PYRwQUczlmHuQBOTmKLODfnZDiPAOPQSP+VVoACssAEAAAAAAAAAAAE="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [3],
+          "dataBase64": "r4nZC+snlhM="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [3, 0],
+          "dataBase64": "9weGy7VHmUcAAAAAAQAAABEA"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [3, 1],
+          "dataBase64": "jebW8gnRz6oAAAAAAQAAAAD6rD5qAAAAABDvkhkAAAAA"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [4],
+          "dataBase64": "naM/G/JI+2GApicqAAAAAA=="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [4, 0],
+          "dataBase64": "9weGy7VHmUcAAAAAAgAAABEAmQA="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [4, 1],
+          "dataBase64": "jebW8gnRz6oAAAAAAgAAAAD6rD5qAAAAABDvkhkAAAAACvU9hHBBRzOWYe5AE5OYos4N+dkOI8A49BI/5VWgAKywgKYnKgAAAABw2pDrG2TQ8PHb8qZGKnCk5/39BNPdbGmO8ICLppZ3NQIAAAAAAAAAipmRGQAAAADnjaICAAAAAOc9NohtdLajxWad1zkLJtrHshMoWQpEeUpzFaCCkBhfAQAAAAAAAAAQ75IZAAAAAICmJyoAAAAA"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [5],
+          "dataBase64": "WnbA/MBjJ5ECAQGSPAAAAAAAAKL4AAAAAAAAAKL4AAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [5, 0],
+          "dataBase64": "9weGy7VHmUcAAAAACQAAABEAawBiAGUAZgBlAGoAVwA/AA=="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [5, 1],
+          "dataBase64": "jebW8gnRz6oAAAAACQAAAAD6rD5qAAAAABDvkhkAAAAAAZihAgAAAAAA7O6SGQAAAABTUENYAAAAAAAAAAAAAAAAKQAAAAoAAAADBvU9hHBBRzOWYe5AE5OYos4N+dkOI8A49BI/5VWgAKyw5z02iG10tqPFZp3XOQsm2seyEyhZCkR5SnMVoIKQGF8sAgEBkjwAAAAAAACi+AAAAAAAAACi+AAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5z02iG10tqPFZp3XOQsm2seyEyhZCkR5SnMVoIKQGF9ZXgIAAAAAACUqzyhtK8Bc3sQgvyYB09je40WTuOCiFXdHM1/hHvcMSSkAAABTUENYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIblBwAAAAAAKN4IAAAAAAD6/wRe7f///wbb6gvr////Ba1LSQAAAAAAACM9AAAAAAAAovgAAAAAAAD0JBpSAgAAACrPKG0rwFzexCC/JgHT2N7jRZO44KIVd0czX+Ee9wxJAAAAACjeCAAAAAAABtvqC+v////wovl6bwEAALIGAAAAAAAAJec9NohtdLajxWad1zkLJtrHshMoWQpEeUpzFaCCkBhfKQAAAFNQQ1gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABeB////////wAAAAAAAAAA9CQaUgIAAAAG5z02iG10tqPFZp3XOQsm2seyEyhZCkR5SnMVoIKQGF93PAEAAAAAAOzukhkAAAAAAaL4AAAAAAAA9CQaUgIAAACN6C8AAAAAAF4H////////9CQaUgIAAADzvfcpAAAAALIGAAAAAAAAHQBTUENYAAAAAAAAAAAAAAAAKQAAAAEjPQAAAAAAAAE8PQAAAAAAAAErPQAAAAAAAAAAAQ4AAAAAAAAALT0AAAAAAAAAAABXtCwAAAAAAA7vkhkAAAAACFNQQ1gAAAAAAAAAAAAAAAApAAAANloLAAAAAAABM7JiFQAAAAABaJt4JQEAAAAtPQAAAAAAAC09AAAAAAAA"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [6],
+          "dataBase64": "M2Sxc4uH94s="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [6, 0],
+          "dataBase64": "9weGy7VHmUcAAAAAAQAAABEA"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [6, 1],
+          "dataBase64": "jebW8gnRz6oAAAAAAQAAAAD6rD5qAAAAABDvkhkAAAAA"
+        }
+      ],
+      "expected": {
+        "instructions": [
+          {
+            "instructionTagHex": "0x20330501a7e0f34b",
+            "stackPath": [2],
+            "eventsCount": 2,
+            "eventVariants": ["SlotContext", "TraderRegistered"]
+          },
+          {
+            "instructionTagHex": "0x139627eb0bd989af",
+            "stackPath": [3],
+            "eventsCount": 1,
+            "eventVariants": ["SlotContext"]
+          },
+          {
+            "instructionTagHex": "0x61fb48f21b3fa39d",
+            "stackPath": [4],
+            "eventsCount": 2,
+            "eventVariants": ["SlotContext", "TraderCollateralTransferred"]
+          },
+          {
+            "instructionTagHex": "0x912763c0fcc0765a",
+            "stackPath": [5],
+            "eventsCount": 9,
+            "eventVariants": [
+              "Header",
+              "MarketSummary",
+              "OrderPacket",
+              "PnL",
+              "PricesUpdated",
+              "SlotContext",
+              "SplineFilled",
+              "TradeSummary"
+            ]
+          },
+          {
+            "instructionTagHex": "0x8bf7878b73b16433",
+            "stackPath": [6],
+            "eventsCount": 1,
+            "eventVariants": ["SlotContext"]
+          }
+        ]
+      }
+    },
+    {
+      "signature": "3Mwi3H9mXUNzemzgJghJX8WTWMdmoBHZ8LtykmrMt4sZU85EAhbg1tKTP9aNcDbUwxLW6YuvxcynDrhb6SjUAZZp",
+      "slot": 429060032,
+      "transactionIndex": 681,
+      "blockTime": 1782492482,
+      "eventsCount": 8,
+      "eventVariants": [
+        "Header",
+        "SlotContext",
+        "StopLossCancelled",
+        "StopLossPlaced"
+      ],
+      "instructions": [
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [0],
+          "dataBase64": "7C6kQutcoonVSwAAAAAAAD5EAAAAAAAAAAAAAAAAAAABAQE="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [0, 0],
+          "dataBase64": "9weGy7VHmUcAAAAABAAAABEAOgBrAH0A"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [0, 1],
+          "dataBase64": "jebW8gnRz6oAAAAABAAAAABCrT5qAAAAAMDvkhkAAAAAJxpHyDbKmiHBumr5dB/xtOK5lcfsyxUNx+7WqS9uyJNbLQ8AAAAAAAC07JIZAAAAACcAAAAAAAAAAQFfMgEAAAAAAJnvkhkAAAAATlZEQQAAAAAAAAAAAAAAACcAAAAKAAAAAwY5V7CHTuuzgskGMxEMY5LYA11EpCT7uwvpxNZLYQLQNRpHyDbKmiHBumr5dB/xtOK5lcfsyxUNx+7WqS9uyJNbJhpHyDbKmiHBumr5dB/xtOK5lcfsyxUNx+7WqS9uyJNbLg8AAAAAAAC07JIZAAAAACcAAAAAAAAA1UsAAAAAAAA+RAAAAAAAAAgAAAAAAAAAAQGqwO+SGQAAAAA5V7CHTuuzgskGMxEMY5LYA11EpCT7uwvpxNZLYQLQNQE="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1],
+          "dataBase64": "7C6kQutcoonoSwAAAAAAAFFEAAAAAAAAAAAAAAAAAAABAAA="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1, 0],
+          "dataBase64": "9weGy7VHmUcAAAAABAAAABEAOgBrAH0A"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1, 1],
+          "dataBase64": "jebW8gnRz6oAAAAABAAAAABCrT5qAAAAAMDvkhkAAAAAJxpHyDbKmiHBumr5dB/xtOK5lcfsyxUNx+7WqS9uyJNbLA8AAAAAAADA75IZAAAAACcAAAAAAAAAAAFfMgEAAAAAAJnvkhkAAAAATlZEQQAAAAAAAAAAAAAAACcAAAAKAAAAAwY5V7CHTuuzgskGMxEMY5LYA11EpCT7uwvpxNZLYQLQNRpHyDbKmiHBumr5dB/xtOK5lcfsyxUNx+7WqS9uyJNbJhpHyDbKmiHBumr5dB/xtOK5lcfsyxUNx+7WqS9uyJNbLw8AAAAAAADA75IZAAAAACcAAAAAAAAA6EsAAAAAAABRRAAAAAAAAAgAAAAAAAAAAQCqwO+SGQAAAAA5V7CHTuuzgskGMxEMY5LYA11EpCT7uwvpxNZLYQLQNQA="
+        }
+      ],
+      "expected": {
+        "instructions": [
+          {
+            "instructionTagHex": "0x89a25ceb42a42eec",
+            "stackPath": [0],
+            "eventsCount": 4,
+            "eventVariants": [
+              "Header",
+              "SlotContext",
+              "StopLossCancelled",
+              "StopLossPlaced"
+            ]
+          },
+          {
+            "instructionTagHex": "0x89a25ceb42a42eec",
+            "stackPath": [1],
+            "eventsCount": 4,
+            "eventVariants": [
+              "Header",
+              "SlotContext",
+              "StopLossCancelled",
+              "StopLossPlaced"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "signature": "3nmWVUHdEPXAfesziqBBAMPRuAQofoRknSnfretLT7tDdnjiMjxKGQpPKT9B1CZXtqztvDisChfvi4DVuk1UDL5f",
+      "slot": 429060044,
+      "transactionIndex": 1630,
+      "blockTime": 1782492487,
+      "eventsCount": 36,
+      "eventVariants": [
+        "Header",
+        "OrderModified",
+        "OrderPacket",
+        "OrderPlaced",
+        "PricesUpdated",
+        "SlotContext"
+      ],
+      "instructions": [
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [0],
+          "dataBase64": "Yr9L3HMoR+0="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [0, 0],
+          "dataBase64": "9weGy7VHmUcAAAAADQAAABEAawAqACoAKgAqACoAKgAqACoAKgAqAE8A"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [0, 1],
+          "dataBase64": "jebW8gnRz6oAAAAADQAAAABHrT5qAAAAAMzvkhkAAAAAAb22sAEAAAAAv++SGQAAAABFVEgAAAAAAAAAAAAAAAAAAgAAAGQAAAADBgAvO9qt51z3TMMK/cOLrR1A6sU21dFKd67iDsz/RHuh8xdNUQMSvJPpf1OwG3JeLEqh/NXV2jGIx+chC2NYInUHd3FYAwAAAADxPQAAAAAAAA77////////CPandwAAAAAAAAAAAAAAAAAHeHFYAwAAAAD8PQAAAAAAAJX4////////0NCbswAAAAAAAAAAAAAAAAAHeXFYAwAAAAAHPgAAAAAAAJX4////////lLC7swAAAAAAAAAAAAAAAAAHenFYAwAAAAASPgAAAAAAABz2////////IGvP7wAAAAAAAAAAAAAAAAAHe3FYAwAAAACXPgAAAAAAAKPz////////jJVFLgEAAAAAAAAAAAAAAAAHjY6n/P////+CPQAAAAAAAPIEAAAAAAAA8HYuif////8AAAAAAAAAAAAHjI6n/P////93PQAAAAAAAGsHAAAAAAAALJLlTf////8AAAAAAAAAAAAHi46n/P////9rPQAAAAAAAGsHAAAAAAAAvFcITv////8AAAAAAAAAAAAHio6n/P////9gPQAAAAAAAOQJAAAAAAAAAErgEv////8AAAAAAAAAAAAHiY6n/P/////cPAAAAAAAAF0MAAAAAAAA0NcV2v7///8AAAAAAAAAAAAdAEVUSAAAAAAAAAAAAAAAAAACAAAAAbs9AAAAAAAAAb89AAAAAAAAAAAAAf//////////uz0AAAAAAAAAAADdCFkDAAAAAMzvkhkAAAAA"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1],
+          "dataBase64": "7NDdrI3igVQFAAAAhT0AAAAAAADyBAAAAAAAAAHg75IZAAAAAHo9AAAAAAAAawcAAAAAAAAB4O+SGQAAAABvPQAAAAAAAGsHAAAAAAAAAeDvkhkAAAAAZD0AAAAAAADkCQAAAAAAAAHg75IZAAAAAN88AAAAAAAAXAwAAAAAAAAB4O+SGQAAAAAFAAAA9T0AAAAAAADyBAAAAAAAAAHg75IZAAAAAAA+AAAAAAAAawcAAAAAAAAB4O+SGQAAAAALPgAAAAAAAGsHAAAAAAAAAeDvkhkAAAAAFj4AAAAAAADkCQAAAAAAAAHg75IZAAAAAJs+AAAAAAAAXAwAAAAAAAAB4O+SGQAAAAABAAAAAAAAAACN39QEnwEAAAE="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1, 0],
+          "dataBase64": "9weGy7VHmUcAAAAAEAAAABEAawBXAEYAVwBGAFcARgBXAEYAVwBGAFcARgBXAEYA"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1, 1],
+          "dataBase64": "jebW8gnRz6oAAAAAEAAAAABHrT5qAAAAAMzvkhkAAAAAAb62sAEAAAAAzO+SGQAAAABFVEgAAAAAAAAAAAAAAAAAAgAAAGQAAAADBgAvO9qt51z3TMMK/cOLrR1A6sU21dFKd67iDsz/RHuh8xdNUQMSvJPpf1OwG3JeLEqh/NXV2jGIx+chC2NYInUsAACFPQAAAAAAAPIEAAAAAAAAAAAAAAAAAACN39QEnwEAAAEB4O+SGQAAAAAAAPMXTVEDEryT6X9TsBtyXixKofzV1doxiMfnIQtjWCJ1fHFYAwAAAAACCAAAAACDjqf8/////7/vkhkAAAAAAAAAAAAAAACN39QEnwEAAIU9AAAAAAAA8gQAAAAAAADg75IZAAAAAMzvkhkAAAAALAAAej0AAAAAAABrBwAAAAAAAAAAAAAAAAAAjd/UBJ8BAAABAeDvkhkAAAAAAADzF01RAxK8k+l/U7Abcl4sSqH81dXaMYjH5yELY1gidX1xWAMAAAAAAg0AAAAAgo6n/P/////M75IZAAAAAAAAAAAAAAAAjd/UBJ8BAAB6PQAAAAAAAGsHAAAAAAAA4O+SGQAAAADM75IZAAAAACwAAG89AAAAAAAAawcAAAAAAAAAAAAAAAAAAI3f1ASfAQAAAQHg75IZAAAAAAAA8xdNUQMSvJPpf1OwG3JeLEqh/NXV2jGIx+chC2NYInV+cVgDAAAAAAIPAAAAAIGOp/z/////zO+SGQAAAAAAAAAAAAAAAI3f1ASfAQAAbz0AAAAAAABrBwAAAAAAAODvkhkAAAAAzO+SGQAAAAAsAABkPQAAAAAAAOQJAAAAAAAAAAAAAAAAAACN39QEnwEAAAEB4O+SGQAAAAAAAPMXTVEDEryT6X9TsBtyXixKofzV1doxiMfnIQtjWCJ1f3FYAwAAAAACIQAAAACAjqf8/////8zvkhkAAAAAAAAAAAAAAACN39QEnwEAAGQ9AAAAAAAA5AkAAAAAAADg75IZAAAAAMzvkhkAAAAALAAA3zwAAAAAAABcDAAAAAAAAAAAAAAAAAAAjd/UBJ8BAAABAeDvkhkAAAAAAADzF01RAxK8k+l/U7Abcl4sSqH81dXaMYjH5yELY1gidYBxWAMAAAAAAhgAAAAAf46n/P/////M75IZAAAAAAAAAAAAAAAAjd/UBJ8BAADfPAAAAAAAAFwMAAAAAAAA4O+SGQAAAADM75IZAAAAACwAAfU9AAAAAAAA8gQAAAAAAAAAAAAAAAAAAI3f1ASfAQAAAQHg75IZAAAAAAAA8xdNUQMSvJPpf1OwG3JeLEqh/NXV2jGIx+chC2NYInWBcVgDAAAAAAI6AAAAAIFxWAMAAAAAzO+SGQAAAAAAAAAAAAAAAI3f1ASfAQAA9T0AAAAAAAAO+////////+DvkhkAAAAAzO+SGQAAAAAsAAEAPgAAAAAAAGsHAAAAAAAAAAAAAAAAAACN39QEnwEAAAEB4O+SGQAAAAAAAPMXTVEDEryT6X9TsBtyXixKofzV1doxiMfnIQtjWCJ1gnFYAwAAAAACPQAAAACCcVgDAAAAAMzvkhkAAAAAAAAAAAAAAACN39QEnwEAAAA+AAAAAAAAlfj////////g75IZAAAAAMzvkhkAAAAA"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1, 2],
+          "dataBase64": "9weGy7VHmUcBAAAABwAAAFcARgBXAEYAVwBGAE8A"
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1, 3],
+          "dataBase64": "jebW8gnRz6oBAAAABwAAACwAAQs+AAAAAAAAawcAAAAAAAAAAAAAAAAAAI3f1ASfAQAAAQHg75IZAAAAAAAA8xdNUQMSvJPpf1OwG3JeLEqh/NXV2jGIx+chC2NYInWDcVgDAAAAAAJAAAAAAINxWAMAAAAAzO+SGQAAAAAAAAAAAAAAAI3f1ASfAQAACz4AAAAAAACV+P///////+DvkhkAAAAAzO+SGQAAAAAsAAEWPgAAAAAAAOQJAAAAAAAAAAAAAAAAAACN39QEnwEAAAEB4O+SGQAAAAAAAPMXTVEDEryT6X9TsBtyXixKofzV1doxiMfnIQtjWCJ1hHFYAwAAAAACHQAAAACEcVgDAAAAAMzvkhkAAAAAAAAAAAAAAACN39QEnwEAABY+AAAAAAAAHPb////////g75IZAAAAAMzvkhkAAAAALAABmz4AAAAAAABcDAAAAAAAAAAAAAAAAAAAjd/UBJ8BAAABAeDvkhkAAAAAAADzF01RAxK8k+l/U7Abcl4sSqH81dXaMYjH5yELY1gidYVxWAMAAAAAAh8AAAAAhXFYAwAAAADM75IZAAAAAAAAAAAAAAAAjd/UBJ8BAACbPgAAAAAAAKTz////////4O+SGQAAAADM75IZAAAAAB0ARVRIAAAAAAAAAAAAAAAAAAIAAAABuz0AAAAAAAABvz0AAAAAAAAAAAAB//////////+7PQAAAAAAAAAAAN4IWQMAAAAAzO+SGQAAAAA="
+        }
+      ],
+      "expected": {
+        "instructions": [
+          {
+            "instructionTagHex": "0xed472873dc4bbf62",
+            "stackPath": [0],
+            "eventsCount": 13,
+            "eventVariants": [
+              "Header",
+              "OrderModified",
+              "PricesUpdated",
+              "SlotContext"
+            ]
+          },
+          {
+            "instructionTagHex": "0x5481e28dacddd0ec",
+            "stackPath": [1],
+            "eventsCount": 23,
+            "eventVariants": [
+              "Header",
+              "OrderPacket",
+              "OrderPlaced",
+              "PricesUpdated",
+              "SlotContext"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "signature": "LyM6JUvMShyeWu1cvJiiz8LMowpBPUovNvFbeeArvVy1MZEm6376XErD9dH7JsSLLqFJqUSrfvLHSk4JfaFUsB2",
+      "slot": 429060044,
+      "transactionIndex": 1587,
+      "blockTime": 1782492487,
+      "eventsCount": 2,
+      "eventVariants": ["SlotContext", "SplineParametersUpdatedWithOrdering"],
+      "instructions": [
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [0],
+          "dataBase64": "LZvINCXWu4w2PQAAAAAAAAAAo9/UBJ8BAAAAAAAAAAAAAKPf1ASfAQAAAA=="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1],
+          "dataBase64": "8VuLqhIpyxYKAAAAAgAAAAAAAAADAAAAAAAAADYuAAAAAAAADwAAAAAAAAANAAAAAAAAAA4AAAAAAAAAKWUAAK98AAAPAAAAAAAAABcAAAAAAAAAGAAAAAAAAACL4QAAXfkAAA8AAAAAAAAAJAAAAAAAAAAlAAAAAAAAAAdXAQAAAAAADwAAAAAAAAAxAAAAAAAAADIAAAAAAAAAneQBAAAAAAAPAAAAAAAAADsAAAAAAAAAPAAAAAAAAAD/EgMAAAAAAA8AAAAAAAAASAAAAAAAAABJAAAAAAAAALB8BAAAAAAADwAAAAAAAABVAAAAAAAAAFYAAAAAAAAAbdUUAAAAAAAPAAAAAAAAAGIAAAAAAAAAggAAAAAAAABoJQAAAAAAAA8AAAAAAAAAVQEAAAAAAACzAQAAAAAAAM9KAAAAAAAAPAAAAAAAAAAKAAAAAgAAAAAAAAADAAAAAAAAADQzAAAAAAAADwAAAAAAAAANAAAAAAAAAA4AAAAAAAAALncAAK98AAAPAAAAAAAAABUAAAAAAAAAFgAAAAAAAACu0AAAXfkAAA8AAAAAAAAAIgAAAAAAAAAjAAAAAAAAACIxAQAAAAAADwAAAAAAAAAuAAAAAAAAAC8AAAAAAAAAZI4BAAAAAAAPAAAAAAAAADkAAAAAAAAAOgAAAAAAAABVrQIAAAAAAA8AAAAAAAAARQAAAAAAAABGAAAAAAAAAFcFBQAAAAAADwAAAAAAAABSAAAAAAAAAFMAAAAAAAAAxkYWAAAAAAAPAAAAAAAAAF8AAAAAAAAAfgAAAAAAAABoJQAAAAAAAA8AAAAAAAAAUgEAAAAAAACwAQAAAAAAAM9KAAAAAAAAPAAAAAAAAAAAo9/UBJ8BAAAAAAAAAAAAAKPf1ASfAQAAAA=="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1, 0],
+          "dataBase64": "9weGy7VHmUcAAAAAAgAAABEAYQQ="
+        },
+        {
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "stackPath": [1, 1],
+          "dataBase64": "jebW8gnRz6oAAAAAAgAAAABHrT5qAAAAAMzvkhkAAAAAOSrPKG0rwFzexCC/JgHT2N7jRZO44KIVd0czX+Ee9wxJ2ExJAAAAAADL75IZAAAAAA0EMuIqT3w5910wcec0MVu4z2Dq2ljZ0F1QI7K+J3gA8KZbya8K0ikOzUOOkr7fyhbfqlrh2ThYHCKutCtVdHJTUENYAAAAAAAAAAAAAAAANj0AAAAAAAACAAAAAAAAAAMAAAAAAAAANi4AAAAAAAA2LgAAAAAAAAAAAAAAAAAADwAAAAAAAAANAAAAAAAAAA4AAAAAAAAAKWUAAK98AAApZQAAAAAAAAAAAAAAAAAADwAAAAAAAAAXAAAAAAAAABgAAAAAAAAAi+EAAF35AACL4QAAAAAAAAAAAAAAAAAADwAAAAAAAAAkAAAAAAAAACUAAAAAAAAAB1cBAAAAAAAHVwEAAAAAAAAAAAAAAAAADwAAAAAAAAAxAAAAAAAAADIAAAAAAAAAneQBAAAAAACd5AEAAAAAAAAAAAAAAAAADwAAAAAAAAA7AAAAAAAAADwAAAAAAAAA/xIDAAAAAAD/EgMAAAAAAAAAAAAAAAAADwAAAAAAAABIAAAAAAAAAEkAAAAAAAAAsHwEAAAAAACwfAQAAAAAAAAAAAAAAAAADwAAAAAAAABVAAAAAAAAAFYAAAAAAAAAbdUUAAAAAABt1RQAAAAAAAAAAAAAAAAADwAAAAAAAABiAAAAAAAAAIIAAAAAAAAAaCUAAAAAAAAArQQAAAAAAAAAAAAAAAAADwAAAAAAAABVAQAAAAAAALMBAAAAAAAAz0oAAAAAAAACeBsAAAAAAAAAAAAAAAAAPAAAAAAAAAACAAAAAAAAAAMAAAAAAAAANDMAAAAAAAA0MwAAAAAAAAAAAAAAAAAADwAAAAAAAAANAAAAAAAAAA4AAAAAAAAALncAAK98AAAudwAAAAAAAAAAAAAAAAAADwAAAAAAAAAVAAAAAAAAABYAAAAAAAAArtAAAF35AACu0AAAAAAAAAAAAAAAAAAADwAAAAAAAAAiAAAAAAAAACMAAAAAAAAAIjEBAAAAAAAiMQEAAAAAAAAAAAAAAAAADwAAAAAAAAAuAAAAAAAAAC8AAAAAAAAAZI4BAAAAAABkjgEAAAAAAAAAAAAAAAAADwAAAAAAAAA5AAAAAAAAADoAAAAAAAAAVa0CAAAAAABVrQIAAAAAAAAAAAAAAAAADwAAAAAAAABFAAAAAAAAAEYAAAAAAAAAVwUFAAAAAABXBQUAAAAAAAAAAAAAAAAADwAAAAAAAABSAAAAAAAAAFMAAAAAAAAAxkYWAAAAAADGRhYAAAAAAAAAAAAAAAAADwAAAAAAAABfAAAAAAAAAH4AAAAAAAAAaCUAAAAAAACYhwQAAAAAAAAAAAAAAAAADwAAAAAAAABSAQAAAAAAALABAAAAAAAAz0oAAAAAAAACeBsAAAAAAAAAAAAAAAAAPAAAAAAAAACj39QEnwEAAAAAAAAAAAAAo9/UBJ8BAAA="
+        }
+      ],
+      "expected": {
+        "instructions": [
+          {
+            "instructionTagHex": "0x16cb2912aa8b5bf1",
+            "stackPath": [1],
+            "eventsCount": 2,
+            "eventVariants": [
+              "SlotContext",
+              "SplineParametersUpdatedWithOrdering"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

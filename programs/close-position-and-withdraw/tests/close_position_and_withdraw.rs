@@ -1,15 +1,22 @@
 use std::path::PathBuf;
 
 use borsh::to_vec;
-use phoenix_rise::ix;
-use phoenix_rise::phoenix_rise_ix::flight::{
+use phoenix_rise::ix::HAWKEYE_PROGRAM_ID;
+use phoenix_rise::ix::constants::{
+    EMBER_PROGRAM_ID, PHOENIX_GLOBAL_CONFIGURATION, PHOENIX_LOG_AUTHORITY, PHOENIX_PROGRAM_ID,
+    SPL_TOKEN_PROGRAM_ID, compute_discriminant,
+};
+use phoenix_rise::ix::flight::{
     FLIGHT_PROGRAM_ID, get_flight_builder_state_address, get_flight_global_state_address,
 };
-use phoenix_rise::phoenix_rise_ix::{
-    HawkeyeReturnData, OrderFlags, SelfTradeBehavior, Side, ViewAssetReturn, ViewMarginReturn,
+use phoenix_rise::ix::hawkeye::{
+    HawkeyeReturnData, HawkeyeTraderViewAccounts, ViewAssetReturn, ViewMarginReturn,
+    create_hawkeye_view_margin_for_asset_ix, create_hawkeye_view_margin_ix,
     decode_hawkeye_return_data,
 };
-use phoenix_rise::test_fixture::{
+use phoenix_rise::ix::market_order::{MarketOrderParams, create_place_market_order_ix};
+use phoenix_rise::ix::types::{OrderFlags, SelfTradeBehavior, Side};
+use phoenix_rise_litesvm_test::{
     FixtureActor, FixtureMarket, PHOENIX_REPO_ROOT_ENV, SdkLocalnetContext, SdkLocalnetProgram,
     default_sdk_localnet_fixture, find_sdk_localnet_program_paths, mainnet_bpf_programs_enabled,
     parse_pubkey, parse_pubkeys, sdk_localnet_vm_required,
@@ -876,8 +883,9 @@ fn assert_builder_accounts_before_dynamic_tail(
             FLIGHT_PROGRAM_ID,
             builder_authority,
             parse_pubkey(&builder_actor.trader_account).unwrap(),
-            get_flight_global_state_address(),
-            get_flight_builder_state_address(&builder_authority),
+            get_flight_global_state_address().expect("derive flight global-state PDA"),
+            get_flight_builder_state_address(&builder_authority)
+                .expect("derive flight builder-state PDA"),
         ],
         "Flight builder accounts should be fixed accounts immediately before the dynamic tail"
     );
@@ -934,7 +942,7 @@ fn open_btc_position(
     actor: &FixtureActor,
     market: &FixtureMarket,
 ) {
-    let params = ix::MarketOrderParams::builder()
+    let params = MarketOrderParams::builder()
         .trader(parse_pubkey(&actor.pubkey).unwrap())
         .trader_account(parse_pubkey(&actor.trader_account).unwrap())
         .perp_asset_map(parse_pubkey(&context.fixture.addresses.perp_asset_map).unwrap())
@@ -954,7 +962,7 @@ fn open_btc_position(
         .order_flags(OrderFlags::None)
         .build()
         .unwrap();
-    let ix = ix::create_place_market_order_ix(params).unwrap();
+    let ix = create_place_market_order_ix(params).unwrap();
     send_and_print_logs(context, vec![ix.into()], &actor.seed, "open-btc-position");
 }
 
@@ -1001,8 +1009,15 @@ fn close_position_with_builders_ix(
             AccountMeta::new_readonly(FLIGHT_PROGRAM_ID, false),
             AccountMeta::new_readonly(builder_authority, false),
             AccountMeta::new(parse_pubkey(&builder_actor.trader_account).unwrap(), false),
-            AccountMeta::new_readonly(get_flight_global_state_address(), false),
-            AccountMeta::new_readonly(get_flight_builder_state_address(&builder_authority), false),
+            AccountMeta::new_readonly(
+                get_flight_global_state_address().expect("derive flight global-state PDA"),
+                false,
+            ),
+            AccountMeta::new_readonly(
+                get_flight_builder_state_address(&builder_authority)
+                    .expect("derive flight builder-state PDA"),
+                false,
+            ),
         ],
     );
     ix
@@ -1033,7 +1048,7 @@ fn close_position_ix_inner(
         global_trader_index_count: context.fixture.addresses.global_trader_index.len() as u8,
         active_trader_buffer_count: context.fixture.addresses.active_trader_buffer.len() as u8,
     };
-    let mut data = phoenix_rise::ix::compute_discriminant(discriminant).to_vec();
+    let mut data = compute_discriminant(discriminant).to_vec();
     data.extend_from_slice(&to_vec(&params).unwrap());
 
     let fake_usdc_mint = context
@@ -1053,11 +1068,11 @@ fn close_position_ix_inner(
 
     let mut accounts = vec![
         AccountMeta::new_readonly(parse_pubkey(&actor.pubkey).unwrap(), true),
-        AccountMeta::new_readonly(*phoenix_rise::ix::PHOENIX_PROGRAM_ID, false),
-        AccountMeta::new_readonly(phoenix_rise::HAWKEYE_PROGRAM_ID, false),
-        AccountMeta::new_readonly(phoenix_rise::ix::EMBER_PROGRAM_ID, false),
-        AccountMeta::new_readonly(*phoenix_rise::ix::PHOENIX_LOG_AUTHORITY, false),
-        AccountMeta::new(*phoenix_rise::ix::PHOENIX_GLOBAL_CONFIGURATION, false),
+        AccountMeta::new_readonly(*PHOENIX_PROGRAM_ID, false),
+        AccountMeta::new_readonly(HAWKEYE_PROGRAM_ID, false),
+        AccountMeta::new_readonly(EMBER_PROGRAM_ID, false),
+        AccountMeta::new_readonly(*PHOENIX_LOG_AUTHORITY, false),
+        AccountMeta::new(*PHOENIX_GLOBAL_CONFIGURATION, false),
         AccountMeta::new(parse_pubkey(&actor.trader_account).unwrap(), false),
         AccountMeta::new(
             parse_pubkey(&context.fixture.addresses.perp_asset_map).unwrap(),
@@ -1083,7 +1098,7 @@ fn close_position_ix_inner(
             parse_pubkey(&context.fixture.addresses.ember_vault).unwrap(),
             false,
         ),
-        AccountMeta::new_readonly(phoenix_rise::ix::SPL_TOKEN_PROGRAM_ID, false),
+        AccountMeta::new_readonly(SPL_TOKEN_PROGRAM_ID, false),
         AccountMeta::new(parse_pubkey(&market.orderbook).unwrap(), false),
         AccountMeta::new(parse_pubkey(&market.spline).unwrap(), false),
     ];
@@ -1140,8 +1155,7 @@ fn withdraw_all_collateral_ix_with_overrides(
         global_trader_index_count: context.fixture.addresses.global_trader_index.len() as u8,
         active_trader_buffer_count: context.fixture.addresses.active_trader_buffer.len() as u8,
     };
-    let mut data =
-        phoenix_rise::ix::compute_discriminant("global:withdraw_all_collateral").to_vec();
+    let mut data = compute_discriminant("global:withdraw_all_collateral").to_vec();
     data.extend_from_slice(&to_vec(&params).unwrap());
 
     let fake_usdc_mint = context
@@ -1172,11 +1186,11 @@ fn withdraw_all_collateral_ix_with_overrides(
 
     let mut accounts = vec![
         AccountMeta::new_readonly(parse_pubkey(&actor.pubkey).unwrap(), true),
-        AccountMeta::new_readonly(*phoenix_rise::ix::PHOENIX_PROGRAM_ID, false),
-        AccountMeta::new_readonly(phoenix_rise::HAWKEYE_PROGRAM_ID, false),
-        AccountMeta::new_readonly(phoenix_rise::ix::EMBER_PROGRAM_ID, false),
-        AccountMeta::new_readonly(*phoenix_rise::ix::PHOENIX_LOG_AUTHORITY, false),
-        AccountMeta::new(*phoenix_rise::ix::PHOENIX_GLOBAL_CONFIGURATION, false),
+        AccountMeta::new_readonly(*PHOENIX_PROGRAM_ID, false),
+        AccountMeta::new_readonly(HAWKEYE_PROGRAM_ID, false),
+        AccountMeta::new_readonly(EMBER_PROGRAM_ID, false),
+        AccountMeta::new_readonly(*PHOENIX_LOG_AUTHORITY, false),
+        AccountMeta::new(*PHOENIX_GLOBAL_CONFIGURATION, false),
         AccountMeta::new(parse_pubkey(&actor.trader_account).unwrap(), false),
         AccountMeta::new(
             parse_pubkey(&context.fixture.addresses.perp_asset_map).unwrap(),
@@ -1202,7 +1216,7 @@ fn withdraw_all_collateral_ix_with_overrides(
             parse_pubkey(&context.fixture.addresses.ember_vault).unwrap(),
             false,
         ),
-        AccountMeta::new_readonly(phoenix_rise::ix::SPL_TOKEN_PROGRAM_ID, false),
+        AccountMeta::new_readonly(SPL_TOKEN_PROGRAM_ID, false),
     ];
     accounts.extend(
         parse_pubkeys(&context.fixture.addresses.global_trader_index)
@@ -1229,7 +1243,7 @@ fn hawkeye_asset_base_lots(context: &mut SdkLocalnetContext, actor: &FixtureActo
 fn hawkeye_asset(context: &mut SdkLocalnetContext, actor: &FixtureActor) -> ViewAssetReturn {
     let tx = context.send_instructions_with_metadata(
         vec![
-            ix::create_hawkeye_view_margin_for_asset_ix(
+            create_hawkeye_view_margin_for_asset_ix(
                 hawkeye_trader_view_accounts(context, actor),
                 BTC_ASSET_ID,
             )
@@ -1249,9 +1263,7 @@ fn hawkeye_asset(context: &mut SdkLocalnetContext, actor: &FixtureActor) -> View
 
 fn hawkeye_margin(context: &mut SdkLocalnetContext, actor: &FixtureActor) -> ViewMarginReturn {
     let tx = context.send_instructions_with_metadata(
-        vec![
-            ix::create_hawkeye_view_margin_ix(hawkeye_trader_view_accounts(context, actor)).into(),
-        ],
+        vec![create_hawkeye_view_margin_ix(hawkeye_trader_view_accounts(context, actor)).into()],
         "payer",
         "hawkeye-view-margin",
     );
@@ -1267,10 +1279,10 @@ fn hawkeye_margin(context: &mut SdkLocalnetContext, actor: &FixtureActor) -> Vie
 fn hawkeye_trader_view_accounts(
     context: &SdkLocalnetContext,
     actor: &FixtureActor,
-) -> ix::HawkeyeTraderViewAccounts {
-    ix::HawkeyeTraderViewAccounts {
-        phoenix_program_id: *ix::PHOENIX_PROGRAM_ID,
-        global_config: *ix::PHOENIX_GLOBAL_CONFIGURATION,
+) -> HawkeyeTraderViewAccounts {
+    HawkeyeTraderViewAccounts {
+        phoenix_program_id: *PHOENIX_PROGRAM_ID,
+        global_config: *PHOENIX_GLOBAL_CONFIGURATION,
         global_trader_index: parse_pubkeys(&context.fixture.addresses.global_trader_index),
         active_trader_buffer: parse_pubkeys(&context.fixture.addresses.active_trader_buffer),
         perp_asset_map: parse_pubkey(&context.fixture.addresses.perp_asset_map).unwrap(),
@@ -1319,7 +1331,7 @@ fn install_spl_token_account(
             Account {
                 lamports: 10_000_000,
                 data,
-                owner: phoenix_rise::ix::SPL_TOKEN_PROGRAM_ID,
+                owner: SPL_TOKEN_PROGRAM_ID,
                 executable: false,
                 rent_epoch: 0,
             },

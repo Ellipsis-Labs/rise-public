@@ -1,12 +1,22 @@
 use std::path::PathBuf;
 
 use borsh::{BorshSerialize, to_vec};
-use phoenix_rise::test_fixture::{
+use phoenix_rise::accounts::owned::{Permission, Trader};
+use phoenix_rise::accounts::trader::capabilities::{
+    TRADER_CAPABILITY_CAN_DEPOSIT, TRADER_CAPABILITY_CAN_PLACE_LIMIT,
+    TRADER_CAPABILITY_CAN_PLACE_MARKET, TRADER_CAPABILITY_CAN_RISK_INCREASE,
+    TRADER_CAPABILITY_CAN_WITHDRAW,
+};
+use phoenix_rise::core::TraderKey;
+use phoenix_rise::ix::constants::{
+    PHOENIX_GLOBAL_CONFIGURATION, PHOENIX_LOG_AUTHORITY, PHOENIX_PROGRAM_ID, SYSTEM_PROGRAM_ID,
+    compute_discriminant,
+};
+use phoenix_rise::ix::register_trader::{RegisterTraderParams, create_register_trader_ix};
+use phoenix_rise_litesvm_test::{
     PHOENIX_REPO_ROOT_ENV, SdkLocalnetContext, SdkLocalnetProgram, default_sdk_localnet_fixture,
     find_sdk_localnet_program_paths, parse_pubkey, sdk_localnet_vm_required,
 };
-use phoenix_rise::types::accounts::{Permission, Trader};
-use phoenix_rise::{TraderKey, ix};
 use rise_trader_onboarder::{TRADER_ONBOARDER_AUTHORITY_SEED, TraderOnboarderError};
 use solana_instruction::error::InstructionError;
 use solana_instruction::{AccountMeta, Instruction};
@@ -16,12 +26,12 @@ use solana_transaction_error::TransactionError;
 const TRADER_ONBOARDER_PROGRAM_ENV: &str = "RISE_TRADER_ONBOARDER_SO";
 const TRADER_ONBOARDING_PERMISSION: u64 = 1 << 4;
 const TRADER_CAPABILITY_FROZEN: u32 =
-    ix::TRADER_CAPABILITY_CAN_PLACE_LIMIT | ix::TRADER_CAPABILITY_CAN_PLACE_MARKET;
-const TRADER_CAPABILITY_COLD: u32 = ix::TRADER_CAPABILITY_CAN_PLACE_LIMIT
-    | ix::TRADER_CAPABILITY_CAN_PLACE_MARKET
-    | ix::TRADER_CAPABILITY_CAN_RISK_INCREASE
-    | ix::TRADER_CAPABILITY_CAN_DEPOSIT
-    | ix::TRADER_CAPABILITY_CAN_WITHDRAW;
+    TRADER_CAPABILITY_CAN_PLACE_LIMIT | TRADER_CAPABILITY_CAN_PLACE_MARKET;
+const TRADER_CAPABILITY_COLD: u32 = TRADER_CAPABILITY_CAN_PLACE_LIMIT
+    | TRADER_CAPABILITY_CAN_PLACE_MARKET
+    | TRADER_CAPABILITY_CAN_RISK_INCREASE
+    | TRADER_CAPABILITY_CAN_DEPOSIT
+    | TRADER_CAPABILITY_CAN_WITHDRAW;
 
 #[test]
 fn trader_onboarder_error_codes_are_stable() {
@@ -174,7 +184,7 @@ fn trader_onboarder_program_creates_and_onboards_idempotently() {
     );
 
     let trader_owner = context.svm.get_account(&trader_account).unwrap().owner;
-    assert_eq!(trader_owner, *ix::PHOENIX_PROGRAM_ID);
+    assert_eq!(trader_owner, *PHOENIX_PROGRAM_ID);
     let lamports_after = context.svm.get_account(&trader_authority).unwrap().lamports;
     assert!(
         lamports_after < lamports_before,
@@ -255,7 +265,7 @@ fn trader_onboarder_program_creates_and_onboards_idempotently() {
         .get_account(&child_trader_account)
         .unwrap()
         .owner;
-    assert_eq!(child_owner, *ix::PHOENIX_PROGRAM_ID);
+    assert_eq!(child_owner, *PHOENIX_PROGRAM_ID);
 
     let second_subaccount_logs = send_and_print_logs(
         &mut context,
@@ -456,8 +466,8 @@ fn trader_onboarder_rejects_permission_with_no_uses_remaining() {
 }
 
 fn register_trader_ix(trader_key: &TraderKey) -> Instruction {
-    ix::create_register_trader_ix(
-        ix::RegisterTraderParams::builder()
+    create_register_trader_ix(
+        RegisterTraderParams::builder()
             .payer(trader_key.authority)
             .trader(trader_key.authority)
             .trader_account(trader_key.pda())
@@ -481,18 +491,18 @@ fn create_trader_idempotent_ix(
     global_trader_index: &[String],
     active_trader_buffer: &[String],
 ) -> Instruction {
-    let data = ix::compute_discriminant("global:create_trader_idempotent").to_vec();
+    let data = compute_discriminant("global:create_trader_idempotent").to_vec();
 
     let mut accounts = vec![
         AccountMeta::new(payer, true),
         AccountMeta::new_readonly(trader_authority, true),
         AccountMeta::new_readonly(onboarder_authority, false),
         AccountMeta::new(permission_account, false),
-        AccountMeta::new_readonly(*ix::PHOENIX_PROGRAM_ID, false),
-        AccountMeta::new_readonly(*ix::PHOENIX_LOG_AUTHORITY, false),
-        AccountMeta::new_readonly(*ix::PHOENIX_GLOBAL_CONFIGURATION, false),
+        AccountMeta::new_readonly(*PHOENIX_PROGRAM_ID, false),
+        AccountMeta::new_readonly(*PHOENIX_LOG_AUTHORITY, false),
+        AccountMeta::new_readonly(*PHOENIX_GLOBAL_CONFIGURATION, false),
         AccountMeta::new(trader_account, false),
-        AccountMeta::new_readonly(ix::SYSTEM_PROGRAM_ID, false),
+        AccountMeta::new_readonly(SYSTEM_PROGRAM_ID, false),
     ];
     accounts.extend(
         global_trader_index
@@ -521,18 +531,18 @@ fn register_subaccount_idempotent_ix(
     subaccount_index: u8,
     global_trader_index: &[String],
 ) -> Instruction {
-    let mut data = ix::compute_discriminant("global:register_subaccount_idempotent").to_vec();
+    let mut data = compute_discriminant("global:register_subaccount_idempotent").to_vec();
     data.push(subaccount_index);
 
     let mut accounts = vec![
         AccountMeta::new(payer, true),
         AccountMeta::new_readonly(trader_authority, true),
-        AccountMeta::new_readonly(*ix::PHOENIX_PROGRAM_ID, false),
-        AccountMeta::new_readonly(*ix::PHOENIX_LOG_AUTHORITY, false),
-        AccountMeta::new_readonly(*ix::PHOENIX_GLOBAL_CONFIGURATION, false),
+        AccountMeta::new_readonly(*PHOENIX_PROGRAM_ID, false),
+        AccountMeta::new_readonly(*PHOENIX_LOG_AUTHORITY, false),
+        AccountMeta::new_readonly(*PHOENIX_GLOBAL_CONFIGURATION, false),
         AccountMeta::new_readonly(parent_trader_account, false),
         AccountMeta::new(child_trader_account, false),
-        AccountMeta::new_readonly(ix::SYSTEM_PROGRAM_ID, false),
+        AccountMeta::new_readonly(SYSTEM_PROGRAM_ID, false),
     ];
     accounts.extend(
         global_trader_index
@@ -554,7 +564,7 @@ fn set_exchange_gated(context: &mut SdkLocalnetContext, root_authority: Pubkey) 
         gated: Option<bool>,
     }
 
-    let mut data = ix::compute_discriminant("global:change_exchange_status").to_vec();
+    let mut data = compute_discriminant("global:change_exchange_status").to_vec();
     data.extend_from_slice(
         &to_vec(&ChangeExchangeStatusData {
             active: Some(true),
@@ -566,11 +576,11 @@ fn set_exchange_gated(context: &mut SdkLocalnetContext, root_authority: Pubkey) 
     let logs = send_and_print_logs(
         context,
         vec![Instruction {
-            program_id: *ix::PHOENIX_PROGRAM_ID,
+            program_id: *PHOENIX_PROGRAM_ID,
             accounts: vec![
-                AccountMeta::new_readonly(*ix::PHOENIX_PROGRAM_ID, false),
-                AccountMeta::new_readonly(*ix::PHOENIX_LOG_AUTHORITY, false),
-                AccountMeta::new(*ix::PHOENIX_GLOBAL_CONFIGURATION, false),
+                AccountMeta::new_readonly(*PHOENIX_PROGRAM_ID, false),
+                AccountMeta::new_readonly(*PHOENIX_LOG_AUTHORITY, false),
+                AccountMeta::new(*PHOENIX_GLOBAL_CONFIGURATION, false),
                 AccountMeta::new_readonly(root_authority, true),
                 AccountMeta::new(root_authority, false),
             ],
@@ -585,17 +595,17 @@ fn set_exchange_gated(context: &mut SdkLocalnetContext, root_authority: Pubkey) 
 
 fn create_permission_ix(payer: &Pubkey, authority: &Pubkey, user: &Pubkey) -> Instruction {
     Instruction {
-        program_id: *ix::PHOENIX_PROGRAM_ID,
+        program_id: *PHOENIX_PROGRAM_ID,
         accounts: vec![
-            AccountMeta::new_readonly(*ix::PHOENIX_PROGRAM_ID, false),
-            AccountMeta::new_readonly(*ix::PHOENIX_LOG_AUTHORITY, false),
+            AccountMeta::new_readonly(*PHOENIX_PROGRAM_ID, false),
+            AccountMeta::new_readonly(*PHOENIX_LOG_AUTHORITY, false),
             AccountMeta::new_readonly(*payer, true),
             AccountMeta::new(get_permission_address(authority, user), false),
             AccountMeta::new_readonly(*authority, false),
             AccountMeta::new_readonly(*user, false),
-            AccountMeta::new_readonly(ix::SYSTEM_PROGRAM_ID, false),
+            AccountMeta::new_readonly(SYSTEM_PROGRAM_ID, false),
         ],
-        data: ix::compute_discriminant("global:create_permission").to_vec(),
+        data: compute_discriminant("global:create_permission").to_vec(),
     }
 }
 
@@ -616,7 +626,7 @@ fn set_permission_ix_with_allowed_signer_actions(
         allowed_signer_actions: Option<i64>,
     }
 
-    let mut data = ix::compute_discriminant("global:set_permission").to_vec();
+    let mut data = compute_discriminant("global:set_permission").to_vec();
     data.extend_from_slice(
         &to_vec(&SetPermissionData {
             permission,
@@ -627,10 +637,10 @@ fn set_permission_ix_with_allowed_signer_actions(
     );
 
     Instruction {
-        program_id: *ix::PHOENIX_PROGRAM_ID,
+        program_id: *PHOENIX_PROGRAM_ID,
         accounts: vec![
-            AccountMeta::new_readonly(*ix::PHOENIX_PROGRAM_ID, false),
-            AccountMeta::new_readonly(*ix::PHOENIX_LOG_AUTHORITY, false),
+            AccountMeta::new_readonly(*PHOENIX_PROGRAM_ID, false),
+            AccountMeta::new_readonly(*PHOENIX_LOG_AUTHORITY, false),
             AccountMeta::new(get_permission_address(authority, user), false),
             AccountMeta::new_readonly(*authority, true),
             AccountMeta::new_readonly(*user, false),
@@ -642,7 +652,7 @@ fn set_permission_ix_with_allowed_signer_actions(
 fn get_permission_address(authority: &Pubkey, user: &Pubkey) -> Pubkey {
     Pubkey::find_program_address(
         &[b"permission", authority.as_ref(), user.as_ref()],
-        &*ix::PHOENIX_PROGRAM_ID,
+        &*PHOENIX_PROGRAM_ID,
     )
     .0
 }

@@ -1,0 +1,24 @@
+[package]
+description  = "Phoenix Rise market event parsing helpers"
+edition      = { workspace = true }
+homepage     = { workspace = true }
+license      = { workspace = true }
+name         = "phoenix-rise-events"
+publish      = { workspace = true }
+readme       = "README.md"
+repository   = { workspace = true }
+rust-version = { workspace = true }
+version      = { workspace = true }
+
+[features]
+default = []
+serde   = ["dep:serde", "phoenix-rise-math/serde"]
+
+[dependencies]
+borsh             = { workspace = true }
+phoenix-rise-math = { workspace = true }
+serde             = { workspace = true, optional = true }
+thiserror         = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
