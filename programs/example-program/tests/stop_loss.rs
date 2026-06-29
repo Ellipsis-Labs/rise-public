@@ -9,6 +9,8 @@ use phoenix_rise::ix::constants::get_stop_loss_address;
 use phoenix_rise::ix::types::{OrderFlags, Side};
 use phoenix_rise_litesvm_test::parse_pubkey;
 
+const RENT_EXEMPT_EMPTY_ACCOUNT_LAMPORTS: u64 = 890_880;
+
 #[test]
 fn stop_loss_flow_executes() {
     let Some((mut context, program_id)) = setup_context() else {
@@ -43,7 +45,7 @@ fn stop_loss_flow_executes() {
             .expect("derive stop-loss PDA");
     context
         .svm
-        .airdrop(&stop_loss, 1)
+        .airdrop(&stop_loss, RENT_EXEMPT_EMPTY_ACCOUNT_LAMPORTS)
         .expect("seed empty stop-loss PDA account");
     let place_stop_loss = with_compute_budget(place_stop_loss_ix(
         &context,

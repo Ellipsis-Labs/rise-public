@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.3.0 - 2026-06-29
+
+Source Phoenix commit: `08743d17a258f1f4d6e744bd0dc5d64bc0a9d580`
+
+### Summary
+
+- Bumps all `phoenix-rise` workspace crates from `0.2.0` to `0.3.0`.
+- Upgrades all `solana-*` workspace dependencies from the `~2.x` range to `~3.x` (e.g. `solana-pubkey ~2.4` → `~3.0`, `solana-rpc-client ~2.3` → `~3.1`).
+- Pins `litesvm` at `=0.11.0` (up from `0.7`) and adds the `borsh` feature to the workspace `solana-pubkey` dependency.
+
+### Breaking Changes
+
+- **Solana SDK `~2.x` → `~3.x` (all components)**: Every `solana-*` dependency across `accounts`, `ix`, `core`, `sdk`, `workspace`, and example `programs` has been bumped to the `~3.x` range. Downstream crates that pin any `solana-*` dependency to `~2.x` will encounter dependency-resolution conflicts and must be updated.
+- **`core` — `SimulationFailed` error variant inner type changed**: `PhoenixHawkeyeClientError::SimulationFailed` now stores a converted (`err.into()`) type rather than the raw Solana `~2.x` error, reflecting a type change in the Solana 3.x RPC API. Any `match` arm destructuring the inner value must be updated to the new Solana 3.x error type.
+- **`solana-pubkey` gains `borsh` feature**: The workspace `solana-pubkey` dependency now enables `borsh` in addition to `curve25519` and `serde`. This pulls in `borsh` transitive dependencies for all crates that share the workspace pin; crates that previously relied on `borsh` being absent from this dep tree may see new transitive crate additions.
+
+### Consumer Notes
+
+- Update all `solana-*` entries in your `Cargo.toml` or workspace to the `~3.x` range to stay compatible with this release.
+- The minimum supported Rust version for example programs is now `1.89.0` (edition `2024`); the main workspace `rust-version` was already `1.89.0`.
+- `litesvm` is now pinned at `=0.11.0`. Test helpers that seed accounts via `airdrop` must use at least `890_880` lamports (the rent-exempt minimum for an empty account) rather than `1`; the newer `litesvm` enforces rent-exemption requirements that the prior version did not.
+- The `events` source-parity tests comparing `phoenix-rise-events` against the internal Phoenix exchange source have been removed. Serialization compatibility is still covered by `representative_event_serialization_matches_phoenix_exchange`.
+
 ## v0.2.0 - 2026-06-29
 
 Source Phoenix commit: `d087e01780d6f8cfadb10005c6607f7de59d3de2`

@@ -197,7 +197,10 @@ fn close_position_and_withdraw_program_executes_fixture_flows() {
         &withdraw_only_logs,
         "Withdraw request processed successfully",
     );
-    assert_logs_contain(&withdraw_only_logs, "Instruction: Burn");
+    assert_logs_contain(
+        &withdraw_only_logs,
+        &format!("Program {EMBER_PROGRAM_ID} invoke"),
+    );
     assert_logs_do_not_contain(&withdraw_only_logs, "Phoenix Eternal: Place Market Order");
     assert_logs_do_not_contain(&withdraw_only_logs, "Phoenix Flight: Proxy");
     assert_logs_do_not_contain(&withdraw_only_logs, "withdrawable collateral after order");
