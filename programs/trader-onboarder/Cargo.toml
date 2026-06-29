@@ -20,10 +20,7 @@ pinocchio-pubkey = "0.3.0"
 proc-macro-crate = "=3.4.0"
 sha2 = "0.10"
 sha2-const-stable = "0.1"
-solana-instruction = { version = "~2.3", default-features = false, features = [
-  "std",
-] }
-solana-pubkey = { version = "~2.4", default-features = false }
+solana-pubkey = { version = "~3.0", features = ["curve25519"] }
 toml_parser = "=1.0.6"
 zeroize = "=1.8.2"
 
@@ -32,13 +29,11 @@ phoenix-rise = { path = "../../rust/sdk", default-features = false, features = [
   "core",
 ] }
 phoenix-rise-litesvm-test = { path = "../../rust/litesvm-test" }
-solana-instruction = { version = "~2.3", default-features = false, features = [
+solana-instruction = { version = "~3.0", default-features = false, features = [
   "std",
 ] }
-solana-pubkey = { version = "~2.4", default-features = false, features = [
-  "curve25519",
-] }
-solana-transaction-error = "~2.2"
+solana-pubkey = { version = "~3.0", features = ["curve25519"] }
+solana-transaction-error = "~3.0"
 
 [profile.ci]
 inherits = "dev"

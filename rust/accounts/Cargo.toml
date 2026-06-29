@@ -29,14 +29,14 @@ bytemuck = { workspace = true }
 phoenix-rise-math = { workspace = true, features = ["solana"], optional = true }
 serde = { workspace = true, optional = true }
 sha2-const-stable = { workspace = true }
-solana-pubkey = { version = "~2.4", default-features = false, features = [
+solana-pubkey = { version = "~3.0", default-features = false, features = [
   "curve25519",
 ] }
 thiserror = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
-solana-pubkey = { version = "~2.4", default-features = false, features = [
+solana-pubkey = { version = "~3.0", default-features = false, features = [
   "curve25519",
   "rand",
 ] }

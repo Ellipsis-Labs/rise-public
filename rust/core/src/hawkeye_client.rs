@@ -259,7 +259,7 @@ impl<'a> PhoenixHawkeyeClient<'a> {
             .await
             .map_err(|error| PhoenixHawkeyeClientError::Rpc(error.to_string()))?;
         if let Some(err) = response.value.err {
-            return Err(PhoenixHawkeyeClientError::SimulationFailed(err));
+            return Err(PhoenixHawkeyeClientError::SimulationFailed(err.into()));
         }
         Ok(response.value)
     }
