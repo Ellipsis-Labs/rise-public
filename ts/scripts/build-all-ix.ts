@@ -27,6 +27,13 @@ import {
   buildTransferCollateralChildToParentIx,
   buildSyncParentToChildIx,
   buildOnboardTraderDelegatedIx,
+  buildDelegateTraderIx,
+  buildDeactivateSplineIx,
+  buildRegisterSplineIx,
+  buildUpdateSplineParametersWithOrderingIx,
+  buildUpdateSplinePositionLimitsConfigIx,
+  buildUpdateSplinePriceIx,
+  buildUpdateSplinePriceWithOrderingIx,
   Side,
   SelfTradeBehavior,
   OrderFlags,
@@ -766,6 +773,147 @@ try {
       },
     });
     results["PlaceMarketOrderDelegated"] = hexEncode(delegatedIx.data);
+  }
+
+  // 26. RegisterSpline
+  {
+    console.error("Building RegisterSpline...");
+    const ix = buildRegisterSplineIx({
+      payer: p(0),
+      authority: p(1),
+      permissionAccount: p(2),
+      marketAccount: p(3),
+      splineCollection: p(4),
+      traderAccount: p(5),
+      perpAssetMap: p(6),
+      globalTraderIndex: vec2(7, 8),
+      activeTraderBuffer: vec2(9, 10),
+    });
+    results["RegisterSpline"] = hexEncode(ix.data);
+  }
+
+  // 27. UpdateSplinePrice
+  {
+    console.error("Building UpdateSplinePrice...");
+    const ix = buildUpdateSplinePriceIx(
+      {
+        signer: p(0),
+        traderAccount: p(1),
+        splineCollection: p(2),
+      },
+      {
+        newMidPrice: 1000n,
+        userUpdateSlot: null,
+        refreshRegions: true,
+      }
+    );
+    results["UpdateSplinePrice"] = hexEncode(ix.data);
+  }
+
+  // 28. UpdateSplinePriceWithOrdering
+  {
+    console.error("Building UpdateSplinePriceWithOrdering...");
+    const ix = buildUpdateSplinePriceWithOrderingIx(
+      {
+        signer: p(0),
+        traderAccount: p(1),
+        splineCollection: p(2),
+      },
+      {
+        newMidPrice: 1001n,
+        userUpdateSlot: null,
+        refreshRegions: false,
+        userSequenceNumber: 1n,
+        clientOrderId: new Uint8Array(16).fill(1),
+      }
+    );
+    results["UpdateSplinePriceWithOrdering"] = hexEncode(ix.data);
+  }
+
+  // 29. UpdateSplineParametersWithOrdering
+  {
+    console.error("Building UpdateSplineParametersWithOrdering...");
+    const ix = buildUpdateSplineParametersWithOrderingIx(
+      {
+        signer: p(0),
+        traderAccount: p(1),
+        splineCollection: p(2),
+      },
+      {
+        bidRegions: [
+          {
+            startOffset: 1n,
+            endOffset: 3n,
+            density: 10,
+            topLevelHiddenTakeSize: 0,
+            lifespan: 18446744073709551615n,
+          },
+        ],
+        askRegions: [
+          {
+            startOffset: 1n,
+            endOffset: 3n,
+            density: 10,
+            topLevelHiddenTakeSize: 0,
+            lifespan: 18446744073709551615n,
+          },
+        ],
+        refreshRegions: true,
+        userSequenceNumber: 2n,
+        clientOrderId: new Uint8Array(16).fill(2),
+      }
+    );
+    results["UpdateSplineParametersWithOrdering"] = hexEncode(ix.data);
+  }
+
+  // 30. UpdateSplinePositionLimitsConfig
+  {
+    console.error("Building UpdateSplinePositionLimitsConfig...");
+    const ix = buildUpdateSplinePositionLimitsConfigIx(
+      {
+        signer: p(0),
+        traderAccount: p(1),
+        splineCollection: p(2),
+      },
+      {
+        maxPositionSize: {
+          __kind: "Limit",
+          value: {
+            long: 100,
+            short: 100,
+          },
+        },
+        leverageDecreaseInBps: 250,
+      }
+    );
+    results["UpdateSplinePositionLimitsConfig"] = hexEncode(ix.data);
+  }
+
+  // 31. DeactivateSpline
+  {
+    console.error("Building DeactivateSpline...");
+    const ix = buildDeactivateSplineIx({
+      authority: p(0),
+      permissionAccount: p(1),
+      marketAccount: p(2),
+      splineCollection: p(3),
+      traderAccount: p(4),
+      perpAssetMap: p(5),
+      globalTraderIndex: vec2(6, 7),
+      activeTraderBuffer: vec2(8, 9),
+    });
+    results["DeactivateSpline"] = hexEncode(ix.data);
+  }
+
+  // 32. DelegateTrader
+  {
+    console.error("Building DelegateTrader...");
+    const ix = buildDelegateTraderIx({
+      traderWallet: p(0),
+      traderAccount: p(1),
+      newPositionAuthority: p(2),
+    });
+    results["DelegateTrader"] = hexEncode(ix.data);
   }
 
   // Output JSON in sorted order

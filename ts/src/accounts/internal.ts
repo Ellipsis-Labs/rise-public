@@ -147,6 +147,7 @@ export interface MarkPrice {
   oracleData: OracleData[];
   oracleParameters: OracleParameters;
   markPriceLastValidatedSlot: bigint[];
+  oracleLastUpdatedTimestamps: bigint[];
 }
 
 export interface PriceComponent {
@@ -704,20 +705,17 @@ export const getSpotPriceComponentDecoder = (): Decoder<SpotPriceComponent> =>
   ]);
 
 export const getMarkPriceDecoder = (): Decoder<MarkPrice> =>
-  transformDecoder(
-    getStructDecoder([
-      ["price", getTicksAtSlotDecoder()],
-      ["spotPriceComponent", getSpotPriceComponentDecoder()],
-      ["perpPriceComponent", getPerpPriceComponentDecoder()],
-      ["bookPriceComponent", getBookPriceComponentDecoder()],
-      ["riskActionPriceValidityRules", getFixedArrayDecoder(getU8Decoder, 256)],
-      ["oracleData", getFixedArrayDecoder(getOracleDataDecoder, 5)],
-      ["oracleParameters", getOracleParametersDecoder()],
-      ["markPriceLastValidatedSlot", getFixedArrayDecoder(getU64Decoder, 4)],
-      ["oracleLastUpdatedTimestamps", getFixedArrayDecoder(getU64Decoder, 5)],
-    ]),
-    ({ oracleLastUpdatedTimestamps, ...markPrice }): MarkPrice => markPrice
-  );
+  getStructDecoder([
+    ["price", getTicksAtSlotDecoder()],
+    ["spotPriceComponent", getSpotPriceComponentDecoder()],
+    ["perpPriceComponent", getPerpPriceComponentDecoder()],
+    ["bookPriceComponent", getBookPriceComponentDecoder()],
+    ["riskActionPriceValidityRules", getFixedArrayDecoder(getU8Decoder, 256)],
+    ["oracleData", getFixedArrayDecoder(getOracleDataDecoder, 5)],
+    ["oracleParameters", getOracleParametersDecoder()],
+    ["markPriceLastValidatedSlot", getFixedArrayDecoder(getU64Decoder, 4)],
+    ["oracleLastUpdatedTimestamps", getFixedArrayDecoder(getU64Decoder, 5)],
+  ]);
 
 export const getPriceComponentDecoder = (): Decoder<PriceComponent> =>
   getStructDecoder([

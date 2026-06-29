@@ -31,6 +31,13 @@ export const DISCRIMINANTS: DiscriminantMap = {
     "global:transfer_collateral_child_to_parent"
   ),
   SYNC_PARENT_TO_CHILD: sha2_const("global:sync_parent_to_child"),
+  REGISTER_SPLINE: sha2_const("global:register_spline"),
+  DEACTIVATE_SPLINE: sha2_const("global:deactivate_spline"),
+  UPDATE_SPLINE_PRICE: sha2_const("global:update_spline_price"),
+  UPDATE_SPLINE_PARAMETERS: sha2_const("global:update_spline_parameters"),
+  UPDATE_SPLINE_POSITION_LIMITS_CONFIG: sha2_const(
+    "global:update_spline_position_limits_config"
+  ),
   PLACE_STOP_LOSS: sha2_const("global:place_stop_loss"),
   CANCEL_STOP_LOSS: sha2_const("global:cancel_stop_loss"),
   CREATE_PERMISSION: sha2_const("global:create_permission"),

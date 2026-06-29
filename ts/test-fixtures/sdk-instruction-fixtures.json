@@ -1,0 +1,1115 @@
+{
+  "schemaVersion": 1,
+  "instructions": [
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "Rebirth",
+      "snakeCaseName": "rebirth",
+      "preimage": "global:rebirth",
+      "tag": "10448318649702478223",
+      "discriminatorHex": "8ff19a4f74e2ff90",
+      "discriminatorBase64": "j/GaT3Ti/5A="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "AddMarket",
+      "snakeCaseName": "add_market",
+      "preimage": "global:add_market",
+      "tag": "4034815446765635881",
+      "discriminatorHex": "2989b97e458bfe37",
+      "discriminatorBase64": "KYm5fkWL/jc="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "PlaceMarketOrder",
+      "snakeCaseName": "place_market_order",
+      "preimage": "global:place_market_order",
+      "tag": "10459438340116608602",
+      "discriminatorHex": "5a76c0fcc0632791",
+      "discriminatorBase64": "WnbA/MBjJ5E="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "PlaceMarketOrderDelegated",
+      "snakeCaseName": "place_market_order_delegated",
+      "preimage": "global:place_market_order_delegated",
+      "tag": "4752905569266115488",
+      "discriminatorHex": "a02315eb6eb6f541",
+      "discriminatorBase64": "oCMV62629UE="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "PlaceLimitOrder",
+      "snakeCaseName": "place_limit_order",
+      "preimage": "global:place_limit_order",
+      "tag": "14195879918799269996",
+      "discriminatorHex": "6cb021ba92e501c5",
+      "discriminatorBase64": "bLAhupLlAcU="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "PlaceMultiLimitOrder",
+      "snakeCaseName": "place_multi_limit_order",
+      "preimage": "global:place_multi_limit_order",
+      "tag": "6089397269300105452",
+      "discriminatorHex": "ecd0ddac8de28154",
+      "discriminatorBase64": "7NDdrI3igVQ="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "CancelOrdersById",
+      "snakeCaseName": "cancel_orders_by_id",
+      "preimage": "global:cancel_orders_by_id",
+      "tag": "1769095372950392042",
+      "discriminatorHex": "eacc7e5ede168d18",
+      "discriminatorBase64": "6sx+Xt4WjRg="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "CancelUpTo",
+      "snakeCaseName": "cancel_up_to",
+      "preimage": "global:cancel_up_to",
+      "tag": "3955197569960038682",
+      "discriminatorHex": "1ad1f4fd3bafe336",
+      "discriminatorBase64": "GtH0/Tuv4zY="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "CancelAll",
+      "snakeCaseName": "cancel_all",
+      "preimage": "global:cancel_all",
+      "tag": "17097678988417679202",
+      "discriminatorHex": "62bf4bdc732847ed",
+      "discriminatorBase64": "Yr9L3HMoR+0="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "ForceCancelAll",
+      "snakeCaseName": "force_cancel_all",
+      "preimage": "global:force_cancel_all",
+      "tag": "3481343163333607625",
+      "discriminatorHex": "c900bc7f29375030",
+      "discriminatorBase64": "yQC8fyk3UDA="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "MarketClosedForceCancelAll",
+      "snakeCaseName": "market_closed_force_cancel_all",
+      "preimage": "global:market_closed_force_cancel_all",
+      "tag": "15830064278197462501",
+      "discriminatorHex": "e5658ff996afafdb",
+      "discriminatorBase64": "5WWP+Zavr9s="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "ForceCancelRiskIncreasing",
+      "snakeCaseName": "force_cancel_risk_increasing",
+      "preimage": "global:force_cancel_risk_increasing",
+      "tag": "17161608890624325417",
+      "discriminatorHex": "2937d9235c482aee",
+      "discriminatorBase64": "KTfZI1xIKu4="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "ForceCancelAfterHours",
+      "snakeCaseName": "force_cancel_after_hours",
+      "preimage": "global:force_cancel_after_hours",
+      "tag": "11835718172640546195",
+      "discriminatorHex": "930de03df8ea40a4",
+      "discriminatorBase64": "kw3gPfjqQKQ="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "AuthorizedForceCancel",
+      "snakeCaseName": "authorized_force_cancel",
+      "preimage": "global:authorized_force_cancel",
+      "tag": "192711213667128845",
+      "discriminatorHex": "0d16ddead3a5ac02",
+      "discriminatorBase64": "DRbd6tOlrAI="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "AuthorizedForceCancelById",
+      "snakeCaseName": "authorized_force_cancel_by_id",
+      "preimage": "global:authorized_force_cancel_by_id",
+      "tag": "17429331401300025210",
+      "discriminatorHex": "7a9f0c9f906ce1f1",
+      "discriminatorBase64": "ep8Mn5Bs4fE="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "WithdrawFunds",
+      "snakeCaseName": "withdraw_funds",
+      "preimage": "global:withdraw_funds",
+      "tag": "15665806283886109937",
+      "discriminatorHex": "f1241d6fd01f68d9",
+      "discriminatorBase64": "8SQdb9AfaNk="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "WithdrawFundsWithFee",
+      "snakeCaseName": "withdraw_funds_with_fee",
+      "preimage": "global:withdraw_funds_with_fee",
+      "tag": "7014606675199811274",
+      "discriminatorHex": "ca5e5e2a9be35861",
+      "discriminatorBase64": "yl5eKpvjWGE="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "DepositFunds",
+      "snakeCaseName": "deposit_funds",
+      "preimage": "global:deposit_funds",
+      "tag": "6411459240924555210",
+      "discriminatorHex": "ca2734d33514fa58",
+      "discriminatorBase64": "yic00zUU+lg="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "ClaimAuthority",
+      "snakeCaseName": "claim_authority",
+      "preimage": "global:claim_authority",
+      "tag": "2235592460316804318",
+      "discriminatorHex": "de84b97b7f6b061f",
+      "discriminatorBase64": "3oS5e39rBh8="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "ClaimFees",
+      "snakeCaseName": "claim_fees",
+      "preimage": "global:claim_fees",
+      "tag": "14607482620153035602",
+      "discriminatorHex": "52fbe99c0c34b8ca",
+      "discriminatorBase64": "UvvpnAw0uMo="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "NameSuccessor",
+      "snakeCaseName": "name_successor",
+      "preimage": "global:name_successor",
+      "tag": "17042034277042473888",
+      "discriminatorHex": "a0cb25e5e17781ec",
+      "discriminatorBase64": "oMsl5eF3gew="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "ChangeMarketStatus",
+      "snakeCaseName": "change_market_status",
+      "preimage": "global:change_market_status",
+      "tag": "612086789466783709",
+      "discriminatorHex": "dd7fe029b1917e08",
+      "discriminatorBase64": "3X/gKbGRfgg="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "ChangeExchangeStatus",
+      "snakeCaseName": "change_exchange_status",
+      "preimage": "global:change_exchange_status",
+      "tag": "11953858026530170580",
+      "discriminatorHex": "d466c8768aa2e4a5",
+      "discriminatorBase64": "1GbIdoqi5KU="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "SetExchangeStatusBits",
+      "snakeCaseName": "set_exchange_status_bits",
+      "preimage": "global:set_exchange_status_bits",
+      "tag": "4023604848040019955",
+      "discriminatorHex": "f307f7934ab7d637",
+      "discriminatorBase64": "8wf3k0q31jc="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "DisableExchangeCapabilities",
+      "snakeCaseName": "disable_exchange_capabilities",
+      "preimage": "global:disable_exchange_capabilities",
+      "tag": "11396094428520945987",
+      "discriminatorHex": "4399ccee800f279e",
+      "discriminatorBase64": "Q5nM7oAPJ54="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "SetTraderCapabilitiesDelegated",
+      "snakeCaseName": "set_trader_capabilities_delegated",
+      "preimage": "global:set_trader_capabilities_delegated",
+      "tag": "10905505208571374287",
+      "discriminatorHex": "cfaa111535235897",
+      "discriminatorBase64": "z6oRFTUjWJc="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "ConsumeWithdrawQueue",
+      "snakeCaseName": "consume_withdraw_queue",
+      "preimage": "global:consume_withdraw_queue",
+      "tag": "8175392489898977508",
+      "discriminatorHex": "e428d38b27d47471",
+      "discriminatorBase64": "5CjTiyfUdHE="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "RegisterTrader",
+      "snakeCaseName": "register_trader",
+      "preimage": "global:register_trader",
+      "tag": "2320203737695581003",
+      "discriminatorHex": "4bf3e0a701053320",
+      "discriminatorBase64": "S/PgpwEFMyA="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "TransferCollateral",
+      "snakeCaseName": "transfer_collateral",
+      "preimage": "global:transfer_collateral",
+      "tag": "7060317045509825437",
+      "discriminatorHex": "9da33f1bf248fb61",
+      "discriminatorBase64": "naM/G/JI+2E="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "CreateEscrowAccount",
+      "snakeCaseName": "create_escrow_account",
+      "preimage": "global:create_escrow_account",
+      "tag": "103653380020343698",
+      "discriminatorHex": "9293e12f33407001",
+      "discriminatorBase64": "kpPhLzNAcAE="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "CreateEscrowRequest",
+      "snakeCaseName": "create_escrow_request",
+      "preimage": "global:create_escrow_request",
+      "tag": "15835646656896607348",
+      "discriminatorHex": "74a4ecccbb84c3db",
+      "discriminatorBase64": "dKTszLuEw9s="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "AcceptEscrowRequest",
+      "snakeCaseName": "accept_escrow_request",
+      "preimage": "global:accept_escrow_request",
+      "tag": "9878276230283667894",
+      "discriminatorHex": "b6293ee3e4af1689",
+      "discriminatorBase64": "tik+4+SvFok="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "CancelEscrowRequest",
+      "snakeCaseName": "cancel_escrow_request",
+      "preimage": "global:cancel_escrow_request",
+      "tag": "168049498648681162",
+      "discriminatorHex": "ca1aa3ef20085502",
+      "discriminatorBase64": "yhqj7yAIVQI="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpsertEscrowRequest",
+      "snakeCaseName": "upsert_escrow_request",
+      "preimage": "global:upsert_escrow_request",
+      "tag": "7178851203321051349",
+      "discriminatorHex": "d538565d2267a063",
+      "discriminatorBase64": "1ThWXSJnoGM="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "RegisterSpline",
+      "snakeCaseName": "register_spline",
+      "preimage": "global:register_spline",
+      "tag": "4247305650115227678",
+      "discriminatorHex": "1eb0a04ffc75f13a",
+      "discriminatorBase64": "HrCgT/x18To="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdateCommodityMarketState",
+      "snakeCaseName": "update_commodity_market_state",
+      "preimage": "global:update_commodity_market_state",
+      "tag": "5300336301757822253",
+      "discriminatorHex": "2df561b8c8938e49",
+      "discriminatorBase64": "LfVhuMiTjkk="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdateSplinePrice",
+      "snakeCaseName": "update_spline_price",
+      "preimage": "global:update_spline_price",
+      "tag": "10140934441242499885",
+      "discriminatorHex": "2d9bc83425d6bb8c",
+      "discriminatorBase64": "LZvINCXWu4w="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdateSplineParameters",
+      "snakeCaseName": "update_spline_parameters",
+      "preimage": "global:update_spline_parameters",
+      "tag": "1642451649254087665",
+      "discriminatorHex": "f15b8baa1229cb16",
+      "discriminatorBase64": "8VuLqhIpyxY="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdateOraclePricesWithOrdering",
+      "snakeCaseName": "update_oracle_prices_with_ordering",
+      "preimage": "global:update_oracle_prices_with_ordering",
+      "tag": "1736637087933661348",
+      "discriminatorHex": "a4000efa3ac61918",
+      "discriminatorBase64": "pAAO+jrGGRg="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdatePerpIsolatedOnly",
+      "snakeCaseName": "update_perp_isolated_only",
+      "preimage": "global:update_perp_isolated_only",
+      "tag": "6589649480417753189",
+      "discriminatorHex": "6538a3fa4923735b",
+      "discriminatorBase64": "ZTij+kkjc1s="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdatePerpLeverageTiers",
+      "snakeCaseName": "update_perp_leverage_tiers",
+      "preimage": "global:update_perp_leverage_tiers",
+      "tag": "8746363358501199726",
+      "discriminatorHex": "6edff46322536179",
+      "discriminatorBase64": "bt/0YyJTYXk="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdatePerpMaxLiquidationSize",
+      "snakeCaseName": "update_perp_max_liquidation_size",
+      "preimage": "global:update_perp_max_liquidation_size",
+      "tag": "16031953948151791581",
+      "discriminatorHex": "dd3f02c72cf17cde",
+      "discriminatorBase64": "3T8CxyzxfN4="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdatePerpOpenInterestCap",
+      "snakeCaseName": "update_perp_open_interest_cap",
+      "preimage": "global:update_perp_open_interest_cap",
+      "tag": "12784447550840408395",
+      "discriminatorHex": "4b897405507b6bb1",
+      "discriminatorBase64": "S4l0BVB7a7E="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdatePerpUPnlRiskFactor",
+      "snakeCaseName": "update_perp_upnl_risk_factor",
+      "preimage": "global:update_perp_upnl_risk_factor",
+      "tag": "15879139867396068977",
+      "discriminatorHex": "71d6e2fe93095edc",
+      "discriminatorBase64": "cdbi/pMJXtw="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdatePerpUPnlRiskFactorForWithdrawals",
+      "snakeCaseName": "update_perp_upnl_risk_factor_for_withdrawals",
+      "preimage": "global:update_perp_upnl_risk_factor_for_withdrawals",
+      "tag": "4280941849843736828",
+      "discriminatorHex": "fc200a58eef5683b",
+      "discriminatorBase64": "/CAKWO71aDs="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdatePerpCancelRiskFactor",
+      "snakeCaseName": "update_perp_cancel_risk_factor",
+      "preimage": "global:update_perp_cancel_risk_factor",
+      "tag": "17474279325757408856",
+      "discriminatorHex": "5806b9cd761c81f2",
+      "discriminatorBase64": "WAa5zXYcgfI="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdatePerpMarkPriceParameters",
+      "snakeCaseName": "update_perp_mark_price_parameters",
+      "preimage": "global:update_perp_mark_price_parameters",
+      "tag": "16330298725711566590",
+      "discriminatorHex": "fe560d5e2be0a0e2",
+      "discriminatorBase64": "/lYNXivgoOI="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdateTraderFees",
+      "snakeCaseName": "update_trader_fees",
+      "preimage": "global:update_trader_fees",
+      "tag": "17098382929009699254",
+      "discriminatorHex": "b6e939cdaea849ed",
+      "discriminatorBase64": "tuk5za6oSe0="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdateMarketFees",
+      "snakeCaseName": "update_market_fees",
+      "preimage": "global:update_market_fees",
+      "tag": "8499158378016744635",
+      "discriminatorHex": "bb2479ab8313f375",
+      "discriminatorBase64": "uyR5q4MT83U="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdateTraderState",
+      "snakeCaseName": "update_trader_state",
+      "preimage": "global:update_trader_state",
+      "tag": "15890179969923582969",
+      "discriminatorHex": "f98b522c7e4285dc",
+      "discriminatorBase64": "+YtSLH5Chdw="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "SetTraderCapability",
+      "snakeCaseName": "set_trader_capability",
+      "preimage": "global:set_trader_capability",
+      "tag": "15399771776060573887",
+      "discriminatorHex": "bf482dbed6fab6d5",
+      "discriminatorBase64": "v0gtvtb6ttU="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdateWithdrawRateLimits",
+      "snakeCaseName": "update_withdraw_rate_limits",
+      "preimage": "global:update_withdraw_rate_limits",
+      "tag": "82428796364584635",
+      "discriminatorHex": "bbf692b68dd82401",
+      "discriminatorBase64": "u/aSto3YJAE="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdateWithdrawParameters",
+      "snakeCaseName": "update_withdraw_parameters",
+      "preimage": "global:update_withdraw_parameters",
+      "tag": "9581856101534650711",
+      "discriminatorHex": "57d1e1845b97f984",
+      "discriminatorBase64": "V9HhhFuX+YQ="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdateAuthorities",
+      "snakeCaseName": "update_authorities",
+      "preimage": "global:update_authorities",
+      "tag": "11951505228878701743",
+      "discriminatorHex": "afe48912af46dca5",
+      "discriminatorBase64": "r+SJEq9G3KU="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "LiquidateViaMarketOrder",
+      "snakeCaseName": "liquidate_via_market_order",
+      "preimage": "global:liquidate_via_market_order",
+      "tag": "14303228209837699579",
+      "discriminatorHex": "fbf1b86c46467fc6",
+      "discriminatorBase64": "+/G4bEZGf8Y="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "LiquidationTransfer",
+      "snakeCaseName": "liquidation_transfer",
+      "preimage": "global:liquidation_transfer",
+      "tag": "9208761375312566841",
+      "discriminatorHex": "39dad744ae17cc7f",
+      "discriminatorBase64": "OdrXRK4XzH8="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "CloseMatchedPositions",
+      "snakeCaseName": "close_matched_positions",
+      "preimage": "global:close_matched_positions",
+      "tag": "11604212036134809200",
+      "discriminatorHex": "70ae20785d710aa1",
+      "discriminatorBase64": "cK4geF1xCqE="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "Log",
+      "snakeCaseName": "log",
+      "preimage": "global:log",
+      "tag": "12308286147285935757",
+      "discriminatorHex": "8de6d6f209d1cfaa",
+      "discriminatorBase64": "jebW8gnRz6o="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "InitializeArena",
+      "snakeCaseName": "initialize_arena",
+      "preimage": "global:initialize_arena",
+      "tag": "16580416325036090635",
+      "discriminatorHex": "0b25dd01cd7819e6",
+      "discriminatorBase64": "CyXdAc14GeY="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "RemoveEmptyArena",
+      "snakeCaseName": "remove_empty_arena",
+      "preimage": "global:remove_empty_arena",
+      "tag": "12161370268427764123",
+      "discriminatorHex": "9b41a24fd3ddc5a8",
+      "discriminatorBase64": "m0GiT9Pdxag="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "SetMultiArenaAdditionalNodesWatermark",
+      "snakeCaseName": "set_multi_arena_additional_nodes_watermark",
+      "preimage": "global:set_multi_arena_additional_nodes_watermark",
+      "tag": "10636802067590479084",
+      "discriminatorHex": "ecfcded01f839d93",
+      "discriminatorBase64": "7Pze0B+DnZM="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "SetMultiArenaNumNodesPerArena",
+      "snakeCaseName": "set_multi_arena_num_nodes_per_arena",
+      "preimage": "global:set_multi_arena_num_nodes_per_arena",
+      "tag": "9510621986879026267",
+      "discriminatorHex": "5bb4f1c04e84fc83",
+      "discriminatorBase64": "W7TxwE6E/IM="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "RemoveOracle",
+      "snakeCaseName": "remove_oracle",
+      "preimage": "global:remove_oracle",
+      "tag": "1921395155507830076",
+      "discriminatorHex": "3c5d33c5b62aaa1a",
+      "discriminatorBase64": "PF0zxbYqqho="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "RemoveAllOracles",
+      "snakeCaseName": "remove_all_oracles",
+      "preimage": "global:remove_all_oracles",
+      "tag": "2776396094934565028",
+      "discriminatorHex": "a4405bd289bd8726",
+      "discriminatorBase64": "pEBb0om9hyY="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "CreatePermission",
+      "snakeCaseName": "create_permission",
+      "preimage": "global:create_permission",
+      "tag": "2495464651536062",
+      "discriminatorHex": "beb61aa49cdd0800",
+      "discriminatorBase64": "vrYapJzdCAA="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "SetPermission",
+      "snakeCaseName": "set_permission",
+      "preimage": "global:set_permission",
+      "tag": "612698412544523846",
+      "discriminatorHex": "467e29c2f5bd8008",
+      "discriminatorBase64": "Rn4pwvW9gAg="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "SetPermissionDelegated",
+      "snakeCaseName": "set_permission_delegated",
+      "preimage": "global:set_permission_delegated",
+      "tag": "16546536189599488291",
+      "discriminatorHex": "23193944ff1aa1e5",
+      "discriminatorBase64": "Ixk5RP8aoeU="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "DeactivateSpline",
+      "snakeCaseName": "deactivate_spline",
+      "preimage": "global:deactivate_spline",
+      "tag": "13075856195788930560",
+      "discriminatorHex": "00fe1664eec576b5",
+      "discriminatorBase64": "AP4WZO7FdrU="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "PlaceStopLoss",
+      "snakeCaseName": "place_stop_loss",
+      "preimage": "global:place_stop_loss",
+      "tag": "9917591494928379628",
+      "discriminatorHex": "ec2ea442eb5ca289",
+      "discriminatorBase64": "7C6kQutcook="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "ExecuteStopLoss",
+      "snakeCaseName": "execute_stop_loss",
+      "preimage": "global:execute_stop_loss",
+      "tag": "290466466490907174",
+      "discriminatorHex": "267a5a5ab6f10704",
+      "discriminatorBase64": "JnpaWrbxBwQ="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "CancelStopLoss",
+      "snakeCaseName": "cancel_stop_loss",
+      "preimage": "global:cancel_stop_loss",
+      "tag": "9110510520050043256",
+      "discriminatorHex": "78c90a660c096f7e",
+      "discriminatorBase64": "eMkKZgwJb34="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "ForceCancelStopLoss",
+      "snakeCaseName": "force_cancel_stop_loss",
+      "preimage": "global:force_cancel_stop_loss",
+      "tag": "12399341346827265650",
+      "discriminatorHex": "72e673aa424f13ac",
+      "discriminatorBase64": "cuZzqkJPE6w="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdateFundingParameters",
+      "snakeCaseName": "update_funding_parameters",
+      "preimage": "global:update_funding_parameters",
+      "tag": "13609619089137386341",
+      "discriminatorHex": "65c368687414dfbc",
+      "discriminatorBase64": "ZcNoaHQU37w="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "TransferCollateralChildToParent",
+      "snakeCaseName": "transfer_collateral_child_to_parent",
+      "preimage": "global:transfer_collateral_child_to_parent",
+      "tag": "10085678923530724403",
+      "discriminatorHex": "3364b1738b87f78b",
+      "discriminatorBase64": "M2Sxc4uH94s="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UncrossCrank",
+      "snakeCaseName": "uncross_crank",
+      "preimage": "global:uncross_crank",
+      "tag": "10663444798446139844",
+      "discriminatorHex": "c4795efd8b2afc93",
+      "discriminatorBase64": "xHle/Ysq/JM="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "ClearExpiredOrders",
+      "snakeCaseName": "clear_expired_orders",
+      "preimage": "global:clear_expired_orders",
+      "tag": "6843445663580446592",
+      "discriminatorHex": "805f66a992cdf85e",
+      "discriminatorBase64": "gF9mqZLN+F4="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "SyncParentToChild",
+      "snakeCaseName": "sync_parent_to_child",
+      "preimage": "global:sync_parent_to_child",
+      "tag": "1411359423696832943",
+      "discriminatorHex": "af89d90beb279613",
+      "discriminatorBase64": "r4nZC+snlhM="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "DelegateTrader",
+      "snakeCaseName": "delegate_trader",
+      "preimage": "global:delegate_trader",
+      "tag": "16175341580104803331",
+      "discriminatorHex": "03a4c06a775b7ae0",
+      "discriminatorBase64": "A6TAandbeuA="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "RevokePermission",
+      "snakeCaseName": "revoke_permission",
+      "preimage": "global:revoke_permission",
+      "tag": "16427319968214897268",
+      "discriminatorHex": "745221b57990f9e3",
+      "discriminatorBase64": "dFIhtXmQ+eM="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "CloseMarket",
+      "snakeCaseName": "close_market",
+      "preimage": "global:close_market",
+      "tag": "17616689969847900760",
+      "discriminatorHex": "589af8ba300e7bf4",
+      "discriminatorBase64": "WJr4ujAOe/Q="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "TombstoneMarket",
+      "snakeCaseName": "tombstone_market",
+      "preimage": "global:tombstone_market",
+      "tag": "6967362559696548186",
+      "discriminatorHex": "5ab11158550bb160",
+      "discriminatorBase64": "WrERWFULsWA="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "SettleClosedMarketPosition",
+      "snakeCaseName": "settle_closed_market_position",
+      "preimage": "global:settle_closed_market_position",
+      "tag": "15203606472762973723",
+      "discriminatorHex": "1bdedde9880ffed2",
+      "discriminatorBase64": "G97d6YgP/tI="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "DeleteTombstonedMarket",
+      "snakeCaseName": "delete_tombstoned_market",
+      "preimage": "global:delete_tombstoned_market",
+      "tag": "7364636490916958610",
+      "discriminatorHex": "9211fc74de713466",
+      "discriminatorBase64": "khH8dN5xNGY="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "LogEventLengths",
+      "snakeCaseName": "log_event_lengths",
+      "preimage": "global:log_event_lengths",
+      "tag": "5159233694258825207",
+      "discriminatorHex": "f70786cbb5479947",
+      "discriminatorBase64": "9weGy7VHmUc="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "CreateConditionalOrdersAccount",
+      "snakeCaseName": "create_conditional_orders_account",
+      "preimage": "global:create_conditional_orders_account",
+      "tag": "17886344880921249481",
+      "discriminatorHex": "c906703de70f39f8",
+      "discriminatorBase64": "yQZwPecPOfg="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "PlacePositionConditionalOrder",
+      "snakeCaseName": "place_position_conditional_order",
+      "preimage": "global:place_position_conditional_order",
+      "tag": "10330344179612478529",
+      "discriminatorHex": "416c53814cc15c8f",
+      "discriminatorBase64": "QWxTgUzBXI8="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "CancelConditionalOrder",
+      "snakeCaseName": "cancel_conditional_order",
+      "preimage": "global:cancel_conditional_order",
+      "tag": "13277235091078735954",
+      "discriminatorHex": "52681933f83642b8",
+      "discriminatorBase64": "UmgZM/g2Qrg="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "PlaceAttachedConditionalOrder",
+      "snakeCaseName": "place_attached_conditional_order",
+      "preimage": "global:place_attached_conditional_order",
+      "tag": "8819620683413222699",
+      "discriminatorHex": "2b7588804896657a",
+      "discriminatorBase64": "K3WIgEiWZXo="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "PlaceLimitOrderWithConditionals",
+      "snakeCaseName": "place_limit_order_with_conditionals",
+      "preimage": "global:place_limit_order_with_conditionals",
+      "tag": "6688649089388916063",
+      "discriminatorHex": "5f2d44a8e8dad25c",
+      "discriminatorBase64": "Xy1EqOja0lw="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "ExecuteConditionalOrders",
+      "snakeCaseName": "execute_conditional_orders",
+      "preimage": "global:execute_conditional_orders",
+      "tag": "17055662569507706469",
+      "discriminatorHex": "65d66e00bee2b1ec",
+      "discriminatorBase64": "ZdZuAL7isew="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "PingConditionalOrders",
+      "snakeCaseName": "ping_conditional_orders",
+      "preimage": "global:ping_conditional_orders",
+      "tag": "4637554022916991623",
+      "discriminatorHex": "87aaa622d0e65b40",
+      "discriminatorBase64": "h6qmItDmW0A="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "CancelAllPlusConditional",
+      "snakeCaseName": "cancel_all_plus_conditional",
+      "preimage": "global:cancel_all_plus_conditional",
+      "tag": "7436871591825157518",
+      "discriminatorHex": "8eadee7e4f133567",
+      "discriminatorBase64": "jq3ufk8TNWc="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdateSplinePositionLimitsConfig",
+      "snakeCaseName": "update_spline_position_limits_config",
+      "preimage": "global:update_spline_position_limits_config",
+      "tag": "7713980149913697376",
+      "discriminatorHex": "603c057013900d6b",
+      "discriminatorBase64": "YDwFcBOQDWs="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "CloseTraderAccount",
+      "snakeCaseName": "close_trader_account",
+      "preimage": "global:close_trader_account",
+      "tag": "13505350594044812926",
+      "discriminatorHex": "7ede2695cfa46cbb",
+      "discriminatorBase64": "ft4mlc+kbLs="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "EnableFeature",
+      "snakeCaseName": "enable_feature",
+      "preimage": "global:enable_feature",
+      "tag": "6694341082165942043",
+      "discriminatorHex": "1b17ceffbe13e75c",
+      "discriminatorBase64": "GxfO/74T51w="
+    },
+    {
+      "program": "phoenix-ember",
+      "enumName": "EmberInstruction",
+      "instructionName": "Deposit",
+      "snakeCaseName": "deposit",
+      "preimage": "global:deposit",
+      "tag": "13182846803881894898",
+      "discriminatorHex": "f223c68952e1f2b6",
+      "discriminatorBase64": "8iPGiVLh8rY="
+    },
+    {
+      "program": "phoenix-ember",
+      "enumName": "EmberInstruction",
+      "instructionName": "Withdraw",
+      "snakeCaseName": "withdraw",
+      "preimage": "global:withdraw",
+      "tag": "2495396153584390839",
+      "discriminatorHex": "b712469c946da122",
+      "discriminatorBase64": "txJGnJRtoSI="
+    },
+    {
+      "program": "phoenix-flight",
+      "enumName": "FlightInstruction",
+      "instructionName": "Init",
+      "snakeCaseName": "init",
+      "preimage": "global:init",
+      "tag": "7219264073434610652",
+      "discriminatorHex": "dc3bcfec6cfa2f64",
+      "discriminatorBase64": "3DvP7Gz6L2Q="
+    },
+    {
+      "program": "phoenix-flight",
+      "enumName": "FlightInstruction",
+      "instructionName": "NameSuccessor",
+      "snakeCaseName": "name_successor",
+      "preimage": "global:name_successor",
+      "tag": "17042034277042473888",
+      "discriminatorHex": "a0cb25e5e17781ec",
+      "discriminatorBase64": "oMsl5eF3gew="
+    },
+    {
+      "program": "phoenix-flight",
+      "enumName": "FlightInstruction",
+      "instructionName": "ClaimSuccessor",
+      "snakeCaseName": "claim_successor",
+      "preimage": "global:claim_successor",
+      "tag": "14035701820999127723",
+      "discriminatorHex": "abd2f41d71d4c8c2",
+      "discriminatorBase64": "q9L0HXHUyMI="
+    },
+    {
+      "program": "phoenix-flight",
+      "enumName": "FlightInstruction",
+      "instructionName": "UpdateGlobalState",
+      "snakeCaseName": "update_global_state",
+      "preimage": "global:update_global_state",
+      "tag": "13126908207258612296",
+      "discriminatorHex": "4832cf1477252cb6",
+      "discriminatorBase64": "SDLPFHclLLY="
+    },
+    {
+      "program": "phoenix-flight",
+      "enumName": "FlightInstruction",
+      "instructionName": "UpdateBuilderStatus",
+      "snakeCaseName": "update_builder_status",
+      "preimage": "global:update_builder_status",
+      "tag": "1022317510913408232",
+      "discriminatorHex": "e8bca7155c00300e",
+      "discriminatorBase64": "6LynFVwAMA4="
+    },
+    {
+      "program": "phoenix-flight",
+      "enumName": "FlightInstruction",
+      "instructionName": "RegisterBuilder",
+      "snakeCaseName": "register_builder",
+      "preimage": "global:register_builder",
+      "tag": "12495500289332070253",
+      "discriminatorHex": "6dc76d244fef68ad",
+      "discriminatorBase64": "bcdtJE/vaK0="
+    },
+    {
+      "program": "phoenix-flight",
+      "enumName": "FlightInstruction",
+      "instructionName": "UpdateFee",
+      "snakeCaseName": "update_fee",
+      "preimage": "global:update_fee",
+      "tag": "16017567285996944872",
+      "discriminatorHex": "e8fdc3f794d449de",
+      "discriminatorBase64": "6P3D95TUSd4="
+    },
+    {
+      "program": "phoenix-flight",
+      "enumName": "FlightInstruction",
+      "instructionName": "ProxyInstruction",
+      "snakeCaseName": "proxy_instruction",
+      "preimage": "global:proxy_instruction",
+      "tag": "514264035558464024",
+      "discriminatorHex": "189a38686a082307",
+      "discriminatorBase64": "GJo4aGoIIwc="
+    },
+    {
+      "program": "phoenix-flight",
+      "enumName": "FlightInstruction",
+      "instructionName": "ProxyInstructionWithFeeOverride",
+      "snakeCaseName": "proxy_instruction_with_fee_override",
+      "preimage": "global:proxy_instruction_with_fee_override",
+      "tag": "4946941985050455521",
+      "discriminatorHex": "e1ed657f8611a744",
+      "discriminatorBase64": "4e1lf4YRp0Q="
+    },
+    {
+      "program": "phoenix-hawkeye",
+      "enumName": "HawkeyeInstruction",
+      "instructionName": "ViewMargin",
+      "snakeCaseName": "view_margin",
+      "preimage": "global:view_margin",
+      "tag": "465510050467416754",
+      "discriminatorHex": "b20a7cadecd27506",
+      "discriminatorBase64": "sgp8rezSdQY="
+    },
+    {
+      "program": "phoenix-hawkeye",
+      "enumName": "HawkeyeInstruction",
+      "instructionName": "ViewMarginForAsset",
+      "snakeCaseName": "view_margin_for_asset",
+      "preimage": "global:view_margin_for_asset",
+      "tag": "11190861929103954464",
+      "discriminatorHex": "2012affea1ed4d9b",
+      "discriminatorBase64": "IBKv/qHtTZs="
+    },
+    {
+      "program": "phoenix-hawkeye",
+      "enumName": "HawkeyeInstruction",
+      "instructionName": "ViewLiquidationPrice",
+      "snakeCaseName": "view_liquidation_price",
+      "preimage": "global:view_liquidation_price",
+      "tag": "1460406718985718265",
+      "discriminatorHex": "f9c9bc602c684414",
+      "discriminatorBase64": "+cm8YCxoRBQ="
+    },
+    {
+      "program": "phoenix-hawkeye",
+      "enumName": "HawkeyeInstruction",
+      "instructionName": "ViewBbo",
+      "snakeCaseName": "view_bbo",
+      "preimage": "global:view_bbo",
+      "tag": "5913982032465321783",
+      "discriminatorHex": "375f232d53af1252",
+      "discriminatorBase64": "N18jLVOvElI="
+    },
+    {
+      "program": "phoenix-hawkeye",
+      "enumName": "HawkeyeInstruction",
+      "instructionName": "ViewFunding",
+      "snakeCaseName": "view_funding",
+      "preimage": "global:view_funding",
+      "tag": "13810104614354031554",
+      "discriminatorHex": "c2138e49fa58a7bf",
+      "discriminatorBase64": "whOOSfpYp78="
+    }
+  ]
+}

@@ -294,6 +294,35 @@ export {
 } from "../core/ixBuilders/OnboardTraderDelegated";
 
 export {
+  buildDeactivateSplineIx,
+  buildRegisterSplineIx,
+  buildUpdateSplineParametersWithOrderingIx,
+  buildUpdateSplinePositionLimitsConfigIx,
+  buildUpdateSplinePriceIx,
+  buildUpdateSplinePriceWithOrderingIx,
+  MAX_SPLINE_REGIONS,
+  type DeactivateSplineAccounts,
+  type DeactivateSplineIx,
+  type DeactivateSplineParams,
+  type PositionSizeLimit,
+  type PositionSizeLimits,
+  type RegisterSplineAccounts,
+  type RegisterSplineIx,
+  type RegisterSplineParams,
+  type SplineUpdateAccountMetas,
+  type SplineUpdateAccounts,
+  type TickRegionParams,
+  type UpdateSplineParametersParamsWithOrdering,
+  type UpdateSplineParametersWithOrderingIx,
+  type UpdateSplinePositionLimitsConfigIx,
+  type UpdateSplinePositionLimitsConfigParams,
+  type UpdateSplinePriceIx,
+  type UpdateSplinePriceParams,
+  type UpdateSplinePriceParamsWithOrdering,
+  type UpdateSplinePriceWithOrderingIx,
+} from "../core/ixBuilders/Spline";
+
+export {
   buildSyncParentToChildIx,
   getSyncParentToChildCodec,
   getSyncParentToChildDecoder,

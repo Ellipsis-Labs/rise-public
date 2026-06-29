@@ -10,7 +10,7 @@ from exchange metadata for you.
 
 ### 01-http-client.ts
 
-Minimal HTTP client setup mirroring `rise/rust/examples/http_client.rs`.
+Minimal HTTP client setup mirroring `rise/rust/sdk/examples/http_client.rs`.
 
 ```bash
 bun examples/01-http-client.ts [TRADER_PUBKEY]
@@ -18,7 +18,7 @@ bun examples/01-http-client.ts [TRADER_PUBKEY]
 
 ### 02-ws-fills.ts
 
-Minimal WebSocket setup mirroring `rise/rust/examples/subscribe_trades.rs`.
+Minimal WebSocket setup mirroring `rise/rust/sdk/examples/subscribe_trades.rs`.
 
 ```bash
 bun examples/02-ws-fills.ts [SYMBOL]
@@ -67,7 +67,7 @@ submitting live transactions.
 Configures `createPhoenixClient(...)` with a builder authority and builds a
 Flight-routed market-order instruction so builder fees would be credited to the
 configured builder trader account. This example only builds the instruction; the
-runnable Rust counterpart in `rise/rust/examples/send_flight_market_order.rs`
+runnable Rust counterpart in `rise/rust/sdk/examples/send_flight_market_order.rs`
 also submits it.
 
 ```bash
