@@ -3,6 +3,6 @@ export enum MarginType {
   Cross = "cross",
 }
 
-export const toMaxPositions = (marginType: MarginType): bigint /* u64 */ => {
-  return marginType === MarginType.Cross ? 128n : 1n;
+export const toMaxPositions = (marginType: MarginType): number => {
+  return marginType === MarginType.Cross ? 128 : 1;
 };

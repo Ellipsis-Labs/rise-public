@@ -55,6 +55,7 @@ import {
 export const MAX_NUMBER_OF_PERP_ASSETS = 1024;
 export const ORDERBOOK_CAPACITY = 8192;
 export const CONDITIONAL_ORDER_BITS_LEN = 24;
+const TRADER_POSITION_ENTRY_ASSET_ID_BOUND = 0xff000000;
 
 export interface SequenceNumber {
   sequenceNumber: bigint;
@@ -647,6 +648,46 @@ export const getTraderPositionDecoder = (): Decoder<TraderPosition> =>
     ["positionSequenceNumber", getU8Decoder()],
     ["accumulatedFundingForActivePosition", getSignedI56Decoder()],
   ]);
+
+export const getTraderPositionEntriesDecoder = (): Decoder<
+  ShortEntries<bigint, TraderPosition>
+> =>
+  transformDecoder(
+    getStructDecoder([
+      ["len", getU64Decoder()],
+      ["capacity", getU64Decoder()],
+      ["data", getBytesDecoder()],
+    ]),
+    (shortMap): ShortEntries<bigint, TraderPosition> => {
+      const entries: Array<{ key: bigint; value: TraderPosition }> = [];
+      const assetIdDecoder = getU64Decoder();
+      const positionDecoder = getTraderPositionDecoder();
+      let offset = 0;
+      const buffer = new Uint8Array(
+        shortMap.data.buffer,
+        shortMap.data.byteOffset,
+        shortMap.data.byteLength
+      );
+
+      for (let i = 0; i < Number(shortMap.len); i++) {
+        const [assetId, afterAssetId] = assetIdDecoder.read(buffer, offset);
+        // TODO: handle discriminant (upper 4 bytes) if we had, currently it's all 0
+        const [value, afterValue] = positionDecoder.read(buffer, afterAssetId);
+        if (assetId < TRADER_POSITION_ENTRY_ASSET_ID_BOUND) {
+          entries.push({ key: BigInt(assetId), value });
+        } else {
+          // TODO: handle other kind of deserialization if we had
+        }
+        offset = afterValue;
+      }
+
+      return {
+        len: BigInt(entries.length),
+        capacity: shortMap.capacity,
+        entries,
+      };
+    }
+  );
 
 export const getTicksAtSlotDecoder = (): Decoder<TicksAtSlot> =>
   getStructDecoder([

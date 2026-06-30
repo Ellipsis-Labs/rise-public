@@ -12,7 +12,8 @@ export interface Trader {
   authority: Authority;
   state: TraderState;
   withdrawQueueNode: number | null;
-  maxPositions: bigint;
+  maxPositions: number;
+  traderPreferenceBits: number;
   positionAuthority: Authority;
   numMarketsWithSplines: number;
   traderPdaIndex: number;

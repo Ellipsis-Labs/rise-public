@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.58 - 2026-06-30
+
+Source Phoenix commit: `1fdded8e2b1c9104c74a89a0f8ce79e4ad9a9873`
+
+### Summary
+
+- `Trader.maxPositions` and `SubaccountInfo.maxPositions` now decode as `number` instead of `bigint`, matching the on-chain layout change from a `u64` field to a `u32` field.
+- `Trader` gains a new `traderPreferenceBits: number` field occupying the upper 32 bits that were previously part of `maxPositions`.
+- `toMaxPositions()` now returns `number` instead of `bigint` (cross → `128`, isolated → `1`).
+- `Trader.positions` entries are now decoded with a type-aware decoder that silently skips non-position entries (asset IDs ≥ `0xff000000`); `positions.len` reflects only decoded position entries rather than the raw stored count.
+
+### Breaking Changes
+
+- **`Trader.maxPositions`: `bigint` → `number`** — downstream code comparing or storing this field as `bigint` will fail TypeScript compilation; replace `128n`/`1n` literals with `128`/`1`.
+- **`SubaccountInfo.maxPositions`: `bigint` → `number`** — same migration needed for any code that constructs or destructures `SubaccountInfo`.
+- **`toMaxPositions()` return type: `bigint` → `number`** — callers passing the result to an instruction parameter expecting `bigint` must now wrap it with `BigInt(toMaxPositions(...))`.
+
+### Consumer Notes
+
+- Add `traderPreferenceBits: number` to any local types that mirror or extend `Trader`; it will be `0` for all existing accounts until the on-chain program populates it.
+- If your code compares `positions.len` against the number of decoded entries, note that the two values can now differ when the position map contains header-extension slots; iterate `positions.entries` rather than relying on `positions.len` for the count.
+
 ## v0.4.57 - 2026-06-29
 
 Source Phoenix commit: `d087e01780d6f8cfadb10005c6607f7de59d3de2`
