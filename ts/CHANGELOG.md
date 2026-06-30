@@ -3,6 +3,22 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.59 - 2026-06-30
+
+Source Phoenix commit: `e6a5f77bd8cbda7bddfa2e8687408ce87237aa0f`
+
+### Summary
+
+- Routine sync from Phoenix `0.4.58` to `0.4.59`. The synced diff only touches the package version bump and internal localnet test-harness/test files (`ts/tests/test-harness/localnet.ts`, `ts/tests/sdk-localnet-flows.test.ts`) — no changes to published package source were included.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- None identified in the synced diff.
+
 ## v0.4.58 - 2026-06-30
 
 Source Phoenix commit: `1fdded8e2b1c9104c74a89a0f8ce79e4ad9a9873`

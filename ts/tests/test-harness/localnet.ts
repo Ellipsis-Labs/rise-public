@@ -111,15 +111,14 @@ export interface SdkLocalnetInstructionExecution {
   metadata: TransactionMetadata;
 }
 
-export interface SdkLocalnetLimitOrderListState {
-  size: number;
+export interface SdkLocalnetLimitOrderHeadState {
   head: number | null;
 }
 
 export interface SdkLocalnetActiveTraderPositionState {
   position: TraderPosition;
-  askOrders: SdkLocalnetLimitOrderListState;
-  bidOrders: SdkLocalnetLimitOrderListState;
+  askOrders: SdkLocalnetLimitOrderHeadState;
+  bidOrders: SdkLocalnetLimitOrderHeadState;
   totalNonReduceOnlyAskBaseLots: bigint;
   totalNonReduceOnlyBidBaseLots: bigint;
 }
@@ -822,16 +821,14 @@ const decodeSdkLocalnetActiveTraderPositionState = (
     bytes,
     offset
   );
-  const [askOrders, afterAskOrders] = readLimitOrderListState(
-    bytes,
-    afterPosition
+  const askOrders = readLimitOrderHead(bytes, afterPosition + 4);
+  const bidOrders = readLimitOrderHead(bytes, afterPosition + 12);
+  const totalNonReduceOnlyAskBaseLots = BigInt(
+    readU32LE(bytes, afterPosition + 16)
   );
-  const [bidOrders, afterBidOrders] = readLimitOrderListState(
-    bytes,
-    afterAskOrders
+  const totalNonReduceOnlyBidBaseLots = BigInt(
+    readU32LE(bytes, afterPosition + 24)
   );
-  const totalNonReduceOnlyAskBaseLots = readU64LE(bytes, afterBidOrders);
-  const totalNonReduceOnlyBidBaseLots = readU64LE(bytes, afterBidOrders + 8);
 
   return {
     position,
@@ -842,16 +839,12 @@ const decodeSdkLocalnetActiveTraderPositionState = (
   };
 };
 
-const readLimitOrderListState = (
+const readLimitOrderHead = (
   bytes: Uint8Array,
   offset: number
-): [SdkLocalnetLimitOrderListState, number] => [
-  {
-    size: readU32LE(bytes, offset),
-    head: readOptionalU32LE(bytes, offset + 4),
-  },
-  offset + 8,
-];
+): SdkLocalnetLimitOrderHeadState => ({
+  head: readOptionalU32LE(bytes, offset),
+});
 
 const compareTraderPositionId = (
   bytes: Uint8Array,
