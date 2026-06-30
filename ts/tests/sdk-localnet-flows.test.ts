@@ -534,7 +534,15 @@ describe("SDK localnet common flows", () => {
         "limit order"
       );
       expect(position.source).toBe("activeTraderBuffer");
-      expect(position.activePositionState?.bidOrders.size).toBeGreaterThan(0);
+      if (!position.activePositionState) {
+        throw new Error(
+          "Expected active trader position state for limit order"
+        );
+      }
+      expect(position.activePositionState.bidOrders.head).not.toBeNull();
+      expect(
+        position.activePositionState.totalNonReduceOnlyBidBaseLots
+      ).toBeGreaterThan(0n);
     },
     TEST_TIMEOUT_MS
   );
