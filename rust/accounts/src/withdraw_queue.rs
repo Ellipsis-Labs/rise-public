@@ -1,6 +1,7 @@
 //! Borrowed views for Phoenix withdraw queue accounts.
 
 use bytemuck::{Pod, Zeroable};
+use phoenix_rise_math::QuoteLots;
 #[cfg(feature = "serde")]
 use serde::ser::{SerializeSeq, SerializeStruct};
 
@@ -124,25 +125,25 @@ impl WithdrawTransitionReason {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Pod, Zeroable)]
 pub struct WithdrawThrottle {
-    max_budget: u64,
-    remaining_budget: u64,
-    replenish_amount_per_slot: u64,
+    max_budget: QuoteLots,
+    remaining_budget: QuoteLots,
+    replenish_amount_per_slot: QuoteLots,
     last_update_slot: u64,
 }
 
 impl WithdrawThrottle {
     #[inline(always)]
-    pub const fn max_budget(&self) -> u64 {
+    pub const fn max_budget(&self) -> QuoteLots {
         self.max_budget
     }
 
     #[inline(always)]
-    pub const fn remaining_budget(&self) -> u64 {
+    pub const fn remaining_budget(&self) -> QuoteLots {
         self.remaining_budget
     }
 
     #[inline(always)]
-    pub const fn replenish_amount_per_slot(&self) -> u64 {
+    pub const fn replenish_amount_per_slot(&self) -> QuoteLots {
         self.replenish_amount_per_slot
     }
 
@@ -158,9 +159,9 @@ pub struct WithdrawQueueHeader {
     discriminant: u64,
     sequence_number: SequenceNumber,
     withdraw_throttle: WithdrawThrottle,
-    total_queued_amount: u64,
-    withdrawal_fee: u64,
-    enqueueing_fee: u64,
+    total_queued_amount: QuoteLots,
+    withdrawal_fee: QuoteLots,
+    enqueueing_fee: QuoteLots,
     _reserved: [u64; 5],
 }
 
@@ -190,17 +191,17 @@ impl WithdrawQueueHeader {
     }
 
     #[inline(always)]
-    pub const fn total_queued_amount(&self) -> u64 {
+    pub const fn total_queued_amount(&self) -> QuoteLots {
         self.total_queued_amount
     }
 
     #[inline(always)]
-    pub const fn withdrawal_fee(&self) -> u64 {
+    pub const fn withdrawal_fee(&self) -> QuoteLots {
         self.withdrawal_fee
     }
 
     #[inline(always)]
-    pub const fn enqueueing_fee(&self) -> u64 {
+    pub const fn enqueueing_fee(&self) -> QuoteLots {
         self.enqueueing_fee
     }
 }
@@ -210,7 +211,7 @@ impl WithdrawQueueHeader {
 pub struct WithdrawRequest {
     trader_key: [u8; 32],
     wallet_key: [u8; 32],
-    amount: u64,
+    amount: QuoteLots,
     submission_slot: u64,
     last_update_slot: u64,
     transition_count: u16,
@@ -231,7 +232,7 @@ impl WithdrawRequest {
     }
 
     #[inline(always)]
-    pub const fn amount(&self) -> u64 {
+    pub const fn amount(&self) -> QuoteLots {
         self.amount
     }
 

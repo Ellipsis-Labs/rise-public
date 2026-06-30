@@ -1,6 +1,7 @@
 //! Borrowed views for Phoenix conditional order accounts.
 
 use bytemuck::{Pod, Zeroable};
+use phoenix_rise_math::{BaseLots, Ticks};
 #[cfg(feature = "serde")]
 use serde::ser::{SerializeSeq, SerializeStruct};
 
@@ -99,13 +100,13 @@ impl ConditionalOrderHeader {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct OptionalFifoOrderId {
-    price_in_ticks: u64,
+    price_in_ticks: Ticks,
     order_sequence_number: u64,
 }
 
 impl OptionalFifoOrderId {
     #[inline(always)]
-    pub const fn price_in_ticks(&self) -> u64 {
+    pub const fn price_in_ticks(&self) -> Ticks {
         self.price_in_ticks
     }
 
@@ -116,7 +117,7 @@ impl OptionalFifoOrderId {
 
     #[inline(always)]
     pub const fn is_none(&self) -> bool {
-        self.price_in_ticks == 0 && self.order_sequence_number == 0
+        self.price_in_ticks.as_inner() == 0 && self.order_sequence_number == 0
     }
 
     #[inline(always)]
@@ -161,8 +162,8 @@ impl TriggerOrderFlags {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct TriggerOrder {
-    trigger_price: u64,
-    execution_price: u64,
+    trigger_price: Ticks,
+    execution_price: Ticks,
     position_sequence_number: u8,
     flags: TriggerOrderFlags,
     _padding: [u8; 6],
@@ -170,12 +171,12 @@ pub struct TriggerOrder {
 
 impl TriggerOrder {
     #[inline(always)]
-    pub const fn trigger_price(&self) -> u64 {
+    pub const fn trigger_price(&self) -> Ticks {
         self.trigger_price
     }
 
     #[inline(always)]
-    pub const fn execution_price(&self) -> u64 {
+    pub const fn execution_price(&self) -> Ticks {
         self.execution_price
     }
 
@@ -218,9 +219,9 @@ impl ConditionalOrderFlags {
 pub struct ConditionalOrder {
     sequence_number: u64,
     order_id: OptionalFifoOrderId,
-    max_size: u64,
-    fillable_size: u64,
-    filled_size: u64,
+    max_size: BaseLots,
+    fillable_size: BaseLots,
+    filled_size: BaseLots,
     slot: u64,
     asset_id: u32,
     flags: ConditionalOrderFlags,
@@ -242,17 +243,17 @@ impl ConditionalOrder {
     }
 
     #[inline(always)]
-    pub const fn max_size(&self) -> u64 {
+    pub const fn max_size(&self) -> BaseLots {
         self.max_size
     }
 
     #[inline(always)]
-    pub const fn fillable_size(&self) -> u64 {
+    pub const fn fillable_size(&self) -> BaseLots {
         self.fillable_size
     }
 
     #[inline(always)]
-    pub const fn filled_size(&self) -> u64 {
+    pub const fn filled_size(&self) -> BaseLots {
         self.filled_size
     }
 

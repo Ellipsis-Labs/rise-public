@@ -1,7 +1,13 @@
 use std::collections::BTreeMap;
 
-use phoenix_rise_math::{BaseLots, Ticks};
-use serde::{Serialize, Serializer};
+use phoenix_rise_math::{
+    BaseLots, BaseLotsPerTick, BasisPoints, Constant, FundingRateUnitInSeconds,
+    QuoteLotsPerBaseLotPerTick, SequenceNumberU8, SignedBaseLots, SignedQuoteLots,
+    SignedQuoteLotsI56, SignedQuoteLotsI56Error, SignedQuoteLotsPerBaseLot,
+    SignedQuoteLotsPerBaseLotUpcasted, SignedTicks, Ticks, TraderPosition as MathTraderPosition,
+    UPnlRiskFactor,
+};
+use serde::Serialize;
 use solana_pubkey::Pubkey;
 
 use super::AccountDeserializeError;
@@ -15,13 +21,6 @@ pub(crate) const SPLINE_REGION_CAPACITY: usize = 10;
 pub const GTC_LIFESPAN: u64 = u64::MAX;
 
 const MAX_POSITION_SIZE_ACTIVE_FLAG: u32 = 1 << 0;
-
-fn serialize_i128_as_string<S>(value: &i128, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_str(&value.to_string())
-}
 
 #[derive(Debug, Clone)]
 pub(crate) struct Reader<'a> {
@@ -163,7 +162,7 @@ pub struct ShortEntries<K, V> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct TraderState {
-    pub quote_lot_collateral: i64,
+    pub quote_lot_collateral: SignedQuoteLots,
     pub flags: u32,
     pub global_position_sequence_number: u8,
     pub maker_fee_override_multiplier: i8,
@@ -172,17 +171,39 @@ pub struct TraderState {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct TraderPosition {
-    pub base_lot_position: i64,
-    pub virtual_quote_lot_position: i64,
-    pub cumulative_funding_snapshot: i64,
+    pub base_lot_position: SignedBaseLots,
+    pub virtual_quote_lot_position: SignedQuoteLots,
+    pub cumulative_funding_snapshot: SignedQuoteLotsPerBaseLot,
     pub position_sequence_number: u8,
-    pub accumulated_funding_for_active_position: i64,
+    pub accumulated_funding_for_active_position: SignedQuoteLots,
+}
+
+impl TraderPosition {
+    pub fn try_to_math_position(&self) -> Result<MathTraderPosition, SignedQuoteLotsI56Error> {
+        Ok(MathTraderPosition {
+            base_lot_position: self.base_lot_position,
+            virtual_quote_lot_position: self.virtual_quote_lot_position,
+            cumulative_funding_snapshot: self.cumulative_funding_snapshot,
+            position_sequence_number: SequenceNumberU8::from(self.position_sequence_number),
+            accumulated_funding_for_active_position: SignedQuoteLotsI56::try_from(
+                self.accumulated_funding_for_active_position,
+            )?,
+        })
+    }
+}
+
+impl TryFrom<TraderPosition> for MathTraderPosition {
+    type Error = SignedQuoteLotsI56Error;
+
+    fn try_from(value: TraderPosition) -> Result<Self, Self::Error> {
+        value.try_to_math_position()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct TicksAtSlot {
     pub slot: u64,
-    pub ticks: u64,
+    pub ticks: Ticks,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -221,7 +242,7 @@ pub struct SpotPriceComponent {
     pub weight: u64,
     pub stale_threshold: u64,
     pub slot: u64,
-    pub mid_spot_diff_ema_ticks: i64,
+    pub mid_spot_diff_ema_ticks: SignedTicks,
     pub mid_spot_diff_ema_ticks_dust: i64,
     pub ema_period_slots: u64,
     pub ema_diff_radius: u64,
@@ -249,54 +270,52 @@ pub struct PriceComponent {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct StaticMarketParams {
     pub market_account: Pubkey,
-    pub tick_size: u64,
+    pub tick_size: QuoteLotsPerBaseLotPerTick,
     pub asset_id: u32,
     pub base_lot_decimals: i8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct LeverageTier {
-    pub upper_bound_size: u64,
-    pub max_leverage: u64,
-    pub limit_order_risk_factor: u64,
+    pub upper_bound_size: BaseLots,
+    pub max_leverage: Constant,
+    pub limit_order_risk_factor: BasisPoints,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct TransferFeeTier {
-    pub position_size_limit: u64,
+    pub position_size_limit: BaseLots,
     pub fee_rate: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RiskParams {
     pub leverage_tiers: Vec<LeverageTier>,
-    pub upnl_risk_factor: u64,
-    pub max_liquidation_size: u64,
+    pub upnl_risk_factor: UPnlRiskFactor,
+    pub max_liquidation_size: BaseLots,
     pub transfer_fee_tiers: Vec<TransferFeeTier>,
     pub risk_factors: Vec<u16>,
     pub cancel_order_risk_factor: u16,
-    pub upnl_risk_factor_for_withdrawals: u64,
+    pub upnl_risk_factor_for_withdrawals: UPnlRiskFactor,
     pub isolated_only: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct FundingAccumulator {
-    #[serde(serialize_with = "serialize_i128_as_string")]
-    pub acc: i128,
-    #[serde(serialize_with = "serialize_i128_as_string")]
-    pub last_diff: i128,
-    pub cumulative_funding_rate: i64,
-    pub start_interval_timestamp: u64,
-    pub last_funding_update_timestamp: u64,
-    pub funding_interval_seconds: u64,
-    pub funding_period_seconds: u64,
-    pub max_funding_rate: i64,
+    pub acc: SignedQuoteLotsPerBaseLotUpcasted,
+    pub last_diff: SignedQuoteLotsPerBaseLotUpcasted,
+    pub cumulative_funding_rate: SignedQuoteLotsPerBaseLot,
+    pub start_interval_timestamp: FundingRateUnitInSeconds,
+    pub last_funding_update_timestamp: FundingRateUnitInSeconds,
+    pub funding_interval_seconds: FundingRateUnitInSeconds,
+    pub funding_period_seconds: FundingRateUnitInSeconds,
+    pub max_funding_rate: SignedQuoteLotsPerBaseLot,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct OpenInterestParams {
-    pub open_interest: u64,
-    pub open_interest_cap: u64,
+    pub open_interest: BaseLots,
+    pub open_interest_cap: BaseLots,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -315,10 +334,10 @@ pub struct PerpAssetMetadata {
     pub funding_accumulator: FundingAccumulator,
     pub open_interest_params: OpenInterestParams,
     pub asset_flags: AssetFlags,
-    pub commodities_after_hours_radius: u64,
-    pub last_known_index_price: Option<u64>,
+    pub commodities_after_hours_radius: Ticks,
+    pub last_known_index_price: Option<Ticks>,
     pub last_index_expiry_timestamp: u64,
-    pub commodities_after_hours_radius_bps: u16,
+    pub commodities_after_hours_radius_bps: BasisPoints,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -335,13 +354,13 @@ pub struct TraderPositionEntry {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct TickRegion {
-    pub start_offset: u64,
-    pub end_offset: u64,
-    pub density: u64,
-    pub top_level_hidden_take_size: u64,
-    pub total_size: u64,
-    pub filled_size: u64,
-    pub hidden_filled_size: u64,
+    pub start_offset: Ticks,
+    pub end_offset: Ticks,
+    pub density: BaseLotsPerTick,
+    pub top_level_hidden_take_size: BaseLotsPerTick,
+    pub total_size: BaseLots,
+    pub filled_size: BaseLots,
+    pub hidden_filled_size: BaseLots,
     pub lifespan: u64,
 }
 
@@ -349,13 +368,13 @@ pub struct TickRegion {
 pub struct Spline {
     pub trader: Pubkey,
     pub is_active: bool,
-    pub mid_price: u64,
+    pub mid_price: Ticks,
     pub sequence_number: SequenceNumber,
     pub user_update_slot: u64,
     pub bid_offset: u64,
     pub ask_offset: u64,
-    pub bid_filled_amount: u64,
-    pub ask_filled_amount: u64,
+    pub bid_filled_amount: BaseLots,
+    pub ask_filled_amount: BaseLots,
     pub bid_num_regions: u64,
     pub ask_num_regions: u64,
     pub bid_regions: Vec<TickRegion>,
@@ -363,9 +382,9 @@ pub struct Spline {
     pub user_price_sequence_number: u64,
     pub user_parameter_sequence_number: u64,
     pub flags: u32,
-    pub leverage_decrease_in_bps: u64,
-    pub max_position_size_long: u64,
-    pub max_position_size_short: u64,
+    pub leverage_decrease_in_bps: BasisPoints,
+    pub max_position_size_long: BaseLots,
+    pub max_position_size_short: BaseLots,
     pub has_max_position_size: bool,
 }
 
@@ -425,7 +444,7 @@ impl SplineLiquidity {
 pub struct SplineLiquidityRegion {
     pub start_price_ticks: Ticks,
     pub end_price_ticks: Ticks,
-    pub density_lots_per_tick: BaseLots,
+    pub density_lots_per_tick: BaseLotsPerTick,
     pub total_size_lots: BaseLots,
     pub filled_size_lots: BaseLots,
 }
@@ -449,17 +468,17 @@ impl TickRegion {
     }
 
     pub fn unfilled_size(&self) -> BaseLots {
-        BaseLots::new(self.total_size.saturating_sub(self.filled_size))
+        self.total_size.saturating_sub(self.filled_size)
     }
 
     pub fn is_empty(&self) -> bool {
-        self.density == 0
+        self.density == BaseLotsPerTick::ZERO
     }
 }
 
 impl Spline {
     pub fn is_enabled(&self) -> bool {
-        self.is_active && self.mid_price != 0
+        self.is_active && self.mid_price != Ticks::ZERO
     }
 
     pub fn active_bid_regions(&self) -> &[TickRegion] {
@@ -492,8 +511,8 @@ impl Spline {
 
     pub fn max_position_size(&self, side: SplineSide) -> Option<BaseLots> {
         self.has_max_position_size.then(|| match side {
-            SplineSide::Bid => BaseLots::new(self.max_position_size_long),
-            SplineSide::Ask => BaseLots::new(self.max_position_size_short),
+            SplineSide::Bid => self.max_position_size_long,
+            SplineSide::Ask => self.max_position_size_short,
         })
     }
 
@@ -513,10 +532,10 @@ impl Spline {
         liquidity_at_slot_from_parts(SplineLiquidityParts {
             trader: self.trader,
             enabled: self.is_enabled(),
-            mid_price: Ticks::new(self.mid_price),
+            mid_price: self.mid_price,
             user_update_slot: self.user_update_slot,
-            bid_filled_amount: BaseLots::new(self.bid_filled_amount),
-            ask_filled_amount: BaseLots::new(self.ask_filled_amount),
+            bid_filled_amount: self.bid_filled_amount,
+            ask_filled_amount: self.ask_filled_amount,
             bid_regions: self.active_bid_regions(),
             ask_regions: self.active_ask_regions(),
             current_slot,
@@ -645,24 +664,25 @@ fn liquidity_levels_from_regions(
             continue;
         }
 
-        let density = BaseLots::new(region.density);
-        if density == BaseLots::ZERO {
+        let density = region.density;
+        if density == BaseLotsPerTick::ZERO {
             continue;
         }
+        let lots_per_tick = density * Ticks::ONE;
 
-        let mut fills_to_consume = BaseLots::new(region.filled_size);
-        let mut current_tick = Ticks::new(region.start_offset);
-        let end_tick = Ticks::new(region.end_offset);
+        let mut fills_to_consume = region.filled_size;
+        let mut current_tick = region.start_offset;
+        let end_tick = region.end_offset;
 
         while current_tick < end_tick && lots_remaining > BaseLots::ZERO {
-            if fills_to_consume >= density {
-                fills_to_consume = fills_to_consume.saturating_sub(density);
+            if fills_to_consume >= lots_per_tick {
+                fills_to_consume = fills_to_consume.saturating_sub(lots_per_tick);
                 current_tick = current_tick.saturating_add(Ticks::ONE);
                 continue;
             }
 
             let filled_at_tick = fills_to_consume;
-            let available_at_tick = density.saturating_sub(filled_at_tick);
+            let available_at_tick = lots_per_tick.saturating_sub(filled_at_tick);
             fills_to_consume = BaseLots::ZERO;
 
             if available_at_tick > BaseLots::ZERO {
@@ -693,7 +713,7 @@ fn liquidity_regions_from_price_levels(
     levels: BTreeMap<Ticks, SplineLiquidityLevel>,
 ) -> Vec<SplineLiquidityRegion> {
     let mut regions = Vec::new();
-    let mut current: Option<(Ticks, Ticks, BaseLots, BaseLots, BaseLots, BaseLots)> = None;
+    let mut current: Option<(Ticks, Ticks, BaseLotsPerTick, BaseLots, BaseLots, BaseLots)> = None;
 
     for (price, level) in levels {
         if level.available_lots == BaseLots::ZERO {
@@ -704,7 +724,7 @@ fn liquidity_regions_from_price_levels(
         match current {
             Some((start, end, density, total_size, filled_size, filled_lots_at_tick))
                 if price == end.saturating_add(Ticks::ONE)
-                    && total_lots_at_tick == density
+                    && total_lots_at_tick == density * Ticks::ONE
                     && level.filled_lots == filled_lots_at_tick =>
             {
                 current = Some((
@@ -728,7 +748,7 @@ fn liquidity_regions_from_price_levels(
                 current = Some((
                     price,
                     price,
-                    total_lots_at_tick,
+                    BaseLotsPerTick::new(total_lots_at_tick.as_inner()),
                     total_lots_at_tick,
                     level.filled_lots,
                     level.filled_lots,
@@ -738,7 +758,7 @@ fn liquidity_regions_from_price_levels(
                 current = Some((
                     price,
                     price,
-                    total_lots_at_tick,
+                    BaseLotsPerTick::new(total_lots_at_tick.as_inner()),
                     total_lots_at_tick,
                     level.filled_lots,
                     level.filled_lots,
@@ -765,7 +785,7 @@ fn build_liquidity_region(
     side: SplineSide,
     start_tick: Ticks,
     end_tick: Ticks,
-    density_lots_per_tick: BaseLots,
+    density_lots_per_tick: BaseLotsPerTick,
     total_size_lots: BaseLots,
     filled_size_lots: BaseLots,
 ) -> SplineLiquidityRegion {
@@ -831,7 +851,7 @@ pub struct OrderbookRestingOrder {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct FifoOrderId {
-    pub price_in_ticks: u64,
+    pub price_in_ticks: Ticks,
     pub order_sequence_number: u64,
 }
 
@@ -1143,7 +1163,7 @@ impl From<borrowed_perp::PerpAssetMetadata> for PerpAssetMetadata {
             commodities_after_hours_radius: value.commodities_after_hours_radius(),
             last_known_index_price: value.last_known_index_price(),
             last_index_expiry_timestamp: value.last_index_expiry_timestamp(),
-            commodities_after_hours_radius_bps: value.commodities_after_hours_radius_bps() as u16,
+            commodities_after_hours_radius_bps: value.commodities_after_hours_radius_bps(),
         }
     }
 }
@@ -1161,13 +1181,13 @@ pub(crate) fn read_spline(reader: &mut Reader<'_>) -> Result<Spline, AccountDese
     let trader = reader.read_pubkey()?;
     let is_active = reader.read_u8()? != 0;
     reader.skip(7)?;
-    let mid_price = reader.read_u64()?;
+    let mid_price = Ticks::new(reader.read_u64()?);
     let sequence_number = read_sequence_number(reader)?;
     let user_update_slot = reader.read_u64()?;
     let bid_offset = reader.read_u64()?;
     let ask_offset = reader.read_u64()?;
-    let bid_filled_amount = reader.read_u64()?;
-    let ask_filled_amount = reader.read_u64()?;
+    let bid_filled_amount = BaseLots::new(reader.read_u64()?);
+    let ask_filled_amount = BaseLots::new(reader.read_u64()?);
     let bid_num_regions = reader.read_u64()?;
     let ask_num_regions = reader.read_u64()?;
     let bid_regions = read_fixed_vec(reader, SPLINE_REGION_CAPACITY, read_tick_region)?;
@@ -1175,9 +1195,9 @@ pub(crate) fn read_spline(reader: &mut Reader<'_>) -> Result<Spline, AccountDese
     let user_price_sequence_number = reader.read_u64()?;
     let user_parameter_sequence_number = reader.read_u64()?;
     let flags = reader.read_u32()?;
-    let leverage_decrease_in_bps = u64::from(reader.read_u32()?);
-    let max_position_size_long = u64::from(reader.read_u32()?);
-    let max_position_size_short = u64::from(reader.read_u32()?);
+    let leverage_decrease_in_bps = BasisPoints::new(u64::from(reader.read_u32()?));
+    let max_position_size_long = BaseLots::new(u64::from(reader.read_u32()?));
+    let max_position_size_short = BaseLots::new(u64::from(reader.read_u32()?));
     reader.skip(8 * 28)?;
     Ok(Spline {
         trader,
@@ -1220,7 +1240,7 @@ pub(crate) fn read_fifo_order_id(
     reader: &mut Reader<'_>,
 ) -> Result<FifoOrderId, AccountDeserializeError> {
     Ok(FifoOrderId {
-        price_in_ticks: reader.read_u64()?,
+        price_in_ticks: Ticks::new(reader.read_u64()?),
         order_sequence_number: reader.read_u64()?,
     })
 }
@@ -1286,13 +1306,13 @@ fn none_if_zero_u8(value: u8) -> Option<u8> {
 
 fn read_tick_region(reader: &mut Reader<'_>) -> Result<TickRegion, AccountDeserializeError> {
     Ok(TickRegion {
-        start_offset: reader.read_u64()?,
-        end_offset: reader.read_u64()?,
-        density: u64::from(reader.read_u32()?),
-        top_level_hidden_take_size: u64::from(reader.read_u32()?),
-        total_size: reader.read_u64()?,
-        filled_size: u64::from(reader.read_u32()?),
-        hidden_filled_size: u64::from(reader.read_u32()?),
+        start_offset: Ticks::new(reader.read_u64()?),
+        end_offset: Ticks::new(reader.read_u64()?),
+        density: BaseLotsPerTick::new(u64::from(reader.read_u32()?)),
+        top_level_hidden_take_size: BaseLotsPerTick::new(u64::from(reader.read_u32()?)),
+        total_size: BaseLots::new(reader.read_u64()?),
+        filled_size: BaseLots::new(u64::from(reader.read_u32()?)),
+        hidden_filled_size: BaseLots::new(u64::from(reader.read_u32()?)),
         lifespan: reader.read_u64()?,
     })
 }
@@ -1327,15 +1347,17 @@ mod tests {
         filled_size: u64,
     ) -> TickRegion {
         TickRegion {
-            start_offset,
-            end_offset,
-            density,
-            top_level_hidden_take_size: 0,
-            total_size: end_offset
-                .saturating_sub(start_offset)
-                .saturating_mul(density),
-            filled_size,
-            hidden_filled_size: 0,
+            start_offset: Ticks::new(start_offset),
+            end_offset: Ticks::new(end_offset),
+            density: BaseLotsPerTick::new(density),
+            top_level_hidden_take_size: BaseLotsPerTick::ZERO,
+            total_size: BaseLots::new(
+                end_offset
+                    .saturating_sub(start_offset)
+                    .saturating_mul(density),
+            ),
+            filled_size: BaseLots::new(filled_size),
+            hidden_filled_size: BaseLots::ZERO,
             lifespan: GTC_LIFESPAN,
         }
     }
@@ -1344,7 +1366,7 @@ mod tests {
         Spline {
             trader: Pubkey::new_unique(),
             is_active: true,
-            mid_price: 100,
+            mid_price: Ticks::new(100),
             sequence_number: SequenceNumber {
                 sequence_number: 0,
                 last_update_slot: 0,
@@ -1352,8 +1374,8 @@ mod tests {
             user_update_slot: 10,
             bid_offset: 0,
             ask_offset: 0,
-            bid_filled_amount: 3,
-            ask_filled_amount: 0,
+            bid_filled_amount: BaseLots::new(3),
+            ask_filled_amount: BaseLots::ZERO,
             bid_num_regions: 1,
             ask_num_regions: 1,
             bid_regions: vec![tick_region(1, 3, 5, 3)],
@@ -1361,9 +1383,9 @@ mod tests {
             user_price_sequence_number: 0,
             user_parameter_sequence_number: 0,
             flags: MAX_POSITION_SIZE_ACTIVE_FLAG,
-            leverage_decrease_in_bps: 0,
-            max_position_size_long: 15,
-            max_position_size_short: 8,
+            leverage_decrease_in_bps: BasisPoints::ZERO,
+            max_position_size_long: BaseLots::new(15),
+            max_position_size_short: BaseLots::new(8),
             has_max_position_size: true,
         }
     }
@@ -1384,7 +1406,7 @@ mod tests {
         let active: Vec<_> = spline.active_bid_regions_at_slot(16).collect();
 
         assert_eq!(active.len(), 1);
-        assert_eq!(active[0].start_offset, 3);
+        assert_eq!(active[0].start_offset, Ticks::new(3));
     }
 
     #[test]

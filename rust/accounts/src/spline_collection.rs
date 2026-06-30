@@ -1,6 +1,7 @@
 //! Borrowed views for Phoenix spline collection accounts.
 
 use bytemuck::{Pod, Zeroable};
+use phoenix_rise_math::{BaseLots, BaseLotsPerTick, BasisPoints, Ticks};
 #[cfg(feature = "serde")]
 use serde::ser::{SerializeSeq, SerializeStruct};
 
@@ -94,13 +95,12 @@ impl SplineCollectionHeader {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Pod, Zeroable)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct TickRegion {
-    start_offset: u64,
-    end_offset: u64,
+    start_offset: Ticks,
+    end_offset: Ticks,
     density: u32,
     top_level_hidden_take_size: u32,
-    total_size: u64,
+    total_size: BaseLots,
     filled_size: u32,
     hidden_filled_size: u32,
     lifespan: u64,
@@ -108,38 +108,38 @@ pub struct TickRegion {
 
 impl TickRegion {
     #[inline(always)]
-    pub const fn start_offset(&self) -> u64 {
+    pub const fn start_offset(&self) -> Ticks {
         self.start_offset
     }
 
     #[inline(always)]
-    pub const fn end_offset(&self) -> u64 {
+    pub const fn end_offset(&self) -> Ticks {
         self.end_offset
     }
 
     #[inline(always)]
-    pub const fn density(&self) -> u32 {
-        self.density
+    pub const fn density(&self) -> BaseLotsPerTick {
+        BaseLotsPerTick::new(self.density as u64)
     }
 
     #[inline(always)]
-    pub const fn top_level_hidden_take_size(&self) -> u32 {
-        self.top_level_hidden_take_size
+    pub const fn top_level_hidden_take_size(&self) -> BaseLotsPerTick {
+        BaseLotsPerTick::new(self.top_level_hidden_take_size as u64)
     }
 
     #[inline(always)]
-    pub const fn total_size(&self) -> u64 {
+    pub const fn total_size(&self) -> BaseLots {
         self.total_size
     }
 
     #[inline(always)]
-    pub const fn filled_size(&self) -> u32 {
-        self.filled_size
+    pub const fn filled_size(&self) -> BaseLots {
+        BaseLots::new(self.filled_size as u64)
     }
 
     #[inline(always)]
-    pub const fn hidden_filled_size(&self) -> u32 {
-        self.hidden_filled_size
+    pub const fn hidden_filled_size(&self) -> BaseLots {
+        BaseLots::new(self.hidden_filled_size as u64)
     }
 
     #[inline(always)]
@@ -153,14 +153,18 @@ impl TickRegion {
     }
 
     #[inline(always)]
-    pub const fn unfilled_size(&self) -> u64 {
-        self.total_size.saturating_sub(self.filled_size as u64)
+    pub const fn unfilled_size(&self) -> BaseLots {
+        BaseLots::new(
+            self.total_size
+                .as_inner()
+                .saturating_sub(self.filled_size as u64),
+        )
     }
 
     #[inline(always)]
     pub const fn is_active(&self, current_slot: u64, last_updated_slot: u64) -> bool {
         self.lifespan.saturating_add(last_updated_slot) >= current_slot
-            && (self.filled_size as u64) < self.total_size
+            && (self.filled_size as u64) < self.total_size.as_inner()
     }
 }
 
@@ -170,13 +174,13 @@ pub struct Spline {
     trader: [u8; 32],
     is_active: u8,
     _padding: [u8; 7],
-    mid_price: u64,
+    mid_price: Ticks,
     sequence_number: SequenceNumber,
     user_update_slot: u64,
     bid_offset: u64,
     ask_offset: u64,
-    bid_filled_amount: u64,
-    ask_filled_amount: u64,
+    bid_filled_amount: BaseLots,
+    ask_filled_amount: BaseLots,
     bid_num_regions: u64,
     ask_num_regions: u64,
     bid_regions: [TickRegion; SPLINE_REGION_CAPACITY],
@@ -205,11 +209,11 @@ impl Spline {
 
     #[inline(always)]
     pub const fn is_enabled(&self) -> bool {
-        self.is_active() && self.mid_price != 0
+        self.is_active() && self.mid_price.as_inner() != 0
     }
 
     #[inline(always)]
-    pub const fn mid_price(&self) -> u64 {
+    pub const fn mid_price(&self) -> Ticks {
         self.mid_price
     }
 
@@ -234,12 +238,12 @@ impl Spline {
     }
 
     #[inline(always)]
-    pub const fn bid_filled_amount(&self) -> u64 {
+    pub const fn bid_filled_amount(&self) -> BaseLots {
         self.bid_filled_amount
     }
 
     #[inline(always)]
-    pub const fn ask_filled_amount(&self) -> u64 {
+    pub const fn ask_filled_amount(&self) -> BaseLots {
         self.ask_filled_amount
     }
 
@@ -289,18 +293,18 @@ impl Spline {
     }
 
     #[inline(always)]
-    pub const fn leverage_decrease_in_bps(&self) -> u32 {
-        self.leverage_decrease_in_bps
+    pub const fn leverage_decrease_in_bps(&self) -> BasisPoints {
+        BasisPoints::new(self.leverage_decrease_in_bps as u64)
     }
 
     #[inline(always)]
-    pub const fn max_position_size_long(&self) -> u32 {
-        self.max_position_size_long
+    pub const fn max_position_size_long(&self) -> BaseLots {
+        BaseLots::new(self.max_position_size_long as u64)
     }
 
     #[inline(always)]
-    pub const fn max_position_size_short(&self) -> u32 {
-        self.max_position_size_short
+    pub const fn max_position_size_short(&self) -> BaseLots {
+        BaseLots::new(self.max_position_size_short as u64)
     }
 
     #[inline(always)]
@@ -449,6 +453,29 @@ impl serde::Serialize for SplineCollectionHeader {
         state.serialize_field("num_splines", &self.num_splines())?;
         state.serialize_field("num_active", &self.num_active())?;
         state.serialize_field("has_no_active_splines", &self.has_no_active_splines())?;
+        state.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for TickRegion {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("TickRegion", 9)?;
+        state.serialize_field("start_offset", &self.start_offset())?;
+        state.serialize_field("end_offset", &self.end_offset())?;
+        state.serialize_field("density", &self.density())?;
+        state.serialize_field(
+            "top_level_hidden_take_size",
+            &self.top_level_hidden_take_size(),
+        )?;
+        state.serialize_field("total_size", &self.total_size())?;
+        state.serialize_field("filled_size", &self.filled_size())?;
+        state.serialize_field("hidden_filled_size", &self.hidden_filled_size())?;
+        state.serialize_field("lifespan", &self.lifespan())?;
+        state.serialize_field("unfilled_size", &self.unfilled_size())?;
         state.end()
     }
 }

@@ -15,7 +15,7 @@ use phoenix_rise::accounts::stop_losses::{
 use phoenix_rise::accounts::trader::capabilities::{
     REQUIRED_TRADER_CAPABILITIES, TRADER_CAPABILITY_CAN_WITHDRAW, is_trader_ready,
 };
-use phoenix_rise::accounts::trader::{TraderHeader, TraderPositions};
+use phoenix_rise::accounts::trader::{Trader, TraderHeader, TraderPositions};
 use phoenix_rise::accounts::withdraw_queue::{
     WithdrawQueue, WithdrawRequestState, WithdrawTransitionReason,
 };
@@ -47,7 +47,7 @@ fn mock_bytes(file_name: &str) -> Vec<u8> {
 }
 
 #[test]
-fn borrowed_trader_header_reads_flags_and_position_capacity() {
+fn borrowed_trader_reads_header_flags_and_position_capacity() {
     let data = mock_bytes("trader.json");
     let header = TraderHeader::try_from_account_bytes(&data).expect("header should decode");
 
@@ -58,9 +58,14 @@ fn borrowed_trader_header_reads_flags_and_position_capacity() {
     assert!(!header.is_reduce_only());
     assert!(!header.is_frozen());
     assert_eq!(header.max_positions(), 128);
-    assert_eq!(header.position_count(), 1);
-    assert_eq!(header.position_capacity(), 128);
-    assert!(header.has_position_capacity());
+    assert_eq!(header.trader_preference_bits(), 0);
+    assert!(!header.disable_collateral_sweep());
+    assert_eq!(header.trader_preference_flags().to_string(), "NONE");
+
+    let trader = Trader::try_from_account_bytes(&data).expect("trader should decode");
+    assert_eq!(trader.raw_len(), 1);
+    assert_eq!(trader.capacity(), 128);
+    assert!(trader.has_position_capacity());
 }
 
 #[test]
@@ -74,12 +79,21 @@ fn borrowed_trader_positions_iterate_without_allocating() {
     assert_eq!(positions.capacity(), 128);
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].asset_id, 11);
-    assert_eq!(entries[0].position.base_lot_position, 312);
-    assert_eq!(entries[0].position.virtual_quote_lot_position, -100_027_200);
-    assert_eq!(entries[0].position.cumulative_funding_snapshot, -7);
+    assert_eq!(entries[0].position.base_lot_position.as_inner(), 312);
+    assert_eq!(
+        entries[0].position.virtual_quote_lot_position.as_inner(),
+        -100_027_200
+    );
+    assert_eq!(
+        entries[0].position.cumulative_funding_snapshot.as_inner(),
+        -7
+    );
     assert_eq!(entries[0].position.position_sequence_number, 139);
     assert_eq!(
-        entries[0].position.accumulated_funding_for_active_position,
+        entries[0]
+            .position
+            .accumulated_funding_for_active_position
+            .as_inner(),
         0
     );
 }

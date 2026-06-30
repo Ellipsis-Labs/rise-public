@@ -10,6 +10,7 @@ mod place_limit_order;
 mod place_market_order;
 mod place_stop_loss;
 mod register_subaccount_sync_transfer_and_market_order;
+mod show_orderbook_bbo;
 mod withdraw_phoenix_then_ember;
 
 use borsh::BorshDeserialize;
@@ -39,6 +40,7 @@ enum ExampleInstruction {
     RegisterSubaccountSyncTransferAndMarketOrder,
     CloseSubaccountPositionAndSweep,
     WithdrawPhoenixThenEmber,
+    ShowOrderbookBbo,
 }
 
 impl ExampleInstruction {
@@ -70,6 +72,9 @@ impl ExampleInstruction {
         }
         if tag == compute_discriminant("global:withdraw_phoenix_then_ember") {
             return Some(Self::WithdrawPhoenixThenEmber);
+        }
+        if tag == compute_discriminant("global:show_orderbook_bbo") {
+            return Some(Self::ShowOrderbookBbo);
         }
         None
     }
@@ -159,6 +164,7 @@ pub fn process_instruction(
             )?;
             close_subaccount_position_and_sweep::process(accounts, &params)
         }
+        ExampleInstruction::ShowOrderbookBbo => show_orderbook_bbo::process(accounts),
     }
 }
 

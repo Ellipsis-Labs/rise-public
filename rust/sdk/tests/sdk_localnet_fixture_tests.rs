@@ -1071,7 +1071,7 @@ fn effective_base_lot_position(
         .entries
         .iter()
         .find(|(position_asset_id, _)| *position_asset_id == asset_id as u64)
-        .map(|(_, position)| position.base_lot_position);
+        .map(|(_, position)| position.base_lot_position.as_inner());
 
     if trader.state.flags & TRADER_CAPABILITY_HOT == 0 {
         return cold_position;

@@ -17,8 +17,8 @@ feature-exceptions = ["solana-pubkey"]
 default = []
 serde = [
   "dep:bs58",
-  "dep:phoenix-rise-math",
   "dep:serde",
+  "phoenix-rise-math/serde",
   "solana-pubkey/serde",
 ]
 
@@ -26,7 +26,7 @@ serde = [
 borsh = { workspace = true }
 bs58 = { workspace = true, optional = true }
 bytemuck = { workspace = true }
-phoenix-rise-math = { workspace = true, features = ["solana"], optional = true }
+phoenix-rise-math = { workspace = true }
 serde = { workspace = true, optional = true }
 sha2-const-stable = { workspace = true }
 solana-pubkey = { version = "~3.0", default-features = false, features = [

@@ -214,10 +214,12 @@ async fn view(args: ViewArgs, ctx: &CommandCtx) -> Result<(), Box<dyn Error>> {
     let builder_account = rpc.get_account(&builder_state_account).await?;
     let builder_state = FlightBuilderState::try_from_account_bytes(&builder_account.data)?;
     let trader_account = rpc.get_account(&builder_state.trader_key).await?;
-    let trader_header =
-        phoenix_rise::accounts::trader::TraderHeader::try_from_account_bytes(&trader_account.data)?;
+    let trader =
+        phoenix_rise::accounts::trader::Trader::try_from_account_bytes(&trader_account.data)?;
+    let trader_header = trader.header();
     let trader_state = trader_header.state();
-    let withdrawable_fee_quote_lots = trader_state.quote_lot_collateral.max(0) as u64;
+    let quote_lot_collateral = trader_state.quote_lot_collateral.as_inner();
+    let withdrawable_fee_quote_lots = quote_lot_collateral.max(0).unsigned_abs();
     let configured_authority = builder_state.authority_key;
     let output = FlightBuilderView {
         authority: authority.to_string(),
@@ -227,17 +229,17 @@ async fn view(args: ViewArgs, ctx: &CommandCtx) -> Result<(), Box<dyn Error>> {
         active: builder_state.is_active(),
         status_bits: builder_state.status,
         fee_bps: builder_state.fee_bps,
-        trader_authority: Pubkey::new_from_array(trader_header.authority()).to_string(),
+        trader_authority: Pubkey::new_from_array(*trader_header.authority()).to_string(),
         trader_pda_index: trader_header.trader_pda_index(),
         trader_subaccount_index: trader_header.trader_subaccount_index(),
-        quote_lot_collateral: trader_state.quote_lot_collateral,
-        quote_lot_collateral_usdc: format_signed_base_units(trader_state.quote_lot_collateral),
+        quote_lot_collateral,
+        quote_lot_collateral_usdc: format_signed_base_units(quote_lot_collateral),
         withdrawable_fee_quote_lots,
         withdrawable_fee_usdc: format_base_units(withdrawable_fee_quote_lots),
         trader_can_withdraw: trader_state.capability_flags().allows(
             phoenix_rise::accounts::trader::capabilities::TraderCapabilityKind::WithdrawCollateral,
         ),
-        position_count: trader_header.position_count(),
+        position_count: trader.raw_len(),
         note: "withdrawableFeeQuoteLots is the positive collateral in the builder trader account; \
                open positions, orders, queues, or risk checks can reduce the amount a withdrawal \
                transaction may settle",

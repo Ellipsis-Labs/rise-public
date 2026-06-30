@@ -1,3 +1,4 @@
+use phoenix_rise_math::{BaseLots, Ticks};
 use serde::Serialize;
 use solana_pubkey::Pubkey;
 
@@ -26,9 +27,9 @@ pub enum StopLossOrderKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct StopLoss {
     pub sequence_number: u64,
-    pub trigger_price: u64,
-    pub execution_price: u64,
-    pub trade_size: u64,
+    pub trigger_price: Ticks,
+    pub execution_price: Ticks,
+    pub trade_size: BaseLots,
     pub slot: u64,
     pub position_sequence_number: u8,
     pub is_active: bool,

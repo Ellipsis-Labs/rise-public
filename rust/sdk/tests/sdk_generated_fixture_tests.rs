@@ -406,7 +406,7 @@ fn assert_borrowed_asset(actual: PerpAssetMetadata, expected: &PerpAssetExpected
 
 fn assert_static_market_params(
     actual_market_account: &str,
-    actual_tick_size: u64,
+    actual_tick_size: impl ToString,
     actual_asset_id: u32,
     actual_base_lot_decimals: i8,
     expected: &StaticMarketParamsExpected,
@@ -504,7 +504,7 @@ fn assert_spot_price_component<T: Copy + Into<accounts::TicksAtSlot>>(
     weight: u64,
     stale_threshold: u64,
     slot: u64,
-    mid_spot_diff_ema_ticks: i64,
+    mid_spot_diff_ema_ticks: impl ToString,
     mid_spot_diff_ema_ticks_dust: i64,
     ema_period_slots: u64,
     ema_diff_radius: u64,
@@ -784,149 +784,149 @@ impl OracleDataView for OracleData {
 }
 
 trait FundingAccumulatorView {
-    fn acc(&self) -> i128;
-    fn last_diff(&self) -> i128;
-    fn cumulative_funding_rate(&self) -> i64;
-    fn start_interval_timestamp(&self) -> u64;
-    fn last_funding_update_timestamp(&self) -> u64;
-    fn funding_interval_seconds(&self) -> u64;
-    fn funding_period_seconds(&self) -> u64;
-    fn max_funding_rate(&self) -> i64;
+    fn acc(&self) -> String;
+    fn last_diff(&self) -> String;
+    fn cumulative_funding_rate(&self) -> String;
+    fn start_interval_timestamp(&self) -> String;
+    fn last_funding_update_timestamp(&self) -> String;
+    fn funding_interval_seconds(&self) -> String;
+    fn funding_period_seconds(&self) -> String;
+    fn max_funding_rate(&self) -> String;
 }
 
 impl FundingAccumulatorView for accounts::FundingAccumulator {
-    fn acc(&self) -> i128 {
-        self.acc
+    fn acc(&self) -> String {
+        self.acc.to_string()
     }
 
-    fn last_diff(&self) -> i128 {
-        self.last_diff
+    fn last_diff(&self) -> String {
+        self.last_diff.to_string()
     }
 
-    fn cumulative_funding_rate(&self) -> i64 {
-        self.cumulative_funding_rate
+    fn cumulative_funding_rate(&self) -> String {
+        self.cumulative_funding_rate.to_string()
     }
 
-    fn start_interval_timestamp(&self) -> u64 {
-        self.start_interval_timestamp
+    fn start_interval_timestamp(&self) -> String {
+        self.start_interval_timestamp.to_string()
     }
 
-    fn last_funding_update_timestamp(&self) -> u64 {
-        self.last_funding_update_timestamp
+    fn last_funding_update_timestamp(&self) -> String {
+        self.last_funding_update_timestamp.to_string()
     }
 
-    fn funding_interval_seconds(&self) -> u64 {
-        self.funding_interval_seconds
+    fn funding_interval_seconds(&self) -> String {
+        self.funding_interval_seconds.to_string()
     }
 
-    fn funding_period_seconds(&self) -> u64 {
-        self.funding_period_seconds
+    fn funding_period_seconds(&self) -> String {
+        self.funding_period_seconds.to_string()
     }
 
-    fn max_funding_rate(&self) -> i64 {
-        self.max_funding_rate
+    fn max_funding_rate(&self) -> String {
+        self.max_funding_rate.to_string()
     }
 }
 
 impl FundingAccumulatorView for FundingAccumulator {
-    fn acc(&self) -> i128 {
-        self.acc
+    fn acc(&self) -> String {
+        self.acc.to_string()
     }
 
-    fn last_diff(&self) -> i128 {
-        self.last_diff
+    fn last_diff(&self) -> String {
+        self.last_diff.to_string()
     }
 
-    fn cumulative_funding_rate(&self) -> i64 {
-        self.cumulative_funding_rate
+    fn cumulative_funding_rate(&self) -> String {
+        self.cumulative_funding_rate.to_string()
     }
 
-    fn start_interval_timestamp(&self) -> u64 {
-        self.start_interval_timestamp
+    fn start_interval_timestamp(&self) -> String {
+        self.start_interval_timestamp.to_string()
     }
 
-    fn last_funding_update_timestamp(&self) -> u64 {
-        self.last_funding_update_timestamp
+    fn last_funding_update_timestamp(&self) -> String {
+        self.last_funding_update_timestamp.to_string()
     }
 
-    fn funding_interval_seconds(&self) -> u64 {
-        self.funding_interval_seconds
+    fn funding_interval_seconds(&self) -> String {
+        self.funding_interval_seconds.to_string()
     }
 
-    fn funding_period_seconds(&self) -> u64 {
-        self.funding_period_seconds
+    fn funding_period_seconds(&self) -> String {
+        self.funding_period_seconds.to_string()
     }
 
-    fn max_funding_rate(&self) -> i64 {
-        self.max_funding_rate
+    fn max_funding_rate(&self) -> String {
+        self.max_funding_rate.to_string()
     }
 }
 
 impl<T: FundingAccumulatorView + ?Sized> FundingAccumulatorView for &T {
-    fn acc(&self) -> i128 {
+    fn acc(&self) -> String {
         (**self).acc()
     }
 
-    fn last_diff(&self) -> i128 {
+    fn last_diff(&self) -> String {
         (**self).last_diff()
     }
 
-    fn cumulative_funding_rate(&self) -> i64 {
+    fn cumulative_funding_rate(&self) -> String {
         (**self).cumulative_funding_rate()
     }
 
-    fn start_interval_timestamp(&self) -> u64 {
+    fn start_interval_timestamp(&self) -> String {
         (**self).start_interval_timestamp()
     }
 
-    fn last_funding_update_timestamp(&self) -> u64 {
+    fn last_funding_update_timestamp(&self) -> String {
         (**self).last_funding_update_timestamp()
     }
 
-    fn funding_interval_seconds(&self) -> u64 {
+    fn funding_interval_seconds(&self) -> String {
         (**self).funding_interval_seconds()
     }
 
-    fn funding_period_seconds(&self) -> u64 {
+    fn funding_period_seconds(&self) -> String {
         (**self).funding_period_seconds()
     }
 
-    fn max_funding_rate(&self) -> i64 {
+    fn max_funding_rate(&self) -> String {
         (**self).max_funding_rate()
     }
 }
 
 trait OpenInterestView {
-    fn open_interest(&self) -> u64;
-    fn open_interest_cap(&self) -> u64;
+    fn open_interest(&self) -> String;
+    fn open_interest_cap(&self) -> String;
 }
 
 impl OpenInterestView for accounts::OpenInterestParams {
-    fn open_interest(&self) -> u64 {
-        self.open_interest
+    fn open_interest(&self) -> String {
+        self.open_interest.to_string()
     }
 
-    fn open_interest_cap(&self) -> u64 {
-        self.open_interest_cap
+    fn open_interest_cap(&self) -> String {
+        self.open_interest_cap.to_string()
     }
 }
 
 impl OpenInterestView for OpenInterestParams {
-    fn open_interest(&self) -> u64 {
-        self.open_interest
+    fn open_interest(&self) -> String {
+        self.open_interest.to_string()
     }
 
-    fn open_interest_cap(&self) -> u64 {
-        self.open_interest_cap
+    fn open_interest_cap(&self) -> String {
+        self.open_interest_cap.to_string()
     }
 }
 
 impl<T: OpenInterestView + ?Sized> OpenInterestView for &T {
-    fn open_interest(&self) -> u64 {
+    fn open_interest(&self) -> String {
         (**self).open_interest()
     }
 
-    fn open_interest_cap(&self) -> u64 {
+    fn open_interest_cap(&self) -> String {
         (**self).open_interest_cap()
     }
 }

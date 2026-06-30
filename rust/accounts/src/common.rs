@@ -86,6 +86,20 @@ pub(crate) fn read_pod<T: Pod>(
         .map_err(|_| PhoenixAccountDecodeError::InvalidLayout { account })
 }
 
+pub(crate) fn borrow_pod<'a, T: Pod>(
+    account: &'static str,
+    data: &'a [u8],
+) -> Result<&'a T, PhoenixAccountDecodeError> {
+    bytemuck::try_from_bytes(data).map_err(|_| PhoenixAccountDecodeError::InvalidLayout { account })
+}
+
+pub(crate) fn borrow_slice<'a, T: Pod>(
+    account: &'static str,
+    data: &'a [u8],
+) -> Result<&'a [T], PhoenixAccountDecodeError> {
+    bytemuck::try_cast_slice(data).map_err(|_| PhoenixAccountDecodeError::InvalidLayout { account })
+}
+
 pub(crate) fn read_prefix<T: Pod>(
     account: &'static str,
     data: &[u8],
@@ -99,6 +113,21 @@ pub(crate) fn read_prefix<T: Pod>(
             actual: data.len(),
         })?;
     read_pod(account, prefix)
+}
+
+pub(crate) fn borrow_prefix<'a, T: Pod>(
+    account: &'static str,
+    data: &'a [u8],
+) -> Result<&'a T, PhoenixAccountDecodeError> {
+    let len = core::mem::size_of::<T>();
+    let prefix = data
+        .get(..len)
+        .ok_or(PhoenixAccountDecodeError::AccountTooSmall {
+            account,
+            expected: len,
+            actual: data.len(),
+        })?;
+    borrow_pod(account, prefix)
 }
 
 pub(crate) fn read_u64(data: &[u8], offset: usize) -> u64 {
@@ -121,8 +150,4 @@ pub(crate) fn read_i56(data: &[u8], offset: usize) -> i64 {
         extended[7] = u8::MAX;
     }
     i64::from_le_bytes(extended)
-}
-
-pub(crate) fn none_if_zero_u64(value: u64) -> Option<u64> {
-    if value == 0 { None } else { Some(value) }
 }

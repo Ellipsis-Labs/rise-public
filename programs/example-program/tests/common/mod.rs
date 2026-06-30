@@ -297,6 +297,17 @@ pub fn cancel_limit_ix(
     )
 }
 
+pub fn show_orderbook_bbo_ix(market: &FixtureMarket, program_id: Pubkey) -> Instruction {
+    Instruction {
+        program_id,
+        accounts: vec![AccountMeta::new_readonly(
+            parse_pubkey(&market.orderbook).unwrap(),
+            false,
+        )],
+        data: compute_discriminant("global:show_orderbook_bbo").to_vec(),
+    }
+}
+
 pub fn place_stop_loss_ix(
     context: &SdkLocalnetContext,
     actor: &FixtureActor,

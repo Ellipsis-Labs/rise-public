@@ -1,27 +1,8 @@
 //! Common types for Phoenix instruction construction.
 
 use borsh::{BorshDeserialize, BorshSerialize};
+pub use phoenix_rise_math::Side;
 use solana_pubkey::Pubkey;
-
-/// Side of an order - either Bid (buy) or Ask (sell).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, BorshSerialize, BorshDeserialize)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[borsh(use_discriminant = true)]
-#[repr(u8)]
-pub enum Side {
-    Bid = 0,
-    Ask = 1,
-}
-
-impl Side {
-    /// Returns the API wire string for this side (`"buy"` or `"sell"`).
-    pub fn to_api_string(self) -> &'static str {
-        match self {
-            Side::Bid => "buy",
-            Side::Ask => "sell",
-        }
-    }
-}
 
 /// Order flags for specifying order behavior.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, BorshSerialize, BorshDeserialize)]

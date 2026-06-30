@@ -104,15 +104,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  Authority:         {}", trader.authority);
         println!("  PDA index:         {}", trader.trader_pda_index);
         println!("  Subaccount index:  {}", trader.trader_subaccount_index);
-        println!("  Collateral lots:   {}", trader.state.quote_lot_collateral);
+        println!(
+            "  Collateral lots:   {}",
+            trader.state.quote_lot_collateral.as_inner()
+        );
         println!("  Positions:         {}", trader.positions.len);
 
         for entry in trader.position_entries().take(5) {
             println!(
                 "  asset_id={} base_lots={} virtual_quote_lots={}",
                 entry.asset_id,
-                entry.position.base_lot_position,
-                entry.position.virtual_quote_lot_position
+                entry.position.base_lot_position.as_inner(),
+                entry.position.virtual_quote_lot_position.as_inner()
             );
         }
     } else {

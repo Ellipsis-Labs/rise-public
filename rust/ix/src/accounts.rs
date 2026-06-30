@@ -25,7 +25,7 @@ pub use phoenix_rise_accounts::stop_losses::{
 };
 pub use phoenix_rise_accounts::trader;
 pub use phoenix_rise_accounts::trader::{
-    TraderHeader, TraderPosition, TraderPositionEntry, TraderPositionIter, TraderPositions,
+    Trader, TraderHeader, TraderPosition, TraderPositionEntry, TraderPositionIter, TraderPositions,
     TraderState,
 };
 pub use phoenix_rise_accounts::withdraw_queue::{

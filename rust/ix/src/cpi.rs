@@ -37,6 +37,7 @@
 //! let mut scratch = CpiScratch::<8, 128>::new(account);
 //! let args = phoenix::RegisterTraderArgs {
 //!     max_positions: 16,
+//!     trader_preference_bits: 0,
 //!     trader_pda_index: 0,
 //!     subaccount_index: 0,
 //! };
@@ -532,6 +533,7 @@ pub mod phoenix {
         CancelId, Direction, FifoOrderId, OrderFlags, PhoenixInstruction, SelfTradeBehavior, Side,
         StopLossOrderKind, TriggerOrderParams,
     };
+    use crate::register_trader::TraderPreferenceKind;
 
     pub const REGISTER_TRADER_ACCOUNT_COUNT: usize = 7;
     pub const REGISTER_TRADER_DATA_LEN: usize = 18;
@@ -688,8 +690,40 @@ pub mod phoenix {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct RegisterTraderArgs {
         pub max_positions: u64,
+        pub trader_preference_bits: u32,
         pub trader_pda_index: u8,
         pub subaccount_index: u8,
+    }
+
+    impl RegisterTraderArgs {
+        pub const fn new(max_positions: u64, trader_pda_index: u8, subaccount_index: u8) -> Self {
+            Self {
+                max_positions,
+                trader_preference_bits: 0,
+                trader_pda_index,
+                subaccount_index,
+            }
+        }
+
+        pub const fn with_trader_preference_bits(mut self, trader_preference_bits: u32) -> Self {
+            self.trader_preference_bits = trader_preference_bits;
+            self
+        }
+
+        pub const fn with_trader_preference(mut self, preference: TraderPreferenceKind) -> Self {
+            self.trader_preference_bits |= preference.bit();
+            self
+        }
+
+        pub const fn with_disable_collateral_sweep(self, disable_collateral_sweep: bool) -> Self {
+            if disable_collateral_sweep {
+                self.with_trader_preference(TraderPreferenceKind::DisableCollateralSweep)
+            } else {
+                let mut args = self;
+                args.trader_preference_bits &= !TraderPreferenceKind::DisableCollateralSweep.bit();
+                args
+            }
+        }
     }
 
     pub struct RegisterTrader<'a> {
@@ -2183,7 +2217,8 @@ pub mod phoenix {
             &mut offset,
             &PhoenixInstruction::RegisterTrader.discriminant(),
         )?;
-        write_u64(out, &mut offset, args.max_positions)?;
+        write_u32(out, &mut offset, args.max_positions as u32)?;
+        write_u32(out, &mut offset, args.trader_preference_bits)?;
         write_u8(out, &mut offset, args.trader_pda_index)?;
         write_u8(out, &mut offset, args.subaccount_index)?;
         Ok(offset)
@@ -3181,6 +3216,7 @@ mod tests {
         let trader_account = Pubkey::new_unique();
         let args = phoenix::RegisterTraderArgs {
             max_positions: 128,
+            trader_preference_bits: 1,
             trader_pda_index: 7,
             subaccount_index: 2,
         };
@@ -3189,6 +3225,7 @@ mod tests {
             .trader(trader)
             .trader_account(trader_account)
             .max_positions(args.max_positions)
+            .trader_preference_bits(args.trader_preference_bits)
             .trader_pda_index(args.trader_pda_index)
             .subaccount_index(args.subaccount_index)
             .build()

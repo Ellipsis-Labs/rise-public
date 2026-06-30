@@ -2,6 +2,7 @@
 //!
 //! These types are fundamental building blocks used across the SDK.
 
+pub use phoenix_rise_math::Side;
 use serde::{Deserialize, Serialize};
 
 /// A decimal type representing a fixed-precision number.
@@ -37,14 +38,6 @@ impl Decimal {
 pub struct Price {
     pub price: f64,
     pub slot: u64,
-}
-
-/// Order side used by Phoenix API wire types.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Side {
-    Bid,
-    Ask,
 }
 
 /// Generic paginated response wrapper with bidirectional cursor support.
