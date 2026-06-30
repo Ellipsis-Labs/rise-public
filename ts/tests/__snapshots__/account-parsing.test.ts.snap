@@ -6047,7 +6047,7 @@ exports[`raw account parsing > decodes Trader fixtures 1`] = `
   "fundingKey": "FuWL4WbMMA9Einm1tRLcmqKysEYShuL8VjfDvWM6M2bP",
   "key": "JBUARfdh3GNpFxnMxKsxonK8Ge8796j6DD47JZfAUr5e",
   "lastDepositSlot": "408215792",
-  "maxPositions": "128",
+  "maxPositions": 128,
   "numMarketsWithSplines": 0,
   "occupiedConditionalOrderIndices": [],
   "positionAuthority": "FDbsTgp2ikh9rUGkb1hr492djsaXRLMPSZFf1jifZBCG",
@@ -6079,6 +6079,7 @@ exports[`raw account parsing > decodes Trader fixtures 1`] = `
     "takerFeeOverrideMultiplier": 0,
   },
   "traderPdaIndex": 0,
+  "traderPreferenceBits": 0,
   "traderSubaccountIndex": 0,
   "withdrawQueueNode": null,
 }

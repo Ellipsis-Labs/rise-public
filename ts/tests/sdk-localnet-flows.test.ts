@@ -178,7 +178,7 @@ describe("SDK localnet common flows", () => {
       );
 
       expect(child.traderSubaccountIndex).toBe(SUBACCOUNT_INDEX);
-      expect(child.maxPositions).toBe(1n);
+      expect(child.maxPositions).toBe(1);
       expect(child.authority).toBe(context.getActor("taker0").pubkey);
       expect(child.state.flags).toBe(parent.state.flags);
     },

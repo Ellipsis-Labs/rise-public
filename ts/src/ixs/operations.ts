@@ -982,7 +982,7 @@ export const createPhoenixIxOperations = (
           authority: params.authority,
           traderAccount,
         },
-        maxPositions: toMaxPositions(params.marginType),
+        maxPositions: BigInt(toMaxPositions(params.marginType)),
         traderPdaIndex,
         traderSubaccountIndex: traderSubaccountIndex ?? 0,
       });

@@ -32,6 +32,12 @@ const ACCOUNT_PARSING_FIXTURES_PATH = resolve(
   "fixtures",
   "account-parsing-rust.json"
 );
+const TRADER_MAX_POSITIONS_OFFSET = 112;
+const TRADER_PREFERENCE_BITS_OFFSET = 116;
+const TRADER_POSITION_MAP_LEN_OFFSET = 224;
+const TRADER_POSITION_ENTRIES_OFFSET = 240;
+const TRADER_POSITION_ENTRY_BYTES = 40;
+const HEADER_EXTENSION_ASSET_ID = 0xffff0000;
 
 type FixtureFile = {
   account: {
@@ -330,6 +336,32 @@ describe("raw account parsing", () => {
     },
     TEST_TIMEOUT_MS
   );
+
+  it("decodes Trader preference bits separately from max positions", () => {
+    const bytes = loadMockBytes("trader.json");
+    writeU32LE(bytes, TRADER_MAX_POSITIONS_OFFSET, 128);
+    writeU32LE(bytes, TRADER_PREFERENCE_BITS_OFFSET, 1);
+
+    const decoded = decodeTrader(bytes);
+
+    expect(decoded.maxPositions).toBe(128);
+    expect(decoded.traderPreferenceBits).toBe(1);
+  });
+
+  it("decodes only position entries from Trader position map", () => {
+    const bytes = loadMockBytes("trader.json");
+    writeU64LE(bytes, TRADER_POSITION_MAP_LEN_OFFSET, 2n);
+    const secondEntryOffset =
+      TRADER_POSITION_ENTRIES_OFFSET + TRADER_POSITION_ENTRY_BYTES;
+    writeU32LE(bytes, secondEntryOffset, HEADER_EXTENSION_ASSET_ID);
+    writeU32LE(bytes, secondEntryOffset + 4, 0);
+
+    const decoded = decodeTrader(bytes);
+
+    expect(decoded.positions.len).toBe(1n);
+    expect(decoded.positions.entries).toHaveLength(1);
+    expect(decoded.positions.entries[0]?.key).toBe(11n);
+  });
 
   it(
     "decodes Orderbook fixtures",

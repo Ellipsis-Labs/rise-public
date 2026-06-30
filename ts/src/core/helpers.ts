@@ -92,7 +92,7 @@ export interface SubaccountInfo {
   index: number;
   authority: Authority;
   address: TraderAddress;
-  maxPositions: bigint;
+  maxPositions: number;
 }
 
 interface Superblock {
@@ -535,7 +535,7 @@ type IsolatedSubaccountClass = "asset" | "empty" | "occupied" | "ineligible";
 const classifyIsolatedTrader = (
   trader: ReturnType<typeof decodeTrader>,
   assetId: number,
-  isolatedMaxPositions: bigint
+  isolatedMaxPositions: number
 ): IsolatedSubaccountClass => {
   // Only isolated subaccounts (max_positions === 1) are eligible.
   if (trader.maxPositions !== isolatedMaxPositions) {

@@ -22,7 +22,7 @@ const ASSET_ID = 7;
 const existingByAddress = new Map<Address, boolean>();
 
 const isolatedTrader = (opts: { hasAsset?: boolean; empty?: boolean }) => ({
-  maxPositions: 1n,
+  maxPositions: 1,
   positions: {
     len: opts.empty ? 0n : 1n,
     entries: opts.hasAsset
@@ -34,7 +34,7 @@ const isolatedTrader = (opts: { hasAsset?: boolean; empty?: boolean }) => ({
 });
 
 const crossTrader = () => ({
-  maxPositions: 8n,
+  maxPositions: 8,
   positions: { len: 1n, entries: [{ key: BigInt(ASSET_ID), value: {} }] },
 });
 
