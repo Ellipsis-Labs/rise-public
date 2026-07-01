@@ -74,6 +74,9 @@ export const buildRegisterTraderIxResolved = (
     trader: params.trader.authority,
     traderAccount: params.trader.traderAccount,
     maxPositions: params.maxPositions,
+    traderPreferenceBits: params.traderPreferenceBits,
+    traderPreferences: params.traderPreferences,
+    disableCollateralSweep: params.disableCollateralSweep,
     traderPdaIndex: params.traderPdaIndex,
     traderSubaccountIndex: params.traderSubaccountIndex,
   });

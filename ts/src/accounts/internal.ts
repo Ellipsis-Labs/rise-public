@@ -55,7 +55,8 @@ import {
 export const MAX_NUMBER_OF_PERP_ASSETS = 1024;
 export const ORDERBOOK_CAPACITY = 8192;
 export const CONDITIONAL_ORDER_BITS_LEN = 24;
-const TRADER_POSITION_ENTRY_ASSET_ID_BOUND = 0xff000000;
+const TRADER_POSITION_ENTRY_ASSET_INDEX_BOUND = 0xff000000n;
+const TRADER_POSITION_ENTRY_ASSET_INDEX_MASK = 0xffffffffn;
 
 export interface SequenceNumber {
   sequenceNumber: bigint;
@@ -671,12 +672,12 @@ export const getTraderPositionEntriesDecoder = (): Decoder<
 
       for (let i = 0; i < Number(shortMap.len); i++) {
         const [assetId, afterAssetId] = assetIdDecoder.read(buffer, offset);
-        // TODO: handle discriminant (upper 4 bytes) if we had, currently it's all 0
         const [value, afterValue] = positionDecoder.read(buffer, afterAssetId);
-        if (assetId < TRADER_POSITION_ENTRY_ASSET_ID_BOUND) {
-          entries.push({ key: BigInt(assetId), value });
+        const assetIndex = assetId & TRADER_POSITION_ENTRY_ASSET_INDEX_MASK;
+        if (assetIndex < TRADER_POSITION_ENTRY_ASSET_INDEX_BOUND) {
+          entries.push({ key: assetIndex, value });
         } else {
-          // TODO: handle other kind of deserialization if we had
+          // Non-position entries share this short map but are not exposed here.
         }
         offset = afterValue;
       }

@@ -6044,6 +6044,7 @@ exports[`raw account parsing > decodes Trader fixtures 1`] = `
     0,
     0,
   ],
+  "disableCollateralSweep": false,
   "fundingKey": "FuWL4WbMMA9Einm1tRLcmqKysEYShuL8VjfDvWM6M2bP",
   "key": "JBUARfdh3GNpFxnMxKsxonK8Ge8796j6DD47JZfAUr5e",
   "lastDepositSlot": "408215792",
@@ -6067,6 +6068,9 @@ exports[`raw account parsing > decodes Trader fixtures 1`] = `
     ],
     "len": "1",
   },
+  "preferences": {
+    "disableCollateralSweep": false,
+  },
   "sequenceNumber": {
     "lastUpdateSlot": "409067780",
     "sequenceNumber": "57",
@@ -6080,6 +6084,15 @@ exports[`raw account parsing > decodes Trader fixtures 1`] = `
   },
   "traderPdaIndex": 0,
   "traderPreferenceBits": 0,
+  "traderPreferenceFlags": {
+    "bits": 0,
+    "enabled": [],
+    "hasReservedBits": false,
+    "preferences": {
+      "disableCollateralSweep": false,
+    },
+    "reservedBits": 0,
+  },
   "traderSubaccountIndex": 0,
   "withdrawQueueNode": null,
 }

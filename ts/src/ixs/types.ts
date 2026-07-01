@@ -55,6 +55,7 @@ import type {
   WithdrawQueueAddress,
 } from "@/primitives";
 import type { InstructionsWithAccountsAndData } from "@/primitives/_utilityTypes";
+import type { TraderPreferenceKind } from "@/accounts/Trader/preferences";
 import type {
   ImmediateOrCancelOrderPacket,
   LimitOrderPacket,
@@ -334,6 +335,9 @@ interface BaseBuildRegisterTraderParams {
   marginType: MarginType;
   traderPdaIndex?: number;
   traderSubaccountIndex?: number;
+  traderPreferenceBits?: number;
+  traderPreferences?: readonly TraderPreferenceKind[];
+  disableCollateralSweep?: boolean;
 }
 
 type SponsoredBuildRegisterTraderParams = BaseBuildRegisterTraderParams & {
@@ -424,6 +428,9 @@ export interface ResolvedRegisterTraderIxInput {
     traderAccount: TraderAddress;
   };
   maxPositions: bigint;
+  traderPreferenceBits?: number;
+  traderPreferences?: readonly TraderPreferenceKind[];
+  disableCollateralSweep?: boolean;
   traderPdaIndex: number;
   traderSubaccountIndex: number;
 }

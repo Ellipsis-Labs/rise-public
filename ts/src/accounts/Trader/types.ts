@@ -5,6 +5,7 @@ import type {
   TraderPosition,
   TraderState,
 } from "../internal";
+import type { TraderPreferenceFlags, TraderPreferences } from "./preferences";
 
 export interface Trader {
   sequenceNumber: SequenceNumber;
@@ -14,6 +15,9 @@ export interface Trader {
   withdrawQueueNode: number | null;
   maxPositions: number;
   traderPreferenceBits: number;
+  traderPreferenceFlags: TraderPreferenceFlags;
+  preferences: TraderPreferences;
+  disableCollateralSweep: boolean;
   positionAuthority: Authority;
   numMarketsWithSplines: number;
   traderPdaIndex: number;
