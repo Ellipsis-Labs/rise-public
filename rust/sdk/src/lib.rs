@@ -15,8 +15,8 @@
 //!   start with [`ix::prelude`] or module paths such as
 //!   [`ix::market_order::create_place_market_order_ix`].
 //! - Decode account bytes: enable `accounts` and start with
-//!   [`accounts::perp_asset_map::PerpAssetMap`] or
-//!   [`accounts::trader::TraderHeader`].
+//!   [`accounts::perp_asset_map::PerpAssetMap`] or [`accounts::trader::Trader`]
+//!   for zero-copy trader views.
 //! - Invoke Phoenix instructions from an on-chain program: enable `cpi` and use
 //!   [`ix::cpi`].
 //! - Use typed HTTP, auth, or WebSocket clients: enable `api` and, if needed,
@@ -41,9 +41,8 @@
 //! - `cpi`: on-chain CPI helpers from `ix::cpi` plus account byte decoders,
 //!   without the API/RPC client stack.
 //! - `accounts`: borrowed account-data views for accounts such as
-//!   [`accounts::perp_asset_map::PerpAssetMap`],
-//!   [`accounts::trader::TraderHeader`], and
-//!   [`accounts::trader::TraderPositions`].
+//!   [`accounts::perp_asset_map::PerpAssetMap`], [`accounts::trader::Trader`],
+//!   and [`accounts::trader::TraderHeader`].
 //! - `math`: pure market math, margin, risk, funding, and quantity wrappers.
 //! - `events`: Phoenix market event parsing from `Log` and `LogEventLengths`
 //!   instruction batches.

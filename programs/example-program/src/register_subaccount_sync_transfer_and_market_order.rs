@@ -101,6 +101,7 @@ impl<'a> SubaccountOpenContext<'a> {
         register.invoke(
             ix::cpi::phoenix::RegisterTraderArgs {
                 max_positions: params.max_positions,
+                trader_preference_bits: 0,
                 trader_pda_index: params.trader_pda_index,
                 subaccount_index: params.child_subaccount_index,
             },

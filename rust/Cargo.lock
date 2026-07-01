@@ -2672,7 +2672,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -2712,7 +2712,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-accounts"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "borsh",
  "bs58",
@@ -2727,7 +2727,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-api"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -2756,6 +2756,7 @@ dependencies = [
  "solana-pubkey 3.0.0",
  "solana-rpc-client",
  "solana-rpc-client-api",
+ "solana-signature",
  "solana-signer",
  "solana-transaction",
  "solana-transaction-error",
@@ -2771,7 +2772,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-cli"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "base64 0.22.1",
  "bincode",
@@ -2799,7 +2800,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-core"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "base64 0.22.1",
  "borsh",
@@ -2825,7 +2826,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-events"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "borsh",
  "phoenix-rise-math",
@@ -2836,11 +2837,12 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-ix"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "borsh",
  "bytemuck",
  "phoenix-rise-accounts",
+ "phoenix-rise-math",
  "pinocchio",
  "serde",
  "serde_json",
@@ -2853,7 +2855,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-litesvm-test"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "base64 0.22.1",
  "borsh",
@@ -2868,6 +2870,7 @@ dependencies = [
  "solana-keypair",
  "solana-pubkey 3.0.0",
  "solana-rpc-client",
+ "solana-signature",
  "solana-signer",
  "solana-transaction",
  "thiserror 2.0.18",
@@ -2875,7 +2878,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-math"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "borsh",
  "bytemuck",
@@ -2893,9 +2896,10 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-types"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "chrono",
+ "phoenix-rise-math",
  "serde",
  "serde_json",
  "serde_urlencoded",

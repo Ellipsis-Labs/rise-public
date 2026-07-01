@@ -1,6 +1,7 @@
 //! Borrowed views for Phoenix stop-loss accounts.
 
 use bytemuck::{Pod, Zeroable};
+use phoenix_rise_math::{BaseLots, Ticks};
 #[cfg(feature = "serde")]
 use serde::ser::SerializeStruct;
 
@@ -43,9 +44,9 @@ pub enum StopLossTriggerOrderKind {
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct StopLoss {
     sequence_number: u64,
-    trigger_price: u64,
-    execution_price: u64,
-    trade_size: u64,
+    trigger_price: Ticks,
+    execution_price: Ticks,
+    trade_size: BaseLots,
     slot: u64,
     position_sequence_number: u8,
     flags: TriggerOrderFlags,
@@ -60,17 +61,17 @@ impl StopLoss {
     }
 
     #[inline(always)]
-    pub const fn trigger_price(&self) -> u64 {
+    pub const fn trigger_price(&self) -> Ticks {
         self.trigger_price
     }
 
     #[inline(always)]
-    pub const fn execution_price(&self) -> u64 {
+    pub const fn execution_price(&self) -> Ticks {
         self.execution_price
     }
 
     #[inline(always)]
-    pub const fn trade_size(&self) -> u64 {
+    pub const fn trade_size(&self) -> BaseLots {
         self.trade_size
     }
 

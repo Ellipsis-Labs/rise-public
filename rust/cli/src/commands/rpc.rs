@@ -133,13 +133,6 @@ struct PerpAssetMetadataOutput {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct TraderAccountOutput<'a> {
-    header: account_views::TraderHeader,
-    positions: account_views::TraderPositions<'a>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
 struct ParsedTransactionOutput {
     signature: String,
     slot: u64,
@@ -382,10 +375,9 @@ fn decode_account(data: &[u8], account_type: RpcAccountType) -> Result<Value, Bo
             to_json_value(account_views::StopLosses::try_from_account_bytes(data)?)
         }
         RpcAccountType::TokenAccount => decode_account_value::<TokenAccount>(data),
-        RpcAccountType::Trader => to_json_value(TraderAccountOutput {
-            header: account_views::TraderHeader::try_from_account_bytes(data)?,
-            positions: account_views::TraderPositions::try_from_account_bytes(data)?,
-        }),
+        RpcAccountType::Trader => {
+            to_json_value(account_views::Trader::try_from_account_bytes(data)?)
+        }
         RpcAccountType::WithdrawQueue => {
             to_json_value(account_views::WithdrawQueue::try_from_account_bytes(data)?)
         }

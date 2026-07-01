@@ -14,22 +14,22 @@ use phoenix_rise_ix::prelude::{
     MarketOrderDelegatedParams, MarketOrderParams, MultiLimitOrderParams, OrderFlags, OrderPacket,
     PHOENIX_PROGRAM_ID, PlaceLimitOrderWithConditionalsParams, PlacePositionConditionalOrderParams,
     PlaceStopLossParams, RegisterTraderParams, SelfTradeBehavior, Side, SplApproveParams,
-    StopLossOrderKind, SyncParentToChildParams, TransferCollateralChildToParentParams,
-    TransferCollateralParams, TriggerOrderParams, USDC_MINT, UncrossCrankParams,
-    WithdrawFundsParams, client_order_id_to_bytes, create_associated_token_account_idempotent_ix,
-    create_cancel_all_ix, create_cancel_orders_by_id_ix, create_cancel_stop_loss_ix,
-    create_cancel_up_to_ix, create_create_conditional_orders_account_ix, create_deposit_funds_ix,
-    create_ember_deposit_ix, create_ember_withdraw_ix, create_hawkeye_view_bbo_ix,
-    create_hawkeye_view_funding_ix, create_hawkeye_view_liquidation_price_ix,
-    create_hawkeye_view_margin_for_asset_ix, create_hawkeye_view_margin_ix,
-    create_place_limit_order_ix, create_place_limit_order_with_conditionals_ix,
-    create_place_market_order_delegated_ix, create_place_market_order_ix,
-    create_place_multi_limit_order_ix, create_place_position_conditional_order_ix,
-    create_place_stop_loss_ix, create_register_trader_ix, create_spl_approve_ix,
-    create_sync_parent_to_child_ix, create_transfer_collateral_child_to_parent_ix,
-    create_transfer_collateral_ix, create_uncross_crank_ix, create_withdraw_funds_ix,
-    get_associated_token_address, get_conditional_orders_address, get_ember_state_address,
-    get_stop_loss_address,
+    StopLossOrderKind, SyncParentToChildParams, TraderPreferenceKind,
+    TransferCollateralChildToParentParams, TransferCollateralParams, TriggerOrderParams, USDC_MINT,
+    UncrossCrankParams, WithdrawFundsParams, client_order_id_to_bytes,
+    create_associated_token_account_idempotent_ix, create_cancel_all_ix,
+    create_cancel_orders_by_id_ix, create_cancel_stop_loss_ix, create_cancel_up_to_ix,
+    create_create_conditional_orders_account_ix, create_deposit_funds_ix, create_ember_deposit_ix,
+    create_ember_withdraw_ix, create_hawkeye_view_bbo_ix, create_hawkeye_view_funding_ix,
+    create_hawkeye_view_liquidation_price_ix, create_hawkeye_view_margin_for_asset_ix,
+    create_hawkeye_view_margin_ix, create_place_limit_order_ix,
+    create_place_limit_order_with_conditionals_ix, create_place_market_order_delegated_ix,
+    create_place_market_order_ix, create_place_multi_limit_order_ix,
+    create_place_position_conditional_order_ix, create_place_stop_loss_ix,
+    create_register_trader_ix, create_spl_approve_ix, create_sync_parent_to_child_ix,
+    create_transfer_collateral_child_to_parent_ix, create_transfer_collateral_ix,
+    create_uncross_crank_ix, create_withdraw_funds_ix, get_associated_token_address,
+    get_conditional_orders_address, get_ember_state_address, get_stop_loss_address,
 };
 use phoenix_rise_math::MathError;
 use solana_instruction::Instruction;
@@ -1149,6 +1149,17 @@ impl<'a> PhoenixTxBuilder<'a> {
         pda_index: u8,
         subaccount_index: u8,
     ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        self.build_register_trader_with_preferences(authority, pda_index, subaccount_index, &[])
+    }
+
+    /// Build a register trader instruction with trader preference bits enabled.
+    pub fn build_register_trader_with_preferences(
+        &self,
+        authority: Pubkey,
+        pda_index: u8,
+        subaccount_index: u8,
+        preferences: &[TraderPreferenceKind],
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
         let max_positions: u64 = if subaccount_index == CROSS_MARGIN_SUBACCOUNT_IDX {
             128
         } else {
@@ -1156,14 +1167,17 @@ impl<'a> PhoenixTxBuilder<'a> {
         };
         let trader_pda = Self::trader_pda(&authority, pda_index, subaccount_index);
 
-        let params = RegisterTraderParams::builder()
+        let mut builder = RegisterTraderParams::builder()
             .payer(authority)
             .trader(authority)
             .trader_account(trader_pda)
             .max_positions(max_positions)
             .trader_pda_index(pda_index)
-            .subaccount_index(subaccount_index)
-            .build()?;
+            .subaccount_index(subaccount_index);
+        for preference in preferences {
+            builder = builder.enable_trader_preference(*preference);
+        }
+        let params = builder.build()?;
         let ix = create_register_trader_ix(params)?;
 
         Ok(vec![ix.into()])

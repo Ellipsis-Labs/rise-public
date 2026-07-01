@@ -3,6 +3,30 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.3.1 - 2026-06-30
+
+Source Phoenix commit: `cf8419bc21f9f539306198f7c08d0aca14a39580`
+
+### Summary
+
+- Adds trader preference bits (initially `disable_collateral_sweep`) to trader registration/account state, plus a new zero-copy `accounts::orderbook` view for reading FIFO best bid/ask and book sides directly from account bytes.
+- Reworks numeric fields across `accounts` views (orderbook, perp asset map, trader, stop-losses, conditional orders, spline collection, withdraw queue) from raw integers to typed quantity wrappers (`Ticks`, `BaseLots`, `QuoteLots`, `SignedBaseLots`, `SignedQuoteLots`, etc.).
+- Unifies the `Side` enum on a single `phoenix-rise-math::Side` shared by `ix`, `events`, and `types`, removing duplicate per-crate definitions.
+- Adds a `solana-signature` dependency to `api`/`litesvm-test` and bumps the shared Rise Rust crates to `0.3.1`.
+
+### Breaking Changes
+
+- `Side` now serializes as lowercase `"bid"`/`"ask"` (previously `"Bid"`/`"Ask"`); deserialization still accepts the old PascalCase as an alias, but consumers matching on serialized output must update.
+- Account-view fields that were previously raw `u64`/`i64`/`i128` (prices, lot sizes, funding fields, withdraw-throttle budgets, etc.) are now typed wrappers — call `.as_inner()` instead of using them as plain integers.
+- CPI `RegisterTraderArgs` and ix `RegisterTraderParams` gained a new `trader_preference_bits: u32` field; existing struct literals must add it (or switch to the new `RegisterTraderArgs::new(...)` constructor/builder methods).
+- `trader::Trader` is now the primary zero-copy trader view; some position count/capacity accessors moved off `TraderHeader` onto `Trader`, and owned `Trader.max_positions` changed from `u64` to `u32`.
+
+### Consumer Notes
+
+- Use `accounts::trader::Trader::try_from_account_bytes` for a combined header+positions view, and the new `trader::preferences` helpers (`TraderPreferenceKind`, `TraderPreferences`, `TraderPreferenceFlags`) to read/set `disable_collateral_sweep`.
+- Build preference-aware registrations with `RegisterTraderArgs::new(...).with_disable_collateral_sweep(true)` (or `.with_trader_preference(...)`) instead of hand-assembling the bitfield.
+- The new `accounts::orderbook::Orderbook` view covers FIFO limit orders only (no spline liquidity); use Hawkeye's BBO view when full market liquidity is needed. `accounts::permission::PermissionAccount::try_from_buffer` adds a zero-copy alternative to the existing copying decoder.
+
 ## v0.3.0 - 2026-06-29
 
 Source Phoenix commit: `08743d17a258f1f4d6e744bd0dc5d64bc0a9d580`

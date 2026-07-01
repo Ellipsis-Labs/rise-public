@@ -20,7 +20,6 @@ borsh             = { workspace = true }
 bytemuck          = { workspace = true }
 fixed             = { workspace = true }
 pastey            = { workspace = true }
-rand              = { workspace = true }
 rust_decimal      = { workspace = true }
 serde             = { workspace = true, optional = true }
 sha2-const-stable = { workspace = true }
@@ -29,4 +28,5 @@ thiserror         = { workspace = true }
 
 [dev-dependencies]
 proptest   = { workspace = true }
+rand       = { workspace = true }
 serde_json = { workspace = true }

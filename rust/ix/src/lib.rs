@@ -201,7 +201,7 @@ mod serde_tests {
             value["trader_account"],
             Value::String(trader_account.to_string())
         );
-        assert_eq!(value["side"], Value::String("Bid".to_owned()));
+        assert_eq!(value["side"], Value::String("bid".to_owned()));
         assert_eq!(
             value["self_trade_behavior"],
             Value::String("CancelProvide".to_owned())

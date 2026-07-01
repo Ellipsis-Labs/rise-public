@@ -12,15 +12,22 @@ version      = { workspace = true }
 
 [features]
 default = []
-serde   = ["dep:chrono", "dep:serde", "dep:serde_json", "dep:serde_with"]
-utoipa  = ["serde", "dep:utoipa"]
+serde = [
+  "dep:chrono",
+  "dep:serde",
+  "dep:serde_json",
+  "dep:serde_with",
+  "phoenix-rise-math/serde",
+]
+utoipa = ["serde", "dep:utoipa"]
 
 [dependencies]
-chrono     = { workspace = true, optional = true }
-serde      = { workspace = true, optional = true }
-serde_json = { workspace = true, optional = true }
-serde_with = { workspace = true, optional = true }
-utoipa     = { workspace = true, optional = true }
+chrono            = { workspace = true, optional = true }
+phoenix-rise-math = { workspace = true }
+serde             = { workspace = true, optional = true }
+serde_json        = { workspace = true, optional = true }
+serde_with        = { workspace = true, optional = true }
+utoipa            = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde_urlencoded = { workspace = true }

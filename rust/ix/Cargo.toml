@@ -15,15 +15,21 @@ feature-exceptions = ["solana-pubkey"]
 
 [features]
 accounts = ["dep:phoenix-rise-accounts"]
-cpi      = ["dep:pinocchio"]
-default  = []
-serde    = ["dep:serde", "solana-pubkey/serde", "phoenix-rise-accounts?/serde"]
-solana   = ["dep:solana-instruction"]
+cpi = ["dep:pinocchio"]
+default = []
+serde = [
+  "dep:serde",
+  "solana-pubkey/serde",
+  "phoenix-rise-accounts?/serde",
+  "phoenix-rise-math/serde",
+]
+solana = ["dep:solana-instruction"]
 
 [dependencies]
 borsh = { workspace = true }
 bytemuck = { workspace = true }
 phoenix-rise-accounts = { workspace = true, optional = true }
+phoenix-rise-math = { workspace = true }
 pinocchio = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 sha2 = { workspace = true }

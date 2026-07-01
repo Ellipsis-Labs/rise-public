@@ -3,6 +3,8 @@
 //! This module provides instruction building for registering a new trader
 //! account on the Phoenix protocol.
 
+use core::fmt::Display;
+
 use solana_pubkey::Pubkey;
 
 use crate::constants::{
@@ -10,6 +12,44 @@ use crate::constants::{
 };
 use crate::error::PhoenixIxError;
 use crate::types::{AccountMeta, Instruction};
+
+pub const TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP: u32 = 1 << 0;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[repr(u8)]
+pub enum TraderPreferenceKind {
+    DisableCollateralSweep = 0,
+}
+
+impl TraderPreferenceKind {
+    pub const fn key(self) -> &'static str {
+        match self {
+            Self::DisableCollateralSweep => "disable_collateral_sweep",
+        }
+    }
+
+    pub const fn description(self) -> &'static str {
+        match self {
+            Self::DisableCollateralSweep => {
+                "Disable permissionless isolated child-to-parent collateral sweeps."
+            }
+        }
+    }
+
+    pub const fn bit(self) -> u32 {
+        1 << (self as u8)
+    }
+}
+
+impl Display for TraderPreferenceKind {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.key())
+    }
+}
+
+pub const ALL_TRADER_PREFERENCE_KINDS: [TraderPreferenceKind; 1] =
+    [TraderPreferenceKind::DisableCollateralSweep];
 
 /// Parameters for registering a new trader account.
 #[derive(Debug, Clone)]
@@ -27,6 +67,8 @@ pub struct RegisterTraderParams {
     /// Maximum number of positions the account can hold.
     /// Cross margin: 128, Isolated margin: 1.
     max_positions: u64,
+    /// Raw trader preference bitfield.
+    trader_preference_bits: u32,
     /// The PDA index for trader account derivation (0-255).
     trader_pda_index: u8,
     /// The subaccount index.
@@ -56,6 +98,18 @@ impl RegisterTraderParams {
         self.max_positions
     }
 
+    pub fn trader_preference_bits(&self) -> u32 {
+        self.trader_preference_bits
+    }
+
+    pub fn is_trader_preference_enabled(&self, preference: TraderPreferenceKind) -> bool {
+        self.trader_preference_bits & preference.bit() != 0
+    }
+
+    pub fn disable_collateral_sweep(&self) -> bool {
+        self.is_trader_preference_enabled(TraderPreferenceKind::DisableCollateralSweep)
+    }
+
     pub fn trader_pda_index(&self) -> u8 {
         self.trader_pda_index
     }
@@ -72,6 +126,7 @@ pub struct RegisterTraderParamsBuilder {
     trader: Option<Pubkey>,
     trader_account: Option<Pubkey>,
     max_positions: Option<u64>,
+    trader_preference_bits: u32,
     trader_pda_index: Option<u8>,
     subaccount_index: Option<u8>,
 }
@@ -101,6 +156,30 @@ impl RegisterTraderParamsBuilder {
         self
     }
 
+    pub fn trader_preference_bits(mut self, trader_preference_bits: u32) -> Self {
+        self.trader_preference_bits = trader_preference_bits;
+        self
+    }
+
+    pub fn enable_trader_preference(mut self, preference: TraderPreferenceKind) -> Self {
+        self.trader_preference_bits |= preference.bit();
+        self
+    }
+
+    pub fn disable_trader_preference(mut self, preference: TraderPreferenceKind) -> Self {
+        self.trader_preference_bits &= !preference.bit();
+        self
+    }
+
+    pub fn disable_collateral_sweep(mut self, disable_collateral_sweep: bool) -> Self {
+        if disable_collateral_sweep {
+            self.trader_preference_bits |= TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP;
+        } else {
+            self.trader_preference_bits &= !TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP;
+        }
+        self
+    }
+
     pub fn trader_pda_index(mut self, trader_pda_index: u8) -> Self {
         self.trader_pda_index = Some(trader_pda_index);
         self
@@ -121,6 +200,7 @@ impl RegisterTraderParamsBuilder {
             max_positions: self
                 .max_positions
                 .ok_or(PhoenixIxError::MissingField("max_positions"))?,
+            trader_preference_bits: self.trader_preference_bits,
             trader_pda_index: self
                 .trader_pda_index
                 .ok_or(PhoenixIxError::MissingField("trader_pda_index"))?,
@@ -176,8 +256,11 @@ fn encode_register_trader(params: &RegisterTraderParams) -> Vec<u8> {
     // Instruction discriminant (8 bytes)
     data.extend_from_slice(&crate::PhoenixInstruction::RegisterTrader.discriminant());
 
-    // max_positions (8 bytes, little-endian u64)
-    data.extend_from_slice(&params.max_positions().to_le_bytes());
+    // max_positions (4 bytes, little-endian u32)
+    data.extend_from_slice(&(params.max_positions() as u32).to_le_bytes());
+
+    // trader_preference_bits (4 bytes, little-endian u32)
+    data.extend_from_slice(&params.trader_preference_bits().to_le_bytes());
 
     // trader_pda_index (1 byte)
     data.push(params.trader_pda_index());
@@ -270,17 +353,44 @@ mod tests {
 
         let ix = create_register_trader_ix(params).unwrap();
 
-        // Total data: 8 (discriminant) + 8 (max_positions) + 1 (pda_index) + 1
+        // Total data: 8 (discriminant) + 4 (max_positions) + 4
+        // (trader_preference_bits) + 1 (pda_index) + 1
         // (subaccount_index) = 18
         assert_eq!(ix.data.len(), 18);
 
-        // max_positions = 128 as u64 LE
-        assert_eq!(&ix.data[8..16], &128u64.to_le_bytes());
+        // max_positions = 128 as u32 LE
+        assert_eq!(&ix.data[8..12], &128u32.to_le_bytes());
+
+        // trader_preference_bits = 0 as u32 LE
+        assert_eq!(&ix.data[12..16], &0u32.to_le_bytes());
 
         // trader_pda_index = 0
         assert_eq!(ix.data[16], 0);
 
         // subaccount_index = 5
+        assert_eq!(ix.data[17], 5);
+    }
+
+    #[test]
+    fn test_register_trader_disable_collateral_sweep_encoding() {
+        let params = RegisterTraderParams::builder()
+            .payer(Pubkey::new_unique())
+            .trader(Pubkey::new_unique())
+            .trader_account(Pubkey::new_unique())
+            .max_positions(1)
+            .trader_preference_bits(2)
+            .enable_trader_preference(TraderPreferenceKind::DisableCollateralSweep)
+            .trader_pda_index(4)
+            .subaccount_index(5)
+            .build()
+            .unwrap();
+
+        assert!(params.disable_collateral_sweep());
+        let ix = create_register_trader_ix(params).unwrap();
+
+        assert_eq!(&ix.data[8..12], &1u32.to_le_bytes());
+        assert_eq!(&ix.data[12..16], &3u32.to_le_bytes());
+        assert_eq!(ix.data[16], 4);
         assert_eq!(ix.data[17], 5);
     }
 

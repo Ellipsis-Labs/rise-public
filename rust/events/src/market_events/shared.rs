@@ -2,7 +2,7 @@ use core::fmt;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 pub use phoenix_rise_math::{
-    BaseLots, BasisPoints, Constant, FundingRateUnitInSeconds, QuoteLots, SignedBaseLots,
+    BaseLots, BasisPoints, Constant, FundingRateUnitInSeconds, QuoteLots, Side, SignedBaseLots,
     SignedFeeRateMicro, SignedQuoteLots, SignedQuoteLotsPerBaseLot,
     SignedQuoteLotsPerBaseLotUpcasted, SignedTicks, Ticks,
 };
@@ -138,22 +138,6 @@ pub enum AuthorityType {
     Cancel,
     Backstop,
     ADL,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, BorshDeserialize, BorshSerialize, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum Side {
-    Bid,
-    Ask,
-}
-
-impl fmt::Display for Side {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Side::Bid => write!(f, "bid"),
-            Side::Ask => write!(f, "ask"),
-        }
-    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, BorshDeserialize, BorshSerialize)]

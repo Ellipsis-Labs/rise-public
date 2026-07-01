@@ -1,3 +1,4 @@
+use phoenix_rise_math::QuoteLots;
 use serde::Serialize;
 
 use super::internal::SequenceNumber;
@@ -6,9 +7,9 @@ use crate::withdraw_queue as borrowed;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct WithdrawThrottle {
-    pub max_budget: u64,
-    pub remaining_budget: u64,
-    pub replenish_amount_per_slot: u64,
+    pub max_budget: QuoteLots,
+    pub remaining_budget: QuoteLots,
+    pub replenish_amount_per_slot: QuoteLots,
     pub last_update_slot: u64,
 }
 
@@ -16,9 +17,9 @@ pub struct WithdrawThrottle {
 pub struct WithdrawQueueHeader {
     pub sequence_number: SequenceNumber,
     pub withdraw_throttle: WithdrawThrottle,
-    pub total_queued_amount: u64,
-    pub withdrawal_fee: u64,
-    pub enqueuing_fee: u64,
+    pub total_queued_amount: QuoteLots,
+    pub withdrawal_fee: QuoteLots,
+    pub enqueuing_fee: QuoteLots,
 }
 
 impl AccountDeserialize for WithdrawQueueHeader {

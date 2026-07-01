@@ -967,12 +967,36 @@ dependencies = [
 
 [[package]]
 name = "darling"
+version = "0.21.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9cdf337090841a411e2a7f3deb9187445851f91b309c0c0a29e05f74a00a48c0"
+dependencies = [
+ "darling_core 0.21.3",
+ "darling_macro 0.21.3",
+]
+
+[[package]]
+name = "darling"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25ae13da2f202d56bd7f91c25fba009e7717a1e4a1cc98a76d844b65ae912e9d"
 dependencies = [
- "darling_core",
- "darling_macro",
+ "darling_core 0.23.0",
+ "darling_macro 0.23.0",
+]
+
+[[package]]
+name = "darling_core"
+version = "0.21.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1247195ecd7e3c85f83c8d2a366e4210d588e802133e1e355180a9870b517ea4"
+dependencies = [
+ "fnv",
+ "ident_case",
+ "proc-macro2",
+ "quote",
+ "strsim",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -990,11 +1014,22 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
+version = "0.21.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d38308df82d1080de0afee5d069fa14b0326a88c14f15c5ccda35b4a6c414c81"
+dependencies = [
+ "darling_core 0.21.3",
+ "quote",
+ "syn 2.0.118",
+]
+
+[[package]]
+name = "darling_macro"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac3984ec7bd6cfa798e62b4a642426a5be0e68f9401cfc2a01e3fa9ea2fcdb8d"
 dependencies = [
- "darling_core",
+ "darling_core 0.23.0",
  "quote",
  "syn 2.0.118",
 ]
@@ -2374,7 +2409,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "phoenix-rise-accounts",
  "phoenix-rise-api",
@@ -2386,7 +2421,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-accounts"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "borsh",
  "bs58",
@@ -2400,7 +2435,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-api"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -2425,6 +2460,7 @@ dependencies = [
  "solana-pubkey 3.0.0",
  "solana-rpc-client",
  "solana-rpc-client-api",
+ "solana-signature",
  "solana-signer",
  "solana-transaction",
  "solana-transaction-error",
@@ -2437,7 +2473,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-core"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "base64 0.22.1",
  "bytemuck",
@@ -2458,11 +2494,12 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-ix"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "borsh",
  "bytemuck",
  "phoenix-rise-accounts",
+ "phoenix-rise-math",
  "pinocchio",
  "sha2 0.10.9",
  "sha2-const-stable",
@@ -2473,7 +2510,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-litesvm-test"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "base64 0.22.1",
  "borsh",
@@ -2488,6 +2525,7 @@ dependencies = [
  "solana-keypair",
  "solana-pubkey 3.0.0",
  "solana-rpc-client",
+ "solana-signature",
  "solana-signer",
  "solana-transaction",
  "thiserror 2.0.18",
@@ -2495,14 +2533,14 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-math"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "borsh",
  "bytemuck",
  "fixed",
  "pastey 0.1.1",
- "rand 0.10.1",
  "rust_decimal",
+ "serde",
  "sha2-const-stable",
  "solana-pubkey 3.0.0",
  "thiserror 2.0.18",
@@ -2510,9 +2548,10 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-types"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "chrono",
+ "phoenix-rise-math",
  "serde",
  "serde_json",
  "serde_with",
@@ -3292,7 +3331,7 @@ version = "3.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "84d57bc0c8b9a17920c178daa6bb924850d54a9c97ab45194bb8c17ad66bb660"
 dependencies = [
- "darling",
+ "darling 0.23.0",
  "proc-macro2",
  "quote",
  "syn 2.0.118",
@@ -3513,7 +3552,7 @@ dependencies = [
  "solana-program-error",
  "solana-sanitize",
  "solana-sha256-hasher",
- "wincode",
+ "wincode 0.5.5",
 ]
 
 [[package]]
@@ -4001,14 +4040,13 @@ dependencies = [
 
 [[package]]
 name = "solana-keypair"
-version = "3.1.2"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "263d614c12aa267a3278703175fd6440552ca61bc960b5a02a4482720c53438b"
+checksum = "5ac8be597c9e231b0cab2928ce3bc3e4ee77d9c0ad92977b9d901f3879f25a7a"
 dependencies = [
  "ed25519-dalek",
  "five8",
- "five8_core 1.0.0",
- "rand 0.9.4",
+ "rand 0.8.6",
  "solana-address 2.6.1",
  "solana-seed-phrase",
  "solana-signature",
@@ -4520,9 +4558,9 @@ dependencies = [
 
 [[package]]
 name = "solana-signature"
-version = "3.4.1"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0364c7577c3c82a693ce28a1febc8d1b5d1b0a175fdc2114ae6186b69effe1e"
+checksum = "f4028aeedd443d80f1dccbf64872593a80e6a9676ee9007f6eccb63b65983ebd"
 dependencies = [
  "ed25519-dalek",
  "five8",
@@ -4530,7 +4568,7 @@ dependencies = [
  "serde-big-array",
  "serde_derive",
  "solana-sanitize",
- "wincode",
+ "wincode 0.2.5",
 ]
 
 [[package]]
@@ -5806,6 +5844,18 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "wincode"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5cec722a3274e47d1524cbe2cea762f2c19d615bd9d73ada21db9066349d57e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "thiserror 2.0.18",
+ "wincode-derive 0.2.3",
+]
+
+[[package]]
+name = "wincode"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "66d967db7705dc29120bb6e8ce5b5a2e27734ed5976d1c904e95bd238d1c3c5a"
@@ -5814,7 +5864,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "thiserror 2.0.18",
- "wincode-derive",
+ "wincode-derive 0.4.6",
+]
+
+[[package]]
+name = "wincode-derive"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8961eb04054a1b2e026b5628e24da7e001350249a787e1a85aa961f33dc5f286"
+dependencies = [
+ "darling 0.21.3",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -5823,7 +5885,7 @@ version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "15ab90b719560d0fda79c74550ad1c948d17b118765942838055ebaf34d67071"
 dependencies = [
- "darling",
+ "darling 0.23.0",
  "proc-macro2",
  "quote",
  "syn 2.0.118",

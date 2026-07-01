@@ -1,3 +1,4 @@
+use phoenix_rise_math::{BaseLots, Ticks};
 use serde::Serialize;
 use solana_pubkey::Pubkey;
 
@@ -29,9 +30,9 @@ pub struct ConditionalOrderHeader {
 pub struct ConditionalOrder {
     pub sequence_number: u64,
     pub order_id: Option<FifoOrderId>,
-    pub max_size: u64,
-    pub fillable_size: u64,
-    pub filled_size: u64,
+    pub max_size: BaseLots,
+    pub fillable_size: BaseLots,
+    pub filled_size: BaseLots,
     pub slot: u64,
     pub asset_id: u32,
     pub use_percent: bool,
@@ -43,8 +44,8 @@ pub struct ConditionalOrder {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct ConditionalOrderTrigger {
-    pub trigger_price: u64,
-    pub execution_price: u64,
+    pub trigger_price: Ticks,
+    pub execution_price: Ticks,
     pub position_sequence_number: u8,
     pub is_active: bool,
     pub execution_direction: StopLossDirection,
@@ -283,9 +284,9 @@ mod tests {
         assert!(first_order.use_percent);
         assert_eq!(first_order.percent, 25);
         assert_eq!(first_order.asset_id, 5);
-        assert_eq!(first_order.max_size, 100);
-        assert_eq!(first_order.fillable_size, 90);
-        assert_eq!(first_order.filled_size, 10);
+        assert_eq!(first_order.max_size, BaseLots::new(100));
+        assert_eq!(first_order.fillable_size, BaseLots::new(90));
+        assert_eq!(first_order.filled_size, BaseLots::new(10));
         assert!(first_order.order_id.is_none());
         assert_eq!(
             first_order.active_trigger_directions(),
@@ -296,7 +297,10 @@ mod tests {
         assert!(second_order.is_greater_trigger_order_active());
         assert!(second_order.is_less_trigger_order_active());
         assert_eq!(second_order.asset_id, 6);
-        assert_eq!(second_order.order_id.unwrap().price_in_ticks, 33);
+        assert_eq!(
+            second_order.order_id.unwrap().price_in_ticks,
+            Ticks::new(33)
+        );
         assert_eq!(
             second_order.active_trigger_directions(),
             vec![StopLossDirection::GreaterThan, StopLossDirection::LessThan]
