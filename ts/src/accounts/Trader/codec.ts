@@ -21,6 +21,7 @@ import {
   getAuthorityDecoder,
   getOptionalNonZeroU32Decoder,
 } from "../internal";
+import { decodeTraderPreferenceFlags } from "./preferences";
 import type { Trader } from "./types";
 
 export const getTraderDecoder = (): Decoder<Trader> =>
@@ -50,12 +51,27 @@ export const getTraderDecoder = (): Decoder<Trader> =>
       ]),
       [getConstantDecoder(ACCOUNT_DISCRIMINANTS.TRADER)]
     ),
-    ({ _padding0, _padding1, conditionalOrderBits, ...trader }) => ({
-      ...trader,
+    ({
+      _padding0,
+      _padding1,
       conditionalOrderBits,
-      occupiedConditionalOrderIndices:
-        getOccupiedConditionalOrderIndices(conditionalOrderBits),
-    })
+      traderPreferenceBits,
+      ...trader
+    }) => {
+      const traderPreferenceFlags =
+        decodeTraderPreferenceFlags(traderPreferenceBits);
+      return {
+        ...trader,
+        traderPreferenceBits,
+        traderPreferenceFlags,
+        preferences: traderPreferenceFlags.preferences,
+        disableCollateralSweep:
+          traderPreferenceFlags.preferences.disableCollateralSweep,
+        conditionalOrderBits,
+        occupiedConditionalOrderIndices:
+          getOccupiedConditionalOrderIndices(conditionalOrderBits),
+      };
+    }
   );
 
 export const decodeTrader = (

@@ -16,6 +16,7 @@ import {
   Side,
   StopLossOrderKind,
   TokenAccountState,
+  TraderPreferenceKind,
   flight,
 } from "@/index";
 import { getAddressDecoder } from "@solana/kit";
@@ -38,6 +39,7 @@ const TRADER_POSITION_MAP_LEN_OFFSET = 224;
 const TRADER_POSITION_ENTRIES_OFFSET = 240;
 const TRADER_POSITION_ENTRY_BYTES = 40;
 const HEADER_EXTENSION_ASSET_ID = 0xffff0000;
+const COLD_ONLY_DISCRIMINANT = 1;
 
 type FixtureFile = {
   account: {
@@ -346,21 +348,30 @@ describe("raw account parsing", () => {
 
     expect(decoded.maxPositions).toBe(128);
     expect(decoded.traderPreferenceBits).toBe(1);
+    expect(decoded.traderPreferenceFlags.enabled).toEqual([
+      TraderPreferenceKind.DisableCollateralSweep,
+    ]);
+    expect(decoded.preferences.disableCollateralSweep).toBe(true);
+    expect(decoded.disableCollateralSweep).toBe(true);
   });
 
   it("decodes only position entries from Trader position map", () => {
     const bytes = loadMockBytes("trader.json");
-    writeU64LE(bytes, TRADER_POSITION_MAP_LEN_OFFSET, 2n);
+    writeU64LE(bytes, TRADER_POSITION_MAP_LEN_OFFSET, 3n);
     const secondEntryOffset =
       TRADER_POSITION_ENTRIES_OFFSET + TRADER_POSITION_ENTRY_BYTES;
     writeU32LE(bytes, secondEntryOffset, HEADER_EXTENSION_ASSET_ID);
     writeU32LE(bytes, secondEntryOffset + 4, 0);
+    const thirdEntryOffset = secondEntryOffset + TRADER_POSITION_ENTRY_BYTES;
+    writeU32LE(bytes, thirdEntryOffset, 12);
+    writeU32LE(bytes, thirdEntryOffset + 4, COLD_ONLY_DISCRIMINANT);
 
     const decoded = decodeTrader(bytes);
 
-    expect(decoded.positions.len).toBe(1n);
-    expect(decoded.positions.entries).toHaveLength(1);
+    expect(decoded.positions.len).toBe(2n);
+    expect(decoded.positions.entries).toHaveLength(2);
     expect(decoded.positions.entries[0]?.key).toBe(11n);
+    expect(decoded.positions.entries[1]?.key).toBe(12n);
   });
 
   it(

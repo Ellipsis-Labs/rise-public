@@ -4,6 +4,7 @@ import {
   SelfTradeBehavior,
   Side,
   StopLossOrderKind,
+  TraderPreferenceKind,
   baseLots,
   buildCancelAllIxResolved,
   buildCancelOrdersByIdIxResolved,
@@ -695,6 +696,61 @@ describe("resolved ix builders", () => {
     expect(ix.accounts[3]?.address).toBe("fee-payer");
     expect(ix.accounts[4]?.address).toBe("trader-authority");
     expect(ix.accounts[5]?.address).toBe("trader-account");
+  });
+
+  it("sets disable-collateral-sweep on register-trader preference bits", () => {
+    const ix = buildRegisterTraderIxResolved({
+      exchange: {
+        phoenixProgramAddress: "phoenix-program" as never,
+        logAuthorityAddress: "log-authority" as never,
+        globalConfigurationAddress: "global-config" as never,
+      },
+      trader: {
+        payer: "fee-payer" as never,
+        authority: "trader-authority" as never,
+        traderAccount: "trader-account" as never,
+      },
+      maxPositions: 1n,
+      traderPreferenceBits: 2,
+      traderPreferences: [TraderPreferenceKind.DisableCollateralSweep],
+      traderPdaIndex: 4,
+      traderSubaccountIndex: 5,
+    });
+
+    expect(Array.from(ix.data.slice(8))).toEqual([
+      1, 0, 0, 0, 3, 0, 0, 0, 4, 5,
+    ]);
+  });
+
+  it("rejects non-u8 register-trader indexes before encoding", () => {
+    const baseParams = {
+      exchange: {
+        phoenixProgramAddress: "phoenix-program" as never,
+        logAuthorityAddress: "log-authority" as never,
+        globalConfigurationAddress: "global-config" as never,
+      },
+      trader: {
+        payer: "fee-payer" as never,
+        authority: "trader-authority" as never,
+        traderAccount: "trader-account" as never,
+      },
+      maxPositions: 1n,
+      traderPdaIndex: 0,
+      traderSubaccountIndex: 0,
+    } as const;
+
+    expect(() =>
+      buildRegisterTraderIxResolved({
+        ...baseParams,
+        traderPdaIndex: 1.5,
+      })
+    ).toThrow("Trader PDA index must be an integer between 0 and 255");
+    expect(() =>
+      buildRegisterTraderIxResolved({
+        ...baseParams,
+        traderSubaccountIndex: 101,
+      })
+    ).toThrow("Trader subaccount index must be an integer between 0 and 100");
   });
 
   it("builds a resolved delegated trader-onboarding ix synchronously", () => {

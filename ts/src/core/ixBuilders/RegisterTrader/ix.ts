@@ -3,6 +3,11 @@ import {
   SYSTEM_PROGRAM_ADDRESS,
 } from "@/core/constants";
 import {
+  ALL_TRADER_PREFERENCE_KINDS,
+  encodeTraderPreferences,
+  TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP,
+} from "@/accounts/Trader/preferences";
+import {
   generateReadonlyAccount,
   generateWritableAccount,
   generateWritableSignerAccount,
@@ -20,9 +25,11 @@ export const buildRegisterTraderIx = (
   validate(params);
   const { programAddress, logAuthorityAddress, globalConfigurationAddress } =
     getPhoenixInstructionAddresses(params);
+  const traderPreferenceBits = resolveTraderPreferenceBits(params);
 
   const data = getRegisterTraderInstructionEncoder().encode({
     maxPositions: params.maxPositions,
+    traderPreferenceBits,
     traderPdaIndex: params.traderPdaIndex,
     subaccountIndex: params.traderSubaccountIndex,
   });
@@ -62,7 +69,54 @@ const validate = (params: RegisterTraderParams) => {
   if (params.maxPositions > 128n) {
     throw new Error("Max positions cannot exceed 128");
   }
-  if (params.traderPdaIndex < 0 || params.traderPdaIndex > 255) {
-    throw new Error("Trader PDA index must be between 0 and 255");
+  assertIntegerInRange(params.traderPdaIndex, "Trader PDA index", 0, 255);
+  assertIntegerInRange(
+    params.traderSubaccountIndex,
+    "Trader subaccount index",
+    0,
+    100
+  );
+  if (params.traderPreferenceBits !== undefined) {
+    if (!Number.isInteger(params.traderPreferenceBits)) {
+      throw new Error("Trader preference bits must be an integer");
+    }
+    if (
+      params.traderPreferenceBits < 0 ||
+      params.traderPreferenceBits > 0xffffffff
+    ) {
+      throw new Error("Trader preference bits must fit in a u32");
+    }
+  }
+  if (params.traderPreferences !== undefined) {
+    const validPreferences = new Set(ALL_TRADER_PREFERENCE_KINDS);
+    for (const preference of params.traderPreferences) {
+      if (!validPreferences.has(preference)) {
+        throw new Error(`Unknown trader preference: ${preference}`);
+      }
+    }
+  }
+};
+
+const resolveTraderPreferenceBits = (params: RegisterTraderParams): number => {
+  let traderPreferenceBits = params.traderPreferenceBits ?? 0;
+  if (params.traderPreferences !== undefined) {
+    traderPreferenceBits |= encodeTraderPreferences(params.traderPreferences);
+  }
+  if (params.disableCollateralSweep === true) {
+    traderPreferenceBits |= TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP;
+  } else if (params.disableCollateralSweep === false) {
+    traderPreferenceBits &= ~TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP;
+  }
+  return traderPreferenceBits;
+};
+
+const assertIntegerInRange = (
+  value: number,
+  label: string,
+  min: number,
+  max: number
+) => {
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw new Error(`${label} must be an integer between ${min} and ${max}`);
   }
 };

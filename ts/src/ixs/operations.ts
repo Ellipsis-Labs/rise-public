@@ -983,6 +983,9 @@ export const createPhoenixIxOperations = (
           traderAccount,
         },
         maxPositions: BigInt(toMaxPositions(params.marginType)),
+        traderPreferenceBits: params.traderPreferenceBits,
+        traderPreferences: params.traderPreferences,
+        disableCollateralSweep: params.disableCollateralSweep,
         traderPdaIndex,
         traderSubaccountIndex: traderSubaccountIndex ?? 0,
       });

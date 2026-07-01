@@ -3,6 +3,30 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.60 - 2026-07-01
+
+Source Phoenix commit: `cf8419bc21f9f539306198f7c08d0aca14a39580`
+
+### Summary
+
+- Adds a trader preferences bitfield: new `TraderPreferenceKind` enum, `encodeTraderPreferences`/`decodeTraderPreferenceFlags` helpers, and related constants/types for setting and reading per-trader flags (currently just `disableCollateralSweep`).
+- `decodeTrader` output now includes `traderPreferenceFlags`, `preferences`, and `disableCollateralSweep` alongside the existing raw `traderPreferenceBits`.
+- `buildRegisterTraderIx`/`buildRegisterTraderIxResolved` accept new optional `traderPreferenceBits`, `traderPreferences`, and `disableCollateralSweep` params to set preferences at registration time.
+- Fixes trader position-map decoding so entries carrying a non-zero upper-bits discriminant (previously silently dropped) are now correctly included as position entries.
+- Tightens `RegisterTrader` param validation: `traderPdaIndex` and `traderSubaccountIndex` must now be integers within explicit bounds (0–255 and 0–100 respectively).
+
+### Breaking Changes
+
+- `RegisterTrader` instruction wire format changed: `maxPositions` is now encoded as a `u32` (was `u64`), and a new `u32` `traderPreferenceBits` field is inserted before `traderPdaIndex`/`subaccountIndex`. Any code building raw instruction bytes manually, or relying on a cached/stale IDL for this instruction, must update to the new layout.
+- `buildRegisterTraderIx` now throws for a `traderSubaccountIndex` outside `0–100` (previously unvalidated) and for non-integer `traderPdaIndex`/`traderSubaccountIndex` values; calls that previously succeeded with such inputs will now throw.
+- The `traderPdaIndex` validation error message changed from `"Trader PDA index must be between 0 and 255"` to `"Trader PDA index must be an integer between 0 and 255"` — code matching on the exact string will break.
+
+### Consumer Notes
+
+- To disable collateral sweep for a trader, pass `disableCollateralSweep: true` (or `traderPreferences: [TraderPreferenceKind.DisableCollateralSweep]`) to `buildRegisterTraderIx`/`buildRegisterTraderIxResolved`.
+- Existing decoded `Trader` accounts gain `preferences.disableCollateralSweep` and `traderPreferenceFlags` (with `bits`, `enabled`, `reservedBits`, `hasReservedBits`) for inspecting preference state without manual bit-masking.
+- If your app reads `positions.entries` from decoded `Trader` accounts, expect entry counts/contents to change for accounts holding position-map entries with a non-zero discriminant in the upper 32 bits — these are now surfaced as position entries where they were previously silently skipped.
+
 ## v0.4.59 - 2026-06-30
 
 Source Phoenix commit: `e6a5f77bd8cbda7bddfa2e8687408ce87237aa0f`

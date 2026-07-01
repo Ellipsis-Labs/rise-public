@@ -70,6 +70,16 @@ export {
   fetchTrader,
   decodeTrader,
   getTraderDecoder,
+  decodeTraderPreferenceFlags,
+  encodeTraderPreferences,
+  traderPreferenceBit,
+  traderPreferenceKey,
+  TraderPreferenceKind,
+  ALL_TRADER_PREFERENCE_KINDS,
+  TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP,
+  TRADER_PREFERENCE_VALID_MASK,
+  type TraderPreferenceFlags,
+  type TraderPreferences,
   type Trader,
 } from "./Trader";
 export {

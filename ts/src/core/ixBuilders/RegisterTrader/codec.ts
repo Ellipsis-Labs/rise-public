@@ -7,10 +7,12 @@ import {
   getHiddenPrefixEncoder,
   getStructDecoder,
   getStructEncoder,
-  getU64Decoder,
-  getU64Encoder,
+  getU32Decoder,
+  getU32Encoder,
   getU8Decoder,
   getU8Encoder,
+  transformDecoder,
+  transformEncoder,
   type Codec,
   type Decoder,
   type Encoder,
@@ -18,25 +20,41 @@ import {
 
 export interface RegisterTraderParamsData {
   maxPositions: bigint;
+  traderPreferenceBits?: number;
   traderPdaIndex: number;
   subaccountIndex: number;
 }
 
 export const getRegisterTraderParamsEncoder =
   (): Encoder<RegisterTraderParamsData> =>
-    getStructEncoder([
-      ["maxPositions", getU64Encoder()],
-      ["traderPdaIndex", getU8Encoder()],
-      ["subaccountIndex", getU8Encoder()],
-    ]);
+    transformEncoder(
+      getStructEncoder([
+        ["maxPositions", getU32Encoder()],
+        ["traderPreferenceBits", getU32Encoder()],
+        ["traderPdaIndex", getU8Encoder()],
+        ["subaccountIndex", getU8Encoder()],
+      ]),
+      (value) => ({
+        ...value,
+        maxPositions: Number(value.maxPositions),
+        traderPreferenceBits: value.traderPreferenceBits ?? 0,
+      })
+    );
 
 export const getRegisterTraderParamsDecoder =
   (): Decoder<RegisterTraderParamsData> =>
-    getStructDecoder([
-      ["maxPositions", getU64Decoder()],
-      ["traderPdaIndex", getU8Decoder()],
-      ["subaccountIndex", getU8Decoder()],
-    ]);
+    transformDecoder(
+      getStructDecoder([
+        ["maxPositions", getU32Decoder()],
+        ["traderPreferenceBits", getU32Decoder()],
+        ["traderPdaIndex", getU8Decoder()],
+        ["subaccountIndex", getU8Decoder()],
+      ]),
+      (value) => ({
+        ...value,
+        maxPositions: BigInt(value.maxPositions),
+      })
+    );
 
 export const getRegisterTraderParamsCodec =
   (): Codec<RegisterTraderParamsData> =>
