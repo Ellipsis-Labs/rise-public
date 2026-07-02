@@ -89,6 +89,8 @@ export {
 
 export {
   buildCancelOrdersByIdIx,
+  getCancelOrdersByIdCodec,
+  getCancelOrdersByIdDecoder,
   getCancelOrdersByIdEncoder,
   type CancelOrdersById,
   type CancelOrdersByIdAccounts,

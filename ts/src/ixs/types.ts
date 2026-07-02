@@ -50,6 +50,7 @@ import type {
   SplineCollectionAddress,
   StopLossOrderKind,
   Symbol,
+  Ticks,
   TokenAccountAddress,
   TraderAddress,
   WithdrawQueueAddress,
@@ -156,11 +157,21 @@ export interface ClientCancelAllInput {
   traderSubaccountIndex?: number;
 }
 
+export type ClientCancelOrdersByIdOrder =
+  | {
+      priceInTicks: Ticks | bigint | number | string;
+      price?: never;
+      orderSequenceNumber: string | number | bigint;
+    }
+  | {
+      /** @deprecated Prefer priceInTicks when cancelling an order from trader state. */
+      price: number | bigint;
+      priceInTicks?: never;
+      orderSequenceNumber: string | number | bigint;
+    };
+
 export interface ClientCancelOrdersByIdInput extends ClientCancelAllInput {
-  orders: Array<{
-    price: number | bigint;
-    orderSequenceNumber: string | number;
-  }>;
+  orders: ClientCancelOrdersByIdOrder[];
 }
 
 export interface ClientCancelUpToInput extends ClientCancelAllInput {

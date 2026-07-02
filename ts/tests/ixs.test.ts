@@ -38,6 +38,7 @@ import {
   type PhoenixIxOperationContext,
 } from "@/ixs/operations";
 import type { ResolvedPlaceOrderContext } from "@/ixs/types";
+import { getCancelOrdersByIdDecoder } from "@/core/ixBuilders/CancelOrdersById";
 import type { Authority } from "@/primitives";
 import type { InstructionsWithAccountsAndData } from "@/primitives/_utilityTypes";
 import { AccountRole } from "@solana/kit";
@@ -136,6 +137,27 @@ const createTestOperationContext = (
 });
 
 describe("ix operations", () => {
+  const createCancelByIdOperations = (
+    market: {
+      tickSize?: number;
+      baseLotsDecimals?: number;
+    } = {
+      tickSize: 100,
+      baseLotsDecimals: 3,
+    }
+  ) =>
+    createPhoenixIxOperations({
+      ...createTestOperationContext([]),
+      resolveExchangeInstructionAccounts: async () => resolvedDepositExchange,
+      resolveMarketContext: async () => ({
+        assetId: 0,
+        marketAddress: "market-address" as never,
+        splineCollection: "spline-address" as never,
+        ...market,
+      }),
+      resolveTraderAccount: async () => "trader-account" as never,
+    });
+
   it("wraps market order entrypoints with the trader account authority", async () => {
     const wrapCalls: Array<{
       instruction: InstructionsWithAccountsAndData;
@@ -193,6 +215,88 @@ describe("ix operations", () => {
     expect(wrapCalls[0]?.authority).toBe("trader-authority");
     expect(ix.accounts[3]?.address).toBe("position-authority");
     expect(ix.accounts[4]?.address).toBe("position-authority");
+  });
+
+  it("builds cancel-by-id from tick prices without converting them as USD", async () => {
+    const ix = await createCancelByIdOperations().buildCancelOrdersById({
+      authority: "trader-authority" as never,
+      symbol: "BTC-PERP" as never,
+      orders: [
+        {
+          priceInTicks: ticks(123_456n),
+          orderSequenceNumber: 7n,
+        },
+        {
+          priceInTicks: 234_567,
+          orderSequenceNumber: "8",
+        },
+        {
+          priceInTicks: "345678",
+          orderSequenceNumber: 9,
+        },
+        {
+          price: 86_000,
+          orderSequenceNumber: 10,
+        },
+      ],
+    });
+
+    const decoded = getCancelOrdersByIdDecoder().decode(ix.data);
+    expect(decoded.orderIds[0]?.orderId.priceInTicks).toBe(ticks(123_456n));
+    expect(decoded.orderIds[0]?.orderId.orderSequenceNumber).toBe(7n);
+    expect(decoded.orderIds[1]?.orderId.priceInTicks).toBe(ticks(234_567n));
+    expect(decoded.orderIds[1]?.orderId.orderSequenceNumber).toBe(8n);
+    expect(decoded.orderIds[2]?.orderId.priceInTicks).toBe(ticks(345_678n));
+    expect(decoded.orderIds[2]?.orderId.orderSequenceNumber).toBe(9n);
+    expect(decoded.orderIds[3]?.orderId.priceInTicks).toBe(ticks(860_000n));
+    expect(decoded.orderIds[3]?.orderId.orderSequenceNumber).toBe(10n);
+  });
+
+  it("builds tick-native cancel-by-id without tick-size metadata", async () => {
+    const ix = await createCancelByIdOperations({}).buildCancelOrdersById({
+      authority: "trader-authority" as never,
+      symbol: "BTC-PERP" as never,
+      orders: [
+        {
+          priceInTicks: ticks(123_456n),
+          orderSequenceNumber: 7n,
+        },
+      ],
+    });
+
+    const decoded = getCancelOrdersByIdDecoder().decode(ix.data);
+    expect(decoded.orderIds).toHaveLength(1);
+    expect(decoded.orderIds[0]?.orderId.priceInTicks).toBe(ticks(123_456n));
+  });
+
+  it("requires tick-size metadata for legacy cancel-by-id USD prices", async () => {
+    await expect(
+      createCancelByIdOperations({ baseLotsDecimals: 3 }).buildCancelOrdersById(
+        {
+          authority: "trader-authority" as never,
+          symbol: "BTC-PERP" as never,
+          orders: [{ price: 86_000, orderSequenceNumber: 7 }],
+        }
+      )
+    ).rejects.toThrow("Market metadata is missing tick size");
+
+    await expect(
+      createCancelByIdOperations({ tickSize: 100 }).buildCancelOrdersById({
+        authority: "trader-authority" as never,
+        symbol: "BTC-PERP" as never,
+        orders: [{ price: 86_000, orderSequenceNumber: 7 }],
+      })
+    ).rejects.toThrow("Market metadata is missing base lot decimals");
+  });
+
+  it("rejects cancel-by-id orders without a price field", async () => {
+    await expect(
+      createCancelByIdOperations().buildCancelOrdersById({
+        authority: "trader-authority" as never,
+        symbol: "BTC-PERP" as never,
+        orders: [{ orderSequenceNumber: 7 }] as never,
+      })
+    ).rejects.toThrow("Cancel order requires priceInTicks or price");
   });
 });
 
