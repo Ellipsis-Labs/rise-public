@@ -1,6 +1,6 @@
 {
   "name": "@ellipsis-labs/rise",
-  "version": "0.4.60",
+  "version": "0.4.61",
   "packageManager": "bun@1.3.13",
   "repository": {
     "type": "git",
