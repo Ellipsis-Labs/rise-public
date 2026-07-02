@@ -188,6 +188,7 @@ type LiteSvmLamports = Parameters<LiteSVM["airdrop"]>[1];
 type LiteSvmTransaction = Parameters<LiteSVM["sendTransaction"]>[0];
 
 const REQUIRED_PROGRAM_ARTIFACT_ENV = "RISE_SDK_LOCALNET_REQUIRE_PROGRAMS";
+const LOG_SUCCESSFUL_TRANSACTION_ENV = "RISE_SDK_LOCALNET_LOGS";
 const PHOENIX_REPO_ROOT_ENV = "PHOENIX_REPO_ROOT";
 const ETERNAL_PROGRAM_ENV = "RISE_SDK_LOCALNET_ETERNAL_SO";
 const EMBER_PROGRAM_ENV = "RISE_SDK_LOCALNET_EMBER_SO";
@@ -352,10 +353,14 @@ export const sendSdkLocalnetInstructions = async (
   const result = vm.sendTransaction(
     transaction as unknown as LiteSvmTransaction
   );
+  const metadata = assertSuccessfulTransaction(result, label);
+  if (shouldLogSuccessfulTransaction(label)) {
+    console.info(`[LiteSVM:${label}]\n${metadata.logs().join("\n")}`);
+  }
 
   return {
     label,
-    metadata: assertSuccessfulTransaction(result, label),
+    metadata,
   };
 };
 
@@ -1019,6 +1024,14 @@ const assertSuccessfulTransaction = (
   }
 
   return result;
+};
+
+const shouldLogSuccessfulTransaction = (label: string): boolean => {
+  const filter = process.env[LOG_SUCCESSFUL_TRANSACTION_ENV];
+  if (!filter) {
+    return false;
+  }
+  return filter === "1" || filter === "true" || label.includes(filter);
 };
 
 const getRequiredSigner = (

@@ -200,6 +200,28 @@ const priceToTicks = (
   return BigInt(Math.floor(priceTicks));
 };
 
+const cancelOrderPriceInTicks = (
+  order: ClientCancelOrdersByIdInput["orders"][number],
+  market: Pick<PhoenixIxResolvedMarketContext, "tickSize" | "baseLotsDecimals">
+) => {
+  if ("priceInTicks" in order && order.priceInTicks !== undefined) {
+    return ticks(order.priceInTicks);
+  }
+  if (!("price" in order)) {
+    throw new Error("Cancel order requires priceInTicks or price");
+  }
+
+  const { tickSize, baseLotsDecimals } = market;
+  if (tickSize === undefined) {
+    throw new Error("Market metadata is missing tick size");
+  }
+  if (baseLotsDecimals === undefined) {
+    throw new Error("Market metadata is missing base lot decimals");
+  }
+
+  return ticks(priceToTicks(order.price, tickSize, baseLotsDecimals));
+};
+
 export const createPhoenixIxOperations = (
   context: PhoenixIxOperationContext
 ): PhoenixIxClient => {
@@ -453,17 +475,6 @@ export const createPhoenixIxOperations = (
           traderSubaccountIndex: params.traderSubaccountIndex,
         }),
       ]);
-      const { tickSize, baseLotsDecimals } = market;
-      if (tickSize === undefined) {
-        throw new Error(
-          `Market metadata for ${params.symbol} is missing tick size`
-        );
-      }
-      if (baseLotsDecimals === undefined) {
-        throw new Error(
-          `Market metadata for ${params.symbol} is missing base lot decimals`
-        );
-      }
 
       return buildCancelOrdersByIdIxResolved({
         exchange: {
@@ -487,9 +498,7 @@ export const createPhoenixIxOperations = (
         orderIds: params.orders.map((order) => ({
           nodePointer: null,
           orderId: {
-            priceInTicks: ticks(
-              priceToTicks(order.price, tickSize, baseLotsDecimals)
-            ),
+            priceInTicks: cancelOrderPriceInTicks(order, market),
             orderSequenceNumber: BigInt(order.orderSequenceNumber),
           },
         })),

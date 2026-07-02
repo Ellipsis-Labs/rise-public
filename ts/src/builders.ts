@@ -84,6 +84,7 @@ import {
   buildDelegateTraderIxResolved,
   buildEmberWithdrawIxResolved,
   type BuildRegisterTraderParams,
+  type ClientCancelOrdersByIdInput,
 } from "./ixs";
 import {
   createPhoenixIxOperations,
@@ -100,6 +101,10 @@ type SendableInstruction = Parameters<
 >[0];
 type LegacyInstructionClient = PhoenixInstructionClient &
   Partial<PhoenixAccountExistenceClient>;
+type BuildCancelOrdersByIdParams = Omit<
+  ClientCancelOrdersByIdInput,
+  "traderPdaIndex" | "traderSubaccountIndex"
+>;
 
 const unsupportedOrderPackets: PhoenixOrderPacketBuilders = {
   buildLimitOrderPacket: async () => {
@@ -367,15 +372,7 @@ export const cancelAllOrders = async (
   );
 
 export const buildCancelOrdersById = async (
-  params: {
-    authority: Authority;
-    positionAuthority?: Authority;
-    symbol: Symbol;
-    orders: Array<{
-      price: number | bigint;
-      orderSequenceNumber: string | number;
-    }>;
-  },
+  params: BuildCancelOrdersByIdParams,
   client: PhoenixInstructionClient,
   traderPdaIndex = 0,
   traderSubaccountIndex = 0
@@ -388,15 +385,7 @@ export const buildCancelOrdersById = async (
 
 export const cancelOrdersById = async (
   client: PhoenixInstructionClient & PhoenixTransactionClient,
-  params: {
-    authority: Authority;
-    positionAuthority?: Authority;
-    symbol: Symbol;
-    orders: Array<{
-      price: bigint;
-      orderSequenceNumber: string | number;
-    }>;
-  },
+  params: BuildCancelOrdersByIdParams,
   options: {
     traderPdaIndex?: number;
     traderSubaccountIndex?: number;

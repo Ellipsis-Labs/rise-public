@@ -3,6 +3,25 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.62 - 2026-07-02
+
+Source Phoenix commit: `e427d47ea42afce753295b0559ac3a0e8c505518`
+
+### Summary
+
+- `buildCancelOrdersById` / `cancelOrdersById` now accept an optional `priceInTicks` field on each order, letting you cancel orders using the tick price returned by `placeLimitOrder`/order-state APIs instead of converting through a USD price.
+- Market tick-size and base-lot-decimals metadata is now only required when cancelling orders via the legacy `price` (USD) field; tick-native cancels work even when that market metadata isn't resolved.
+- Added `getCancelOrdersByIdDecoder` and `getCancelOrdersByIdCodec` exports alongside the existing `getCancelOrdersByIdEncoder`, enabling round-trip decoding of `CancelOrdersById` instruction data.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- The `price` field on cancel-by-id orders is now deprecated in favor of `priceInTicks`; existing code using `price` continues to work unchanged, but new integrations should prefer `priceInTicks` to avoid tick/USD conversion entirely.
+- If you build cancel-by-id instructions purely from `priceInTicks`, you no longer need to ensure `tickSize`/`baseLotsDecimals` are present in your resolved market context.
+
 ## v0.4.61 - 2026-07-02
 
 Source Phoenix commit: `64e433145ad2776c55d9ca53762ecfa78ba3ed51`

@@ -26,8 +26,10 @@ import {
   buildHawkeyeViewLiquidationPriceIx,
   buildHawkeyeViewMarginForAssetIx,
   buildHawkeyeViewMarginIx,
+  buildCancelConditionalOrderIx,
   buildCreatePermissionIx,
   buildCancelAllIxResolved,
+  buildCancelOrdersById,
   buildCancelOrdersByIdIxResolved,
   buildCancelStopLossIxResolved,
   buildCreateConditionalOrdersAccountIx,
@@ -74,6 +76,7 @@ import type {
   MarketAddress,
   PerpAssetMapAddress,
   PhoenixProgramAddress,
+  PhoenixInstructionClient,
   SplineCollectionAddress,
   TraderAddress,
 } from "../src";
@@ -650,6 +653,132 @@ describe("SDK localnet common flows", () => {
   );
 
   vmTest(
+    "cancels an attached conditional order",
+    async () => {
+      const context = await createContext();
+      const actor = context.getActor("taker0");
+      const market = context.getMarket("BTC");
+      const marketParams = buildSdkLocalnetMarketParams(context, "BTC");
+      const traderConditionalOrders = await getPhoenixConditionalOrdersAddress({
+        traderAccount: actor.traderAccount as TraderAddress,
+        phoenixProgramAddress: phoenixProgram(context),
+      });
+
+      await expectSuccess(
+        context.sendInstructions(
+          [
+            buildCreateConditionalOrdersAccountIx({
+              ...phoenixAccounts(context),
+              payer: actor.pubkey as Authority,
+              traderWallet: actor.pubkey as Authority,
+              traderAccount: actor.traderAccount as TraderAddress,
+              traderConditionalOrders,
+              capacity: 8,
+            }),
+          ],
+          {
+            feePayerSeed: actor.seed,
+            label: "flow:create-conditional-orders-account-for-cancel",
+          }
+        )
+      );
+
+      await expectSuccess(
+        context.sendInstructions(
+          [
+            buildPlaceLimitOrderWithConditionalsIx({
+              ...phoenixAccounts(context),
+              traderWallet: actor.pubkey as Authority,
+              traderAccount: actor.traderAccount as TraderAddress,
+              perpAssetMap: context.fixture.addresses.perpAssetMap as never,
+              globalTraderIndex: context.fixture.addresses
+                .globalTraderIndex as never,
+              activeTraderBuffer: context.fixture.addresses
+                .activeTraderBuffer as never,
+              orderbook: market.orderbook as MarketAddress,
+              splineCollection: market.spline as never,
+              payer: actor.pubkey as Authority,
+              traderConditionalOrders,
+              slot: context.vm.getClock().slot,
+              orderPacket: {
+                __kind: "Limit",
+                ...buildLimitOrderPacketFromMarketParams(
+                  {
+                    side: Side.Bid,
+                    priceUsd: "87200",
+                    baseUnits: "0.01",
+                    selfTradeBehavior: SelfTradeBehavior.CancelProvide,
+                    orderFlags: OrderFlags.None,
+                  },
+                  marketParams
+                ),
+              },
+              greaterTriggerOrder: {
+                triggerDirection: Direction.GreaterThan,
+                tradeSide: Side.Ask,
+                orderKind: StopLossOrderKind.Limit,
+                triggerPrice: priceUsdToTicksWithMarketParams(
+                  "110000",
+                  marketParams
+                ),
+                executionPrice: priceUsdToTicksWithMarketParams(
+                  "109000",
+                  marketParams
+                ),
+              },
+              lessTriggerOrder: null,
+            }),
+          ],
+          {
+            feePayerSeed: actor.seed,
+            label: "flow:place-limit-with-conditional-for-cancel",
+          }
+        )
+      );
+
+      const beforeCancel = decodeConditionalOrderCollection(
+        readAccountData(context, traderConditionalOrders)
+      );
+      const activeOrderIndex = beforeCancel.activeOrderIndices[0];
+      expect(activeOrderIndex).toBeDefined();
+      if (activeOrderIndex === undefined) {
+        throw new Error("Missing attached conditional order index");
+      }
+
+      await expectSuccess(
+        context.sendInstructions(
+          [
+            buildCancelConditionalOrderIx({
+              ...phoenixAccounts(context),
+              traderAccount: actor.traderAccount as TraderAddress,
+              traderWallet: actor.pubkey as Authority,
+              orderbook: market.orderbook as MarketAddress,
+              traderConditionalOrders,
+              conditionalOrderIndex: activeOrderIndex as never,
+              disableFirst: true,
+              disableSecond: true,
+            }),
+          ],
+          {
+            feePayerSeed: actor.seed,
+            label: "flow:cancel-attached-conditional-order",
+          }
+        )
+      );
+
+      const afterCancel = decodeConditionalOrderCollection(
+        readAccountData(context, traderConditionalOrders)
+      );
+      expect(afterCancel.activeOrderIndices).not.toContain(activeOrderIndex);
+      expect(
+        afterCancel.orders[activeOrderIndex]?.greaterTriggerOrder.isActive
+      ).toBe(false);
+      expectOrderbookHasRestingPrice(context, "BTC", Side.Bid, "87200");
+    },
+    TEST_TIMEOUT_MS
+  );
+
+  vmTest(
     "executes an attached stop loss after oracle and spline reach the trigger",
     async () => {
       const context = await createContext();
@@ -909,6 +1038,46 @@ describe("SDK localnet common flows", () => {
   );
 
   vmTest(
+    "cancels a limit order by id through the public helper using tick price",
+    async () => {
+      const context = await createContext();
+      const actor = context.getActor("taker0");
+
+      const orderId = await placeLimitOrder(context, {
+        actorName: actor.name,
+        symbol: "BTC",
+        side: Side.Bid,
+        priceUsd: "86100",
+        baseUnits: "0.01",
+      });
+      expectOrderbookContainsOrder(context, "BTC", Side.Bid, orderId);
+
+      const cancelIx = await buildCancelOrdersById(
+        {
+          authority: actor.pubkey as Authority,
+          symbol: "BTC" as never,
+          orders: [
+            {
+              priceInTicks: orderId.priceInTicks,
+              orderSequenceNumber: orderId.orderSequenceNumber,
+            },
+          ],
+        },
+        createFixtureInstructionClient(context)
+      );
+
+      await expectSuccess(
+        context.sendInstructions([cancelIx], {
+          feePayerSeed: actor.seed,
+          label: "flow:cancel-order-by-id-public-helper-ticks",
+        })
+      );
+      expectOrderbookDoesNotContainOrder(context, "BTC", Side.Bid, orderId);
+    },
+    TEST_TIMEOUT_MS
+  );
+
+  vmTest(
     "cancels all orders",
     async () => {
       const context = await createContext();
@@ -1003,6 +1172,35 @@ describe("SDK localnet common flows", () => {
         "isolated market order"
       );
       expect(position.position.baseLotPosition).toBeGreaterThan(0n);
+    },
+    TEST_TIMEOUT_MS
+  );
+
+  vmTest(
+    "places an isolated limit order from a subaccount",
+    async () => {
+      const context = await createContext();
+      const { actor, childTrader } = await registerAndFundSubaccount(
+        context,
+        "taker0"
+      );
+
+      const orderId = await placeLimitOrder(context, {
+        actorName: actor.name,
+        symbol: "BTC",
+        side: Side.Bid,
+        priceUsd: "85500",
+        baseUnits: "0.01",
+        traderAccount: childTrader,
+      });
+
+      expectOrderbookContainsOrder(context, "BTC", Side.Bid, orderId);
+      const position = expectTraderPosition(
+        context,
+        childTrader,
+        "isolated limit order"
+      );
+      expect(position.activePositionState?.bidOrders.head).not.toBeNull();
     },
     TEST_TIMEOUT_MS
   );
@@ -1187,6 +1385,101 @@ const createContext = async (): Promise<SdkLocalnetContext> =>
   createSdkLocalnetContext({
     programPaths: programPaths ?? undefined,
   });
+
+const createFixtureInstructionClient = (
+  context: SdkLocalnetContext
+): PhoenixInstructionClient => {
+  const fakeUsdcMint = context.fixture.mints.find(
+    (mint) => mint.name === "fakeUsdc"
+  )?.pubkey;
+  if (fakeUsdcMint === undefined) {
+    throw new Error("SDK localnet fixture is missing fakeUsdc mint");
+  }
+
+  const exchangeSnapshot = createFixtureExchangeSnapshot(context);
+  return {
+    addresses: {
+      phoenixProgramAddress: phoenixProgram(context),
+      logAuthorityAddress: context.fixture.addresses.logAuthority as never,
+      globalConfigurationAddress: context.fixture.addresses
+        .globalConfig as never,
+      usdcMintAddress: fakeUsdcMint as never,
+      emberStateAddress: context.fixture.addresses.emberState as never,
+    },
+    fetchAccount: async (accountAddress) => {
+      const account = context.vm.getAccount(address(accountAddress));
+      if (account === null) {
+        throw new Error(`Missing LiteSVM account ${accountAddress}`);
+      }
+      return { data: account.data };
+    },
+    exchange: {
+      ready: async () => exchangeSnapshot,
+      snapshot: () => exchangeSnapshot,
+      instructionContext: (symbolName: string) => {
+        const market = exchangeSnapshot.markets.find(
+          (candidate) => candidate.symbol === symbolName
+        );
+        return market === undefined
+          ? undefined
+          : { exchange: exchangeSnapshot.exchange, market };
+      },
+    } as never,
+  };
+};
+
+const createFixtureExchangeSnapshot = (context: SdkLocalnetContext) => {
+  const fakeUsdcMint = context.fixture.mints.find(
+    (mint) => mint.name === "fakeUsdc"
+  )?.pubkey;
+  const phoenixMint = context.fixture.mints.find(
+    (mint) => mint.name === "phoenixCollateral"
+  )?.pubkey;
+  if (fakeUsdcMint === undefined || phoenixMint === undefined) {
+    throw new Error("SDK localnet fixture is missing expected mints");
+  }
+
+  const authority = context.getSigner("payer").address;
+  return {
+    version: 1,
+    slot: context.vm.getClock().slot,
+    slotIndex: 0,
+    exchange: {
+      programId: context.fixture.programs.phoenixEternal,
+      globalConfig: context.fixture.addresses.globalConfig,
+      currentAuthorities: {
+        rootAuthority: authority,
+        riskAuthority: authority,
+        marketAuthority: authority,
+        oracleAuthority: authority,
+        adlAuthority: authority,
+        cancelAuthority: authority,
+        backstopAuthority: authority,
+      },
+      canonicalMint: phoenixMint,
+      usdcMint: fakeUsdcMint,
+      globalVault: context.fixture.addresses.globalVault,
+      perpAssetMap: context.fixture.addresses.perpAssetMap,
+      globalTraderIndex: context.fixture.addresses.globalTraderIndex,
+      activeTraderBuffer: context.fixture.addresses.activeTraderBuffer,
+      withdrawQueue: context.fixture.addresses.withdrawQueue,
+      exchangeStatusBits: 129,
+      exchangeStatusFeatures: [],
+      active: true,
+      gated: false,
+      withdrawalsAvailable: true,
+    },
+    markets: context.fixture.markets.map((market, assetId) => ({
+      symbol: market.symbol,
+      assetId,
+      marketStatus: "active",
+      marketPubkey: market.orderbook,
+      splinePubkey: market.spline,
+      tickSize: market.tickSizeInQuoteLotsPerBaseLot,
+      baseLotsDecimals: market.baseLotDecimals,
+    })),
+  };
+};
 
 const expectSuccess = async (
   result: Promise<SdkLocalnetInstructionExecution>
