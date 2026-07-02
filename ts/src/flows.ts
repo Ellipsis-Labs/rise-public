@@ -229,6 +229,14 @@ export interface PlaceMarketOrderFlowResult {
 export interface PlaceMultiLimitOrderFlowParams {
   authority: Authority;
   positionAuthority?: Authority;
+  /**
+   * Sponsor fee payer. Isolated-only: when a fresh child subaccount must be
+   * registered, this account pays the trader-account rent and signs the
+   * register instruction (matching the backend `place-isolated-*` endpoints).
+   * Defaults to `authority` — which fails for sponsored + delegated sessions,
+   * where neither the sponsor nor the delegate can sign for `authority`.
+   */
+  feePayer?: Authority | null;
   symbol: Symbol;
   side: Side;
   /** Pre-computed ladder levels (e.g. from `computeScaleOrderLevels`). */
@@ -973,6 +981,12 @@ export const buildPlaceMultiLimitOrderFlow = async (
             marginType: MarginType.Isolated,
             traderPdaIndex: pdaIndex,
             traderSubaccountIndex: subaccountIndex,
+            // Rent payer + register signer. Resolves to the sponsor fee payer
+            // when provided so sponsored sessions (where `authority` never
+            // signs) don't add an unsatisfiable third required signer; the
+            // token is a type-level discriminator only, unused by the builder.
+            feePayer: resolveFlowPayer(params),
+            sponsorshipToken: "",
           },
           client
         )

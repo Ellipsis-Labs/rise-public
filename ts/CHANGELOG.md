@@ -3,6 +3,23 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.61 - 2026-07-02
+
+Source Phoenix commit: `64e433145ad2776c55d9ca53762ecfa78ba3ed51`
+
+### Summary
+
+- Added an optional `feePayer` field to `PlaceMultiLimitOrderFlowParams`. For isolated-margin multi-limit orders that require registering a fresh child subaccount, this account now pays the trader-account rent and signs the register instruction, instead of always defaulting to `authority`.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `feePayer` is optional and defaults to previous behavior (`authority`) when omitted, so existing calls to `buildPlaceMultiLimitOrderFlow` are unaffected.
+- If you place isolated-margin multi-limit orders through sponsored and/or delegated sessions — where neither the sponsor nor the delegate can sign for `authority` — pass a `feePayer` to cover trader-account rent and the register signature; otherwise flows that need to register a new child subaccount in that setup will fail.
+
 ## v0.4.60 - 2026-07-01
 
 Source Phoenix commit: `cf8419bc21f9f539306198f7c08d0aca14a39580`
