@@ -18,6 +18,8 @@ import { buildLimitOrderMarginStateFromOrders } from "./inputs";
 import type {
   LimitOrderMarginInput,
   LimitOrderMarginState,
+  MarginCalculationOptions,
+  MarginTotals,
   MarginPositionState,
   MarginRiskState,
   MarginRiskTier,
@@ -60,15 +62,21 @@ export const buildMarketParamsBySymbol = (
 
 export interface MarginCalculator {
   markets: NormalizedMarketParamsBySymbol;
-  computeTraderMargin: (inputs: TraderMarginInputs) => TraderMarginResult;
+  computeTraderMargin: (
+    inputs: TraderMarginInputs,
+    options?: MarginCalculationOptions
+  ) => TraderMarginResult;
   computeSubaccountMargin: (
-    inputs: SubaccountMarginInputs
+    inputs: SubaccountMarginInputs,
+    options?: MarginCalculationOptions
   ) => SubaccountMarginResult;
   computeTraderMarginFromInputs: (
-    inputs: TraderMarginInputs
+    inputs: TraderMarginInputs,
+    options?: MarginCalculationOptions
   ) => TraderMarginResult;
   computeSubaccountMarginFromInputs: (
-    inputs: SubaccountMarginInputs
+    inputs: SubaccountMarginInputs,
+    options?: MarginCalculationOptions
   ) => SubaccountMarginResult;
 }
 
@@ -78,49 +86,56 @@ export const createMarginCalculator = (
   const normalized = buildNormalizedMarketParamsBySymbol(markets);
   return {
     markets: normalized,
-    computeTraderMargin: (inputs) => computeTraderMargin(inputs, normalized),
-    computeSubaccountMargin: (inputs) =>
-      computeSubaccountMargin(inputs, normalized),
-    computeTraderMarginFromInputs: (inputs) =>
-      computeTraderMarginFromInputs(inputs, normalized),
-    computeSubaccountMarginFromInputs: (inputs) =>
-      computeSubaccountMarginFromInputs(inputs, normalized),
+    computeTraderMargin: (inputs, callOptions) =>
+      computeTraderMargin(inputs, normalized, callOptions),
+    computeSubaccountMargin: (inputs, callOptions) =>
+      computeSubaccountMargin(inputs, normalized, callOptions),
+    computeTraderMarginFromInputs: (inputs, callOptions) =>
+      computeTraderMarginFromInputs(inputs, normalized, callOptions),
+    computeSubaccountMarginFromInputs: (inputs, callOptions) =>
+      computeSubaccountMarginFromInputs(inputs, normalized, callOptions),
   };
 };
 
 export const computeTraderMargin = (
   inputs: TraderMarginInputs,
-  marketsBySymbol: NormalizedMarketParamsBySymbol
+  marketsBySymbol: NormalizedMarketParamsBySymbol,
+  options?: MarginCalculationOptions
 ): TraderMarginResult => {
-  return computeTraderMarginFromInputs(inputs, marketsBySymbol);
+  return computeTraderMarginFromInputs(inputs, marketsBySymbol, options);
 };
 
 export const computeSubaccountMargin = (
   inputs: SubaccountMarginInputs,
-  marketsBySymbol: NormalizedMarketParamsBySymbol
+  marketsBySymbol: NormalizedMarketParamsBySymbol,
+  options?: MarginCalculationOptions
 ): SubaccountMarginResult => {
-  return computeSubaccountMarginFromInputs(inputs, marketsBySymbol);
+  return computeSubaccountMarginFromInputs(inputs, marketsBySymbol, options);
 };
 
 export const computeTraderMarginFromInputs = (
   inputs: TraderMarginInputs,
-  marketsBySymbol: NormalizedMarketParamsBySymbol
+  marketsBySymbol: NormalizedMarketParamsBySymbol,
+  options?: MarginCalculationOptions
 ): TraderMarginResult => ({
   authority: inputs.authority,
   traderPdaIndex: inputs.traderPdaIndex,
   subaccounts: inputs.subaccounts.map((subaccount) =>
-    computeSubaccountMarginFromInputs(subaccount, marketsBySymbol)
+    computeSubaccountMarginFromInputs(subaccount, marketsBySymbol, options)
   ),
 });
 
 export const computeSubaccountMarginFromInputs = (
   inputs: SubaccountMarginInputs,
-  marketsBySymbol: NormalizedMarketParamsBySymbol
+  marketsBySymbol: NormalizedMarketParamsBySymbol,
+  options?: MarginCalculationOptions
 ): SubaccountMarginResult => {
   const marketMargins: MarketMarginResult[] = [];
   const limitOrders: OrderMarginResult[] = [];
 
   let totalInitialMargin = 0n;
+  let hasOrderLeverageAdjustedInitialMargin = false;
+  let totalOrderLeverageAdjustedInitialMargin = 0n;
   let totalInitialMarginForWithdrawals = 0n;
   let totalMaintenanceMargin = 0n;
   let totalCancelMargin = 0n;
@@ -148,12 +163,22 @@ export const computeSubaccountMarginFromInputs = (
       throw new Error(`Missing market params for symbol ${symbol}`);
     }
 
-    const result = computeMarketMarginFromInputs(marketInput, marketParams);
+    const result = computeMarketMarginFromInputs(
+      marketInput,
+      marketParams,
+      options
+    );
 
     marketMargins.push(result.market);
     limitOrders.push(...result.limitOrders);
 
     totalInitialMargin += result.margin.initialMargin;
+    hasOrderLeverageAdjustedInitialMargin =
+      hasOrderLeverageAdjustedInitialMargin ||
+      result.margin.orderLeverageAdjustedInitialMargin !== undefined;
+    totalOrderLeverageAdjustedInitialMargin +=
+      result.margin.orderLeverageAdjustedInitialMargin ??
+      result.margin.initialMargin;
     totalInitialMarginForWithdrawals +=
       result.margin.initialMarginForWithdrawals;
     totalMaintenanceMargin += result.margin.maintenanceMargin;
@@ -197,31 +222,40 @@ export const computeSubaccountMarginFromInputs = (
     effectiveCollateral
   );
 
+  const margin: MarginTotals = {
+    collateralBalanceQuoteLots: collateralBalance.toString(),
+    effectiveCollateralQuoteLots: effectiveCollateral.toString(),
+    effectiveCollateralForWithdrawalsQuoteLots:
+      effectiveCollateralForWithdrawals.toString(),
+    portfolioValueQuoteLots: portfolioValue.toString(),
+    initialMarginQuoteLots: totalInitialMargin.toString(),
+    initialMarginForWithdrawalsQuoteLots:
+      totalInitialMarginForWithdrawals.toString(),
+    maintenanceMarginQuoteLots: totalMaintenanceMargin.toString(),
+    cancelMarginQuoteLots: totalCancelMargin.toString(),
+    backstopMarginQuoteLots: totalBackstopMargin.toString(),
+    highRiskMarginQuoteLots: totalHighRiskMargin.toString(),
+    limitOrderMarginQuoteLots: totalLimitOrderMargin.toString(),
+    unrealizedPnlQuoteLots: totalUnrealizedPnl.toString(),
+    discountedUnrealizedPnlQuoteLots: totalDiscountedUnrealizedPnl.toString(),
+    discountedPnlForWithdrawalsQuoteLots:
+      totalDiscountedPnlForWithdrawals.toString(),
+    unsettledFundingQuoteLots: totalUnsettledFunding.toString(),
+    accumulatedFundingQuoteLots: totalAccumulatedFunding.toString(),
+    riskState,
+    riskTier,
+  };
+  if (
+    hasOrderLeverageAdjustedInitialMargin &&
+    totalOrderLeverageAdjustedInitialMargin !== totalInitialMargin
+  ) {
+    margin.orderLeverageAdjustedInitialMarginQuoteLots =
+      totalOrderLeverageAdjustedInitialMargin.toString();
+  }
+
   return {
     subaccountIndex: inputs.subaccountIndex,
-    margin: {
-      collateralBalanceQuoteLots: collateralBalance.toString(),
-      effectiveCollateralQuoteLots: effectiveCollateral.toString(),
-      effectiveCollateralForWithdrawalsQuoteLots:
-        effectiveCollateralForWithdrawals.toString(),
-      portfolioValueQuoteLots: portfolioValue.toString(),
-      initialMarginQuoteLots: totalInitialMargin.toString(),
-      initialMarginForWithdrawalsQuoteLots:
-        totalInitialMarginForWithdrawals.toString(),
-      maintenanceMarginQuoteLots: totalMaintenanceMargin.toString(),
-      cancelMarginQuoteLots: totalCancelMargin.toString(),
-      backstopMarginQuoteLots: totalBackstopMargin.toString(),
-      highRiskMarginQuoteLots: totalHighRiskMargin.toString(),
-      limitOrderMarginQuoteLots: totalLimitOrderMargin.toString(),
-      unrealizedPnlQuoteLots: totalUnrealizedPnl.toString(),
-      discountedUnrealizedPnlQuoteLots: totalDiscountedUnrealizedPnl.toString(),
-      discountedPnlForWithdrawalsQuoteLots:
-        totalDiscountedPnlForWithdrawals.toString(),
-      unsettledFundingQuoteLots: totalUnsettledFunding.toString(),
-      accumulatedFundingQuoteLots: totalAccumulatedFunding.toString(),
-      riskState,
-      riskTier,
-    },
+    margin,
     marketMargins,
     limitOrders,
   };
@@ -245,21 +279,54 @@ const resolveLimitOrderMarginState = (
   return buildLimitOrderMarginStateFromOrders(orders);
 };
 
+const getOrderLeverageLimitForSymbol = (
+  symbol: string,
+  options?: MarginCalculationOptions
+): bigint | undefined => {
+  // User/product preferences are intentionally permissive: fractional values
+  // floor to safe integer leverage, while invalid values silently fall back to
+  // protocol leverage.
+  const rawLimit = options?.orderLeverageLimitsBySymbol?.[symbol];
+  if (rawLimit === undefined || !Number.isFinite(rawLimit)) {
+    return undefined;
+  }
+
+  const flooredLimit = Math.floor(rawLimit);
+  if (flooredLimit < 1 || !Number.isSafeInteger(flooredLimit)) {
+    return undefined;
+  }
+
+  return BigInt(flooredLimit);
+};
+
+const getEffectiveLeverageConstant = (
+  tiers: LeverageTier[],
+  positionSize: bigint,
+  orderLeverageLimit?: bigint
+): bigint => {
+  const protocolMaxLeverage = getLeverageConstant(tiers, positionSize);
+  return orderLeverageLimit !== undefined &&
+    orderLeverageLimit < protocolMaxLeverage
+    ? orderLeverageLimit
+    : protocolMaxLeverage;
+};
+
 const computeMarketMarginFromInputs = (
   input: MarketMarginInputs,
-  marketParams: NormalizedMarketParams
+  marketParams: NormalizedMarketParams,
+  options?: MarginCalculationOptions
 ): {
   market: MarketMarginResult;
   limitOrders: OrderMarginResult[];
   margin: {
     initialMargin: bigint;
+    orderLeverageAdjustedInitialMargin?: bigint;
     initialMarginForWithdrawals: bigint;
     maintenanceMargin: bigint;
     backstopMargin: bigint;
     highRiskMargin: bigint;
     cancelMargin: bigint;
     limitOrderMargin: bigint;
-    positionOnlyInitialMargin: bigint;
     unrealizedPnl: bigint;
     discountedUnrealizedPnl: bigint;
     discountedPnlForWithdrawals: bigint;
@@ -313,6 +380,10 @@ const computeMarketMarginFromInputs = (
     ? toBigInt(limitOrderState.totalNonReduceOnlyAskBaseLots)
     : 0n;
   const leverageTiers = marketParams.leverageTiers;
+  const orderLeverageLimit = getOrderLeverageLimitForSymbol(
+    input.symbol,
+    options
+  );
 
   const initialMargin = initialMarginForAsset(
     basePositionLots,
@@ -322,6 +393,19 @@ const computeMarketMarginFromInputs = (
     leverageTiers,
     false
   );
+
+  const orderLeverageAdjustedInitialMargin =
+    orderLeverageLimit === undefined
+      ? initialMargin
+      : initialMarginForAsset(
+          basePositionLots,
+          totalBid,
+          totalAsk,
+          assetUnitPrice,
+          leverageTiers,
+          false,
+          orderLeverageLimit
+        );
 
   const positionOnlyInitialMargin = initialMarginForAsset(
     basePositionLots,
@@ -345,6 +429,10 @@ const computeMarketMarginFromInputs = (
     initialMargin - positionOnlyInitialMargin,
     0n
   );
+  const orderLeverageAdjustedInitialMarginOverride =
+    orderLeverageAdjustedInitialMargin !== initialMargin
+      ? orderLeverageAdjustedInitialMargin
+      : undefined;
 
   const maintenanceMargin = applyBps(
     initialMargin,
@@ -363,43 +451,60 @@ const computeMarketMarginFromInputs = (
     marketParams.cancelOrderRiskFactorBps
   );
 
-  const limitOrders = computeLimitOrderMargins(
+  const protocolLimitOrders = computeLimitOrderMargins(
     input.symbol,
     basePositionLots,
     activeOrders,
     assetUnitPrice,
     leverageTiers
   );
+  const limitOrders =
+    orderLeverageLimit === undefined
+      ? protocolLimitOrders
+      : withOrderLeverageAdjustedLimitOrderMargins(
+          protocolLimitOrders,
+          computeLimitOrderMargins(
+            input.symbol,
+            basePositionLots,
+            activeOrders,
+            assetUnitPrice,
+            leverageTiers,
+            orderLeverageLimit
+          )
+        );
+
+  const market: MarketMarginResult = {
+    symbol: input.symbol,
+    basePositionLots: basePositionLots.toString(),
+    virtualQuotePositionLots: virtualQuotePositionLots.toString(),
+    entryPriceTicks: entryPriceTicks.toString(),
+    unrealizedPnlQuoteLots: unrealizedPnl.toString(),
+    discountedUnrealizedPnlQuoteLots: discountedUnrealizedPnl.toString(),
+    positionInitialMarginQuoteLots: positionOnlyInitialMargin.toString(),
+    initialMarginQuoteLots: initialMargin.toString(),
+    maintenanceMarginQuoteLots: maintenanceMargin.toString(),
+    cancelMarginQuoteLots: cancelMargin.toString(),
+    backstopMarginQuoteLots: backstopMargin.toString(),
+    highRiskMarginQuoteLots: highRiskMargin.toString(),
+    limitOrderMarginQuoteLots: limitOrderMargin.toString(),
+    positionValueQuoteLots: positionValue.toString(),
+    unsettledFundingQuoteLots: unsettledFunding.toString(),
+    accumulatedFundingQuoteLots: accumulatedFunding.toString(),
+  };
 
   return {
-    market: {
-      symbol: input.symbol,
-      basePositionLots: basePositionLots.toString(),
-      virtualQuotePositionLots: virtualQuotePositionLots.toString(),
-      entryPriceTicks: entryPriceTicks.toString(),
-      unrealizedPnlQuoteLots: unrealizedPnl.toString(),
-      discountedUnrealizedPnlQuoteLots: discountedUnrealizedPnl.toString(),
-      positionInitialMarginQuoteLots: positionOnlyInitialMargin.toString(),
-      initialMarginQuoteLots: initialMargin.toString(),
-      maintenanceMarginQuoteLots: maintenanceMargin.toString(),
-      cancelMarginQuoteLots: cancelMargin.toString(),
-      backstopMarginQuoteLots: backstopMargin.toString(),
-      highRiskMarginQuoteLots: highRiskMargin.toString(),
-      limitOrderMarginQuoteLots: limitOrderMargin.toString(),
-      positionValueQuoteLots: positionValue.toString(),
-      unsettledFundingQuoteLots: unsettledFunding.toString(),
-      accumulatedFundingQuoteLots: accumulatedFunding.toString(),
-    },
+    market,
     limitOrders,
     margin: {
       initialMargin,
+      orderLeverageAdjustedInitialMargin:
+        orderLeverageAdjustedInitialMarginOverride,
       initialMarginForWithdrawals,
       maintenanceMargin,
       backstopMargin,
       highRiskMargin,
       cancelMargin,
       limitOrderMargin,
-      positionOnlyInitialMargin,
       unrealizedPnl,
       discountedUnrealizedPnl,
       discountedPnlForWithdrawals,
@@ -416,7 +521,8 @@ const initialMarginForAsset = (
   totalAsk: bigint,
   assetUnitPrice: bigint,
   tiers: LeverageTier[],
-  bypassRiskFactor: boolean
+  bypassRiskFactor: boolean,
+  orderLeverageLimit?: bigint
 ): bigint => {
   if (position === 0n && totalBid === 0n && totalAsk === 0n) {
     return 0n;
@@ -428,7 +534,11 @@ const initialMarginForAsset = (
   if (position !== 0n) {
     const absolutePositionSize = absBigInt(position);
     const absoluteBookValue = assetUnitPrice * absolutePositionSize;
-    const leverage = getLeverageConstant(tiers, absolutePositionSize);
+    const leverage = getEffectiveLeverageConstant(
+      tiers,
+      absolutePositionSize,
+      orderLeverageLimit
+    );
     const leverageBasedMargin = divCeil(absoluteBookValue, leverage);
     collateralRequired += leverageBasedMargin;
     existingPositionMarginOffset = leverageBasedMargin;
@@ -442,7 +552,8 @@ const initialMarginForAsset = (
           assetUnitPrice,
           tiers,
           existingPositionMarginOffset,
-          bypassRiskFactor
+          bypassRiskFactor,
+          orderLeverageLimit
         )
       : 0n;
 
@@ -454,7 +565,8 @@ const initialMarginForAsset = (
           assetUnitPrice,
           tiers,
           existingPositionMarginOffset,
-          bypassRiskFactor
+          bypassRiskFactor,
+          orderLeverageLimit
         )
       : 0n;
 
@@ -469,7 +581,8 @@ const marginIncreaseForBids = (
   assetUnitPrice: bigint,
   tiers: LeverageTier[],
   existingPositionMarginOffset: bigint,
-  bypassRiskFactor: boolean
+  bypassRiskFactor: boolean,
+  orderLeverageLimit?: bigint
 ): bigint => {
   const newExposureSigned = bidSize + position - absBigInt(position);
   if (newExposureSigned <= 0n) {
@@ -479,7 +592,11 @@ const marginIncreaseForBids = (
   const totalExposureSigned = position + bidSize;
   const totalExposure = absBigInt(totalExposureSigned);
   const totalGrossValue = assetUnitPrice * totalExposure;
-  const totalLeverage = getLeverageConstant(tiers, totalExposure);
+  const totalLeverage = getEffectiveLeverageConstant(
+    tiers,
+    totalExposure,
+    orderLeverageLimit
+  );
   const totalMargin = divCeil(totalGrossValue, totalLeverage);
   const incrementalMargin = maxBigInt(
     totalMargin - existingPositionMarginOffset,
@@ -500,7 +617,8 @@ const marginIncreaseForAsks = (
   assetUnitPrice: bigint,
   tiers: LeverageTier[],
   existingPositionMarginOffset: bigint,
-  bypassRiskFactor: boolean
+  bypassRiskFactor: boolean,
+  orderLeverageLimit?: bigint
 ): bigint => {
   const newExposureSigned = askSize - position - absBigInt(position);
   if (newExposureSigned <= 0n) {
@@ -510,7 +628,11 @@ const marginIncreaseForAsks = (
   const totalExposureSigned = position - askSize;
   const totalExposure = absBigInt(totalExposureSigned);
   const totalGrossValue = assetUnitPrice * totalExposure;
-  const totalLeverage = getLeverageConstant(tiers, totalExposure);
+  const totalLeverage = getEffectiveLeverageConstant(
+    tiers,
+    totalExposure,
+    orderLeverageLimit
+  );
   const totalMargin = divCeil(totalGrossValue, totalLeverage);
   const incrementalMargin = maxBigInt(
     totalMargin - existingPositionMarginOffset,
@@ -525,12 +647,34 @@ const marginIncreaseForAsks = (
   return applyBpsCeil(incrementalMargin, riskFactor);
 };
 
+const withOrderLeverageAdjustedLimitOrderMargins = (
+  protocolOrders: OrderMarginResult[],
+  orderLeverageAdjustedOrders: OrderMarginResult[]
+): OrderMarginResult[] =>
+  protocolOrders.map((order, index) => {
+    const orderLeverageAdjustedOrder = orderLeverageAdjustedOrders[index];
+    if (
+      !orderLeverageAdjustedOrder ||
+      orderLeverageAdjustedOrder.marginRequirementQuoteLots ===
+        order.marginRequirementQuoteLots
+    ) {
+      return order;
+    }
+
+    return {
+      ...order,
+      orderLeverageAdjustedMarginRequirementQuoteLots:
+        orderLeverageAdjustedOrder.marginRequirementQuoteLots,
+    };
+  });
+
 const computeLimitOrderMargins = (
   symbol: string,
   position: bigint,
   orders: LimitOrderMarginInput[],
   assetUnitPrice: bigint,
-  tiers: LeverageTier[]
+  tiers: LeverageTier[],
+  orderLeverageLimit?: bigint
 ): OrderMarginResult[] => {
   const result: OrderMarginResult[] = [];
   const existingPositionMarginOffset =
@@ -538,7 +682,11 @@ const computeLimitOrderMargins = (
       ? 0n
       : divCeil(
           assetUnitPrice * absBigInt(position),
-          getLeverageConstant(tiers, absBigInt(position))
+          getEffectiveLeverageConstant(
+            tiers,
+            absBigInt(position),
+            orderLeverageLimit
+          )
         );
 
   for (const order of orders) {
@@ -555,7 +703,8 @@ const computeLimitOrderMargins = (
             assetUnitPrice,
             tiers,
             existingPositionMarginOffset,
-            false
+            false,
+            orderLeverageLimit
           )
         : marginIncreaseForAsks(
             position,
@@ -563,7 +712,8 @@ const computeLimitOrderMargins = (
             assetUnitPrice,
             tiers,
             existingPositionMarginOffset,
-            false
+            false,
+            orderLeverageLimit
           );
 
     const marginFactor =

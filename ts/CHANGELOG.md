@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.63 - 2026-07-06
+
+Source Phoenix commit: `014384041aa15c0f02a8a5277745b907ae510ee4`
+
+### Summary
+
+- Added an optional `options` parameter (`MarginCalculationOptions`) to `computeTraderMargin`, `computeSubaccountMargin`, `computeTraderMarginFromInputs`, `computeSubaccountMarginFromInputs`, and the corresponding `MarginCalculator` methods, letting callers pass per-symbol order leverage preferences via `orderLeverageLimitsBySymbol`.
+- Order leverage limits are applied only to order/limit-order sizing math (initial margin from open orders, limit order margin requirements); position-only margin, withdrawal margin, maintenance/backstop/high-risk margin, and risk state/tier are always computed from protocol leverage tiers, unaffected by the new option.
+- `MarginTotals` gains an optional `orderLeverageAdjustedInitialMarginQuoteLots` field, and `OrderMarginResult` gains an optional `orderLeverageAdjustedMarginRequirementQuoteLots` field; both are omitted entirely when no limit is supplied or when the adjusted value matches the protocol value.
+- Limit values are validated defensively: non-finite, non-integer-safe, sub-1, or above-protocol-max values are silently ignored and fall back to protocol leverage; valid fractional values floor to the nearest integer leverage.
+- Calling existing margin functions with no `options` argument (or an empty options object) produces byte-identical output to the prior release.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- All new behavior is opt-in via the new `options` parameter — no changes are required to existing integrations.
+- Consumers that want to preview reduced-leverage order/margin requirements (e.g. surfacing a lower "order leverage" preference in UI) can pass `{ orderLeverageLimitsBySymbol: { "SOL-PERP": 5 } }` and read the new `orderLeverageAdjusted*` fields where present; treat their absence as "no adjustment applies."
+- Do not rely on `orderLeverageAdjustedInitialMarginQuoteLots` for withdrawal eligibility or risk-state checks — those continue to use protocol-only margin figures.
+
 ## v0.4.62 - 2026-07-02
 
 Source Phoenix commit: `e427d47ea42afce753295b0559ac3a0e8c505518`
