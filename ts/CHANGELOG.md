@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.64 - 2026-07-06
+
+Source Phoenix commit: `84c3feb1a2f5d9b4e94f9372a706b0e3e3c88b0e`
+
+### Summary
+
+- Added a liquidation price calculator (`calculateLiquidationPriceUsd`) plus helpers to compute per-market, per-subaccount, and per-trader liquidation prices from margin results or raw inputs (`compute*LiquidationPricesFrom{Inputs,Margin}`, `computeMarketLiquidationPriceFromMargin`).
+- Added a margin simulation API (`simulateMarginFromInputs`, `simulateMarginScenariosFromInputs`, `simulatePositionFillFromInputs`) with actions for fills, position closes, limit orders, collateral/funding adjustments, and mark-price moves, including projected liquidation prices.
+- `MarginCalculator` (from `createMarginCalculator`) gained corresponding instance methods: `computeTraderLiquidationPricesFromInputs`, `computeSubaccountLiquidationPricesFromInputs`, `simulateMargin`, `simulateMarginScenarios`, `simulatePositionFill`.
+- Fixed leverage-tier interpolation (`getLeverageConstant`, `getLimitOrderRiskFactor`) to use floating-point interpolation matching the Rust program instead of bigint truncation.
+- Internal `marginParityExport.ts` dev script was refactored to reuse the new liquidation module; no public API impact.
+
+### Breaking Changes
+
+- Interpolated leverage and limit-order risk-factor values for position sizes strictly between leverage-tier bounds can now differ slightly from prior output, since `getLeverageConstant`/`getLimitOrderRiskFactor` switched from bigint-truncated interpolation to Rust-matching floating-point interpolation. Consumers asserting exact previous intermediate values should re-verify them.
+
+### Consumer Notes
+
+- New exports: `calculateLiquidationPriceUsd`, `computeMarketLiquidationPriceFromMargin`, `computeSubaccountLiquidationPricesFromInputs`/`FromMargin`, `computeTraderLiquidationPricesFromInputs`/`FromMargin`, `simulateMarginFromInputs`, `simulateMarginScenariosFromInputs`, `simulatePositionFillFromInputs`, and their associated types.
+- The liquidation-price helpers throw on inconsistent margin totals (maintenance-margin underflow between portfolio and position-only figures) rather than silently clamping — validate margin snapshots before calling these in production paths.
+- Margin simulation actions (`fillPosition`, `closePosition`, `placeLimitOrder`, `cancelOrder`, `cancelAllOrders`, `adjustCollateral`, `setCollateral`, `settleFunding`, `applyFundingPayment`, `setMarkPrice`, `moveMarkPrice`) support building what-if previews (e.g. order tickets, price ladders) against cross or isolated margin scopes.
+
 ## v0.4.63 - 2026-07-06
 
 Source Phoenix commit: `014384041aa15c0f02a8a5277745b907ae510ee4`
