@@ -79,6 +79,17 @@ export interface MarketMarginInputs {
   limitOrders?: LimitOrderMarginInput[];
 }
 
+/**
+ * Per-symbol product/order leverage preferences. The margin calculator floors
+ * finite values to safe integers and ignores non-finite values, unsafe values,
+ * or values below 1.
+ */
+export type OrderLeverageLimitsBySymbol = Record<string, number>;
+
+export interface MarginCalculationOptions {
+  orderLeverageLimitsBySymbol?: OrderLeverageLimitsBySymbol;
+}
+
 export interface SubaccountMarginInputs {
   subaccountIndex: number;
   collateralBalanceQuoteLots: string;
@@ -111,6 +122,11 @@ export interface MarginTotals {
   effectiveCollateralForWithdrawalsQuoteLots: string;
   portfolioValueQuoteLots: string;
   initialMarginQuoteLots: string;
+  /**
+   * Initial margin computed with optional order leverage limits.
+   * Present only when it differs from protocol initial margin.
+   */
+  orderLeverageAdjustedInitialMarginQuoteLots?: string;
   initialMarginForWithdrawalsQuoteLots: string;
   maintenanceMarginQuoteLots: string;
   cancelMarginQuoteLots: string;
@@ -156,6 +172,11 @@ export interface OrderMarginResult {
   isStopLoss: boolean;
   isStopLossDirection: boolean;
   marginRequirementQuoteLots: string;
+  /**
+   * Margin requirement computed with optional order leverage limits.
+   * Present only when it differs from protocol margin requirement.
+   */
+  orderLeverageAdjustedMarginRequirementQuoteLots?: string;
   marginFactorBps: string;
 }
 
