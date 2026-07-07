@@ -38,8 +38,12 @@ pub use margin_calc::{
 pub use market_math::{MarketCalculator, RoundingMode};
 pub use perp_metadata::PerpAssetMetadata;
 pub use portfolio::{
-    PerpMetadataProvider, Pubkey as PortfolioPubkey, StopLossInfo, TraderPortfolio,
-    TraderPortfolioBuilder, TraderPortfolioMargin,
+    CalculateLiquidationPriceUsdInput, MarginScenario, MarginScenarioResult,
+    MarginSimulationAction, MarginSimulationActionReport, MarginSimulationDelta,
+    MarginSimulationMode, PerpMetadataProvider, Pubkey as PortfolioPubkey, SimulateMarginParams,
+    SimulateMarginScenariosParams, SimulatePositionFillParams, SimulatedMargin,
+    SimulatedMarginScenarios, SimulatedPositionFill, StopLossInfo, TraderPortfolio,
+    TraderPortfolioBuilder, TraderPortfolioMargin, calculate_liquidation_price_usd,
 };
 pub use price::{Price, dynamic_price_decimals};
 pub use quantities::{

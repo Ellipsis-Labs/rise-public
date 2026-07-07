@@ -42,6 +42,9 @@ pub enum PhoenixStateError {
         symbols: Vec<String>,
     },
 
+    #[error("Invalid margin simulation input: {reason}")]
+    InvalidMarginSimulationInput { reason: String },
+
     #[error("Margin error: {0}")]
     MarginError(#[from] MarginError),
 
