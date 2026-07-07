@@ -642,8 +642,14 @@ describe("margin liquidation price", () => {
           {
             symbol: "SOL-PERP",
             limitOrderMargin: {
+              numAskOrders: 0,
+              numBidOrders: 0,
+              lowestAsk: "0",
+              highestBid: "0",
               totalNonReduceOnlyBidBaseLots: "100",
               totalNonReduceOnlyAskBaseLots: "0",
+              totalReduceOnlyBidBaseLots: "0",
+              totalReduceOnlyAskBaseLots: "0",
             },
           },
         ],

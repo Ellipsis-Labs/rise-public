@@ -21,6 +21,8 @@ export const absBigInt = (value: bigint): bigint =>
 
 export const maxBigInt = (a: bigint, b: bigint): bigint => (a > b ? a : b);
 
+export const minBigInt = (a: bigint, b: bigint): bigint => (a < b ? a : b);
+
 export const divCeil = (numerator: bigint, denominator: bigint): bigint => {
   if (denominator === 0n) {
     throw new Error("division by zero");

@@ -1,4 +1,5 @@
 import { buildLimitOrderMarginStateFromOrders } from "./inputs";
+import { toBigInt } from "./math";
 import type {
   LimitOrderMarginInput,
   MarginPositionState,
@@ -90,9 +91,10 @@ export const buildMarketMarginInputsFromSnapshot = (
 ): MarketMarginInputs => {
   const limitOrders = orders.map(toLimitOrderMarginInput);
   const activeOrders = limitOrders.filter(isActiveOrder);
+  const basePositionLots = position ? toBigInt(position.basePositionLots) : 0n;
   const limitOrderMargin =
     activeOrders.length > 0
-      ? buildLimitOrderMarginStateFromOrders(activeOrders)
+      ? buildLimitOrderMarginStateFromOrders(activeOrders, basePositionLots)
       : undefined;
 
   return {

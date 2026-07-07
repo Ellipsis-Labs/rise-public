@@ -3,6 +3,27 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.65 - 2026-07-07
+
+Source Phoenix commit: `25625a376965069d216ba53f8bbf0457f097a927`
+
+### Summary
+
+- Margin calculations now reserve additional collateral for resting limit orders priced adversely to the mark price (an "adverse fill-loss" reserve), mirroring the on-chain `program-core` margin logic.
+- Reduce-only order margin reserves are now capped by the size of the opposite-side position they can actually reduce, preventing over-reservation for large reduce-only orders against small positions.
+- `LimitOrderMarginState` and the internal margin aggregation helpers gained new fields (best bid/ask, reduce-only totals) to support the fill-loss calculation.
+
+### Breaking Changes
+
+- `LimitOrderMarginState` now requires `numAskOrders`, `numBidOrders` (previously optional), plus new required fields `lowestAsk`, `highestBid`, `totalReduceOnlyAskBaseLots`, and `totalReduceOnlyBidBaseLots`. Code that constructs this type directly (e.g. passing `limitOrderMargin` as a computed-margin input) must supply all of these fields or compilation/runtime behavior will differ.
+- `buildLimitOrderMarginStateFromOrders` gained a second parameter, `basePositionLots`, used to cap reduce-only reserves against the opposite position. It defaults to `0n`, so existing calls still compile, but omitting it means reduce-only orders are treated as fully reducing a zero position (capped to zero) rather than uncapped as before.
+
+### Consumer Notes
+
+- Accounts with resting limit orders priced away from mark should expect `initialMarginQuoteLots` and `limitOrderMarginQuoteLots` from `computeSubaccountMarginFromInputs` (via `createMarginCalculator`) to increase, since adverse-fill-loss is now included in the reserve.
+- If you rely on `buildLimitOrderMarginStateFromOrders` for reduce-only sizing, pass the account's current `basePositionLots` (signed, base lots) as the second argument to get correctly capped reserves instead of the new zero-position default.
+- Callers that only supply `limitOrders` (not a precomputed `limitOrderMargin`) need no changes — the new fields are derived automatically from order data and position size.
+
 ## v0.4.64 - 2026-07-06
 
 Source Phoenix commit: `84c3feb1a2f5d9b4e94f9372a706b0e3e3c88b0e`
