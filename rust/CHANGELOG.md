@@ -3,6 +3,27 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.3.2 - 2026-07-07
+
+Source Phoenix commit: `84c3feb1a2f5d9b4e94f9372a706b0e3e3c88b0e`
+
+### Summary
+
+- Added a margin/liquidation simulation API to `math`: `TraderPortfolio::simulate_position_fill`, `simulate_margin`, and `simulate_margin_scenarios`, along with supporting types (`MarginSimulationAction`, `SimulateMarginParams`, `SimulateMarginScenariosParams`, `MarginScenario`, `SimulatedMargin`, `SimulatedPositionFill`, `SimulatedMarginScenarios`, etc.) for projecting fills, order changes, funding, and mark-price moves against cross or isolated margin.
+- Added a standalone closed-form liquidation price solver, `calculate_liquidation_price_usd`, with its `CalculateLiquidationPriceUsdInput` input struct.
+- Fixed the sign of unsettled funding in `math` margin calculations so a positive value means funding owed *to* the trader and a negative value means funding owed *by* the trader, matching the on-chain contract's `calculate_funding_payment` semantics.
+
+### Breaking Changes
+
+- The unsettled-funding sign fix changes the numeric sign of `unsettled_funding` returned from portfolio and position margin calculations in `math`; consumers reading this field must update their sign handling.
+- `PhoenixStateError` gained a new variant, `InvalidMarginSimulationInput`; downstream exhaustive matches on this enum need an added arm.
+
+### Consumer Notes
+
+- Use the new simulation API to preview the margin and liquidation-price impact of fills, order placement/cancellation, collateral adjustments, funding settlement, and mark-price moves before submitting transactions.
+- `simulate_margin_scenarios` lets you branch several labeled scenarios off one shared baseline for efficient side-by-side what-if comparisons.
+- Isolated-margin simulations require all actions to target a single symbol; mixing symbols now errors with `InvalidMarginSimulationInput`.
+
 ## v0.3.1 - 2026-06-30
 
 Source Phoenix commit: `cf8419bc21f9f539306198f7c08d0aca14a39580`

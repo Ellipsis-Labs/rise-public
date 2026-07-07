@@ -552,7 +552,12 @@ pub(crate) fn compute_market_margin(
     let cancel_margin_requirement =
         position_cancel_margin(perp_asset_metadata, total_initial_margin)?;
 
-    let unsettled_funding = (perp_asset_metadata.cumulative_funding_rate()
+    // The sign is flipped to match the contract's `calculate_funding_payment`
+    // semantics:
+    // - Positive value = funding you will receive when settled (increases
+    //   collateral)
+    // - Negative value = funding you owe when settled (decreases collateral)
+    let unsettled_funding = -(perp_asset_metadata.cumulative_funding_rate()
         - position.cumulative_funding_snapshot)
         * position.base_lot_position;
 
