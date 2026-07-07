@@ -54,15 +54,16 @@ const interpolateU64 = (
     return y1;
   }
 
-  const xRange = x2 - x1;
-  if (xRange <= 0n) {
+  const xRange = Number(x2) - Number(x1);
+  if (xRange <= 0) {
     return y1;
   }
 
-  const xOffset = x - x1;
-  const clampedOffset =
-    xOffset <= 0n ? 0n : xOffset >= xRange ? xRange : xOffset;
-  return y1 + (clampedOffset * (y2 - y1)) / xRange;
+  const yRange = Number(y2) - Number(y1);
+  const xOffset = Number(x) - Number(x1);
+  const percentOfXRange = Math.min(Math.max(xOffset / xRange, 0), 1);
+  const interpolatedValue = Number(y1) + percentOfXRange * yRange;
+  return BigInt(Math.trunc(interpolatedValue));
 };
 
 export const getLeverageConstant = (
