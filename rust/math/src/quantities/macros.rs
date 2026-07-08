@@ -594,6 +594,10 @@ macro_rules! basic_num {
                 self.inner
             }
 
+            pub fn is_zero(&self) -> bool {
+                *self == Self::ZERO
+            }
+
             pub fn saturating_add(self, other: Self) -> Self {
                 $type_name::new(self.inner.saturating_add(other.inner))
             }

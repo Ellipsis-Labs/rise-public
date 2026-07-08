@@ -8,7 +8,7 @@ use std::ops::Add;
 
 use crate::direction::Side;
 use crate::errors::PhoenixStateError;
-use crate::limit_order_state::LimitOrderMarginState;
+use crate::limit_order_state::{LimitOrderMarginState, LimitOrderSummary};
 use crate::margin_calc::{
     initial_margin_for_asset, initial_margin_for_asset_for_withdrawals, margin_increase_for_asks,
     margin_increase_for_bids, position_backstop_margin, position_cancel_margin,
@@ -210,31 +210,21 @@ pub struct LimitOrder {
 }
 
 impl LimitOrder {
-    /// Aggregate a list of orders into a LimitOrderMarginState
-    pub fn aggregate_margin_state(orders: &[LimitOrder]) -> LimitOrderMarginState {
-        let mut total_non_reduce_only_ask_base_lots = BaseLots::ZERO;
-        let mut total_non_reduce_only_bid_base_lots = BaseLots::ZERO;
-
-        for order in orders {
-            match order.side {
-                Side::Ask => {
-                    if !order.reduce_only {
-                        total_non_reduce_only_ask_base_lots += order.base_lot_size;
-                    }
-                }
-                Side::Bid => {
-                    if !order.reduce_only {
-                        total_non_reduce_only_bid_base_lots += order.base_lot_size;
-                    }
-                }
-            }
-        }
-
-        LimitOrderMarginState::new(
-            orders.len() as u32,
-            orders.len() as u32,
-            total_non_reduce_only_ask_base_lots,
-            total_non_reduce_only_bid_base_lots,
+    /// Aggregate a list of orders into a LimitOrderMarginState via the
+    /// canonical [`LimitOrderMarginState::from_orders`] construction, which
+    /// caps reduce-only totals by the position they can reduce.
+    pub fn aggregate_margin_state(
+        orders: &[LimitOrder],
+        position: SignedBaseLots,
+    ) -> LimitOrderMarginState {
+        LimitOrderMarginState::from_orders(
+            orders.iter().map(|order| LimitOrderSummary {
+                side: order.side,
+                price_in_ticks: order.price,
+                base_lots_remaining: order.base_lot_size,
+                reduce_only: order.reduce_only,
+            }),
+            position,
         )
     }
 }
@@ -277,7 +267,14 @@ impl MarketPosition {
         if self.limit_orders.is_empty() {
             return None;
         }
-        Some(LimitOrder::aggregate_margin_state(&self.limit_orders))
+        let position = self
+            .position
+            .map(|p| p.base_lot_position)
+            .unwrap_or(SignedBaseLots::ZERO);
+        Some(LimitOrder::aggregate_margin_state(
+            &self.limit_orders,
+            position,
+        ))
     }
 
     /// Compute margin requirements for each individual limit order.
@@ -338,7 +335,7 @@ impl MarketPosition {
                 perp_asset_metadata,
             )?;
 
-            let limit_order_risk_factor = if margin_req == QuoteLots::ZERO {
+            let limit_order_risk_factor = if margin_req.is_zero() {
                 BasisPoints::ZERO
             } else {
                 let total_exposure_signed = trader_position
@@ -379,7 +376,7 @@ impl MarketPosition {
                 perp_asset_metadata,
             )?;
 
-            let limit_order_risk_factor = if margin_req == QuoteLots::ZERO {
+            let limit_order_risk_factor = if margin_req.is_zero() {
                 BasisPoints::ZERO
             } else {
                 let total_exposure_signed = trader_position
@@ -440,23 +437,16 @@ pub struct MarketMargin {
 
 impl MarketMargin {
     pub fn limit_order_margin(&self) -> LimitOrderMarginState {
-        let total_ask = self
-            .limit_orders
-            .iter()
-            .filter(|o| o.side == Side::Ask && !o.reduce_only)
-            .map(|o| o.trade_size_remaining)
-            .sum();
-        let total_bid = self
-            .limit_orders
-            .iter()
-            .filter(|o| o.side == Side::Bid && !o.reduce_only)
-            .map(|o| o.trade_size_remaining)
-            .sum();
-        LimitOrderMarginState::new(
-            self.limit_orders.len() as u32,
-            self.limit_orders.len() as u32,
-            total_ask,
-            total_bid,
+        LimitOrderMarginState::from_orders(
+            self.limit_orders.iter().map(|order| LimitOrderSummary {
+                side: order.side,
+                price_in_ticks: order.price,
+                base_lots_remaining: order.trade_size_remaining,
+                reduce_only: order.reduce_only,
+            }),
+            self.position
+                .map(|p| p.base_lot_position)
+                .unwrap_or(SignedBaseLots::ZERO),
         )
     }
 
