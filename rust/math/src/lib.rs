@@ -28,7 +28,7 @@ pub use errors::PhoenixStateError;
 pub use fixed::I80F48;
 pub use funding::FundingCalculator;
 pub use leverage_tiers::{LeverageTier, LeverageTiers};
-pub use limit_order_state::LimitOrderMarginState;
+pub use limit_order_state::{LimitOrderMarginState, LimitOrderSummary};
 pub use margin::{LimitOrder, Margin, MarketMargin, MarketPosition, OrderMargin};
 pub use margin_calc::{
     initial_margin_for_asset, initial_margin_for_asset_for_withdrawals, margin_increase_for_asks,
