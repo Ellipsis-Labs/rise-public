@@ -31,19 +31,23 @@ pub use leverage_tiers::{LeverageTier, LeverageTiers};
 pub use limit_order_state::{LimitOrderMarginState, LimitOrderSummary};
 pub use margin::{LimitOrder, Margin, MarketMargin, MarketPosition, OrderMargin};
 pub use margin_calc::{
-    initial_margin_for_asset, initial_margin_for_asset_for_withdrawals, margin_increase_for_asks,
-    margin_increase_for_bids, position_backstop_margin, position_cancel_margin,
-    position_high_risk_margin, position_maintenance_margin,
+    initial_margin_for_asset, initial_margin_for_asset_for_withdrawals,
+    initial_margin_for_asset_with_mark_price, margin_increase_for_asks, margin_increase_for_bids,
+    position_backstop_margin, position_cancel_margin, position_high_risk_margin,
+    position_maintenance_margin,
 };
 pub use market_math::{MarketCalculator, RoundingMode};
 pub use perp_metadata::PerpAssetMetadata;
 pub use portfolio::{
     CalculateLiquidationPriceUsdInput, MarginScenario, MarginScenarioResult,
     MarginSimulationAction, MarginSimulationActionReport, MarginSimulationDelta,
-    MarginSimulationMode, PerpMetadataProvider, Pubkey as PortfolioPubkey, SimulateMarginParams,
+    MarginSimulationMode, PerpMetadataProvider, ProjectedLiquidation, ProjectedLiquidationFill,
+    ProjectedLiquidationParams, Pubkey as PortfolioPubkey, SimulateMarginParams,
     SimulateMarginScenariosParams, SimulatePositionFillParams, SimulatedMargin,
     SimulatedMarginScenarios, SimulatedPositionFill, StopLossInfo, TraderPortfolio,
     TraderPortfolioBuilder, TraderPortfolioMargin, calculate_liquidation_price_usd,
+    calculate_liquidation_price_usd_with_target_limit_order_maintenance,
+    projected_liquidation_price,
 };
 pub use price::{Price, dynamic_price_decimals};
 pub use quantities::{

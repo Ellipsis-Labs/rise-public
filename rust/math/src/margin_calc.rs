@@ -97,11 +97,34 @@ pub fn initial_margin_for_asset(
     limit_order_state: &LimitOrderMarginState,
     risk_action: RiskAction,
 ) -> Result<QuoteLots, MarginError> {
+    let asset_unit_price = perp_asset_metadata
+        .try_get_mark_price(risk_action)
+        .map_err(MarginError::MarkPrice)?
+        * perp_asset_metadata.tick_size();
     initial_margin_for_asset_internal(
         perp_asset_metadata,
         position_state,
         limit_order_state,
         false,
+        asset_unit_price,
+        risk_action,
+    )
+}
+
+pub fn initial_margin_for_asset_with_mark_price(
+    perp_asset_metadata: &PerpAssetMetadata,
+    position_state: &TraderPosition,
+    limit_order_state: &LimitOrderMarginState,
+    mark_price: Ticks,
+    risk_action: RiskAction,
+) -> Result<QuoteLots, MarginError> {
+    let asset_unit_price = mark_price * perp_asset_metadata.tick_size();
+    initial_margin_for_asset_internal(
+        perp_asset_metadata,
+        position_state,
+        limit_order_state,
+        false,
+        asset_unit_price,
         risk_action,
     )
 }
@@ -118,11 +141,16 @@ pub fn initial_margin_for_asset_for_withdrawals(
     limit_order_state: &LimitOrderMarginState,
     risk_action: RiskAction,
 ) -> Result<QuoteLots, MarginError> {
+    let asset_unit_price = perp_asset_metadata
+        .try_get_mark_price(risk_action)
+        .map_err(MarginError::MarkPrice)?
+        * perp_asset_metadata.tick_size();
     initial_margin_for_asset_internal(
         perp_asset_metadata,
         position_state,
         limit_order_state,
         true,
+        asset_unit_price,
         risk_action,
     )
 }
@@ -182,7 +210,8 @@ fn initial_margin_for_asset_internal(
     position_state: &TraderPosition,
     limit_order_state: &LimitOrderMarginState,
     bypass_risk_factor: bool,
-    risk_action: RiskAction,
+    asset_unit_price: QuoteLotsPerBaseLot,
+    _risk_action: RiskAction,
 ) -> Result<QuoteLots, MarginError> {
     // Early return if no positions AND no resting limit orders (reduce-only
     // included). This fixes the bug where traders with closed positions couldn't
@@ -196,10 +225,6 @@ fn initial_margin_for_asset_internal(
         return Ok(QuoteLots::ZERO);
     }
 
-    let asset_unit_price = perp_asset_metadata
-        .try_get_mark_price(risk_action)
-        .map_err(MarginError::MarkPrice)?
-        * perp_asset_metadata.tick_size();
     let position_margin = existing_position_margin(
         position_state.base_lot_position,
         asset_unit_price,
