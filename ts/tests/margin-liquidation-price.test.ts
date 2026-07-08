@@ -20,6 +20,15 @@ const quoteLots = (usd: number): string =>
 const priceTicks = (priceUsd: number): string =>
   Math.round((priceUsd * MICRO_USD) / BASE_LOTS_PER_UNIT).toString();
 
+const priceTicksWithParams = (
+  priceUsd: number,
+  tickSize: number,
+  baseLotDecimals: number
+): string =>
+  Math.round(
+    (priceUsd * MICRO_USD) / (tickSize * Math.pow(10, baseLotDecimals))
+  ).toString();
+
 const market = (
   symbol: string,
   assetId: number,
@@ -48,6 +57,24 @@ const market = (
   upnlRiskFactor: "10000",
   upnlRiskFactorForWithdrawals: "10000",
   isolatedOnly: false,
+});
+
+const snapshotMarket = (
+  symbol: string,
+  assetId: number,
+  markPriceUsd: number,
+  upperBoundSize: string
+): MarketParams => ({
+  ...market(symbol, assetId, markPriceUsd, 10, "10000"),
+  markPriceTicks: priceTicksWithParams(markPriceUsd, 10, 2),
+  tickSize: "10",
+  leverageTiers: [
+    {
+      upperBoundSize,
+      maxLeverage: "10",
+      limitOrderRiskFactorBps: "10000",
+    },
+  ],
 });
 
 const position = (
@@ -156,7 +183,7 @@ describe("margin liquidation price", () => {
     }
   );
 
-  it("solves long liquidation prices from portfolio margin and provided marks", () => {
+  it("returns the current mark for already-liquidatable long positions", () => {
     const calculator = createMarginCalculator([
       market("SOL-PERP", 1, 100, 50),
       market("ETH-PERP", 2, 100, 10),
@@ -179,8 +206,21 @@ describe("margin liquidation price", () => {
     expect(sol?.basePositionLots).toBe("100");
     expect(sol?.basePositionUnits).toBe(1);
     expect(sol?.entryPriceUsd).toBe(100);
-    expect(sol?.liquidationPriceUsd).toBeCloseTo(353.5353535, 5);
-    expect(sol?.liquidationPriceTicks).toBe("3535354");
+    expect(sol?.liquidationPriceUsd).toBe(100);
+    expect(sol?.liquidationPriceTicks).toBe("1000000");
+  });
+
+  it("returns the current mark for already-liquidatable short positions", () => {
+    const calculator = createMarginCalculator([market("SOL-PERP", 1, 200, 25)]);
+    const result = calculator.computeSubaccountLiquidationPricesFromInputs({
+      subaccountIndex: 0,
+      collateralBalanceQuoteLots: quoteLots(0),
+      markets: [position("SOL-PERP", -1, 200)],
+    });
+
+    const sol = findPosition(result, "SOL-PERP");
+    expect(sol?.liquidationPriceUsd).toBe(200);
+    expect(sol?.liquidationPriceTicks).toBe("2000000");
   });
 
   it("solves short liquidation prices from portfolio margin and provided marks", () => {
@@ -198,7 +238,7 @@ describe("margin liquidation price", () => {
     expect(sol?.basePositionLots).toBe("-200");
     expect(sol?.basePositionUnits).toBe(-2);
     expect(sol?.entryPriceUsd).toBe(200);
-    expect(sol?.liquidationPriceUsd).toBeCloseTo(264.70588235, 5);
+    expect(sol?.liquidationPriceUsd).toBeCloseTo(264.7059, 8);
     expect(sol?.liquidationPriceTicks).toBe("2647059");
   });
 
@@ -220,10 +260,10 @@ describe("margin liquidation price", () => {
 
     expect(
       findPosition(withoutFunding, "SOL-PERP")?.liquidationPriceUsd
-    ).toBeCloseTo(318.62745098, 5);
+    ).toBeCloseTo(318.6275, 8);
     expect(
       findPosition(withFunding, "SOL-PERP")?.liquidationPriceUsd
-    ).toBeCloseTo(367.64705882, 5);
+    ).toBeCloseTo(367.6471, 8);
   });
 
   it("matches the dashboard NVDA liquidation price case", () => {
@@ -274,10 +314,7 @@ describe("margin liquidation price", () => {
             calculator.markets.NVDA
           );
 
-    expect(liquidationPrice?.liquidationPriceUsd).toBeCloseTo(
-      213.15422199108983,
-      8
-    );
+    expect(liquidationPrice?.liquidationPriceUsd).toBe(214.18);
     expect(
       liquidationPrice?.liquidationPriceUsd?.toLocaleString("en-US", {
         style: "currency",
@@ -285,7 +322,7 @@ describe("margin liquidation price", () => {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })
-    ).toBe("$213.15");
+    ).toBe("$214.18");
   });
 
   it("rejects inconsistent margin totals instead of clamping underflow", () => {
@@ -310,11 +347,11 @@ describe("margin liquidation price", () => {
     ).toThrow(/Portfolio maintenance margin underflow for symbol SOL-PERP/);
   });
 
-  it("keeps same-market limit-order maintenance in the equation", () => {
+  it("uses current-mark limit-order fill-loss sentinels for same-market liquidation", () => {
     const calculator = createMarginCalculator([market("SOL-PERP", 1, 100, 50)]);
     const result = calculator.computeSubaccountLiquidationPricesFromInputs({
       subaccountIndex: 0,
-      collateralBalanceQuoteLots: quoteLots(100),
+      collateralBalanceQuoteLots: quoteLots(99),
       markets: [
         {
           ...position("SOL-PERP", 1, -100),
@@ -333,8 +370,213 @@ describe("margin liquidation price", () => {
     });
 
     const sol = findPosition(result, "SOL-PERP");
-    expect(sol?.liquidationPriceUsd).toBeCloseTo(0.5050505, 5);
-    expect(sol?.liquidationPriceTicks).toBe("5051");
+    expect(sol?.liquidationPriceUsd).toBeCloseTo(1.0152, 8);
+    expect(sol?.liquidationPriceTicks).toBe("10152");
+  });
+
+  it("handles negative base-lot decimals when same-market limit orders affect liquidation", () => {
+    const calculator = createMarginCalculator([
+      {
+        ...market("XAU-PERP", 1, 100, 10, "10000"),
+        markPriceTicks: "10000",
+        tickSize: "1000000",
+        baseLotDecimals: -2,
+      },
+    ]);
+
+    const result = calculator.computeSubaccountLiquidationPricesFromInputs({
+      subaccountIndex: 0,
+      collateralBalanceQuoteLots: quoteLots(2_000),
+      markets: [
+        {
+          symbol: "XAU-PERP",
+          position: {
+            basePositionLots: "1",
+            virtualQuotePositionLots: quoteLots(-10_000),
+            entryPriceTicks: "10000",
+            unsettledFundingQuoteLots: "0",
+            accumulatedFundingQuoteLots: "0",
+          },
+          limitOrders: [
+            {
+              orderSequenceNumber: "1",
+              side: "bid",
+              priceTicks: "10000",
+              sizeRemainingLots: "1",
+              initialSizeLots: "1",
+              reduceOnly: false,
+            },
+          ],
+        },
+      ],
+    });
+
+    const xau = findPosition(result, "XAU-PERP");
+    expect(xau?.basePositionUnits).toBe(100);
+    expect(xau?.liquidationPriceUsd).toBeCloseTo(88.88, 8);
+    expect(xau?.liquidationPriceTicks).toBe("8888");
+  });
+
+  it("matches provided HYPE liquidation price with target and other-market orders", () => {
+    const calculator = createMarginCalculator([
+      snapshotMarket("HYPE", 4, 71.9, "4000000"),
+      snapshotMarket("ZEC", 10, 506.16, "1250657"),
+    ]);
+
+    const result = calculator.computeSubaccountLiquidationPricesFromInputs({
+      subaccountIndex: 0,
+      collateralBalanceQuoteLots: "4559664733",
+      markets: [
+        {
+          symbol: "HYPE",
+          position: {
+            basePositionLots: "12488",
+            entryPriceTicks: "71394",
+            virtualQuotePositionLots: "-8915750122",
+            unsettledFundingQuoteLots: "0",
+            accumulatedFundingQuoteLots: "-2312216",
+          },
+          limitOrders: [
+            {
+              orderSequenceNumber: "18446744073683662222",
+              side: "bid",
+              priceTicks: "70400",
+              sizeRemainingLots: "1500",
+              initialSizeLots: "1500",
+              reduceOnly: false,
+            },
+          ],
+        },
+        {
+          symbol: "ZEC",
+          limitOrders: [
+            {
+              orderSequenceNumber: "18446744073709527386",
+              side: "bid",
+              priceTicks: "47900",
+              sizeRemainingLots: "1035",
+              initialSizeLots: "1035",
+              reduceOnly: false,
+            },
+            {
+              orderSequenceNumber: "18446744073709527387",
+              side: "bid",
+              priceTicks: "48700",
+              sizeRemainingLots: "1035",
+              initialSizeLots: "1035",
+              reduceOnly: false,
+            },
+          ],
+        },
+      ],
+    });
+
+    const hype = findPosition(result, "HYPE");
+    expect(hype?.liquidationPriceUsd).toBeCloseTo(41.395, 8);
+    expect(hype?.liquidationPriceTicks).toBe("41395");
+  });
+
+  it("matches Hawkeye for a ZEC long with passive same-market bids", () => {
+    const calculator = createMarginCalculator([
+      {
+        symbol: "ZEC",
+        assetId: 10,
+        markPriceTicks: "46100",
+        tickSize: "100",
+        baseLotDecimals: 2,
+        leverageTiers: [
+          {
+            upperBoundSize: "1250657",
+            maxLeverage: "10",
+            limitOrderRiskFactorBps: "10000",
+          },
+        ],
+        riskFactors: {
+          maintenanceMarginFactorBps: "5000",
+          backstopMarginFactorBps: "2000",
+          highRiskMarginFactorBps: "1000",
+        },
+        cancelOrderRiskFactorBps: "7500",
+        upnlRiskFactor: "10000",
+        upnlRiskFactorForWithdrawals: "100",
+        isolatedOnly: false,
+      },
+      {
+        symbol: "ETH",
+        assetId: 2,
+        markPriceTicks: "17353",
+        tickSize: "100",
+        baseLotDecimals: 3,
+        leverageTiers: [
+          {
+            upperBoundSize: "12894433",
+            maxLeverage: "20",
+            limitOrderRiskFactorBps: "10000",
+          },
+        ],
+        riskFactors: {
+          maintenanceMarginFactorBps: "5000",
+          backstopMarginFactorBps: "2000",
+          highRiskMarginFactorBps: "1000",
+        },
+        cancelOrderRiskFactorBps: "7000",
+        upnlRiskFactor: "10000",
+        upnlRiskFactorForWithdrawals: "100",
+        isolatedOnly: false,
+      },
+    ]);
+
+    const result = calculator.computeSubaccountLiquidationPricesFromInputs({
+      subaccountIndex: 0,
+      collateralBalanceQuoteLots: "4358740700",
+      markets: [
+        {
+          symbol: "ZEC",
+          position: {
+            basePositionLots: "1500",
+            virtualQuotePositionLots: "-6811070900",
+            entryPriceTicks: "45407",
+            unsettledFundingQuoteLots: "0",
+            accumulatedFundingQuoteLots: "16320",
+          },
+          limitOrders: [
+            {
+              orderSequenceNumber: "18446744073709527200",
+              side: "bid",
+              priceTicks: "42322",
+              sizeRemainingLots: "5045",
+              initialSizeLots: "5045",
+              reduceOnly: false,
+            },
+            {
+              orderSequenceNumber: "18446744073709527199",
+              side: "bid",
+              priceTicks: "44485",
+              sizeRemainingLots: "500",
+              initialSizeLots: "500",
+              reduceOnly: false,
+            },
+          ],
+        },
+        {
+          symbol: "ETH",
+          limitOrders: [
+            {
+              orderSequenceNumber: "58234622",
+              side: "ask",
+              priceTicks: "17480",
+              sizeRemainingLots: "4500",
+              initialSizeLots: "4500",
+              reduceOnly: false,
+            },
+          ],
+        },
+      ],
+    });
+
+    const zec = findPosition(result, "ZEC");
+    expect(zec?.liquidationPriceUsd).toBeCloseTo(230.67, 8);
+    expect(zec?.liquidationPriceTicks).toBe("23067");
   });
 
   it("returns null for invalid and non-actionable solver inputs by default", () => {
@@ -442,8 +684,8 @@ describe("margin liquidation price", () => {
     });
     expect(result.liquidationPrice?.entryPriceUsd).toBe(120);
     expect(result.liquidationPrice?.liquidationPriceUsd).toBeCloseTo(
-      257.425742,
-      5
+      257.4258,
+      8
     );
   });
 
@@ -536,8 +778,8 @@ describe("margin liquidation price", () => {
       isolated.liquidationPrice?.liquidationPriceUsd ?? Number.POSITIVE_INFINITY
     );
     expect(isolated.liquidationPrice?.liquidationPriceUsd).toBeCloseTo(
-      50.50505,
-      5
+      50.505,
+      8
     );
   });
 

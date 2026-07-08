@@ -1,5 +1,3 @@
-import { buildLimitOrderMarginStateFromOrders } from "./inputs";
-import { toBigInt } from "./math";
 import type {
   LimitOrderMarginInput,
   MarginPositionState,
@@ -72,7 +70,7 @@ const toLimitOrderMarginInput = (
   status: order.status,
 });
 
-export { buildLimitOrderMarginStateFromOrders };
+export { buildLimitOrderMarginStateFromOrders } from "./inputs";
 
 export const buildMarginPositionStateFromSnapshot = (
   position: MarginSnapshotPosition
@@ -91,18 +89,12 @@ export const buildMarketMarginInputsFromSnapshot = (
 ): MarketMarginInputs => {
   const limitOrders = orders.map(toLimitOrderMarginInput);
   const activeOrders = limitOrders.filter(isActiveOrder);
-  const basePositionLots = position ? toBigInt(position.basePositionLots) : 0n;
-  const limitOrderMargin =
-    activeOrders.length > 0
-      ? buildLimitOrderMarginStateFromOrders(activeOrders, basePositionLots)
-      : undefined;
 
   return {
     symbol,
     position: position
       ? buildMarginPositionStateFromSnapshot(position)
       : undefined,
-    limitOrderMargin,
     limitOrders: activeOrders.length > 0 ? activeOrders : undefined,
   };
 };
