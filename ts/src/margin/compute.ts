@@ -21,7 +21,7 @@ import type {
   NormalizedMarketParams,
   NormalizedMarketParamsBySymbol,
 } from "./normalize";
-import { buildLimitOrderMarginStateFromOrders } from "./inputs";
+import { buildLimitOrderMarginStateFromOrdersAtMark } from "./inputs";
 import type {
   LimitOrderMarginInput,
   LimitOrderMarginState,
@@ -1643,7 +1643,8 @@ const filterActiveOrders = (
 const resolveLimitOrderMarginState = (
   orders: LimitOrderMarginInput[],
   limitOrderMargin: LimitOrderMarginState | undefined,
-  basePositionLots: bigint
+  basePositionLots: bigint,
+  markPriceTicks: bigint
 ): LimitOrderMarginState | undefined => {
   if (limitOrderMargin) {
     return limitOrderMargin;
@@ -1651,7 +1652,11 @@ const resolveLimitOrderMarginState = (
   if (orders.length === 0) {
     return undefined;
   }
-  return buildLimitOrderMarginStateFromOrders(orders, basePositionLots);
+  return buildLimitOrderMarginStateFromOrdersAtMark(
+    orders,
+    basePositionLots,
+    markPriceTicks
+  );
 };
 
 const getOrderLeverageLimitForSymbol = (
@@ -1747,7 +1752,8 @@ const computeMarketMarginFromInputs = (
   const limitOrderState = resolveLimitOrderMarginState(
     activeOrders,
     input.limitOrderMargin,
-    basePositionLots
+    basePositionLots,
+    marketParams.markPriceTicks
   );
   const totalBid = limitOrderState
     ? toBigInt(limitOrderState.totalNonReduceOnlyBidBaseLots)

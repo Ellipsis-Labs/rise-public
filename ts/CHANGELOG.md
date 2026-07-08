@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.66 - 2026-07-08
+
+Source Phoenix commit: `6051225fb045fbb5b6a454bd445e7fc2e31e5722`
+
+### Summary
+
+- Rewrote the SDK's liquidation-price search to use a numeric mark-price boundary search instead of the previous closed-form equation, fixing incorrect results for already-liquidatable positions and for same-market resting orders.
+- Added a new "projected liquidation" API — `computeProjectedLiquidation`, `computeMarketProjectedLiquidationFromMargin`, `computeSubaccountProjectedLiquidationFromMargin`, `createProjectedLiquidationCalculator`, `aggregateLimitOrderStateFromOrders`, and related types — that estimates liquidation risk after a trader's own resting orders fill along the adverse price path.
+- Limit-order margin best-bid/best-ask sentinels are now computed relative to the current mark price via the new `buildLimitOrderMarginStateFromOrdersAtMark`, so only orders that could actually cross at the current mark reserve fill-loss margin.
+
+### Breaking Changes
+
+- `computeMarketLiquidationPriceFromMargin`, `computeSubaccountLiquidationPricesFromMargin`, and `computeTraderLiquidationPricesFromMargin` now return the current mark price for already-liquidatable positions and otherwise use the new boundary-search algorithm — expect different numeric outputs than 0.4.65 for identical inputs.
+- `buildMarketMarginInputsFromSnapshot` no longer populates `limitOrderMargin` on its returned `MarketMarginInputs`; margin/liquidation computation now derives limit-order sentinels internally from `limitOrders` and the market's mark price. Code reading `.limitOrderMargin` directly off this helper's output will now see `undefined`.
+- Same-market limit-order maintenance margin is now mark-price-dependent (only crossing-side resting orders count toward fill-loss margin), changing computed margin/liquidation values for accounts with resting orders on the far side of the mark.
+
+### Consumer Notes
+
+- Treat the existing static liquidation-price functions as the canonical current-state ("Hawkeye-compatible") value; use the new projected-liquidation functions only for scenario/risk displays, not for liquidation-eligibility or program parity checks.
+- `calculateLiquidationPriceUsd` gained an optional `targetLimitOrderMaintenanceCoefficient` input, defaulting to `0` for backward compatibility.
+- `buildLimitOrderMarginStateFromOrders` keeps its prior signature/behavior for existing callers; switch to `buildLimitOrderMarginStateFromOrdersAtMark` where mark-relative sentinels are needed.
+
 ## v0.4.65 - 2026-07-07
 
 Source Phoenix commit: `25625a376965069d216ba53f8bbf0457f097a927`

@@ -2,12 +2,19 @@ import {
   computeSubaccountMarginFromInputs,
   createMarginCalculator,
 } from "../../src/margin/compute";
-import { calculateLiquidationPriceUsd } from "../../src/margin/liquidation";
+import {
+  computeProjectedLiquidation,
+  type ProjectedLiquidationInput,
+} from "../../src/margin/liquidation";
+import { normalizeMarketParams } from "../../src/margin/normalize";
 import {
   absBigInt,
   applyBps,
+  applyBpsCeil,
   divCeil,
   getLeverageConstant,
+  getLimitOrderRiskFactor,
+  maxBigInt,
   toBigInt,
   type LeverageTier,
 } from "../../src/margin/math";
@@ -112,6 +119,7 @@ export type MarginParityOutputFile = {
       marketMargins: Array<
         MarketMarginResult & {
           liquidationPriceTicks?: string;
+          projectedLiquidationPriceTicks?: string;
           cancelMarginQuoteLots: string;
           highRiskMarginQuoteLots: string;
           maxLimitBidBaseLots: string;
@@ -160,30 +168,18 @@ const computeRiskScore = (
   );
 };
 
-const quoteLotsToUsd = (quoteLots: bigint): number =>
-  Number(quoteLots) / 1_000_000;
-
-const baseLotsToUnits = (baseLots: bigint, baseLotDecimals: number): number =>
-  Number(baseLots) / Math.pow(10, baseLotDecimals);
-
-const priceToTicks = (
-  price: number,
-  market: MarginParitySnapshotFile["markets"][number]
-): bigint | undefined => {
-  if (!Number.isFinite(price) || price <= 0) {
-    return undefined;
-  }
-  const numerator = price * 1_000_000;
-  const denominator =
-    Number(market.tickSize) * Math.pow(10, market.baseLotDecimals);
-  if (!Number.isFinite(denominator) || denominator <= 0) {
-    return undefined;
-  }
-  const ticks = Math.round(numerator / denominator);
-  if (!Number.isFinite(ticks) || ticks < 0) {
-    return undefined;
-  }
-  return BigInt(ticks);
+const MAX_HAWKEYE_LIQUIDATION_TICKS = 0xffff_ffffn;
+const emptyLimitOrderState: NonNullable<
+  MarketMarginInputs["limitOrderMargin"]
+> = {
+  numAskOrders: 0,
+  numBidOrders: 0,
+  lowestAsk: "0",
+  highestBid: "0",
+  totalNonReduceOnlyAskBaseLots: "0",
+  totalReduceOnlyAskBaseLots: "0",
+  totalNonReduceOnlyBidBaseLots: "0",
+  totalReduceOnlyBidBaseLots: "0",
 };
 
 const parseLeverageTiers = (
@@ -198,93 +194,111 @@ const parseLeverageTiers = (
 const computeLiquidationPriceTicks = (
   market: MarketMarginResult,
   totals: MarginTotals,
-  marketParams: MarginParitySnapshotFile["markets"][number]
+  marketParams: MarginParitySnapshotFile["markets"][number],
+  marketInput: MarketMarginInputs
 ): string | undefined => {
   const basePositionLots = toBigInt(market.basePositionLots);
   if (basePositionLots === 0n) {
     return undefined;
   }
-  const basePosition = baseLotsToUnits(
-    basePositionLots,
-    marketParams.baseLotDecimals
-  );
-  if (!Number.isFinite(basePosition) || Math.abs(basePosition) === 0) {
-    return undefined;
+  const currentMarkTicks = toBigInt(marketParams.markPriceTicks);
+  if (
+    isLiquidatableAtTicks(
+      currentMarkTicks,
+      market,
+      totals,
+      marketParams,
+      marketInput
+    )
+  ) {
+    return currentMarkTicks.toString();
   }
-
-  const entryPrice =
-    quoteLotsToUsd(absBigInt(toBigInt(market.virtualQuotePositionLots))) /
-    Math.abs(basePosition);
-  const collateralUsd = quoteLotsToUsd(
-    toBigInt(String(totals.collateralBalanceQuoteLots)) +
-      toBigInt(String(totals.unsettledFundingQuoteLots))
+  const liquidationPriceTicks = findLiquidationBoundaryTicks(
+    market,
+    totals,
+    marketParams,
+    marketInput
   );
-  const otherAssetUnrealizedPnl = quoteLotsToUsd(
-    toBigInt(String(totals.discountedUnrealizedPnlQuoteLots)) -
-      toBigInt(market.discountedUnrealizedPnlQuoteLots)
-  );
-  const maintenanceBps = toBigInt(
-    marketParams.riskFactors.maintenanceMarginFactorBps
-  );
-  const otherAssetMaintenanceMargin = quoteLotsToUsd(
-    otherAssetMaintenanceMarginQuoteLots(market, totals, marketParams)
-  );
-  const leverage = getLeverageConstant(
-    parseLeverageTiers(marketParams),
-    absBigInt(basePositionLots)
-  );
-  const liquidationPrice = calculateLiquidationPriceUsd({
-    positionSize: basePosition,
-    entryPriceUsd: entryPrice,
-    leverage: Number(leverage),
-    maintenanceMarginBps: Number(maintenanceBps),
-    upnlRiskFactorBps: Number(toBigInt(marketParams.upnlRiskFactor)),
-    collateralUsd,
-    otherAssetUnrealizedPnlUsd: otherAssetUnrealizedPnl,
-    otherAssetMaintenanceMarginUsd: otherAssetMaintenanceMargin,
-  });
-  const liquidationPriceTicks =
-    liquidationPrice === null
-      ? undefined
-      : priceToTicks(liquidationPrice, marketParams);
   return liquidationPriceTicks?.toString();
 };
 
-const otherAssetMaintenanceMarginQuoteLots = (
+/**
+ * Computes the projected (path-dependent) liquidation boundary through the
+ * rise TypeScript SDK implementation so the exported value exercises the same
+ * code integrators call.
+ */
+const computeProjectedLiquidationPriceTicks = (
   market: MarketMarginResult,
   totals: MarginTotals,
-  marketParams: MarginParitySnapshotFile["markets"][number]
+  marketParams: MarginParitySnapshotFile["markets"][number],
+  marketInput: MarketMarginInputs
+): string | undefined => {
+  const basePositionLots = toBigInt(market.basePositionLots);
+  if (basePositionLots === 0n) {
+    return undefined;
+  }
+
+  const state = marketInput.limitOrderMargin ?? emptyLimitOrderState;
+  const input: ProjectedLiquidationInput = {
+    basePositionLots,
+    virtualQuotePositionLots: toBigInt(market.virtualQuotePositionLots),
+    limitOrderState: {
+      totalNonReduceOnlyAskBaseLots: toBigInt(
+        state.totalNonReduceOnlyAskBaseLots
+      ),
+      totalReduceOnlyAskBaseLots: toBigInt(state.totalReduceOnlyAskBaseLots),
+      totalNonReduceOnlyBidBaseLots: toBigInt(
+        state.totalNonReduceOnlyBidBaseLots
+      ),
+      totalReduceOnlyBidBaseLots: toBigInt(state.totalReduceOnlyBidBaseLots),
+      lowestAsk: toBigInt(state.lowestAsk),
+      highestBid: toBigInt(state.highestBid),
+    },
+    visibleOrders: (marketInput.limitOrders ?? []).map((order) => ({
+      side: order.side,
+      priceTicks: toBigInt(order.priceTicks),
+      baseLotsRemaining: toBigInt(order.sizeRemainingLots),
+      reduceOnly: order.reduceOnly,
+    })),
+    collateralBalanceQuoteLots: toBigInt(
+      String(totals.collateralBalanceQuoteLots)
+    ),
+    portfolioUnsettledFundingQuoteLots: toBigInt(
+      String(totals.unsettledFundingQuoteLots)
+    ),
+    portfolioDiscountedUnrealizedPnlQuoteLots: toBigInt(
+      String(totals.discountedUnrealizedPnlQuoteLots)
+    ),
+    portfolioMaintenanceMarginQuoteLots: toBigInt(
+      String(totals.maintenanceMarginQuoteLots)
+    ),
+    targetDiscountedUnrealizedPnlQuoteLots: toBigInt(
+      market.discountedUnrealizedPnlQuoteLots
+    ),
+    targetMaintenanceMarginQuoteLots: toBigInt(
+      market.maintenanceMarginQuoteLots
+    ),
+  };
+
+  const result = computeProjectedLiquidation(
+    input,
+    normalizeMarketParams(marketParams)
+  );
+  return result.liquidationPriceTicks?.toString();
+};
+
+const otherMarketMaintenanceMarginQuoteLots = (
+  market: MarketMarginResult,
+  totals: MarginTotals
 ): bigint => {
-  const targetPositionOnlyMaintenanceMargin =
-    positionOnlyMaintenanceMarginQuoteLots(market, marketParams);
   const portfolioMaintenanceMargin = toBigInt(
     String(totals.maintenanceMarginQuoteLots)
   );
 
   return checkedSubtractQuoteLots(
     portfolioMaintenanceMargin,
-    targetPositionOnlyMaintenanceMargin,
-    `Portfolio maintenance margin underflow for symbol ${market.symbol}`
-  );
-};
-
-const positionOnlyMaintenanceMarginQuoteLots = (
-  market: MarketMarginResult,
-  marketParams: MarginParitySnapshotFile["markets"][number]
-): bigint => {
-  const maintenanceBps = toBigInt(
-    marketParams.riskFactors.maintenanceMarginFactorBps
-  );
-  const discountedLimitOrderMaintenanceMargin = applyBps(
-    toBigInt(market.limitOrderMarginQuoteLots),
-    maintenanceBps
-  );
-
-  // Mirrors phoenix-state Margin::position_only_maintenance_margin.
-  return checkedSubtractQuoteLots(
     toBigInt(market.maintenanceMarginQuoteLots),
-    discountedLimitOrderMaintenanceMargin,
-    `Position maintenance margin underflow for symbol ${market.symbol}`
+    `Portfolio maintenance margin underflow for symbol ${market.symbol}`
   );
 };
 
@@ -300,6 +314,283 @@ const checkedSubtractQuoteLots = (
   }
 
   return minuend - subtrahend;
+};
+
+const findLiquidationBoundaryTicks = (
+  market: MarketMarginResult,
+  totals: MarginTotals,
+  marketParams: MarginParitySnapshotFile["markets"][number],
+  marketInput: MarketMarginInputs
+): bigint | undefined => {
+  const basePositionLots = toBigInt(market.basePositionLots);
+  if (basePositionLots === 0n) {
+    return undefined;
+  }
+
+  const currentMarkTicks = toBigInt(marketParams.markPriceTicks);
+  if (currentMarkTicks <= 0n) {
+    return undefined;
+  }
+
+  if (basePositionLots > 0n) {
+    if (!isLiquidatableAtTicks(0n, market, totals, marketParams, marketInput)) {
+      return undefined;
+    }
+
+    let low = 0n;
+    let high = currentMarkTicks;
+    while (low + 1n < high) {
+      const mid = low + (high - low) / 2n;
+      if (
+        isLiquidatableAtTicks(mid, market, totals, marketParams, marketInput)
+      ) {
+        low = mid;
+      } else {
+        high = mid;
+      }
+    }
+
+    return low;
+  }
+
+  if (
+    !isLiquidatableAtTicks(
+      MAX_HAWKEYE_LIQUIDATION_TICKS,
+      market,
+      totals,
+      marketParams,
+      marketInput
+    )
+  ) {
+    return undefined;
+  }
+
+  let low = currentMarkTicks;
+  let high = MAX_HAWKEYE_LIQUIDATION_TICKS;
+  while (low + 1n < high) {
+    const mid = low + (high - low) / 2n;
+    if (isLiquidatableAtTicks(mid, market, totals, marketParams, marketInput)) {
+      high = mid;
+    } else {
+      low = mid;
+    }
+  }
+
+  return high;
+};
+
+const isLiquidatableAtTicks = (
+  ticks: bigint,
+  market: MarketMarginResult,
+  totals: MarginTotals,
+  marketParams: MarginParitySnapshotFile["markets"][number],
+  marketInput: MarketMarginInputs
+): boolean => {
+  const basePositionLots = toBigInt(market.basePositionLots);
+  const virtualQuotePositionLots = toBigInt(market.virtualQuotePositionLots);
+  const tickSize = toBigInt(marketParams.tickSize);
+  const rawTargetPnl =
+    virtualQuotePositionLots + basePositionLots * ticks * tickSize;
+  const upnlRiskFactor = toBigInt(marketParams.upnlRiskFactor);
+  const targetDiscountedPnl =
+    rawTargetPnl > 0n
+      ? applyBpsCeil(rawTargetPnl, upnlRiskFactor)
+      : rawTargetPnl;
+  const effectiveCollateral =
+    toBigInt(String(totals.collateralBalanceQuoteLots)) +
+    toBigInt(String(totals.unsettledFundingQuoteLots)) +
+    (toBigInt(String(totals.discountedUnrealizedPnlQuoteLots)) -
+      toBigInt(market.discountedUnrealizedPnlQuoteLots)) +
+    targetDiscountedPnl;
+  if (effectiveCollateral < 0n) {
+    return true;
+  }
+
+  const maintenance =
+    otherMarketMaintenanceMarginQuoteLots(market, totals) +
+    maintenanceMarginAtTicks(ticks, market, marketParams, marketInput);
+  return effectiveCollateral < maintenance;
+};
+
+const maintenanceMarginAtTicks = (
+  ticks: bigint,
+  market: MarketMarginResult,
+  marketParams: MarginParitySnapshotFile["markets"][number],
+  marketInput: MarketMarginInputs
+): bigint => {
+  const initialMargin = initialMarginForAssetAtTicks(
+    toBigInt(market.basePositionLots),
+    marketInput.limitOrderMargin ?? emptyLimitOrderState,
+    ticks,
+    marketParams
+  );
+  const maintenanceBps = toBigInt(
+    marketParams.riskFactors.maintenanceMarginFactorBps
+  );
+  return applyBps(initialMargin, maintenanceBps);
+};
+
+const initialMarginForAssetAtTicks = (
+  position: bigint,
+  limitOrderState: NonNullable<MarketMarginInputs["limitOrderMargin"]>,
+  ticks: bigint,
+  marketParams: MarginParitySnapshotFile["markets"][number]
+): bigint => {
+  const totalBid = toBigInt(limitOrderState.totalNonReduceOnlyBidBaseLots);
+  const totalAsk = toBigInt(limitOrderState.totalNonReduceOnlyAskBaseLots);
+  const totalBidAll =
+    totalBid + toBigInt(limitOrderState.totalReduceOnlyBidBaseLots);
+  const totalAskAll =
+    totalAsk + toBigInt(limitOrderState.totalReduceOnlyAskBaseLots);
+  if (
+    position === 0n &&
+    totalBid === 0n &&
+    totalAsk === 0n &&
+    totalBidAll === 0n &&
+    totalAskAll === 0n
+  ) {
+    return 0n;
+  }
+
+  const tiers = parseLeverageTiers(marketParams);
+  const tickSize = toBigInt(marketParams.tickSize);
+  const assetUnitPrice = ticks * tickSize;
+  let collateralRequired = 0n;
+  let existingPositionMarginOffset = 0n;
+
+  if (position !== 0n) {
+    const absolutePositionSize = absBigInt(position);
+    const absoluteBookValue = assetUnitPrice * absolutePositionSize;
+    const leverage = getLeverageConstant(tiers, absolutePositionSize);
+    const leverageBasedMargin = divCeil(absoluteBookValue, leverage);
+    collateralRequired += leverageBasedMargin;
+    existingPositionMarginOffset = leverageBasedMargin;
+  }
+
+  const marginBid =
+    totalBid > 0n
+      ? marginIncreaseForBids(
+          position,
+          totalBid,
+          assetUnitPrice,
+          tiers,
+          existingPositionMarginOffset
+        )
+      : 0n;
+  const marginAsk =
+    totalAsk > 0n
+      ? marginIncreaseForAsks(
+          position,
+          totalAsk,
+          assetUnitPrice,
+          tiers,
+          existingPositionMarginOffset
+        )
+      : 0n;
+
+  collateralRequired += maxBigInt(marginBid, marginAsk);
+  collateralRequired +=
+    totalBidAll > 0n
+      ? limitOrderFillLoss(
+          "bid",
+          totalBidAll,
+          toBigInt(limitOrderState.highestBid),
+          assetUnitPrice,
+          tickSize
+        )
+      : 0n;
+  collateralRequired +=
+    totalAskAll > 0n
+      ? limitOrderFillLoss(
+          "ask",
+          totalAskAll,
+          toBigInt(limitOrderState.lowestAsk),
+          assetUnitPrice,
+          tickSize
+        )
+      : 0n;
+
+  return collateralRequired;
+};
+
+const marginIncreaseForBids = (
+  position: bigint,
+  bidSize: bigint,
+  assetUnitPrice: bigint,
+  tiers: LeverageTier[],
+  existingPositionMarginOffset: bigint
+): bigint => {
+  const newExposureSigned = bidSize + position - absBigInt(position);
+  if (newExposureSigned <= 0n) {
+    return 0n;
+  }
+
+  const totalExposure = absBigInt(position + bidSize);
+  const totalGrossValue = assetUnitPrice * totalExposure;
+  const totalLeverage = getLeverageConstant(tiers, totalExposure);
+  const totalMargin = divCeil(totalGrossValue, totalLeverage);
+  const incrementalMargin = maxBigInt(
+    totalMargin - existingPositionMarginOffset,
+    0n
+  );
+  return applyBpsCeil(
+    incrementalMargin,
+    getLimitOrderRiskFactor(tiers, totalExposure)
+  );
+};
+
+const marginIncreaseForAsks = (
+  position: bigint,
+  askSize: bigint,
+  assetUnitPrice: bigint,
+  tiers: LeverageTier[],
+  existingPositionMarginOffset: bigint
+): bigint => {
+  const newExposureSigned = askSize - position - absBigInt(position);
+  if (newExposureSigned <= 0n) {
+    return 0n;
+  }
+
+  const totalExposure = absBigInt(position - askSize);
+  const totalGrossValue = assetUnitPrice * totalExposure;
+  const totalLeverage = getLeverageConstant(tiers, totalExposure);
+  const totalMargin = divCeil(totalGrossValue, totalLeverage);
+  const incrementalMargin = maxBigInt(
+    totalMargin - existingPositionMarginOffset,
+    0n
+  );
+  return applyBpsCeil(
+    incrementalMargin,
+    getLimitOrderRiskFactor(tiers, totalExposure)
+  );
+};
+
+const limitOrderFillLoss = (
+  side: "bid" | "ask",
+  size: bigint,
+  limitPriceTicks: bigint,
+  assetUnitPrice: bigint,
+  tickSize: bigint
+): bigint => {
+  if (limitPriceTicks === 0n) {
+    return 0n;
+  }
+  const limitPrice = limitPriceTicks * tickSize;
+  if (side === "bid") {
+    return limitPrice > assetUnitPrice
+      ? size * (limitPrice - assetUnitPrice)
+      : 0n;
+  }
+  return limitPrice < assetUnitPrice
+    ? size * (assetUnitPrice - limitPrice)
+    : 0n;
+};
+
+const ceilDiv = (numerator: bigint, denominator: bigint): bigint => {
+  if (denominator <= 0n) {
+    throw new Error("ceilDiv denominator must be positive");
+  }
+  return (numerator + denominator - 1n) / denominator;
 };
 
 const analyticalSolutionForMaxPosition = (
@@ -414,18 +705,18 @@ export const buildMarginParityOutput = (
               }
             : undefined,
           limitOrderMargin: {
-            numAskOrders: market.limitOrderState.numAskOrders,
-            numBidOrders: market.limitOrderState.numBidOrders,
-            lowestAsk: market.limitOrderState.lowestAsk,
-            highestBid: market.limitOrderState.highestBid,
+            numAskOrders: market.limitOrderState.numAskOrders ?? 0,
+            numBidOrders: market.limitOrderState.numBidOrders ?? 0,
+            lowestAsk: market.limitOrderState.lowestAsk ?? "0",
+            highestBid: market.limitOrderState.highestBid ?? "0",
             totalNonReduceOnlyAskBaseLots:
-              market.limitOrderState.totalNonReduceOnlyAskBaseLots,
+              market.limitOrderState.totalNonReduceOnlyAskBaseLots ?? "0",
             totalReduceOnlyAskBaseLots:
-              market.limitOrderState.totalReduceOnlyAskBaseLots,
+              market.limitOrderState.totalReduceOnlyAskBaseLots ?? "0",
             totalNonReduceOnlyBidBaseLots:
-              market.limitOrderState.totalNonReduceOnlyBidBaseLots,
+              market.limitOrderState.totalNonReduceOnlyBidBaseLots ?? "0",
             totalReduceOnlyBidBaseLots:
-              market.limitOrderState.totalReduceOnlyBidBaseLots,
+              market.limitOrderState.totalReduceOnlyBidBaseLots ?? "0",
           },
           limitOrders: (market.visibleLimitOrders ?? []).map((order) => ({
             orderSequenceNumber: order.orderSequenceNumber,
@@ -462,6 +753,12 @@ export const buildMarginParityOutput = (
             `missing snapshot market params for ${market.symbol}`
           );
         }
+        const marketInput = inputs.markets.find(
+          (input) => input.symbol === market.symbol
+        );
+        if (!marketInput) {
+          throw new Error(`missing market input for ${market.symbol}`);
+        }
         const currentPosition = toBigInt(market.basePositionLots);
         const markPriceTicks = toBigInt(marketParams.markPriceTicks);
         const bestBidTicks = marketParams.bestBidTicks
@@ -492,8 +789,19 @@ export const buildMarginParityOutput = (
         return {
           ...market,
           liquidationPriceTicks:
-            computeLiquidationPriceTicks(market, result.margin, marketParams) ??
-            undefined,
+            computeLiquidationPriceTicks(
+              market,
+              result.margin,
+              marketParams,
+              marketInput
+            ) ?? undefined,
+          projectedLiquidationPriceTicks:
+            computeProjectedLiquidationPriceTicks(
+              market,
+              result.margin,
+              marketParams,
+              marketInput
+            ) ?? undefined,
           maxLimitBidBaseLots: maxLimit.maxBidLots.toString(),
           maxLimitAskBaseLots: maxLimit.maxAskLots.toString(),
           maxMarketBuyBaseLotsEstimate: maxMarketBuy.maxBidLots.toString(),

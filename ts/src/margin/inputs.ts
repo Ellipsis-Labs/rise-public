@@ -16,6 +16,24 @@ const isActiveOrder = (order: LimitOrderMarginInput): boolean =>
 export const buildLimitOrderMarginStateFromOrders = (
   orders: LimitOrderMarginInput[],
   basePositionLots: bigint = 0n
+): LimitOrderMarginState =>
+  buildLimitOrderMarginStateFromOrdersInternal(orders, basePositionLots);
+
+export const buildLimitOrderMarginStateFromOrdersAtMark = (
+  orders: LimitOrderMarginInput[],
+  basePositionLots: bigint = 0n,
+  markPriceTicks: bigint
+): LimitOrderMarginState =>
+  buildLimitOrderMarginStateFromOrdersInternal(
+    orders,
+    basePositionLots,
+    markPriceTicks
+  );
+
+const buildLimitOrderMarginStateFromOrdersInternal = (
+  orders: LimitOrderMarginInput[],
+  basePositionLots: bigint,
+  markPriceTicks?: bigint
 ): LimitOrderMarginState => {
   let totalNonReduceOnlyBidBaseLots = 0n;
   let totalNonReduceOnlyAskBaseLots = 0n;
@@ -34,7 +52,10 @@ export const buildLimitOrderMarginStateFromOrders = (
     const priceTicks = toBigInt(order.priceTicks);
     if (order.side === "bid") {
       numBidOrders += 1;
-      if (priceTicks > highestBid) {
+      if (
+        (markPriceTicks === undefined || priceTicks > markPriceTicks) &&
+        priceTicks > highestBid
+      ) {
         highestBid = priceTicks;
       }
       if (order.reduceOnly) {
@@ -44,7 +65,10 @@ export const buildLimitOrderMarginStateFromOrders = (
       }
     } else {
       numAskOrders += 1;
-      if (lowestAsk === 0n || priceTicks < lowestAsk) {
+      if (
+        (markPriceTicks === undefined || priceTicks < markPriceTicks) &&
+        (lowestAsk === 0n || priceTicks < lowestAsk)
+      ) {
         lowestAsk = priceTicks;
       }
       if (order.reduceOnly) {
