@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.3.4 - 2026-07-08
+
+Source Phoenix commit: `6051225fb045fbb5b6a454bd445e7fc2e31e5722`
+
+### Summary
+
+- Reworked the per-market liquidation price calculation (`math`) to search for the actual tick boundary where an account becomes liquidatable, replacing the previous closed-form algebraic approximation. This correctly returns the current mark price when an account is already liquidatable and properly accounts for target-market limit-order maintenance instead of treating it as a fixed outside term.
+- Added a new projected liquidation price API — `projected_liquidation_price`, `ProjectedLiquidation`, `ProjectedLiquidationFill`, `ProjectedLiquidationParams`, and `TraderPortfolioMargin::projected_liquidation_prices` — that simulates a trader's own position-side resting orders filling along the adverse price path, for risk/explainer displays distinct from the static Hawkeye-compatible liquidation price.
+- Added `initial_margin_for_asset_with_mark_price` and `calculate_liquidation_price_usd_with_target_limit_order_maintenance` as supporting public entry points for callers that need to supply an explicit mark price or an additional target-market limit-order maintenance term.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `calculate_liquidation_price_usd` keeps its existing signature and default behavior (it now delegates to the new maintenance-coefficient variant with `0.0`), so existing callers are unaffected.
+- Liquidation prices from portfolio margin calculations are now solved as an exact tick boundary rather than a closed-form approximation, so returned values may shift slightly (now quantized to the market's tick size) and should be more accurate, particularly for accounts with resting orders in the target market.
+- Consumers wanting "what if my resting orders fill before liquidation" estimates can adopt `TraderPortfolioMargin::projected_liquidation_prices` alongside the existing static liquidation price fields; it's an additive risk estimate, not a replacement for the static value.
+
 ## v0.3.3 - 2026-07-08
 
 Source Phoenix commit: `25625a376965069d216ba53f8bbf0457f097a927`

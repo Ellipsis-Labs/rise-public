@@ -12,7 +12,9 @@ pub type Pubkey = [u8; 32];
 
 use crate::direction::{Direction, Side, StopLossOrderKind};
 use crate::errors::PhoenixStateError;
+use crate::limit_order_state::{LimitOrderMarginState, LimitOrderSummary};
 use crate::margin::{LimitOrder, Margin, MarketMargin, MarketPosition};
+use crate::margin_calc::{initial_margin_for_asset_with_mark_price, position_maintenance_margin};
 use crate::market_math::MarketCalculator;
 use crate::perp_metadata::PerpAssetMetadata;
 use crate::quantities::{
@@ -343,7 +345,11 @@ pub struct SimulatedPositionFill {
     pub liquidation_price_usd: Option<f64>,
 }
 
-/// Inputs for the closed-form liquidation price equation.
+/// Inputs for the static/current-state closed-form liquidation price equation.
+///
+/// This equation answers the Hawkeye-style question: "at what target-market
+/// mark would this current account state become liquidatable if only the mark
+/// changed?" It does not simulate resting orders filling before that boundary.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CalculateLiquidationPriceUsdInput {
     pub position_size: f64,
@@ -357,12 +363,36 @@ pub struct CalculateLiquidationPriceUsdInput {
     pub allow_non_positive: bool,
 }
 
-/// Solve the SDK liquidation price preview equation in USD.
+/// Solve the static/current-state SDK liquidation price preview equation in
+/// USD.
 ///
-/// Assumptions: target-market limit-order maintenance is supplied as a fixed
-/// outside term by callers, soft-stale oracle margin inflation is not modeled,
-/// and positive target-market uPnL is discounted with `upnl_risk_factor_bps`.
+/// This is the Hawkeye-compatible boundary for the current account state. Use
+/// it for API snapshots, parity checks, liquidation eligibility previews, and
+/// any integration that needs to match the program/Hawkeye view.
+///
+/// This function does not mutate the account state while the price moves. In
+/// particular, target-market resting orders remain limit-order exposure only;
+/// they are not filled, removed, or used to change entry price/collateral. For
+/// "what if my orders fill before liquidation?" displays, use
+/// [`projected_liquidation_price`] or
+/// [`TraderPortfolioMargin::projected_liquidation_prices`] alongside the
+/// static value.
+///
+/// Assumptions: target-market limit-order maintenance is linear in the target
+/// mark price over the solved regime, soft-stale oracle margin inflation is not
+/// modeled, and positive target-market uPnL is discounted with
+/// `upnl_risk_factor_bps`.
 pub fn calculate_liquidation_price_usd(input: CalculateLiquidationPriceUsdInput) -> Option<f64> {
+    calculate_liquidation_price_usd_with_target_limit_order_maintenance(input, 0.0)
+}
+
+/// Solve the static/current-state SDK liquidation price preview equation with
+/// an additional target-market limit-order maintenance coefficient in USD per
+/// $1 move in the target mark price.
+pub fn calculate_liquidation_price_usd_with_target_limit_order_maintenance(
+    input: CalculateLiquidationPriceUsdInput,
+    target_limit_order_maintenance_coefficient: f64,
+) -> Option<f64> {
     const EPSILON: f64 = 1e-12;
     const BPS_DENOMINATOR: f64 = 10_000.0;
 
@@ -373,10 +403,15 @@ pub fn calculate_liquidation_price_usd(input: CalculateLiquidationPriceUsdInput)
         return None;
     }
 
-    let price = solve_liquidation_price_usd(&input, 1.0)?;
+    let price =
+        solve_liquidation_price_usd(&input, target_limit_order_maintenance_coefficient, 1.0)?;
     let target_unrealized_pnl = input.position_size * (price - input.entry_price_usd);
     let price = if target_unrealized_pnl > EPSILON && input.upnl_risk_factor_bps < BPS_DENOMINATOR {
-        solve_liquidation_price_usd(&input, input.upnl_risk_factor_bps / BPS_DENOMINATOR)?
+        solve_liquidation_price_usd(
+            &input,
+            target_limit_order_maintenance_coefficient,
+            input.upnl_risk_factor_bps / BPS_DENOMINATOR,
+        )?
     } else {
         price
     };
@@ -390,13 +425,21 @@ pub fn calculate_liquidation_price_usd(input: CalculateLiquidationPriceUsdInput)
 
 fn solve_liquidation_price_usd(
     input: &CalculateLiquidationPriceUsdInput,
+    target_limit_order_maintenance_coefficient: f64,
     target_upnl_multiplier: f64,
 ) -> Option<f64> {
     const EPSILON: f64 = 1e-12;
     const BPS_DENOMINATOR: f64 = 10_000.0;
 
+    if !target_limit_order_maintenance_coefficient.is_finite()
+        || target_limit_order_maintenance_coefficient < 0.0
+    {
+        return None;
+    }
+
     let maintenance_ratio = input.maintenance_margin_bps / BPS_DENOMINATOR / input.leverage;
-    let maintenance_coefficient = input.position_size.abs() * maintenance_ratio;
+    let maintenance_coefficient =
+        input.position_size.abs() * maintenance_ratio + target_limit_order_maintenance_coefficient;
     let numerator = input.collateral_usd + input.other_asset_unrealized_pnl_usd
         - input.other_asset_maintenance_margin_usd
         - target_upnl_multiplier * input.entry_price_usd * input.position_size;
@@ -1710,10 +1753,6 @@ fn liquidation_price_for_market(
         perp_asset_metadata.base_lot_decimals(),
         perp_asset_metadata.tick_size(),
     );
-    let base_position_units = calculator.signed_base_lots_to_units(position.base_lot_position);
-    if !base_position_units.is_finite() || base_position_units.abs() == 0.0 {
-        return Ok(None);
-    }
     if !entry_price_sign_invariant_holds(&position) {
         return Err(PhoenixStateError::InvalidMarginSimulationInput {
             reason: format!(
@@ -1724,60 +1763,454 @@ fn liquidation_price_for_market(
         });
     }
 
-    let entry_price_usd = calculator
-        .quote_lots_to_usd(position.virtual_quote_lot_position.abs_as_unsigned())
-        / base_position_units.abs();
+    let Some(current_mark_price) = perp_asset_metadata
+        .try_get_mark_price(RiskAction::View)
+        .ok()
+    else {
+        return Ok(None);
+    };
+    if is_liquidatable_at_ticks(
+        current_mark_price,
+        market_margin,
+        portfolio_margin,
+        market_margin.limit_order_margin(),
+        perp_asset_metadata,
+    )
+    .unwrap_or(false)
+    {
+        return Ok(Some(calculator.ticks_to_price(current_mark_price)));
+    }
+
+    let ticks = find_liquidation_boundary_ticks(
+        market_margin,
+        portfolio_margin,
+        market_margin.limit_order_margin(),
+        current_mark_price,
+        perp_asset_metadata,
+    );
+
+    Ok(ticks.map(|ticks| calculator.ticks_to_price(ticks)))
+}
+
+const MAX_HAWKEYE_LIQUIDATION_TICKS: u64 = u32::MAX as u64;
+
+fn find_liquidation_boundary_ticks(
+    market_margin: &MarketMargin,
+    portfolio_margin: &TraderPortfolioMargin,
+    limit_order_state: LimitOrderMarginState,
+    current_mark_price: Ticks,
+    perp_asset_metadata: &PerpAssetMetadata,
+) -> Option<Ticks> {
+    let position = market_margin.position?;
+    if position.base_lot_position > SignedBaseLots::ZERO {
+        if !is_liquidatable_at_ticks(
+            Ticks::ZERO,
+            market_margin,
+            portfolio_margin,
+            limit_order_state,
+            perp_asset_metadata,
+        )? {
+            return None;
+        }
+
+        let mut low = Ticks::ZERO.as_inner();
+        let mut high = current_mark_price.as_inner();
+        while low + 1 < high {
+            let mid = low + (high - low) / 2;
+            if is_liquidatable_at_ticks(
+                Ticks::new(mid),
+                market_margin,
+                portfolio_margin,
+                limit_order_state,
+                perp_asset_metadata,
+            )? {
+                low = mid;
+            } else {
+                high = mid;
+            }
+        }
+
+        Some(Ticks::new(low))
+    } else {
+        if !is_liquidatable_at_ticks(
+            Ticks::new(MAX_HAWKEYE_LIQUIDATION_TICKS),
+            market_margin,
+            portfolio_margin,
+            limit_order_state,
+            perp_asset_metadata,
+        )? {
+            return None;
+        }
+
+        let mut low = current_mark_price.as_inner();
+        let mut high = MAX_HAWKEYE_LIQUIDATION_TICKS;
+        while low + 1 < high {
+            let mid = low + (high - low) / 2;
+            if is_liquidatable_at_ticks(
+                Ticks::new(mid),
+                market_margin,
+                portfolio_margin,
+                limit_order_state,
+                perp_asset_metadata,
+            )? {
+                high = mid;
+            } else {
+                low = mid;
+            }
+        }
+
+        Some(Ticks::new(high))
+    }
+}
+
+fn is_liquidatable_at_ticks(
+    ticks: Ticks,
+    market_margin: &MarketMargin,
+    portfolio_margin: &TraderPortfolioMargin,
+    limit_order_state: LimitOrderMarginState,
+    perp_asset_metadata: &PerpAssetMetadata,
+) -> Option<bool> {
+    let position = market_margin.position?;
+    let target_discounted_pnl =
+        discounted_unrealized_pnl_at_ticks(ticks, position, perp_asset_metadata)?;
     let collateral_with_funding = portfolio_margin
         .quote_lot_collateral
-        .checked_add(portfolio_margin.margin.unsettled_funding)
-        .ok_or(MathError::Overflow)?;
-    let other_asset_unrealized_pnl = portfolio_margin
+        .checked_add(portfolio_margin.margin.unsettled_funding)?;
+    let other_discounted_pnl = portfolio_margin
         .margin
         .discounted_unrealized_pnl
-        .checked_sub(market_margin.margin.discounted_unrealized_pnl)
-        .ok_or(MathError::Overflow)?;
-    let maintenance_margin_factor = perp_asset_metadata.get_risk_factor(RiskTier::Liquidatable);
-    let discounted_limit_order_maintenance_margin = maintenance_margin_factor
-        .apply_to_quote_lots(market_margin.margin.limit_order_margin)
-        .ok_or(MathError::Overflow)?;
-    let target_position_maintenance_margin = market_margin
-        .margin
-        .maintenance_margin
-        .checked_sub(discounted_limit_order_maintenance_margin)
-        .ok_or(MathError::Underflow)?;
-    let other_asset_maintenance_margin = portfolio_margin
-        .margin
-        .maintenance_margin
-        .checked_sub(target_position_maintenance_margin)
-        .ok_or(MathError::Underflow)?;
-    let leverage = perp_asset_metadata
-        .leverage_tiers()
-        .get_leverage_constant(position.base_lot_position.abs_as_unsigned())
-        .as_inner() as f64;
+        .checked_sub(market_margin.margin.discounted_unrealized_pnl)?;
+    let effective_collateral = i128::from(collateral_with_funding.as_inner())
+        + i128::from(other_discounted_pnl.as_inner())
+        + target_discounted_pnl;
+    if effective_collateral < 0 {
+        return Some(true);
+    }
 
-    Ok(calculate_liquidation_price_usd(
-        CalculateLiquidationPriceUsdInput {
-            position_size: base_position_units,
-            entry_price_usd,
-            leverage,
-            maintenance_margin_bps: maintenance_margin_factor.as_inner() as f64,
-            upnl_risk_factor_bps: perp_asset_metadata
-                .upnl_risk_factor(RiskAction::View)
-                .as_inner() as f64,
-            collateral_usd: calculator.signed_quote_lots_to_usd(collateral_with_funding),
-            other_asset_unrealized_pnl_usd: calculator
-                .signed_quote_lots_to_usd(other_asset_unrealized_pnl),
-            other_asset_maintenance_margin_usd: calculator
-                .quote_lots_to_usd(other_asset_maintenance_margin),
-            allow_non_positive: false,
-        },
-    ))
+    let other_maintenance_margin = portfolio_margin
+        .margin
+        .maintenance_margin
+        .checked_sub(market_margin.margin.maintenance_margin)?;
+    let maintenance_margin = i128::from(other_maintenance_margin.as_inner())
+        + i128::try_from(maintenance_margin_at_ticks(
+            ticks,
+            market_margin,
+            limit_order_state,
+            perp_asset_metadata,
+        )?)
+        .ok()?;
+    Some(effective_collateral < maintenance_margin)
+}
+
+fn discounted_unrealized_pnl_at_ticks(
+    ticks: Ticks,
+    position: TraderPosition,
+    perp_asset_metadata: &PerpAssetMetadata,
+) -> Option<i128> {
+    let position_value = i128::from(position.base_lot_position.as_inner())
+        .checked_mul(i128::from(ticks.as_inner()))?
+        .checked_mul(i128::from(perp_asset_metadata.tick_size().as_inner()))?;
+    let raw_pnl =
+        i128::from(position.virtual_quote_lot_position.as_inner()).checked_add(position_value)?;
+    if raw_pnl <= 0 {
+        return Some(raw_pnl);
+    }
+    let numerator = raw_pnl.checked_mul(i128::from(
+        perp_asset_metadata
+            .upnl_risk_factor(RiskAction::View)
+            .as_inner(),
+    ))?;
+    numerator.checked_add(9_999).map(|value| value / 10_000)
+}
+
+fn maintenance_margin_at_ticks(
+    ticks: Ticks,
+    market_margin: &MarketMargin,
+    limit_order_state: LimitOrderMarginState,
+    perp_asset_metadata: &PerpAssetMetadata,
+) -> Option<u128> {
+    let position = market_margin.position?;
+    let initial_margin = initial_margin_for_asset_with_mark_price(
+        perp_asset_metadata,
+        &position,
+        &limit_order_state,
+        ticks,
+        RiskAction::View,
+    )
+    .ok()?;
+    position_maintenance_margin(perp_asset_metadata, initial_margin)
+        .ok()
+        .map(|margin| u128::from(margin.as_inner()))
 }
 
 fn entry_price_sign_invariant_holds(position: &TraderPosition) -> bool {
     let base = position.base_lot_position.as_inner();
     let quote = position.virtual_quote_lot_position.as_inner();
     base == 0 || quote == 0 || base.signum() != quote.signum()
+}
+
+/// A resting-order fill applied along the projected liquidation path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProjectedLiquidationFill {
+    pub side: Side,
+    pub price_in_ticks: Ticks,
+    pub base_lots: BaseLots,
+}
+
+/// Result of the projected (path-dependent) liquidation price calculation.
+///
+/// `liquidation_price_ticks` is `None` when the account cannot become
+/// liquidatable at any tick in the adverse direction, even after every
+/// projected fill is applied.
+///
+/// When `fills` is empty, the projected and static boundaries are the same.
+/// When `fills` is non-empty, `liquidation_price_ticks` is a scenario estimate
+/// for the post-fill account state and should be displayed as projected risk
+/// rather than as the canonical Hawkeye liquidation price.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ProjectedLiquidation {
+    pub liquidation_price_ticks: Option<Ticks>,
+    /// Fills applied before the boundary, in path order.
+    pub fills: Vec<ProjectedLiquidationFill>,
+}
+
+/// Inputs for [`projected_liquidation_price`].
+///
+/// The portfolio fields carry the same aggregates the static liquidation
+/// search uses; the target fields are the target market's contribution to those
+/// aggregates at the current mark. The first path segment therefore starts
+/// from the same account state as the static liquidation calculation.
+#[derive(Debug, Clone)]
+pub struct ProjectedLiquidationParams<'a> {
+    pub position: TraderPosition,
+    /// Target-market limit-order margin state for the current state
+    /// (canonical when available).
+    pub limit_order_state: LimitOrderMarginState,
+    /// The trader's visible resting orders in the target market.
+    pub visible_orders: &'a [LimitOrderSummary],
+    pub collateral_balance: SignedQuoteLots,
+    pub portfolio_unsettled_funding: SignedQuoteLots,
+    pub portfolio_discounted_unrealized_pnl: SignedQuoteLots,
+    pub portfolio_maintenance_margin: QuoteLots,
+    pub target_discounted_unrealized_pnl: SignedQuoteLots,
+    pub target_maintenance_margin: QuoteLots,
+}
+
+/// Computes a projected liquidation price by re-solving the static boundary
+/// after simulating the trader's own risk-increasing resting orders filling
+/// along the adverse price path.
+///
+/// This answers a different question than the static/Hawkeye liquidation price.
+/// Static liquidation asks where the current state becomes liquidatable if only
+/// the mark changes. Projected liquidation asks where the trader would become
+/// liquidatable if the mark trades through their position-side resting orders,
+/// those orders fill at their limit prices, and each post-fill state is
+/// re-evaluated.
+///
+/// Use the projected value as a risk/explainer estimate for dashboards,
+/// portfolio tools, and pre-trade education when resting orders can materially
+/// change the future position. Do not use it as the source of truth for current
+/// liquidation eligibility or for parity with Hawkeye/program output; keep the
+/// static value visible for that.
+///
+/// The path model is deliberately minimal and deterministic:
+/// - Only non-reduce-only orders on the position side fill (bids for a long,
+///   asks for a short), fully and exactly at their limit price, most adverse
+///   first. Fees, slippage, contra liquidity, trigger orders, and opposite-side
+///   (risk-reducing) fills are not modeled.
+/// - Fills extend the position in its current direction, so no PnL is realized
+///   and collateral stays constant; funding is treated as settled at the
+///   current rate.
+/// - Non-target markets stay fixed at their snapshot aggregates, exactly like
+///   the static liquidation search.
+///
+/// When no orders would fill before the boundary this returns the static
+/// result.
+pub fn projected_liquidation_price(
+    params: &ProjectedLiquidationParams<'_>,
+    perp_asset_metadata: &PerpAssetMetadata,
+) -> ProjectedLiquidation {
+    let mut fills = Vec::new();
+    let position = params.position;
+    if position.base_lot_position == SignedBaseLots::ZERO {
+        return ProjectedLiquidation::default();
+    }
+    let is_long = position.base_lot_position > SignedBaseLots::ZERO;
+    let Ok(mut sim_mark_price) = perp_asset_metadata.try_get_mark_price(RiskAction::View) else {
+        return ProjectedLiquidation::default();
+    };
+
+    // The non-target components stay fixed along the path. Express them as
+    // synthetic portfolio/target margins so the static predicate and boundary
+    // search can be reused unchanged for every path segment.
+    let portfolio_margin = TraderPortfolioMargin {
+        quote_lot_collateral: params.collateral_balance,
+        margin: Margin {
+            unsettled_funding: params.portfolio_unsettled_funding,
+            discounted_unrealized_pnl: params.portfolio_discounted_unrealized_pnl,
+            maintenance_margin: params.portfolio_maintenance_margin,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let mut market_margin = MarketMargin {
+        position: Some(position),
+        limit_orders: Vec::new(),
+        margin: Margin {
+            discounted_unrealized_pnl: params.target_discounted_unrealized_pnl,
+            maintenance_margin: params.target_maintenance_margin,
+            ..Default::default()
+        },
+    };
+
+    let mut consumed = vec![false; params.visible_orders.len()];
+    let mut fill_order: Vec<usize> = (0..params.visible_orders.len())
+        .filter(|&index| {
+            let order = &params.visible_orders[index];
+            !order.reduce_only
+                && match order.side {
+                    Side::Bid => is_long,
+                    Side::Ask => !is_long,
+                }
+        })
+        .collect();
+    // Most adverse first: highest bid for a long, lowest ask for a short.
+    fill_order.sort_by(|&a, &b| {
+        let (a, b) = (
+            params.visible_orders[a].price_in_ticks,
+            params.visible_orders[b].price_in_ticks,
+        );
+        if is_long { b.cmp(&a) } else { a.cmp(&b) }
+    });
+
+    let mut limit_order_state = params.limit_order_state;
+    let mut next_fill = 0;
+    loop {
+        if is_liquidatable_at_ticks(
+            sim_mark_price,
+            &market_margin,
+            &portfolio_margin,
+            limit_order_state,
+            perp_asset_metadata,
+        )
+        .unwrap_or(false)
+        {
+            return ProjectedLiquidation {
+                liquidation_price_ticks: Some(sim_mark_price),
+                fills,
+            };
+        }
+
+        let boundary = find_liquidation_boundary_ticks(
+            &market_margin,
+            &portfolio_margin,
+            limit_order_state,
+            sim_mark_price,
+            perp_asset_metadata,
+        );
+        let Some(&order_index) = fill_order.get(next_fill) else {
+            return ProjectedLiquidation {
+                liquidation_price_ticks: boundary,
+                fills,
+            };
+        };
+        let order = params.visible_orders[order_index];
+        if let Some(boundary) = boundary {
+            let boundary_before_fill = if is_long {
+                boundary >= order.price_in_ticks
+            } else {
+                boundary <= order.price_in_ticks
+            };
+            if boundary_before_fill {
+                return ProjectedLiquidation {
+                    liquidation_price_ticks: Some(boundary),
+                    fills,
+                };
+            }
+        }
+
+        let current_position = market_margin.position.unwrap_or_default();
+        let Some(filled_position) =
+            apply_projected_fill(&current_position, &order, perp_asset_metadata)
+        else {
+            // Overflow while extending the position; there is no meaningful
+            // boundary to report for such a state.
+            return ProjectedLiquidation {
+                liquidation_price_ticks: None,
+                fills,
+            };
+        };
+        market_margin.position = Some(filled_position);
+        consumed[order_index] = true;
+        fills.push(ProjectedLiquidationFill {
+            side: order.side,
+            price_in_ticks: order.price_in_ticks,
+            base_lots: order.base_lots_remaining,
+        });
+        next_fill += 1;
+        sim_mark_price = order.price_in_ticks;
+        limit_order_state = rebuild_limit_order_state(
+            params.visible_orders,
+            &consumed,
+            filled_position.base_lot_position,
+            sim_mark_price,
+        );
+    }
+}
+
+/// Extends the position with a full fill at the order's limit price.
+/// Projected fills are always on the position side, so the position grows in
+/// place and no PnL is realized.
+fn apply_projected_fill(
+    position: &TraderPosition,
+    order: &LimitOrderSummary,
+    perp_asset_metadata: &PerpAssetMetadata,
+) -> Option<TraderPosition> {
+    let delta_base_lots = match order.side {
+        Side::Bid => i128::from(order.base_lots_remaining.as_inner()),
+        Side::Ask => -i128::from(order.base_lots_remaining.as_inner()),
+    };
+    let fill_unit_price = i128::from(order.price_in_ticks.as_inner())
+        .checked_mul(i128::from(perp_asset_metadata.tick_size().as_inner()))?;
+    let base_lot_position =
+        i128::from(position.base_lot_position.as_inner()).checked_add(delta_base_lots)?;
+    let virtual_quote_lot_position = i128::from(position.virtual_quote_lot_position.as_inner())
+        .checked_sub(delta_base_lots.checked_mul(fill_unit_price)?)?;
+    Some(TraderPosition {
+        base_lot_position: SignedBaseLots::new(i64::try_from(base_lot_position).ok()?),
+        virtual_quote_lot_position: SignedQuoteLots::new(
+            i64::try_from(virtual_quote_lot_position).ok()?,
+        ),
+        ..*position
+    })
+}
+
+/// Rebuilds the target market's limit-order margin state from the orders
+/// that have not filled yet, zeroing best-price sentinels that are not
+/// adverse relative to the simulated mark: passive orders keep reserving
+/// exposure margin but no fill-loss margin, mirroring the canonical
+/// adverse-only sentinel semantics.
+fn rebuild_limit_order_state(
+    visible_orders: &[LimitOrderSummary],
+    consumed: &[bool],
+    base_lot_position: SignedBaseLots,
+    sim_mark_price: Ticks,
+) -> LimitOrderMarginState {
+    let mut state = LimitOrderMarginState::from_orders(
+        visible_orders
+            .iter()
+            .zip(consumed)
+            .filter(|(_, consumed)| !**consumed)
+            .map(|(order, _)| *order),
+        base_lot_position,
+    );
+    if state.highest_bid().is_some_and(|bid| bid <= sim_mark_price) {
+        state.highest_bid = Ticks::ZERO;
+    }
+    if state.lowest_ask().is_some_and(|ask| ask >= sim_mark_price) {
+        state.lowest_ask = Ticks::ZERO;
+    }
+    state
 }
 
 /// A trader's portfolio with computed margin and PnL across all markets.
@@ -1827,6 +2260,62 @@ impl TraderPortfolioMargin {
         self.margin.risk_tier(effective_collateral)
     }
 
+    /// Projected liquidation prices per market with a nonzero position: the
+    /// static boundary re-solved after the trader's own adverse-direction
+    /// resting orders fill along the price path.
+    ///
+    /// These values are scenario estimates and are additive to, not
+    /// replacements for, the static Hawkeye-compatible liquidation prices. Use
+    /// them when a UI or integration needs to explain how resting
+    /// position-side orders can change future risk; see
+    /// [`projected_liquidation_price`] for the path model and limitations.
+    pub fn projected_liquidation_prices(
+        &self,
+        provider: &impl PerpMetadataProvider,
+    ) -> Result<HashMap<String, ProjectedLiquidation>, PhoenixStateError> {
+        let mut prices = HashMap::new();
+        for (symbol, market_margin) in &self.positions {
+            let Some(position) = market_margin.position else {
+                continue;
+            };
+            if position.base_lot_position == SignedBaseLots::ZERO {
+                continue;
+            }
+            let perp_asset_metadata = provider.get_perp_metadata(symbol).ok_or_else(|| {
+                PhoenixStateError::MarketNotFound {
+                    symbol: symbol.clone(),
+                    markets: provider.get_all_markets(),
+                }
+            })?;
+            let visible_orders: Vec<LimitOrderSummary> = market_margin
+                .limit_orders
+                .iter()
+                .map(|order| LimitOrderSummary {
+                    side: order.side,
+                    price_in_ticks: order.price,
+                    base_lots_remaining: order.trade_size_remaining,
+                    reduce_only: order.reduce_only,
+                })
+                .collect();
+            let params = ProjectedLiquidationParams {
+                position,
+                limit_order_state: market_margin.limit_order_margin(),
+                visible_orders: &visible_orders,
+                collateral_balance: self.quote_lot_collateral,
+                portfolio_unsettled_funding: self.margin.unsettled_funding,
+                portfolio_discounted_unrealized_pnl: self.margin.discounted_unrealized_pnl,
+                portfolio_maintenance_margin: self.margin.maintenance_margin,
+                target_discounted_unrealized_pnl: market_margin.margin.discounted_unrealized_pnl,
+                target_maintenance_margin: market_margin.margin.maintenance_margin,
+            };
+            prices.insert(
+                symbol.clone(),
+                projected_liquidation_price(&params, perp_asset_metadata),
+            );
+        }
+        Ok(prices)
+    }
+
     pub fn calculate_transferable_collateral(&self) -> Result<u64, MarginError> {
         let available_collateral = self.effective_collateral_for_withdrawals();
 
@@ -1874,6 +2363,13 @@ mod tests {
         Ticks::new(((price_usd * MICRO_USD) / BASE_LOTS_PER_UNIT).round() as u64)
     }
 
+    fn price_ticks_with_params(price_usd: f64, tick_size: u64, base_lot_decimals: u32) -> Ticks {
+        Ticks::new(
+            ((price_usd * MICRO_USD) / (tick_size as f64 * 10_u64.pow(base_lot_decimals) as f64))
+                .round() as u64,
+        )
+    }
+
     fn market(
         symbol: &str,
         asset_id: u64,
@@ -1891,6 +2387,31 @@ mod tests {
             2,
             price_ticks(mark_price_usd),
             QuoteLotsPerBaseLotPerTick::new(1),
+            LeverageTiers::new_unchecked([tier; 4]),
+            [5_000, 10_000, 10_000],
+            5_000,
+            10_000,
+            10_000,
+        )
+    }
+
+    fn snapshot_market(
+        symbol: &str,
+        asset_id: u64,
+        mark_price_usd: f64,
+        upper_bound_size: u64,
+    ) -> PerpAssetMetadata {
+        let tier = LeverageTier {
+            upper_bound_size: BaseLots::new(upper_bound_size),
+            max_leverage: Constant::new(10),
+            limit_order_risk_factor: BasisPoints::new(10_000),
+        };
+        PerpAssetMetadata::new(
+            symbol.to_string(),
+            asset_id,
+            2,
+            price_ticks_with_params(mark_price_usd, 10, 2),
+            QuoteLotsPerBaseLotPerTick::new(10),
             LeverageTiers::new_unchecked([tier; 4]),
             [5_000, 10_000, 10_000],
             5_000,
@@ -1923,6 +2444,116 @@ mod tests {
             base_lot_size: BaseLots::new(base_lots),
             initial_trade_size: BaseLots::new(base_lots),
             reduce_only,
+            is_stop_loss: false,
+        }
+    }
+
+    /// ZEC market parameters and account state from
+    /// `tools/margin-math-parity/fixtures/diff/snapshot_1783529040.wincode.zst`
+    /// for authority `4nHxBXGUdoTG262JXfyH56G7vFaQgAPrauLfHQ8zTu2k`; see
+    /// `tools/margin-math-parity/docs/liquidation-price-calculation.md`.
+    fn snapshot_zec_metadata() -> PerpAssetMetadata {
+        let tier = |upper_bound_size: u64, max_leverage: u64| LeverageTier {
+            upper_bound_size: BaseLots::new(upper_bound_size),
+            max_leverage: Constant::new(max_leverage),
+            limit_order_risk_factor: BasisPoints::new(10_000),
+        };
+        PerpAssetMetadata::new(
+            "ZEC".to_string(),
+            10,
+            2,
+            Ticks::new(46_100),
+            QuoteLotsPerBaseLotPerTick::new(100),
+            LeverageTiers::new_unchecked([
+                tier(1_250_657, 10),
+                tier(1_250_658, 1),
+                tier(1_250_659, 1),
+                tier(1_250_660, 1),
+            ]),
+            [5_000, 2_000, 1_000],
+            7_500,
+            10_000,
+            100,
+        )
+    }
+
+    #[test]
+    fn projected_liquidation_price_fills_passive_bids_before_boundary() {
+        let metadata = snapshot_zec_metadata();
+        let position = TraderPosition {
+            base_lot_position: SignedBaseLots::new(1_500),
+            virtual_quote_lot_position: SignedQuoteLots::new(-6_811_070_900),
+            cumulative_funding_snapshot: SignedQuoteLotsPerBaseLot::ZERO,
+            position_sequence_number: Default::default(),
+            accumulated_funding_for_active_position: SignedQuoteLotsI56::default(),
+        };
+        let visible_orders = [
+            LimitOrderSummary {
+                side: Side::Bid,
+                price_in_ticks: Ticks::new(44_485),
+                base_lots_remaining: BaseLots::new(500),
+                reduce_only: false,
+            },
+            LimitOrderSummary {
+                side: Side::Bid,
+                price_in_ticks: Ticks::new(42_322),
+                base_lots_remaining: BaseLots::new(5_045),
+                reduce_only: false,
+            },
+        ];
+        // Both bids are passive at the snapshot mark, so rebuilding relative
+        // to the mark reproduces the canonical zero-sentinel state.
+        let limit_order_state = rebuild_limit_order_state(
+            &visible_orders,
+            &[false, false],
+            position.base_lot_position,
+            Ticks::new(46_100),
+        );
+
+        let params = ProjectedLiquidationParams {
+            position,
+            limit_order_state,
+            visible_orders: &visible_orders,
+            collateral_balance: SignedQuoteLots::new(4_358_740_700),
+            portfolio_unsettled_funding: SignedQuoteLots::ZERO,
+            portfolio_discounted_unrealized_pnl: SignedQuoteLots::new(103_929_100),
+            portfolio_maintenance_margin: QuoteLots::new(1_819_093_750),
+            target_discounted_unrealized_pnl: SignedQuoteLots::new(103_929_100),
+            target_maintenance_margin: QuoteLots::new(1_623_872_500),
+        };
+        let result = projected_liquidation_price(&params, &metadata);
+
+        assert_eq!(
+            result.fills,
+            vec![
+                ProjectedLiquidationFill {
+                    side: Side::Bid,
+                    price_in_ticks: Ticks::new(44_485),
+                    base_lots: BaseLots::new(500),
+                },
+                ProjectedLiquidationFill {
+                    side: Side::Bid,
+                    price_in_ticks: Ticks::new(42_322),
+                    base_lots: BaseLots::new(5_045),
+                },
+            ]
+        );
+        assert_eq!(result.liquidation_price_ticks, Some(Ticks::new(39_181)));
+    }
+
+    fn limit_order_ticks(
+        order_sequence_number: u64,
+        side: Side,
+        price_ticks: u64,
+        base_lots: u64,
+    ) -> LimitOrder {
+        LimitOrder {
+            price: Ticks::new(price_ticks),
+            side,
+            order_sequence_number,
+            base_lot_size: BaseLots::new(base_lots),
+            initial_trade_size: BaseLots::new(base_lots),
+            reduce_only: false,
             is_stop_loss: false,
         }
     }
@@ -1978,6 +2609,75 @@ mod tests {
 
         assert_close(long, 101.01010101010101);
         assert_close(short, 79.20792079207921);
+    }
+
+    #[test]
+    fn liquidation_price_matches_provided_hype_account_with_target_and_other_market_orders() {
+        let provider = HashMap::from([
+            (
+                "HYPE".to_string(),
+                snapshot_market("HYPE", 4, 71.9, 4_000_000),
+            ),
+            (
+                "ZEC".to_string(),
+                snapshot_market("ZEC", 10, 506.16, 1_250_657),
+            ),
+        ]);
+        let hype_position = TraderPosition {
+            base_lot_position: SignedBaseLots::new(12_488),
+            virtual_quote_lot_position: SignedQuoteLots::new(-8_915_750_122),
+            cumulative_funding_snapshot: SignedQuoteLotsPerBaseLot::ZERO,
+            position_sequence_number: Default::default(),
+            accumulated_funding_for_active_position: SignedQuoteLotsI56::default(),
+        };
+        let portfolio = TraderPortfolio::builder()
+            .quote_lot_collateral(SignedQuoteLots::new(4_559_664_733))
+            .position("HYPE", hype_position)
+            .limit_orders(
+                "HYPE",
+                vec![limit_order_ticks(
+                    18_446_744_073_683_662_222,
+                    Side::Bid,
+                    70_400,
+                    1_500,
+                )],
+            )
+            .limit_orders(
+                "ZEC",
+                vec![
+                    limit_order_ticks(18_446_744_073_709_527_386, Side::Bid, 47_900, 1_035),
+                    limit_order_ticks(18_446_744_073_709_527_387, Side::Bid, 48_700, 1_035),
+                ],
+            )
+            .build();
+
+        let margin = portfolio.compute_margin(&provider).unwrap();
+        let prices = liquidation_prices_for_margin(&margin, &provider).unwrap();
+
+        assert_close(prices["HYPE"].unwrap(), 43.13);
+    }
+
+    #[test]
+    fn liquidation_price_returns_current_mark_when_already_liquidatable() {
+        let provider = HashMap::from([("SOL-PERP".to_string(), market("SOL-PERP", 1, 100.0, 25))]);
+        let portfolio = TraderPortfolio::builder()
+            .quote_lot_collateral(SignedQuoteLots::ZERO)
+            .position("SOL-PERP", position(1.0, -100.0))
+            .build();
+
+        let margin = portfolio.compute_margin(&provider).unwrap();
+        let prices = liquidation_prices_for_margin(&margin, &provider).unwrap();
+
+        assert_close(prices["SOL-PERP"].unwrap(), 100.0);
+
+        let short_portfolio = TraderPortfolio::builder()
+            .quote_lot_collateral(SignedQuoteLots::ZERO)
+            .position("SOL-PERP", position(-1.0, 100.0))
+            .build();
+        let short_margin = short_portfolio.compute_margin(&provider).unwrap();
+        let short_prices = liquidation_prices_for_margin(&short_margin, &provider).unwrap();
+
+        assert_close(short_prices["SOL-PERP"].unwrap(), 100.0);
     }
 
     #[test]
@@ -2053,7 +2753,7 @@ mod tests {
             quote_lots(-300.0)
         );
         assert_eq!(result.margin.quote_lot_collateral, quote_lots(100.0));
-        assert_close(result.liquidation_price_usd.unwrap(), 101.01010101010101);
+        assert_close(result.liquidation_price_usd.unwrap(), 101.0101);
     }
 
     #[test]
@@ -2090,7 +2790,7 @@ mod tests {
             projected_position.virtual_quote_lot_position,
             quote_lots(120.0)
         );
-        assert_close(result.liquidation_price_usd.unwrap(), 257.4257425742574);
+        assert_close(result.liquidation_price_usd.unwrap(), 257.4258);
     }
 
     #[test]
@@ -2229,7 +2929,7 @@ mod tests {
         assert!(!isolated.margin.positions.contains_key("ETH-PERP"));
         assert_eq!(isolated.margin.quote_lot_collateral, quote_lots(100.0));
         assert!(cross.liquidation_price_usd.unwrap() > isolated.liquidation_price_usd.unwrap());
-        assert_close(isolated.liquidation_price_usd.unwrap(), 50.505050505050505);
+        assert_close(isolated.liquidation_price_usd.unwrap(), 50.505);
     }
 
     #[test]
