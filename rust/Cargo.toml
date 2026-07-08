@@ -53,14 +53,14 @@ opentelemetry-http = "0.31"
 opentelemetry_sdk = { version = "0.31", features = ["trace"] }
 parking_lot = "0.12"
 pastey = "0.1"
-phoenix-rise = { path = "sdk", default-features = false }
-phoenix-rise-accounts = { path = "accounts", default-features = false }
-phoenix-rise-api = { path = "api", default-features = false }
-phoenix-rise-core = { path = "core", default-features = false }
-phoenix-rise-events = { path = "events", default-features = false }
-phoenix-rise-ix = { path = "ix", default-features = false }
-phoenix-rise-math = { path = "math", default-features = false }
-phoenix-rise-types = { path = "types", default-features = false }
+phoenix-rise = { version = "=0.3.3", path = "sdk", default-features = false }
+phoenix-rise-accounts = { version = "=0.3.3", path = "accounts", default-features = false }
+phoenix-rise-api = { version = "=0.3.3", path = "api", default-features = false }
+phoenix-rise-core = { version = "=0.3.3", path = "core", default-features = false }
+phoenix-rise-events = { version = "=0.3.3", path = "events", default-features = false }
+phoenix-rise-ix = { version = "=0.3.3", path = "ix", default-features = false }
+phoenix-rise-math = { version = "=0.3.3", path = "math", default-features = false }
+phoenix-rise-types = { version = "=0.3.3", path = "types", default-features = false }
 pinocchio = "0.9.2"
 proptest = "1.11.0"
 rand = "0.10"
