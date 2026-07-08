@@ -50,10 +50,14 @@ export interface MarginPositionState {
 }
 
 export interface LimitOrderMarginState {
-  totalNonReduceOnlyBidBaseLots: string;
+  numAskOrders: number;
+  numBidOrders: number;
+  lowestAsk: string;
+  highestBid: string;
   totalNonReduceOnlyAskBaseLots: string;
-  numBidOrders?: number;
-  numAskOrders?: number;
+  totalReduceOnlyAskBaseLots: string;
+  totalNonReduceOnlyBidBaseLots: string;
+  totalReduceOnlyBidBaseLots: string;
 }
 
 export interface LimitOrderMarginInput {

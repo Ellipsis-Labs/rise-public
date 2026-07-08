@@ -62,10 +62,14 @@ export type MarginParitySnapshotFile = {
             accumulatedFundingQuoteLots: string;
           };
           limitOrderState: {
-            numBidOrders: number;
             numAskOrders: number;
-            totalNonReduceOnlyBidBaseLots: string;
+            numBidOrders: number;
+            lowestAsk: string;
+            highestBid: string;
             totalNonReduceOnlyAskBaseLots: string;
+            totalReduceOnlyAskBaseLots: string;
+            totalNonReduceOnlyBidBaseLots: string;
+            totalReduceOnlyBidBaseLots: string;
           };
           visibleLimitOrders: Array<{
             orderSequenceNumber: string;
@@ -410,12 +414,18 @@ export const buildMarginParityOutput = (
               }
             : undefined,
           limitOrderMargin: {
-            numBidOrders: market.limitOrderState.numBidOrders,
             numAskOrders: market.limitOrderState.numAskOrders,
-            totalNonReduceOnlyBidBaseLots:
-              market.limitOrderState.totalNonReduceOnlyBidBaseLots,
+            numBidOrders: market.limitOrderState.numBidOrders,
+            lowestAsk: market.limitOrderState.lowestAsk,
+            highestBid: market.limitOrderState.highestBid,
             totalNonReduceOnlyAskBaseLots:
               market.limitOrderState.totalNonReduceOnlyAskBaseLots,
+            totalReduceOnlyAskBaseLots:
+              market.limitOrderState.totalReduceOnlyAskBaseLots,
+            totalNonReduceOnlyBidBaseLots:
+              market.limitOrderState.totalNonReduceOnlyBidBaseLots,
+            totalReduceOnlyBidBaseLots:
+              market.limitOrderState.totalReduceOnlyBidBaseLots,
           },
           limitOrders: (market.visibleLimitOrders ?? []).map((order) => ({
             orderSequenceNumber: order.orderSequenceNumber,

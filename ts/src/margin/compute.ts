@@ -1642,7 +1642,8 @@ const filterActiveOrders = (
 
 const resolveLimitOrderMarginState = (
   orders: LimitOrderMarginInput[],
-  limitOrderMargin: LimitOrderMarginState | undefined
+  limitOrderMargin: LimitOrderMarginState | undefined,
+  basePositionLots: bigint
 ): LimitOrderMarginState | undefined => {
   if (limitOrderMargin) {
     return limitOrderMargin;
@@ -1650,7 +1651,7 @@ const resolveLimitOrderMarginState = (
   if (orders.length === 0) {
     return undefined;
   }
-  return buildLimitOrderMarginStateFromOrders(orders);
+  return buildLimitOrderMarginStateFromOrders(orders, basePositionLots);
 };
 
 const getOrderLeverageLimitForSymbol = (
@@ -1745,7 +1746,8 @@ const computeMarketMarginFromInputs = (
   const activeOrders = filterActiveOrders(input.limitOrders ?? []);
   const limitOrderState = resolveLimitOrderMarginState(
     activeOrders,
-    input.limitOrderMargin
+    input.limitOrderMargin,
+    basePositionLots
   );
   const totalBid = limitOrderState
     ? toBigInt(limitOrderState.totalNonReduceOnlyBidBaseLots)
@@ -1759,13 +1761,34 @@ const computeMarketMarginFromInputs = (
     options
   );
 
+  // Reduce-only orders still rest on the book, so the fill-loss reserve is
+  // computed over the total base lots on each side, using the best resting price.
+  const fillLossInputs: FillLossInputs = limitOrderState
+    ? {
+        totalBidBaseLots:
+          totalBid + toBigInt(limitOrderState.totalReduceOnlyBidBaseLots),
+        totalAskBaseLots:
+          totalAsk + toBigInt(limitOrderState.totalReduceOnlyAskBaseLots),
+        highestBid: toBigInt(limitOrderState.highestBid),
+        lowestAsk: toBigInt(limitOrderState.lowestAsk),
+        tickSize: marketParams.tickSize,
+      }
+    : {
+        totalBidBaseLots: 0n,
+        totalAskBaseLots: 0n,
+        highestBid: 0n,
+        lowestAsk: 0n,
+        tickSize: marketParams.tickSize,
+      };
+
   const initialMargin = initialMarginForAsset(
     basePositionLots,
     totalBid,
     totalAsk,
     assetUnitPrice,
     leverageTiers,
-    false
+    false,
+    fillLossInputs
   );
 
   const orderLeverageAdjustedInitialMargin =
@@ -1778,6 +1801,7 @@ const computeMarketMarginFromInputs = (
           assetUnitPrice,
           leverageTiers,
           false,
+          fillLossInputs,
           orderLeverageLimit
         );
 
@@ -1796,7 +1820,8 @@ const computeMarketMarginFromInputs = (
     totalAsk,
     assetUnitPrice,
     leverageTiers,
-    true
+    true,
+    fillLossInputs
   );
 
   const limitOrderMargin = maxBigInt(
@@ -1889,6 +1914,52 @@ const computeMarketMarginFromInputs = (
   };
 };
 
+/**
+ * Inputs for the adverse-fill-loss reserve. `totalBid/AskBaseLots` include
+ * reduce-only orders (they still rest on the book); the tick prices are the best
+ * resting price on each side (0 when there are no orders that side).
+ */
+interface FillLossInputs {
+  totalBidBaseLots: bigint;
+  totalAskBaseLots: bigint;
+  highestBid: bigint;
+  lowestAsk: bigint;
+  tickSize: bigint;
+}
+
+/**
+ * Reserve for the immediate mark-to-market loss if resting orders on `side` were
+ * to fill at their limit price. A resting bid above mark (or ask below mark)
+ * fills in-the-money for the counterparty, so reserve `size * |limitPrice -
+ * markPrice|`. Orders resting on the passive side of mark contribute nothing.
+ * Mirrors `limit_order_fill_loss` in program-core/exchange/src/margin.rs.
+ */
+const limitOrderFillLoss = (
+  side: "bid" | "ask",
+  size: bigint,
+  limitPriceTicks: bigint,
+  markPrice: bigint,
+  tickSize: bigint
+): bigint => {
+  if (limitPriceTicks === 0n) {
+    return 0n;
+  }
+  const limitPrice = limitPriceTicks * tickSize;
+  let priceDifference: bigint;
+  if (side === "bid") {
+    if (limitPrice <= markPrice) {
+      return 0n;
+    }
+    priceDifference = limitPrice - markPrice;
+  } else {
+    if (limitPrice >= markPrice) {
+      return 0n;
+    }
+    priceDifference = markPrice - limitPrice;
+  }
+  return size * priceDifference;
+};
+
 const initialMarginForAsset = (
   position: bigint,
   totalBid: bigint,
@@ -1896,9 +1967,18 @@ const initialMarginForAsset = (
   assetUnitPrice: bigint,
   tiers: LeverageTier[],
   bypassRiskFactor: boolean,
+  fillLoss?: FillLossInputs,
   orderLeverageLimit?: bigint
 ): bigint => {
-  if (position === 0n && totalBid === 0n && totalAsk === 0n) {
+  const totalBidAll = fillLoss?.totalBidBaseLots ?? 0n;
+  const totalAskAll = fillLoss?.totalAskBaseLots ?? 0n;
+  if (
+    position === 0n &&
+    totalBid === 0n &&
+    totalAsk === 0n &&
+    totalBidAll === 0n &&
+    totalAskAll === 0n
+  ) {
     return 0n;
   }
 
@@ -1945,6 +2025,30 @@ const initialMarginForAsset = (
       : 0n;
 
   collateralRequired += maxBigInt(marginBid, marginAsk);
+
+  if (fillLoss) {
+    const bidFillLoss =
+      totalBidAll > 0n
+        ? limitOrderFillLoss(
+            "bid",
+            totalBidAll,
+            fillLoss.highestBid,
+            assetUnitPrice,
+            fillLoss.tickSize
+          )
+        : 0n;
+    const askFillLoss =
+      totalAskAll > 0n
+        ? limitOrderFillLoss(
+            "ask",
+            totalAskAll,
+            fillLoss.lowestAsk,
+            assetUnitPrice,
+            fillLoss.tickSize
+          )
+        : 0n;
+    collateralRequired += bidFillLoss + askFillLoss;
+  }
 
   return collateralRequired;
 };
