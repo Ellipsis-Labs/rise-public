@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.68 - 2026-07-10
+
+Source Phoenix commit: `3343d458b9162061b4f810408bee2b14bcdf6af0`
+
+### Summary
+
+- Added typed market-stats endpoints to `V1MarketsClient`: `getLatestMarketStats(symbol)` and `getLatestMarketsStats()`, backed by new exported `LatestMarketStatsResponse`/`LatestMarketsStatsResponse` types and Zod schemas.
+- Added `resolvePhoenixBuilderAddresses` (with `PhoenixBuilderAddressDefaults` and `ResolvePhoenixBuilderAddressesInput` types) to resolve a complete per-environment address set — program, log authority, global configuration, USDC mint, and ember state — in a single call.
+- Added new exported constants `EMBER_STATE_ADDRESS` and `BETA_USDC_MINT_ADDRESS`.
+- Bumped `@ellipsis-labs/rise` from `0.4.66` to `0.4.68`, syncing Phoenix `0.4.68` (phoenix-rise Rust crates bumped `0.3.4` → `0.3.5`).
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- For beta-environment instruction building, prefer `resolvePhoenixBuilderAddresses` over manually assembling addresses — it prevents silently falling back to the mainnet USDC mint when targeting beta.
+- `LatestMarketStatsResponse.timestamp_ms` is typed and parsed as `bigint` (accepting numeric or string input, consistent with other big-integer fields in the SDK).
+
 ## v0.4.66 - 2026-07-08
 
 Source Phoenix commit: `6051225fb045fbb5b6a454bd445e7fc2e31e5722`
