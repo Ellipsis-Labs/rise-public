@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.69 - 2026-07-13
+
+Source Phoenix commit: `68ec7e66b25a869e95ba56ac5bca31fbdef2209d`
+
+### Summary
+
+- Added `buildFlameAtomicDepositFlow` and the underlying `buildFlameDepositToPhoenixIx` / `deriveFlameDepositToPhoenixAddresses` builders, enabling a single-transaction, sponsor-cranked Flame deposit (permission grant + `DepositToPhoenix`) for wallets with no SOL.
+- Added `resolvePhoenixBuilderAddresses` plus `BETA_USDC_MINT_ADDRESS` and `EMBER_STATE_ADDRESS` exports so builder calls resolve the correct per-environment USDC mint and Ember state instead of silently defaulting to mainnet addresses on beta.
+- Added market stats endpoints `V1MarketsClient.getLatestMarketStats(symbol)` and `getLatestMarketsStats()`, with `LatestMarketStatsResponseSchema` / `LatestMarketsStatsResponseSchema` (bigint `timestamp_ms`).
+- Added `DEPOSIT_PERMISSION` permission constant for use with the new deposit-permission flow.
+- Package bumped `0.4.66` -> `0.4.69`.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- Use `buildFlameAtomicDepositFlow` for a gasless/sponsored deposit path: the user signs the deposit permission, and the sponsor `feePayer` fronts/cranks the Flame `DepositToPhoenix` instruction (rent is refunded on close). Only `traderSubaccountIndex: 0` is supported for this flow.
+- If you construct `PhoenixInstructionClient` addresses manually for a beta environment, switch to `resolvePhoenixBuilderAddresses` to pick up the correct beta USDC mint and Ember state rather than assuming mainnet defaults.
+- New `getLatestMarketStats` / `getLatestMarketsStats` responses return `timestamp_ms` as `bigint`, consistent with other big-integer fields in the SDK.
+
 ## v0.4.66 - 2026-07-08
 
 Source Phoenix commit: `6051225fb045fbb5b6a454bd445e7fc2e31e5722`
