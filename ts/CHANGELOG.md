@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.70 - 2026-07-15
+
+Source Phoenix commit: `aae588cdd4469d444096f6a1db17803c687ec72a`
+
+### Summary
+
+- Added `buildFlameAtomicDepositFlow` (plus `buildFlameDepositToPhoenixIx`, `deriveFlameDepositToPhoenixAddresses`, `deriveFlameGlobalStateAddress`, and a new `DEPOSIT_PERMISSION` constant) for a single-transaction sponsored deposit: create/set deposit permission plus the Flame `DepositToPhoenix` instruction, cranked by the sponsor fee payer so SOL-less wallets can deposit.
+- Added `resolvePhoenixBuilderAddresses` to resolve the full env-scoped address set (program, log authority, global config, USDC mint, Ember state) a builder needs, so a beta client no longer risks silently defaulting to the mainnet USDC mint. Exposes new `BETA_USDC_MINT_ADDRESS` and `EMBER_STATE_ADDRESS` constants.
+- Added `V1MarketsClient.getLatestMarketStats(symbol)` and `getLatestMarketsStats()`, backed by new `LatestMarketStatsResponse` / `LatestMarketsStatsResponse` types and schemas (`timestamp_ms` parsed as `bigint`).
+- Added draft-order margin helpers under `margin/`: `computeDraftOrderMarginRequirementFromInputs`/`FromSnapshot` and `computeMaxDraftOrderSizeForAvailableMarginFromInputs`/`FromSnapshot`, for incremental margin sizing of not-yet-placed limit/market orders (including reduce-only and order-leverage adjustments).
+- `margin/compute.ts` now exports previously-internal helpers (`getOrCreateMarketInput`, `ensureOrderListCanBeMutated`, `cloneSubaccountInput`) used by the new draft-order helpers.
+- `buildNormalizedMarketParamsBySymbol` (and its internal tier parser) now accept `readonly MarketParams[]`, a backward-compatible widening.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- Prefer `resolvePhoenixBuilderAddresses` over manually assembling client addresses when constructing a `PhoenixInstructionClient`, especially for beta/testnet setups, to pick up the correct USDC mint and Ember state address automatically.
+- `buildFlameAtomicDepositFlow` currently only supports `traderSubaccountIndex: 0`; passing a non-zero value throws.
+- New margin draft-order helpers are additive; existing margin computation APIs are unaffected.
+
 ## v0.4.66 - 2026-07-08
 
 Source Phoenix commit: `6051225fb045fbb5b6a454bd445e7fc2e31e5722`
