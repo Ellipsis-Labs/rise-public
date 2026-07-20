@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.71 - 2026-07-20
+
+Source Phoenix commit: `ff2af96c827a5f84b2d87c1b5e986cf86cd10988`
+
+### Summary
+
+- Added `buildFlameAtomicDepositFlow` (plus `buildFlameDepositToPhoenixIx`, `deriveFlameDepositToPhoenixAddresses`, `deriveFlameGlobalStateAddress`, and the `DEPOSIT_PERMISSION` constant) for a single atomic, sponsor-cranked Flame deposit that lets wallets with no SOL deposit directly into Phoenix.
+- Added `resolvePhoenixBuilderAddresses` (with `PhoenixBuilderAddressDefaults`/`ResolvePhoenixBuilderAddressesInput` types) plus new `BETA_USDC_MINT_ADDRESS` and `EMBER_STATE_ADDRESS` exports so beta clients no longer silently fall back to the mainnet USDC mint.
+- Added `V1MarketsClient.getLatestMarketStats` / `getLatestMarketsStats`, backed by new `LatestMarketStatsResponse(Schema)` / `LatestMarketsStatsResponse(Schema)` types (`timestamp_ms` parses as `bigint`).
+- Added draft-order margin sizing helpers in `@/margin`: `computeDraftOrderMarginRequirementFromInputs`/`FromSnapshot` and `computeMaxDraftOrderSizeForAvailableMarginFromInputs`/`FromSnapshot`, plus newly public `getOrCreateMarketInput`, `ensureOrderListCanBeMutated`, and `cloneSubaccountInput` from `margin/compute`.
+- Package bumped `0.4.66` → `0.4.71`; the `brace-expansion` dependency override was bumped to `>=5.0.7` in `package.json`/`bun.lock`.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `buildFlameAtomicDepositFlow` currently only supports `traderSubaccountIndex: 0` and throws if a non-zero value is requested.
+- `resolvePhoenixBuilderAddresses` is a superset of the existing `resolvePhoenixInstructionAddresses` — prefer it when constructing a `PhoenixInstructionClient`'s `addresses` so beta environments get the correct USDC mint and ember state automatically.
+- `normalize.ts` helpers (`buildNormalizedMarketParamsBySymbol`, internal `parseLeverageTiers`) now accept `readonly MarketParams[]`, a non-breaking widening for existing callers.
+- Consumers pinning `brace-expansion` below `5.0.7` should update to pick up the same override bump.
+
 ## v0.4.66 - 2026-07-08
 
 Source Phoenix commit: `6051225fb045fbb5b6a454bd445e7fc2e31e5722`
