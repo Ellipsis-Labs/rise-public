@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.72 - 2026-07-23
+
+Source Phoenix commit: `6e87cca0c94f2daf3f64938b475bb0dc43564ecc`
+
+### Summary
+
+- Adds `buildFlameAtomicDepositFlow` (plus the underlying `buildFlameDepositToPhoenixIx`, `deriveFlameDepositToPhoenixAddresses`, `deriveFlameGlobalStateAddress`, and a new `DEPOSIT_PERMISSION` constant) for a single-transaction, sponsor-cranked USDC deposit into Phoenix that works for wallets with no SOL.
+- Adds `resolvePhoenixBuilderAddresses` plus `BETA_USDC_MINT_ADDRESS` / `EMBER_STATE_ADDRESS` constants, giving a single call that resolves the full per-environment address set (program, log authority, global config, USDC mint, Ember state) instead of defaulting silently to mainnet USDC on a beta client.
+- Adds new margin helpers `computeDraftOrderMarginRequirementFromInputs/FromSnapshot` and `computeMaxDraftOrderSizeForAvailableMarginFromInputs/FromSnapshot` for pricing/sizing a not-yet-placed limit or market order against current margin.
+- Adds `V1MarketsClient.getLatestMarketStats(symbol)` and `getLatestMarketsStats()`, backed by new `LatestMarketStatsResponse(Schema)` / `LatestMarketsStatsResponse(Schema)` exports.
+- Bumps transitive dependency overrides (`brace-expansion`, `postcss`, `nanoid`) via `bun.lock`/`package.json`.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `buildFlameAtomicDepositFlow` currently only supports `traderSubaccountIndex: 0`; passing a non-zero value throws.
+- `resolvePhoenixBuilderAddresses` is additive — existing `resolvePhoenixInstructionAddresses` usage is unaffected, but new code that needs a beta-safe USDC mint/Ember state should switch to the new helper.
+- The margin draft-order helpers reuse existing `SubaccountMarginInputs`/snapshot shapes, so no data migration is needed to adopt them.
+
 ## v0.4.66 - 2026-07-08
 
 Source Phoenix commit: `6051225fb045fbb5b6a454bd445e7fc2e31e5722`

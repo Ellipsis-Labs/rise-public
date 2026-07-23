@@ -5,7 +5,11 @@ import { V1CollateralClient } from "@/api/collateral";
 import { V1ExchangeClient } from "@/api/exchange";
 import { V1FundingClient } from "@/api/funding";
 import { V1InviteClient } from "@/api/invite";
-import { V1MarketsClient } from "@/api/markets";
+import {
+  LatestMarketStatsResponseSchema,
+  LatestMarketsStatsResponseSchema,
+  V1MarketsClient,
+} from "@/api/markets";
 import { V1OrdersClient } from "@/api/orders";
 import { V1TradersClient } from "@/api/traders";
 import { V1TradesClient } from "@/api/trades";
@@ -84,6 +88,31 @@ const EXCHANGE_MARKET_RESPONSE = {
   openInterestCapBaseLots: "1",
   maxLiquidationSizeBaseLots: "1",
   isolatedOnly: false,
+};
+
+const LATEST_MARKET_STATS_RESPONSE = {
+  symbol: "SOL",
+  timestamp_ms: "1710000000000",
+  mark_price: 63787,
+  oracle_price: 63819,
+  prev_day_mark_price: 63863,
+  open_interest: 1128481,
+  day_volume_usd: 1404717,
+  day_volume_base: 22.4,
+  current_funding_rate: -0.0019,
+  eight_hour_funding_rate: -0.0152,
+  annualized_funding_rate: -0.6935,
+};
+
+const LATEST_MARKETS_STATS_RESPONSE = {
+  markets: [
+    LATEST_MARKET_STATS_RESPONSE,
+    {
+      ...LATEST_MARKET_STATS_RESPONSE,
+      symbol: "BTC-PERP",
+      timestamp_ms: "1710000001000",
+    },
+  ],
 };
 
 const EXCHANGE_SNAPSHOT_RESPONSE = {
@@ -277,6 +306,8 @@ describe("public client route mapping", () => {
             stats: [],
           },
         ],
+        ["/v1/market/SOL/stats/latest", LATEST_MARKET_STATS_RESPONSE],
+        ["/v1/markets/stats/latest", LATEST_MARKETS_STATS_RESPONSE],
         [
           "/v1/market/next-commodity-market-transition",
           {
@@ -347,6 +378,8 @@ describe("public client route mapping", () => {
     await markets.getMarkets();
     await markets.getMarket("SOL");
     await markets.getMarketStatsHistory("SOL", { limit: 25 });
+    const latestStats = await markets.getLatestMarketStats("SOL");
+    const latestMarketsStats = await markets.getLatestMarketsStats();
     await markets.getNextCommodityMarketTransition();
     await markets.getNextMarketCalendarTransition("XAU");
     await markets.getCommodityMarketCalendar();
@@ -354,6 +387,10 @@ describe("public client route mapping", () => {
 
     expect(snapshot.exchange.withdrawalsAvailable).toBe(true);
     expect(status.withdrawalsAvailable).toBe(true);
+    expect(latestStats.timestamp_ms).toBe(1_710_000_000_000n);
+    expect(latestMarketsStats.markets[1]?.timestamp_ms).toBe(
+      1_710_000_001_000n
+    );
 
     expect(records).toEqual([
       {
@@ -412,6 +449,18 @@ describe("public client route mapping", () => {
       },
       {
         method: "GET",
+        endpoint: "/v1/market/SOL/stats/latest",
+        params: undefined,
+        body: undefined,
+      },
+      {
+        method: "GET",
+        endpoint: "/v1/markets/stats/latest",
+        params: undefined,
+        body: undefined,
+      },
+      {
+        method: "GET",
         endpoint: "/v1/market/next-commodity-market-transition",
         params: undefined,
         body: undefined,
@@ -435,6 +484,47 @@ describe("public client route mapping", () => {
         body: undefined,
       },
     ]);
+  });
+
+  it("parses latest market stats timestamp_ms like other big integer fields", () => {
+    const parsed = LatestMarketStatsResponseSchema.parse(
+      LATEST_MARKET_STATS_RESPONSE
+    );
+    expect(parsed.timestamp_ms).toBe(1_710_000_000_000n);
+    const parsedCollection = LatestMarketsStatsResponseSchema.parse(
+      LATEST_MARKETS_STATS_RESPONSE
+    );
+    expect(parsedCollection.markets[1]?.timestamp_ms).toBe(1_710_000_001_000n);
+    expect(
+      LatestMarketStatsResponseSchema.safeParse({
+        ...LATEST_MARKET_STATS_RESPONSE,
+        timestamp_ms: 1_710_000_000_000,
+      }).success
+    ).toBe(true);
+    expect(
+      LatestMarketStatsResponseSchema.safeParse({
+        ...LATEST_MARKET_STATS_RESPONSE,
+        timestamp_ms: 1_710_000_000_000n,
+      }).success
+    ).toBe(true);
+    expect(
+      LatestMarketStatsResponseSchema.safeParse({
+        ...LATEST_MARKET_STATS_RESPONSE,
+        timestamp_ms: 1_710_000_000_000.5,
+      }).success
+    ).toBe(false);
+    expect(
+      LatestMarketStatsResponseSchema.safeParse({
+        ...LATEST_MARKET_STATS_RESPONSE,
+        timestamp_ms: String(Number.MAX_SAFE_INTEGER + 1),
+      }).success
+    ).toBe(true);
+    expect(
+      LatestMarketStatsResponseSchema.safeParse({
+        ...LATEST_MARKET_STATS_RESPONSE,
+        timestamp_ms: Number.MAX_SAFE_INTEGER + 1,
+      }).success
+    ).toBe(false);
   });
 
   it("uses the public trader, history, and candle routes", async () => {
