@@ -9,6 +9,7 @@ type Target = {
 
 const FLOW_SUITE = "SDK localnet common flows";
 const VM_SUITE = "SDK localnet VM harness";
+const FLIGHT_SUITE = "Flight delegated market order proxy";
 
 const targets: readonly Target[] = [
   {
@@ -27,6 +28,18 @@ const targets: readonly Target[] = [
     label: "SDK localnet VM deposit/withdraw",
     expectedPassed: 1,
     fullTestName: `${VM_SUITE} builds and executes SDK deposit and withdraw instructions`,
+  },
+  {
+    file: "tests/sdk-localnet-vm.test.ts",
+    label: "SDK localnet VM flight delegated proxy fee",
+    expectedPassed: 1,
+    fullTestName: `${FLIGHT_SUITE} flight proxy collects builder fee for delegated market order signed by a secondary position authority`,
+  },
+  {
+    file: "tests/sdk-localnet-vm.test.ts",
+    label: "SDK localnet VM flight delegated proxy missing tail",
+    expectedPassed: 1,
+    fullTestName: `${FLIGHT_SUITE} flight proxy rejects delegated market order missing the collateral transfer tail`,
   },
   ...[
     "deposits collateral",

@@ -3,6 +3,30 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.73 - 2026-07-27
+
+Source Phoenix commit: `78c281b8371c6653c52b1dfe4e57873beabde5d9`
+
+### Summary
+
+- Bumps `@ellipsis-labs/rise` from `0.4.66` to `0.4.73`.
+- Adds Flight support for orders signed by a trader's position authority (delegate wallet) instead of the trader account owner, including a new on-chain `AuthorizedTransferCollateral` collateral-transfer path for collecting the builder fee.
+- Adds an atomic, sponsor-fundable Flame deposit flow, latest-market-stats HTTP endpoints, and draft-order margin sizing helpers.
+
+### Breaking Changes
+
+- `PhoenixFlightClient.tryWrapFlightInstruction` is renamed to `tryWrapOrderInstruction` and now takes `(instruction, signer, usePositionAuthority?)` instead of `(instruction, authority)`. Update any direct calls to the old method name/signature.
+- `flight.wrapInstructionWithFlight`'s `authority` param is renamed to `signer`; wrapping an instruction where the signer is a position authority now requires passing `usePositionAuthority: true` and a `resolveRootAuthority` callback (the call throws if `usePositionAuthority` is set without one).
+- The Flight proxy's fee-bps-override validation error message changed from `"Fee bps override must be in the range 0..=10000"` to `"Invalid fee bps override (must be in 0..=10000)"` — update any code matching on the old string.
+
+### Consumer Notes
+
+- `client.ixs` placement methods (market/limit orders, delegated market orders) now accept `positionAuthority`; when it differs from `authority`, the Flight wrap automatically routes through the new position-authority path and appends the collateral-transfer tail. `ClientPlaceMarketOrderDelegatedInput.traderWallet` is deprecated in favor of `positionAuthority` but remains supported.
+- New `buildFlameAtomicDepositFlow` builds a single sponsor-payable instruction bundle (permission setup + Flame `DepositToPhoenix`) for wallets with no SOL; also exports `buildFlameDepositToPhoenixIx` and `deriveFlameDepositToPhoenixAddresses`.
+- `V1MarketsClient` gains `getLatestMarketStats(symbol)` and `getLatestMarketsStats()`, backed by new `LatestMarketStatsResponse`/`LatestMarketsStatsResponse` schemas.
+- New margin helpers `computeDraftOrderMarginRequirementFromInputs`/`FromSnapshot` and `computeMaxDraftOrderSizeForAvailableMarginFromInputs`/`FromSnapshot` support pre-trade margin sizing for draft orders.
+- New `resolvePhoenixBuilderAddresses` (plus `BETA_USDC_MINT_ADDRESS` and `EMBER_STATE_ADDRESS` exports) resolves the full env-correct address set — including USDC mint and Ember state — for constructing builder instructions, avoiding silent fallback to the mainnet USDC mint on beta.
+
 ## v0.4.66 - 2026-07-08
 
 Source Phoenix commit: `6051225fb045fbb5b6a454bd445e7fc2e31e5722`
