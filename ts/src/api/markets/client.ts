@@ -2,6 +2,8 @@ import type { HttpTransport } from "@/http/transport";
 import { get } from "@/http/transport";
 import type {
   CommodityMarketCalendarResponse,
+  LatestMarketStatsResponse,
+  LatestMarketsStatsResponse,
   MarketStatsHistoryParams,
   MarketStatsHistoryResponse,
   MarketCalendarRecord,
@@ -11,6 +13,8 @@ import type {
 } from "./types";
 import {
   CommodityMarketCalendarResponseSchema,
+  LatestMarketStatsResponseSchema,
+  LatestMarketsStatsResponseSchema,
   MarketStatsHistoryResponseSchema,
   MarketCalendarRecordSchema,
   MarketCalendarResponseSchema,
@@ -49,6 +53,24 @@ export class V1MarketsClient {
       `/v1/market/${encodeURIComponent(symbol)}/stats`,
       MarketStatsHistoryResponseSchema,
       { params: compactParams(params) }
+    );
+  }
+
+  async getLatestMarketStats(
+    symbol: string
+  ): Promise<LatestMarketStatsResponse> {
+    return get(
+      this.http,
+      `/v1/market/${encodeURIComponent(symbol)}/stats/latest`,
+      LatestMarketStatsResponseSchema
+    );
+  }
+
+  async getLatestMarketsStats(): Promise<LatestMarketsStatsResponse> {
+    return get(
+      this.http,
+      "/v1/markets/stats/latest",
+      LatestMarketsStatsResponseSchema
     );
   }
 

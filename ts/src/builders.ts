@@ -213,17 +213,30 @@ const createLegacyPhoenixIxOperationContext = (
 
   const maybeWrapOrderIx = async <TIx extends InstructionsWithAccountsAndData>(
     instruction: TIx,
-    authority: Authority
+    signer: Authority,
+    usePositionAuthority = false
   ): Promise<TIx> => {
     if (!isFlightClient(client)) {
       return instruction;
     }
 
-    return (await client.tryWrapFlightInstruction(
+    return (await client.tryWrapOrderInstruction(
       instruction,
-      authority
+      signer,
+      usePositionAuthority
     )) as TIx;
   };
+
+  // Conditional placements never collect a builder fee and Flight forwards
+  // their full account list into the inner CPI — never append the tail; wrap
+  // as owner-signed regardless of positionAuthority. Mirrors the API
+  // server's `maybe_wrap_conditional_order_instruction_with_flight`.
+  const maybeWrapConditionalOrderIx = async <
+    TIx extends InstructionsWithAccountsAndData,
+  >(
+    instruction: TIx,
+    authority: Authority
+  ): Promise<TIx> => maybeWrapOrderIx(instruction, authority);
 
   return {
     orderPackets: unsupportedOrderPackets,
@@ -232,6 +245,8 @@ const createLegacyPhoenixIxOperationContext = (
       const [exchangeAccounts, market, traderAccount] = await Promise.all([
         resolveExchangeInstructionAccounts(),
         resolveMarketContext(params.symbol),
+        // The trader PDA always derives from the owner (`authority`), even
+        // when a delegate `positionAuthority` signs the instruction.
         resolveTraderAccount({
           authority: params.authority,
           traderPdaIndex: params.traderPdaIndex,
@@ -287,6 +302,7 @@ const createLegacyPhoenixIxOperationContext = (
         phoenixProgramAddress,
       }),
     maybeWrapOrderIx,
+    maybeWrapConditionalOrderIx,
     accountExists: async (address) =>
       typeof client.accountExists === "function"
         ? client.accountExists(address)
