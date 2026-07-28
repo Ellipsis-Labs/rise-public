@@ -136,7 +136,16 @@ export interface BuildPlaceStopLossIxResolvedInput extends ResolvedPlaceOrderCon
 }
 
 export interface ClientPlaceOrderInput<TPacket> {
+  /** Trader account owner; the trader PDA always derives from this key. */
   authority: Authority;
+  /**
+   * Wallet that signs the placement instruction when the trader's position
+   * authority signs on the owner's behalf; the effective signer is
+   * `positionAuthority ?? authority` (mirroring the API server DTOs). The
+   * trader PDA still derives from `authority`, and Flight wraps take the
+   * position-authority path automatically whenever the effective signer
+   * differs from `authority` — callers never pick that path manually.
+   */
   positionAuthority?: Authority;
   symbol: Symbol;
   orderPacket: TPacket;
@@ -145,6 +154,13 @@ export interface ClientPlaceOrderInput<TPacket> {
 }
 
 export interface ClientPlaceMarketOrderDelegatedInput extends ClientPlaceOrderInput<ImmediateOrCancelOrderPacket> {
+  /**
+   * Wallet that signs the delegated instruction; defaults to
+   * `positionAuthority ?? authority`.
+   *
+   * @deprecated Use `positionAuthority` instead — it is the shared spelling
+   * of the delegated signer across all placement inputs.
+   */
   traderWallet?: Authority;
   permissionAccount?: Address;
 }
@@ -306,7 +322,14 @@ export interface ClientPlaceAttachedConditionalOrderInput {
 }
 
 export interface ClientPlaceLimitOrderWithConditionalsInput {
+  /** Trader account owner; the trader PDA always derives from this key. */
   authority: Authority;
+  /**
+   * Wallet that signs the instruction when the trader's position authority
+   * signs on the owner's behalf; the effective signer is
+   * `positionAuthority ?? authority`. When it differs from `authority`, the
+   * Flight wrap takes the position-authority path automatically.
+   */
   positionAuthority?: Authority;
   payer?: Authority;
   symbol: Symbol;
