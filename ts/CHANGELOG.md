@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.74 - 2026-07-28
+
+Source Phoenix commit: `e5cc47a90b5069779e5e5b647a1ce07d446b31bf`
+
+### Summary
+
+- Adds delegate-signed ("position authority") order support: `client.ixs` order builders now accept `positionAuthority`, and Flight-wrapped instructions automatically append collateral-transfer tail accounts backed by a new on-chain `AuthorizedTransferCollateral` instruction.
+- Adds an atomic, sponsor-cranked Flame deposit flow (`buildFlameAtomicDepositFlow`, `buildFlameDepositToPhoenixIx`) so wallets holding no SOL can deposit in a single sponsored transaction.
+- Adds `getLatestMarketStats` / `getLatestMarketsStats` REST endpoints and new draft-order margin helpers (`computeDraftOrderMarginRequirementFrom*`, `computeMaxDraftOrderSizeForAvailableMarginFrom*`).
+- Adds `resolvePhoenixBuilderAddresses` plus beta-environment USDC mint / Ember state constants for building instructions against non-mainnet environments.
+
+### Breaking Changes
+
+- `flight.tryWrapFlightInstruction` is renamed to `tryWrapOrderInstruction` and gains a required `usePositionAuthority` boolean parameter — direct callers of the Flight client wrap API must update both the method name and call signature (`README.md`'s example illustrates the new call shape).
+- `wrapInstructionWithFlight`'s `authority` option is renamed to `signer`; wrapping a position-authority order now also requires a `resolveRootAuthority` callback, or the call throws.
+
+### Consumer Notes
+
+- On `client.ixs` order methods, pass a delegate as `positionAuthority`; whenever it differs from `authority` the wrap automatically takes the position-authority path and resolves the Phoenix root authority live from the exchange snapshot — no manual configuration needed.
+- `ClientPlaceMarketOrderDelegatedInput.traderWallet` is deprecated in favor of `positionAuthority`; it still works but should be migrated.
+- The Flight proxy's fee-bps-override validation error text changed from "Fee bps override must be in the range 0..=10000" to "Invalid fee bps override (must be in 0..=10000)" — update any code/tests matching on that string.
+- `LatestMarketStatsResponse.timestamp_ms` is typed as `bigint`, parsed via the shared numeric-bigint schema, consistent with other large-integer API fields.
+
 ## v0.4.66 - 2026-07-08
 
 Source Phoenix commit: `6051225fb045fbb5b6a454bd445e7fc2e31e5722`
