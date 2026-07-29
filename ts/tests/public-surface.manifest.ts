@@ -46,6 +46,8 @@ export const HTTP_RESOURCE_PRESENT_METHODS = {
     "getMarkets",
     "getMarket",
     "getMarketStatsHistory",
+    "getLatestMarketStats",
+    "getLatestMarketsStats",
     "getNextCommodityMarketTransition",
     "getCommodityMarketCalendar",
     "getNextMarketCalendarTransition",

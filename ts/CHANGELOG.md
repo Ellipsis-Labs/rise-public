@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.67 - 2026-07-09
+
+Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`
+
+### Summary
+
+- Added `getLatestMarketStats(symbol)` to `V1MarketsClient` for fetching the latest stats snapshot for a single market via `GET /v1/market/{symbol}/stats/latest`.
+- Added `getLatestMarketsStats()` to `V1MarketsClient` for fetching the latest stats snapshot across all markets via `GET /v1/markets/stats/latest`.
+- Exported new response types and Zod schemas: `LatestMarketStatsResponse`, `LatestMarketStatsResponseSchema`, `LatestMarketsStatsResponse`, `LatestMarketsStatsResponseSchema`.
+- `LatestMarketStatsResponse` includes `mark_price`, `oracle_price`, `prev_day_mark_price`, `open_interest`, `day_volume_usd`, `day_volume_base`, `current_funding_rate`, `eight_hour_funding_rate`, and `annualized_funding_rate`.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `timestamp_ms` on the new response types is parsed as a `bigint` using the same big-integer schema used elsewhere in the SDK. It accepts `string`, `number`, or `bigint` input, but rejects non-integer numbers and numeric values beyond `Number.MAX_SAFE_INTEGER` — pass large timestamps as strings to avoid precision loss.
+- `getLatestMarketsStats()` returns `{ markets: LatestMarketStatsResponse[] }`.
+
 ## v0.4.66 - 2026-07-08
 
 Source Phoenix commit: `6051225fb045fbb5b6a454bd445e7fc2e31e5722`

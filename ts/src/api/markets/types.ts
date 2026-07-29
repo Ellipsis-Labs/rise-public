@@ -11,6 +11,7 @@ import {
   type MarketLeverageTier,
   type RiskFactors,
 } from "@/types/market";
+import { numericBigint } from "@/ws/numericSchemas";
 import z from "zod";
 
 // ---------------------------------------------------------------------------
@@ -380,6 +381,44 @@ export interface MarketStatsHistoryParams {
   limit?: number;
   timeframe?: string;
 }
+
+export interface LatestMarketStatsResponse {
+  symbol: string;
+  timestamp_ms: bigint;
+  mark_price: number;
+  oracle_price: number;
+  prev_day_mark_price: number;
+  open_interest: number;
+  day_volume_usd: number;
+  day_volume_base: number;
+  current_funding_rate: number;
+  eight_hour_funding_rate: number;
+  annualized_funding_rate: number;
+}
+
+export const LatestMarketStatsResponseSchema: z.ZodType<LatestMarketStatsResponse> =
+  z.object({
+    symbol: z.string(),
+    timestamp_ms: numericBigint("timestamp_ms"),
+    mark_price: z.number(),
+    oracle_price: z.number(),
+    prev_day_mark_price: z.number(),
+    open_interest: z.number(),
+    day_volume_usd: z.number(),
+    day_volume_base: z.number(),
+    current_funding_rate: z.number(),
+    eight_hour_funding_rate: z.number(),
+    annualized_funding_rate: z.number(),
+  });
+
+export interface LatestMarketsStatsResponse {
+  markets: LatestMarketStatsResponse[];
+}
+
+export const LatestMarketsStatsResponseSchema: z.ZodType<LatestMarketsStatsResponse> =
+  z.object({
+    markets: LatestMarketStatsResponseSchema.array(),
+  });
 
 // ---------------------------------------------------------------------------
 // Price History
