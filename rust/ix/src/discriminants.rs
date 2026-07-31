@@ -290,6 +290,7 @@ define_instruction_discriminants! {
         ConsumeWithdrawQueue => "consume_withdraw_queue",
         RegisterTrader => "register_trader",
         TransferCollateral => "transfer_collateral",
+        AuthorizedTransferCollateral => "authorized_transfer_collateral",
         CreateEscrowAccount => "create_escrow_account",
         CreateEscrowRequest => "create_escrow_request",
         AcceptEscrowRequest => "accept_escrow_request",
