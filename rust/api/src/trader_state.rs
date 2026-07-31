@@ -15,8 +15,8 @@ use crate::types::prelude::{
     CooldownStatus, TraderStateCapabilities, TraderStateMarketLimitOrderEvent, TraderStatePayload,
     TraderStatePositionRow, TraderStatePositionSnapshot, TraderStateRowChangeKind,
     TraderStateServerMessage, TraderStateSplineRow, TraderStateSplineSnapshot,
-    TraderStateStopLossTrigger, TraderStateSubaccountDelta, TraderStateSubaccountSnapshot,
-    TraderStateTakeProfitTrigger,
+    TraderStateSpotCollateralSnapshot, TraderStateStopLossTrigger, TraderStateSubaccountDelta,
+    TraderStateSubaccountSnapshot, TraderStateTakeProfitTrigger,
 };
 
 /// A position held by the trader in a specific market.
@@ -130,12 +130,35 @@ impl Spline {
     }
 }
 
+/// Raw spot collateral balance for a single asset (native units, no
+/// valuation).
+#[derive(Debug, Clone)]
+pub struct SpotCollateral {
+    pub asset_index: u32,
+    pub symbol: String,
+    /// Balance in the asset's native units (lamports for SOL).
+    pub balance: u64,
+}
+
+impl SpotCollateral {
+    fn from_snapshot(snapshot: &TraderStateSpotCollateralSnapshot) -> Self {
+        Self {
+            asset_index: snapshot.asset_index,
+            symbol: snapshot.symbol.clone(),
+            balance: snapshot.balance.parse().unwrap_or(0),
+        }
+    }
+}
+
 /// State for a single subaccount.
 #[derive(Debug, Clone, Default)]
 pub struct SubaccountState {
     pub subaccount_index: u8,
     pub sequence: u64,
     pub collateral: SignedQuoteLots,
+    /// Raw spot collateral balances keyed by asset index. Both snapshots and
+    /// deltas carry the complete current set, so this is replaced wholesale.
+    pub spot_collaterals: HashMap<u32, SpotCollateral>,
     pub capabilities: Option<TraderStateCapabilities>,
     pub cooldown_status: Option<CooldownStatus>,
     /// Positions keyed by market symbol.
@@ -152,6 +175,14 @@ impl SubaccountState {
             subaccount_index,
             ..Default::default()
         }
+    }
+
+    fn collect_spot_collaterals(
+        rows: &[TraderStateSpotCollateralSnapshot],
+    ) -> HashMap<u32, SpotCollateral> {
+        rows.iter()
+            .map(|row| (row.asset_index, SpotCollateral::from_snapshot(row)))
+            .collect()
     }
 
     /// Build a TraderPortfolio from this subaccount's positions and orders.
@@ -196,6 +227,7 @@ impl SubaccountState {
             .parse::<i64>()
             .map(SignedQuoteLots::new)
             .unwrap_or(SignedQuoteLots::ZERO);
+        self.spot_collaterals = Self::collect_spot_collaterals(&snapshot.spot_collaterals);
         self.capabilities = snapshot.capabilities.clone();
         self.cooldown_status = snapshot.cooldown_status.clone();
 
@@ -241,6 +273,7 @@ impl SubaccountState {
             .parse::<i64>()
             .map(SignedQuoteLots::new)
             .unwrap_or(self.collateral);
+        self.spot_collaterals = Self::collect_spot_collaterals(&delta.spot_collaterals);
         if delta.capabilities.is_some() {
             self.capabilities = delta.capabilities.clone();
         }

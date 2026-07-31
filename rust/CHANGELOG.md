@@ -3,6 +3,32 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.3.6 - 2026-07-31
+
+Source Phoenix commit: `8b82f4267044e45cd33050bf86138e845866e049`
+
+### Summary
+
+- `api`/`ix`: Added position-authority (delegate-signed) support to Flight order wrapping. `PhoenixFlightClient` gains `from_exchange_store(...)`, `with_fee_bps_override(...)`, and a new `SharedExchangeCacheStore` fed by a new `exchange` WebSocket channel (`PhoenixWSClient::exchange_store()`) so the Phoenix root authority used for the collateral-transfer permission PDA stays live across on-chain rotations.
+- `ix`: Added `AuthorizedTransferCollateral` instruction discriminant and `PhoenixIxError::MissingRootAuthority`, used when a position-authority wrap is requested without a populated exchange store.
+- `ix`: Added environment-aware `usdc_mint()` (honors `PHOENIX_ENV=beta`) alongside the existing `USDC_MINT`/new `BETA_USDC_MINT` constants.
+- `types`/`api`: Added a `spot_collaterals` field to trader-state subaccount snapshots/deltas and a matching `SubaccountState.spot_collaterals` map; exchange snapshot/delta payloads are now wrapped in a discriminated `ExchangeMessage` enum instead of carrying a raw `channel` field.
+- `math`: Bounded quantity types (e.g. via `basic_u64_struct_with_bounds!`) now validate their range during Borsh deserialization and reject out-of-bounds values instead of accepting them silently.
+
+### Breaking Changes
+
+- `api`: `PhoenixFlightClient::try_wrap_order_instruction` and `try_wrap_order_instruction_with_fee_bps_override` now take an additional `use_position_authority: bool` argument declaring whether the signer is the trader's position authority (delegate) rather than the owner; existing call sites must add `false` (owner-signed) or `true` (position-authority-signed).
+- `types`: `ExchangeSnapshotMessage`, `ExchangeEncodedSnapshotMessage`, and `ExchangeDeltaMessage` no longer have a `channel: String` field; they are now delivered wrapped in the new `ExchangeMessage` enum via `ServerMessage::Exchange`/`SubscriptionRequest::Exchange`, both new variants on those public enums.
+- `math`: `ScalarBounds::lower_bound()`/`upper_bound()` now return `Self` instead of the inner primitive type.
+- `ix`: `PhoenixIxError` gained a new `MissingRootAuthority` variant; `types`/`api`'s `TraderStateSubaccountSnapshot`/`TraderStateSubaccountDelta` gained a new `spot_collaterals` field — downstream code that exhaustively matches these enums or constructs these structs via field literals needs updating.
+- `math`: Borsh deserialization of bounded quantity types (e.g. quote/base lot types created with `basic_u64_struct_with_bounds!`) now errors on out-of-range values instead of accepting them; consumers deserializing untrusted or legacy-encoded data may see new deserialization failures.
+
+### Consumer Notes
+
+- For plain owner-signed order wraps, update `try_wrap_order_instruction(ix, authority)` calls to `try_wrap_order_instruction(ix, authority, false)`.
+- For position-authority (delegate) wraps, build the client with `PhoenixFlightClient::from_exchange_store(...)` using a store obtained from `PhoenixWSClient::exchange_store()`, and pass `true`; keep the `PhoenixWSClient` alive since dropping it stops the pump feeding the store.
+- Set `PHOENIX_ENV=beta` before first use of `usdc_mint()` to target the beta USDC mint; prefer it over the fixed `USDC_MINT` constant going forward.
+
 ## v0.3.4 - 2026-07-08
 
 Source Phoenix commit: `6051225fb045fbb5b6a454bd445e7fc2e31e5722`

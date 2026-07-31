@@ -35,6 +35,13 @@ pub enum PhoenixIxError {
     #[error("Missing required field: {0}")]
     MissingField(&'static str),
 
+    #[error(
+        "no root authority available for a position-authority wrap; obtain a populated exchange \
+         store from the websocket client (`PhoenixWSClient::exchange_store()`) and pass it to \
+         `PhoenixFlightClient::from_exchange_store`"
+    )]
+    MissingRootAuthority,
+
     #[error("Invalid deposit amount (must be greater than 0)")]
     InvalidDepositAmount,
 
