@@ -24,6 +24,7 @@ import { clientPhoenixInstructionAddresses } from "@/core/constants";
 import {
   buildCreatePermissionIx,
   buildSetPermissionIx,
+  DEPOSIT_PERMISSION,
 } from "@/core/permissionInstructions";
 import {
   buildDepositFunds,
@@ -56,7 +57,10 @@ import {
   getPhoenixTraderSubaccountAddress,
   getPhoenixTraderTokenAccountAddress,
 } from "@/pdas";
-import { deriveFlameDepositAddresses } from "@/flame";
+import {
+  buildFlameDepositToPhoenixIx,
+  deriveFlameDepositAddresses,
+} from "@/flame";
 import { address, type Address } from "@solana/kit";
 import { buildPlaceLimitOrderIx } from "./core/ixBuilders/PlaceLimitOrder";
 import { buildPlaceMarketOrderIx } from "./core/ixBuilders/PlaceMarketOrder";
@@ -122,6 +126,28 @@ export interface FlameDepositFundingFlowResult {
   depositAddress: TokenAccountAddress;
   proxyAta: TokenAccountAddress;
   traderPdaIndex: number;
+}
+
+export type FlameAtomicDepositFlowParams = BaseDepositFlowParams &
+  SponsorshipUserIdentifier & {
+    feePayer: Authority;
+    sponsorshipToken: string;
+  };
+
+export interface FlameAtomicDepositFlowInstructions extends FlameDepositFundingFlowInstructions {
+  createPermission: InstructionsWithAccountsAndData;
+  setPermission: InstructionsWithAccountsAndData;
+  depositToPhoenix: InstructionsWithAccountsAndData;
+}
+
+export interface FlameAtomicDepositFlowResult {
+  instructions: InstructionsWithAccountsAndData[];
+  named: FlameAtomicDepositFlowInstructions;
+  proxyAuthority: Authority;
+  depositAddress: TokenAccountAddress;
+  proxyAta: TokenAccountAddress;
+  traderPdaIndex: number;
+  traderSubaccountIndex: number;
 }
 
 const resolveFlowPayer = (params: {
@@ -415,6 +441,94 @@ export const buildFlameDepositFundingFlow = async (
   };
 };
 
+export const buildFlameAtomicDepositFlow = async (
+  params: FlameAtomicDepositFlowParams,
+  client: PhoenixInstructionClient
+): Promise<FlameAtomicDepositFlowResult> => {
+  const { authority, traderPdaIndex = 0 } = params;
+  const requestedTraderSubaccountIndex = (
+    params as FlameAtomicDepositFlowParams & { traderSubaccountIndex?: number }
+  ).traderSubaccountIndex;
+  if (
+    requestedTraderSubaccountIndex != null &&
+    requestedTraderSubaccountIndex !== 0
+  ) {
+    throw new Error(
+      "Flame atomic deposit sponsorship only supports traderSubaccountIndex 0"
+    );
+  }
+  const traderSubaccountIndex = 0;
+  const payer = resolveFlowPayer(params);
+  // The sponsor fee payer cranks the deposit so wallets holding no SOL can
+  // deposit: the crank fronts rent for the transient proxy Phoenix ATA and is
+  // refunded by the same instruction's close, so net sponsor spend is zero.
+  const crank = payer;
+  const [
+    { globalConfiguration, arenaAddresses, globalTraderIndexAddresses },
+    funding,
+  ] = await Promise.all([
+    fetchRequiredAccounts(client),
+    buildFlameDepositFundingFlow(params, client),
+  ]);
+  const phoenixAddresses = clientPhoenixInstructionAddresses(client);
+  const permissionPda = await getPhoenixPermissionAddress(
+    authority,
+    funding.proxyAuthority,
+    client.addresses.phoenixProgramAddress
+  );
+  const createPermission = buildCreatePermissionIx({
+    ...phoenixAddresses,
+    payer,
+    permissionAuthority: authority,
+    delegatedKey: funding.proxyAuthority,
+    permissionPda,
+  });
+  const setPermission = buildSetPermissionIx({
+    ...phoenixAddresses,
+    permissionAuthority: authority,
+    delegatedKey: funding.proxyAuthority,
+    permissionPda,
+    permission: DEPOSIT_PERMISSION,
+    expiresAtTimestamp: null,
+    allowedSignerActions: null,
+  });
+  const depositToPhoenix = await buildFlameDepositToPhoenixIx({
+    crank,
+    userAuthority: authority,
+    inputMint: client.addresses.usdcMintAddress,
+    outputMint: globalConfiguration.canonicalTokenMintKey,
+    globalTraderIndex: globalTraderIndexAddresses,
+    activeTraderBuffer: arenaAddresses,
+    traderPdaIndex,
+    traderSubaccountIndex,
+    phoenixProgramAddress: client.addresses.phoenixProgramAddress,
+    logAuthorityAddress: client.addresses.logAuthorityAddress,
+    globalConfigurationAddress: client.addresses.globalConfigurationAddress,
+  });
+
+  return {
+    instructions: [
+      funding.named.createProxyAta,
+      funding.named.transferUsdcToProxy,
+      createPermission,
+      setPermission,
+      depositToPhoenix,
+    ],
+    named: {
+      createProxyAta: funding.named.createProxyAta,
+      transferUsdcToProxy: funding.named.transferUsdcToProxy,
+      createPermission,
+      setPermission,
+      depositToPhoenix,
+    },
+    proxyAuthority: funding.proxyAuthority,
+    depositAddress: funding.depositAddress,
+    proxyAta: funding.proxyAta,
+    traderPdaIndex,
+    traderSubaccountIndex,
+  };
+};
+
 export const buildWithdrawFlow = async (
   params: WithdrawFlowParams,
   client: PhoenixInstructionClient
@@ -655,10 +769,15 @@ export const buildPlaceLimitOrderFlow = async (
   );
   const orderFlags = isReduceOnly ? OrderFlags.ReduceOnly : OrderFlags.None;
 
+  // Effective signer of the placement instruction; the Flight wrap must name
+  // the same wallet and take the position-authority path whenever it is not
+  // the owner.
+  const signer = positionAuthority ?? authority;
+
   const placeOrderIx = isPostOnly
     ? buildPlacePostOnlyOrderIx({
         ...clientPhoenixInstructionAddresses(client),
-        trader: positionAuthority ?? authority,
+        trader: signer,
         traderAccount: subaccountAddress,
         perpAssetMap: globalConfiguration.perpAssetMapKey,
         orderbook: marketAccount,
@@ -678,7 +797,7 @@ export const buildPlaceLimitOrderFlow = async (
       })
     : buildPlaceLimitOrderIx({
         ...clientPhoenixInstructionAddresses(client),
-        trader: positionAuthority ?? authority,
+        trader: signer,
         traderAccount: subaccountAddress,
         perpAssetMap: globalConfiguration.perpAssetMapKey,
         orderbook: marketAccount,
@@ -699,7 +818,11 @@ export const buildPlaceLimitOrderFlow = async (
       });
 
   const maybeWrappedIx = isFlightClient(client)
-    ? await client.tryWrapFlightInstruction(placeOrderIx, authority)
+    ? await client.tryWrapOrderInstruction(
+        placeOrderIx,
+        signer,
+        signer !== authority
+      )
     : placeOrderIx;
 
   instructions.push(maybeWrappedIx);
@@ -815,9 +938,14 @@ export const buildPlaceMarketOrderFlow = async (
     resolvedPriceInTicks = ticks(BigInt(Math.floor(priceTicks)));
   }
 
+  // Effective signer of the placement instruction; the Flight wrap must name
+  // the same wallet and take the position-authority path whenever it is not
+  // the owner.
+  const signer = positionAuthority ?? authority;
+
   const placeOrderIx = buildPlaceMarketOrderIx({
     ...clientPhoenixInstructionAddresses(client),
-    trader: positionAuthority ?? authority,
+    trader: signer,
     traderAccount: subaccountAddress,
     perpAssetMap: globalConfiguration.perpAssetMapKey,
     orderbook: marketAccount,
@@ -841,7 +969,11 @@ export const buildPlaceMarketOrderFlow = async (
   });
 
   const maybeWrappedIx = isFlightClient(client)
-    ? await client.tryWrapFlightInstruction(placeOrderIx, authority)
+    ? await client.tryWrapOrderInstruction(
+        placeOrderIx,
+        signer,
+        signer !== authority
+      )
     : placeOrderIx;
 
   instructions.push(maybeWrappedIx);
@@ -1034,6 +1166,11 @@ export const buildPlaceMultiLimitOrderFlow = async (
   const chunks = chunkScaleLevelsForTx(placeableLevels, { maxOrdersPerTx });
   const batches: PlaceMultiLimitOrderFlowBatch[] = [];
 
+  // Effective signer of the placement instructions. Multi-limit orders are
+  // not Flight-routable today, so the wrap below is a passthrough; the
+  // signer is still named for uniformity with the other flows.
+  const signer = positionAuthority ?? authority;
+
   for (let i = 0; i < chunks.length; i++) {
     const multipleOrderPacket = scaleLevelsToMultipleOrderPacket(
       chunks[i],
@@ -1043,7 +1180,7 @@ export const buildPlaceMultiLimitOrderFlow = async (
 
     const placeIx = buildPlaceMultiLimitOrderIx({
       ...clientPhoenixInstructionAddresses(client),
-      trader: positionAuthority ?? authority,
+      trader: signer,
       traderAccount: subaccountAddress,
       perpAssetMap: globalConfiguration.perpAssetMapKey,
       orderbook: marketAccount,
@@ -1054,7 +1191,11 @@ export const buildPlaceMultiLimitOrderFlow = async (
     });
 
     const placeMultiLimitOrder = isFlightClient(client)
-      ? await client.tryWrapFlightInstruction(placeIx, authority)
+      ? await client.tryWrapOrderInstruction(
+          placeIx,
+          signer,
+          signer !== authority
+        )
       : placeIx;
 
     const instructions: InstructionsWithAccountsAndData[] = [];

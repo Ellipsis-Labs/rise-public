@@ -1396,7 +1396,7 @@ const settleFundingForActionScope = (
   return settledFundingQuoteLots;
 };
 
-const getOrCreateMarketInput = (
+export const getOrCreateMarketInput = (
   subaccount: SubaccountMarginInputs,
   symbol: string
 ): MarketMarginInputs => {
@@ -1415,7 +1415,7 @@ const getMarketInput = (
 ): MarketMarginInputs | undefined =>
   subaccount.markets.find((marketInput) => marketInput.symbol === symbol);
 
-const ensureOrderListCanBeMutated = (
+export const ensureOrderListCanBeMutated = (
   marketInput: MarketMarginInputs,
   action: string
 ): void => {
@@ -1572,7 +1572,7 @@ const buildProjectedPosition = (
   };
 };
 
-const cloneSubaccountInput = (
+export const cloneSubaccountInput = (
   subaccount: SubaccountMarginInputs
 ): SubaccountMarginInputs => ({
   subaccountIndex: subaccount.subaccountIndex,
