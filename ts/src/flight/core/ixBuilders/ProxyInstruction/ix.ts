@@ -5,6 +5,8 @@ import {
 import { getFlightInstructionAddresses } from "@/flight/core/constants";
 import {
   getFlightBuilderStateAddress,
+  getFlightCollateralTransferAuthorityAddress,
+  getFlightAuthorizedCollateralTransferPermissionAddress,
   getFlightGlobalStateAddress,
 } from "@/flight/pdas";
 import {
@@ -37,7 +39,7 @@ export const buildProxyInstructionIx = async (
     ),
   ]);
 
-  const accounts: ProxyInstructionAccounts = [
+  const accounts = [
     generateReadonlyAccount(globalStateAccount),
     generateReadonlyAccount(phoenixProgramAddress),
     generateReadonlyAccount(params.builderAuthority),
@@ -45,7 +47,27 @@ export const buildProxyInstructionIx = async (
     generateReadonlyAccount(builderStateAccount),
     generateReadonlyAccount(params.traderWallet),
     ...(params.innerInstruction.accounts ?? []),
-  ] as const;
+  ];
+
+  // `rootAuthority` presence is the single source of truth for the
+  // collateral-transfer tail: the tail write-locks a global permission
+  // account, so it is appended only when the caller declares that
+  // `traderWallet` signs as the trader's position authority. Owner-signed
+  // orders — including owner-signed `PlaceMarketOrderDelegated` — never
+  // need it; Flight detects the owner signer on-chain and collects the fee
+  // via the plain transfer.
+  if (params.rootAuthority != null) {
+    const [collateralTransferAuthority, collateralTransferPermissionAccount] =
+      await Promise.all([
+        getFlightCollateralTransferAuthorityAddress(phoenixProgramAddress),
+        getFlightAuthorizedCollateralTransferPermissionAddress(
+          params.rootAuthority,
+          phoenixProgramAddress
+        ),
+      ]);
+    accounts.push(generateReadonlyAccount(collateralTransferAuthority));
+    accounts.push(generateWritableAccount(collateralTransferPermissionAccount));
+  }
 
   const innerInstructionData =
     params.innerInstruction.data ?? new Uint8Array(0);
@@ -59,7 +81,7 @@ export const buildProxyInstructionIx = async (
 
   return {
     programAddress,
-    accounts,
+    accounts: accounts as ProxyInstructionAccounts,
     data,
   };
 };
@@ -85,7 +107,9 @@ const validate = (
       params.feeBpsOverride < 0n ||
       params.feeBpsOverride > MAX_BASIS_POINTS
     ) {
-      throw new Error("Fee bps override must be in the range 0..=10000");
+      // Keep this wording in lockstep with the Rust builder's
+      // `PhoenixIxError::InvalidFeeBpsOverride` display string.
+      throw new Error("Invalid fee bps override (must be in 0..=10000)");
     }
   }
 

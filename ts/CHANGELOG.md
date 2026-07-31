@@ -3,6 +3,31 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.76 - 2026-07-31
+
+Source Phoenix commit: `116538d2560135ebd0d7d11fbb8804d32db043d8`
+
+### Summary
+
+- Flight order wrapping gains position-authority (delegate-signed) support: `tryWrapFlightInstruction` is renamed to `tryWrapOrderInstruction` and now takes a `usePositionAuthority` flag so Flight can append the collateral-transfer tail and collect its builder fee when a delegate, not the trader owner, signs — including for `PlaceMarketOrderDelegated`.
+- Added `buildFlameAtomicDepositFlow` (plus `buildFlameDepositToPhoenixIx`, `deriveFlameDepositToPhoenixAddresses`, `deriveFlameGlobalStateAddress`) for atomic, sponsor-cranked Flame deposits so wallets holding no SOL can deposit in one bundled transaction.
+- Added spot collateral support: new `spotCollaterals` fields on `SubaccountMarginInputs`, `TraderView`, and trader-state snapshot/delta types, plus new margin totals (`spotCollateralNotionalQuoteLots`, `spotCollateralDiscountedQuoteLots`).
+- Added draft-order margin helpers (`computeDraftOrderMarginRequirementFromInputs`/`FromSnapshot`, `computeMaxDraftOrderSizeForAvailableMarginFromInputs`/`FromSnapshot`) for pre-trade margin estimation.
+- Added `resolvePhoenixBuilderAddresses`, `BETA_USDC_MINT_ADDRESS`, `EMBER_STATE_ADDRESS`, and `DEPOSIT_PERMISSION` exports, and a `minBaseLotsToFill` field on isolated market order requests.
+
+### Breaking Changes
+
+- `tryWrapFlightInstruction(instruction, authority)` is renamed to `tryWrapOrderInstruction(instruction, signer, usePositionAuthority?)` on the Flight client; update call sites, and pass `usePositionAuthority: true` when the signer is a delegate rather than the trader owner.
+- `wrapInstructionWithFlight`'s `authority` param is renamed to `signer`; it now also accepts `usePositionAuthority`/`resolveRootAuthority`, and calling it with `usePositionAuthority: true` but no `resolveRootAuthority` now throws.
+- `PhoenixIxOperationContext.maybeWrapOrderIx` gained an optional third `usePositionAuthority` parameter, and the interface now requires a new `maybeWrapConditionalOrderIx` method — custom implementations of this interface need updating.
+- Position-authority Flight proxy instructions (`ProxyInstructionParams`/`buildProxyInstructionIx`) now append two extra trailing accounts (collateral-transfer authority + permission account) when `rootAuthority` is set; code that indexes into the proxy instruction's account list positionally must account for this.
+
+### Consumer Notes
+
+- `ClientPlaceMarketOrderDelegatedInput.traderWallet` is deprecated in favor of `positionAuthority`, now the shared way to declare a delegate signer across all order builders — the effective signer is `positionAuthority ?? authority`, and high-level `client.ixs` methods pick the position-authority Flight path automatically when they differ.
+- `buildFlameAtomicDepositFlow` currently only supports `traderSubaccountIndex` 0 and throws for any other value.
+- The new `spotCollaterals` fields on `SubaccountMarginInputs`, `TraderView`, and trader-state types are optional and default to empty, so existing integrations keep compiling without changes.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`
