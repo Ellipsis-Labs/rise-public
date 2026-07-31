@@ -2,6 +2,7 @@ import type {
   LimitOrderMarginInput,
   MarginPositionState,
   MarketMarginInputs,
+  SpotCollateralMarginInput,
   SubaccountMarginInputs,
   TraderMarginInputs,
 } from "./types";
@@ -32,11 +33,40 @@ export interface MarginSnapshotPosition {
   accumulatedFundingQuoteLots: string;
 }
 
+/** Raw spot collateral balance as carried by the traderState stream. */
+export interface MarginSnapshotSpotCollateral {
+  assetIndex: number;
+  symbol: string;
+  /** Balance in the asset's native units (lamports for SOL). */
+  balance: string;
+}
+
 export interface MarginSnapshotSubaccount {
   subaccountIndex: number;
   collateral?: string | null;
+  spotCollaterals?: MarginSnapshotSpotCollateral[];
   positions?: MarginSnapshotPosition[];
   orders?: MarginSnapshotLimitOrderEvent[];
+}
+
+/**
+ * Per-asset valuation context for spot collateral balances: native decimals,
+ * pricing market, and the margin discount curve from `/v1/collateral/assets`.
+ * A snapshot balance whose asset has no entry here is left unvalued (the
+ * pre-spot behavior).
+ */
+export interface SpotCollateralAssetParams {
+  assetIndex: number;
+  decimals: number;
+  pricingMarketSymbol?: string;
+  indexPriceTicks?: string;
+  maxGlobalBalance: string;
+  minMarginDiscountBps: number;
+  maxMarginDiscountBps: number;
+}
+
+export interface MarginSnapshotOptions {
+  spotAssetParamsByIndex?: Record<number, SpotCollateralAssetParams>;
 }
 
 export interface MarginTraderSnapshotMessage {
@@ -100,7 +130,8 @@ export const buildMarketMarginInputsFromSnapshot = (
 };
 
 export const buildSubaccountMarginInputsFromSnapshot = (
-  subaccount: MarginSnapshotSubaccount
+  subaccount: MarginSnapshotSubaccount,
+  options?: MarginSnapshotOptions
 ): SubaccountMarginInputs => {
   const positionsBySymbol = new Map<string, MarginSnapshotPosition>();
   for (const position of subaccount.positions ?? []) {
@@ -128,15 +159,39 @@ export const buildSubaccountMarginInputsFromSnapshot = (
     );
   }
 
+  const spotAssetParamsByIndex = options?.spotAssetParamsByIndex;
+  const spotCollaterals: SpotCollateralMarginInput[] = [];
+  if (spotAssetParamsByIndex) {
+    for (const spot of subaccount.spotCollaterals ?? []) {
+      const assetParams = spotAssetParamsByIndex[spot.assetIndex];
+      if (!assetParams) {
+        continue;
+      }
+      spotCollaterals.push({
+        assetIndex: spot.assetIndex,
+        symbol: spot.symbol,
+        balance: spot.balance,
+        decimals: assetParams.decimals,
+        pricingMarketSymbol: assetParams.pricingMarketSymbol,
+        indexPriceTicks: assetParams.indexPriceTicks,
+        maxGlobalBalance: assetParams.maxGlobalBalance,
+        minMarginDiscountBps: assetParams.minMarginDiscountBps,
+        maxMarginDiscountBps: assetParams.maxMarginDiscountBps,
+      });
+    }
+  }
+
   return {
     subaccountIndex: subaccount.subaccountIndex,
     collateralBalanceQuoteLots: subaccount.collateral ?? "0",
     markets,
+    ...(spotCollaterals.length > 0 ? { spotCollaterals } : {}),
   };
 };
 
 export const buildTraderMarginInputsFromSnapshot = (
-  message: MarginTraderSnapshotMessage | MarginTraderStateSnapshotMessage
+  message: MarginTraderSnapshotMessage | MarginTraderStateSnapshotMessage,
+  options?: MarginSnapshotOptions
 ): TraderMarginInputs => {
   if (message.messageType !== "snapshot") {
     throw new Error("TraderState message must be a snapshot to build inputs");
@@ -146,6 +201,8 @@ export const buildTraderMarginInputsFromSnapshot = (
   return {
     authority: message.authority,
     traderPdaIndex: message.traderPdaIndex,
-    subaccounts: subaccounts.map(buildSubaccountMarginInputsFromSnapshot),
+    subaccounts: subaccounts.map((subaccount) =>
+      buildSubaccountMarginInputsFromSnapshot(subaccount, options)
+    ),
   };
 };
