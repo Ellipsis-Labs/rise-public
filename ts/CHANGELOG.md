@@ -3,6 +3,34 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.75 - 2026-07-31
+
+Source Phoenix commit: `8b82f4267044e45cd33050bf86138e845866e049`
+
+Generating the changelog entry for the Rise TS SDK sync from Phoenix 0.4.74 → 0.4.75.
+
+### Summary
+
+- Adds Flight position-authority (delegate-signed) order support: `positionAuthority` on the high-level `client.ixs` order methods now routes through a new collateral-transfer tail so builder fees can be collected for delegate-signed market orders. `client.tryWrapFlightInstruction` is renamed to `client.tryWrapOrderInstruction` and gains a `usePositionAuthority` parameter.
+- Adds `buildFlameAtomicDepositFlow` / `buildFlameDepositToPhoenixIx` for a single-transaction, sponsor-cranked Flame deposit that works even when the depositing wallet holds no SOL.
+- Adds `resolvePhoenixBuilderAddresses` plus new exports (`BETA_USDC_MINT_ADDRESS`, `EMBER_STATE_ADDRESS`) for environment-aware USDC mint / Ember state resolution.
+- Adds spot collateral fields (`spotCollaterals` / `SpotCollateralBalance`) to trader state snapshots/deltas and `TraderView`, and adds draft-order margin helpers (`computeDraftOrderMarginRequirementFrom*`, `computeMaxDraftOrderSizeForAvailableMarginFrom*`) under `@/margin`.
+- Adds a new `AuthorizedTransferCollateral` instruction discriminant and `DEPOSIT_PERMISSION` permission bit.
+
+### Breaking Changes
+
+- `flight.wrapInstructionWithFlight` renamed its `authority` param to `signer` and added an optional `usePositionAuthority` flag; `PhoenixFlightClient.tryWrapFlightInstruction` is renamed to `tryWrapOrderInstruction` with a new `usePositionAuthority` argument. Consumers calling these directly must update call sites.
+- `PhoenixIxOperationContext.maybeWrapOrderIx` signature changed from `(instruction, authority)` to `(instruction, signer, usePositionAuthority?)`, and a new required `maybeWrapConditionalOrderIx` method was added to the context interface. Custom implementations of this interface must be updated.
+- `flight.buildProxyInstructionIx`'s fee-bps-override validation error message changed from `"Fee bps override must be in the range 0..=10000"` to `"Invalid fee bps override (must be in 0..=10000)"`; code matching on the old string will break.
+- `ClientPlaceMarketOrderDelegatedInput.traderWallet` is now deprecated in favor of `positionAuthority` (still functional, but slated for removal).
+
+### Consumer Notes
+
+- For delegate-signed orders, pass `positionAuthority` on `client.ixs.place*` methods instead of manually wrapping instructions — the position-authority path (and the required collateral-transfer tail) is now derived automatically by comparing `positionAuthority ?? authority` against `authority`.
+- The Flight root authority used for the collateral-transfer tail is now always resolved live from the exchange metadata snapshot, so on-chain root-authority rotations no longer require SDK cache invalidation.
+- `spotCollaterals` fields default to `[]` and are additive/optional, so existing trader-state consumers are unaffected unless they need the new data.
+- New `margin` draft-order helpers can compute/display live margin requirements and max order size before submission; see `ts/src/margin/draftOrders.ts` for input shapes.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`
