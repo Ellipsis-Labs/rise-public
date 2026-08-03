@@ -3,6 +3,30 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.77 - 2026-08-03
+
+Source Phoenix commit: `5ea2e8690ca50cdeca209b0e3a92c01e27badfbd`
+
+### Summary
+
+- Flight order wraps now support delegate/position-authority signing: `positionAuthority` on the high-level order builders routes delegated `PlaceMarketOrderDelegated` orders through a new collateral-transfer tail so builder fees still get collected when a delegate wallet signs instead of the trader owner.
+- Added `buildFlameAtomicDepositFlow` (plus `buildFlameDepositToPhoenixIx` and related PDA helpers) for a single-transaction, sponsor-cranked Flame deposit that lets fee-less wallets deposit into Phoenix atomically.
+- Added spot collateral support end-to-end: `TraderView.spotCollaterals`, trader-state `spotCollaterals` snapshot/delta fields, and margin calculator inputs/outputs (`SpotCollateralMarginInput`/`Result`) that value and discount native SOL collateral per the on-chain risk curve.
+- Added draft-order margin helpers (`computeDraftOrderMarginRequirementFrom*`, `computeMaxDraftOrderSizeForAvailableMarginFrom*`) for pre-trade margin-impact previews.
+- Added `resolvePhoenixBuilderAddresses`, `EMBER_STATE_ADDRESS`, `BETA_USDC_MINT_ADDRESS`, `DEPOSIT_PERMISSION`, and `minBaseLotsToFill` on isolated market order requests.
+
+### Breaking Changes
+
+- `PhoenixFlightClient.tryWrapFlightInstruction` is renamed to `tryWrapOrderInstruction` and now takes `(instruction, signer, usePositionAuthority)` instead of `(instruction, authority)` — callers using the Flight client directly (as shown in the previous `README.md` example) must update both the method name and call signature.
+- `wrapInstructionWithFlight`'s `authority` param is renamed to `signer`, and a new `usePositionAuthority`/`resolveRootAuthority` pair was added; direct callers of this helper need to update their param names and, for delegated orders, supply `resolveRootAuthority`.
+- The `PhoenixIxOperationContext` interface's `maybeWrapOrderIx` gained a new `usePositionAuthority` parameter, and the interface now requires a new `maybeWrapConditionalOrderIx` method — any code implementing this interface directly (custom builders/mocks) must add the missing method and update the signature.
+
+### Consumer Notes
+
+- `ClientPlaceMarketOrderDelegatedInput.traderWallet` is deprecated in favor of the shared `positionAuthority` field used across all placement inputs; existing `traderWallet` usage still works but should migrate.
+- `TraderStateSubaccountSnapshot`/`Delta.spotCollaterals` and `TraderView.spotCollaterals` are optional/defaulted, so existing consumers ignoring them are unaffected until they opt into spot collateral data.
+- Dependency overrides for `brace-expansion`, `postcss`, and `nanoid` were bumped; no API impact expected.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`
