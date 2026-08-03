@@ -3,6 +3,32 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.78 - 2026-08-03
+
+Source Phoenix commit: `c9987c1e77e75c7ded83bcd29446f9255fbb600c`
+
+### Summary
+
+- Added position-authority (delegate-signed) order support: pass `positionAuthority` on order builders and Flight automatically wraps the instruction with a new collateral-transfer tail so the builder fee is still collected when a delegate key signs.
+- Added spot collateral (SOL) valuation across margin calculations, `TraderView`, and trader-state snapshots/deltas (`spotCollaterals`), discounted per the on-chain margin curve.
+- Added draft-order margin helpers (`computeDraftOrderMarginRequirementFrom{Inputs,Snapshot}`, `computeMaxDraftOrderSizeForAvailableMarginFrom{Inputs,Snapshot}`) for pre-trade margin/sizing UI.
+- Added `buildFlameAtomicDepositFlow` / `buildFlameDepositToPhoenixIx` for atomic, sponsor-fee-payer Flame deposits that work even for wallets holding no SOL.
+- Added `getTraderTimeWeightedReturns` client method and a `minBaseLotsToFill` field on isolated market order requests.
+- Added `resolvePhoenixBuilderAddresses`, `BETA_USDC_MINT_ADDRESS`, and `EMBER_STATE_ADDRESS` for env-correct USDC mint / Ember state resolution.
+
+### Breaking Changes
+
+- `PhoenixFlightClient.tryWrapFlightInstruction` was renamed to `tryWrapOrderInstruction` and now takes `(instruction, signer, usePositionAuthority?)` instead of `(instruction, authority)`.
+- `wrapInstructionWithFlight`'s `authority` param was renamed to `signer`; delegate-signed wraps that need the collateral-transfer tail must now also pass `usePositionAuthority` and `resolveRootAuthority`.
+- `PhoenixIxOperationContext.maybeWrapOrderIx` gained a `usePositionAuthority` parameter and requires a new sibling method `maybeWrapConditionalOrderIx`; any custom implementation of this context interface needs to be updated.
+
+### Consumer Notes
+
+- `ClientPlaceMarketOrderDelegatedInput.traderWallet` is deprecated in favor of `positionAuthority`, now shared across all placement inputs — the effective signer is `positionAuthority ?? authority`.
+- Owner-signed orders, including owner-signed `PlaceMarketOrderDelegated`, continue to wrap without the collateral-transfer tail; only declare `positionAuthority` when a delegate key actually signs.
+- `TraderStateSubaccountSnapshot`/`Delta` and `TraderView` now carry an optional `spotCollaterals` array — existing consumers that don't read it are unaffected.
+- Dependency floors for `brace-expansion`, `postcss`, and `nanoid` were bumped; no API-level impact expected.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`

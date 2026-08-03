@@ -34,6 +34,8 @@ import type {
   MarketMarginResult,
   MarketParams,
   OrderMarginResult,
+  SpotCollateralMarginInput,
+  SpotCollateralMarginResult,
   SubaccountMarginInputs,
   SubaccountMarginResult,
   TraderMarginInputs,
@@ -232,14 +234,32 @@ export const computeSubaccountMarginFromInputs = (
     return a.orderSequenceNumber.localeCompare(b.orderSequenceNumber);
   });
 
+  const spotCollaterals = (inputs.spotCollaterals ?? []).map((spot) =>
+    valueSpotCollateral(spot, marketsBySymbol)
+  );
+  spotCollaterals.sort((a, b) => a.assetIndex - b.assetIndex);
+  let totalSpotNotional = 0n;
+  let totalSpotDiscounted = 0n;
+  for (const spot of spotCollaterals) {
+    totalSpotNotional += toBigInt(spot.notionalQuoteLots);
+    totalSpotDiscounted += toBigInt(spot.discountedQuoteLots);
+  }
+
   const collateralBalance = toBigInt(inputs.collateralBalanceQuoteLots ?? "0");
+  // Spot collateral enters effective collateral discounted and portfolio value
+  // undiscounted, and never backs quote withdrawals — mirroring phoenix-state
+  // TraderPortfolioMargin (sdk/phoenix-state/src/margin.rs).
   const effectiveCollateral =
-    collateralBalance + totalDiscountedUnrealizedPnl + totalUnsettledFunding;
+    collateralBalance +
+    totalDiscountedUnrealizedPnl +
+    totalUnsettledFunding +
+    totalSpotDiscounted;
   const effectiveCollateralForWithdrawals =
     collateralBalance +
     totalDiscountedPnlForWithdrawals +
     totalUnsettledFunding;
-  const portfolioValue = collateralBalance + totalUnrealizedPnl;
+  const portfolioValue =
+    collateralBalance + totalUnrealizedPnl + totalSpotNotional;
 
   const riskState = computeRiskState(totalInitialMargin, effectiveCollateral);
   const riskTier = computeRiskTier(
@@ -281,12 +301,97 @@ export const computeSubaccountMarginFromInputs = (
     margin.orderLeverageAdjustedInitialMarginQuoteLots =
       totalOrderLeverageAdjustedInitialMargin.toString();
   }
+  if (spotCollaterals.length > 0) {
+    margin.spotCollateralNotionalQuoteLots = totalSpotNotional.toString();
+    margin.spotCollateralDiscountedQuoteLots = totalSpotDiscounted.toString();
+  }
 
-  return {
+  const result: SubaccountMarginResult = {
     subaccountIndex: inputs.subaccountIndex,
     margin,
     marketMargins,
     limitOrders,
+  };
+  if (spotCollaterals.length > 0) {
+    result.spotCollaterals = spotCollaterals;
+  }
+  return result;
+};
+
+const BPS_UPPER_BOUND = 10_000n;
+
+/**
+ * Values one spot collateral asset the way the on-chain RiskView does
+ * (program-core/exchange/src/risk_view/mod.rs `notional_native_sol_balance` +
+ * `discounted_native_sol_collateral`): the balance is priced per base lot with
+ * truncating dust handling, and the margin discount interpolates linearly from
+ * `minMarginDiscountBps` at zero balance to `maxMarginDiscountBps` at the
+ * global cap, evaluated at the trader's own balance.
+ */
+const valueSpotCollateral = (
+  spot: SpotCollateralMarginInput,
+  marketsBySymbol: NormalizedMarketParamsBySymbol
+): SpotCollateralMarginResult => {
+  const pricingSymbol = spot.pricingMarketSymbol ?? spot.symbol;
+  const marketParams = marketsBySymbol[pricingSymbol];
+  if (!marketParams) {
+    throw new Error(
+      `Missing market params for spot collateral pricing market ${pricingSymbol}`
+    );
+  }
+  const balance = requireNonNegativeBigInt(
+    spot.balance,
+    `Spot collateral balance for ${spot.symbol} must be non-negative`
+  );
+  const priceTicks =
+    spot.indexPriceTicks !== undefined
+      ? requirePositiveBigInt(
+          spot.indexPriceTicks,
+          `Spot collateral indexPriceTicks for ${spot.symbol} must be positive`
+        )
+      : marketParams.markPriceTicks;
+
+  const decimalsDifference = spot.decimals - marketParams.baseLotDecimals;
+  if (decimalsDifference < 0) {
+    throw new Error(
+      `Spot collateral decimals for ${spot.symbol} are below the pricing market's base lot decimals`
+    );
+  }
+  const nativePerBaseLot = 10n ** BigInt(decimalsDifference);
+  const priceQuoteLotsPerBaseLot = priceTicks * marketParams.tickSize;
+  const baseLots = balance / nativePerBaseLot;
+  const dust = balance - baseLots * nativePerBaseLot;
+  const notional =
+    priceQuoteLotsPerBaseLot * baseLots +
+    (dust * priceQuoteLotsPerBaseLot) / nativePerBaseLot;
+
+  const maxGlobalBalance = requirePositiveBigInt(
+    spot.maxGlobalBalance,
+    `Spot collateral maxGlobalBalance for ${spot.symbol} must be positive`
+  );
+  const retentionUpper = BPS_UPPER_BOUND - BigInt(spot.minMarginDiscountBps);
+  const retentionLower = BPS_UPPER_BOUND - BigInt(spot.maxMarginDiscountBps);
+  if (retentionUpper < retentionLower) {
+    throw new Error(
+      `Spot collateral margin discount curve for ${spot.symbol} is inverted`
+    );
+  }
+  const target = balance > maxGlobalBalance ? maxGlobalBalance : balance;
+  const retention =
+    target === 0n
+      ? retentionUpper
+      : target === maxGlobalBalance
+        ? retentionLower
+        : retentionUpper -
+          ((retentionUpper - retentionLower) * target) / maxGlobalBalance;
+  const discounted = (notional * retention) / BPS_UPPER_BOUND;
+
+  return {
+    assetIndex: spot.assetIndex,
+    symbol: spot.symbol,
+    balance: balance.toString(),
+    notionalQuoteLots: notional.toString(),
+    discountedQuoteLots: discounted.toString(),
   };
 };
 
@@ -888,17 +993,12 @@ const buildScopedSubaccountInput = (
       collateralBalanceQuoteLots:
         scope.isolatedCollateralBalanceQuoteLots ??
         subaccount.collateralBalanceQuoteLots,
+      // Spot collateral only backs cross margin, so isolated scopes drop it.
       markets: [cloneMarketInput(currentMarket ?? { symbol })],
     };
   }
 
-  return {
-    subaccountIndex: subaccount.subaccountIndex,
-    collateralBalanceQuoteLots: subaccount.collateralBalanceQuoteLots,
-    markets: subaccount.markets.map((marketInput) =>
-      cloneMarketInput(marketInput)
-    ),
-  };
+  return cloneSubaccountInput(subaccount);
 };
 
 const applySimulationAction = (
@@ -1396,7 +1496,7 @@ const settleFundingForActionScope = (
   return settledFundingQuoteLots;
 };
 
-const getOrCreateMarketInput = (
+export const getOrCreateMarketInput = (
   subaccount: SubaccountMarginInputs,
   symbol: string
 ): MarketMarginInputs => {
@@ -1415,7 +1515,7 @@ const getMarketInput = (
 ): MarketMarginInputs | undefined =>
   subaccount.markets.find((marketInput) => marketInput.symbol === symbol);
 
-const ensureOrderListCanBeMutated = (
+export const ensureOrderListCanBeMutated = (
   marketInput: MarketMarginInputs,
   action: string
 ): void => {
@@ -1572,7 +1672,7 @@ const buildProjectedPosition = (
   };
 };
 
-const cloneSubaccountInput = (
+export const cloneSubaccountInput = (
   subaccount: SubaccountMarginInputs
 ): SubaccountMarginInputs => ({
   subaccountIndex: subaccount.subaccountIndex,
@@ -1580,6 +1680,13 @@ const cloneSubaccountInput = (
   markets: subaccount.markets.map((marketInput) =>
     cloneMarketInput(marketInput)
   ),
+  ...(subaccount.spotCollaterals
+    ? {
+        spotCollaterals: subaccount.spotCollaterals.map((spot) => ({
+          ...spot,
+        })),
+      }
+    : {}),
 });
 
 const cloneMarketInput = (
