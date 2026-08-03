@@ -109,7 +109,8 @@ const unexpectedOperationResolver = async (): Promise<never> => {
 const createTestOperationContext = (
   wrapCalls: Array<{
     instruction: InstructionsWithAccountsAndData;
-    authority: Authority;
+    signer: Authority;
+    usePositionAuthority: boolean | undefined;
   }>
 ): PhoenixIxOperationContext => ({
   orderPackets: {} as never,
@@ -128,13 +129,33 @@ const createTestOperationContext = (
   resolveStopLossAddress: unexpectedOperationResolver,
   maybeWrapOrderIx: async <TIx extends InstructionsWithAccountsAndData>(
     instruction: TIx,
+    signer: Authority,
+    usePositionAuthority?: boolean
+  ) => {
+    wrapCalls.push({ instruction, signer, usePositionAuthority });
+    return instruction;
+  },
+  maybeWrapConditionalOrderIx: async <
+    TIx extends InstructionsWithAccountsAndData,
+  >(
+    instruction: TIx,
     authority: Authority
   ) => {
-    wrapCalls.push({ instruction, authority });
+    wrapCalls.push({
+      instruction,
+      signer: authority,
+      usePositionAuthority: false,
+    });
     return instruction;
   },
   accountExists: async () => false,
 });
+
+type WrapCall = {
+  instruction: InstructionsWithAccountsAndData;
+  signer: Authority;
+  usePositionAuthority: boolean | undefined;
+};
 
 describe("ix operations", () => {
   const createCancelByIdOperations = (
@@ -158,11 +179,8 @@ describe("ix operations", () => {
       resolveTraderAccount: async () => "trader-account" as never,
     });
 
-  it("wraps market order entrypoints with the trader account authority", async () => {
-    const wrapCalls: Array<{
-      instruction: InstructionsWithAccountsAndData;
-      authority: Authority;
-    }> = [];
+  it("wraps market order entrypoints with the effective signer", async () => {
+    const wrapCalls: WrapCall[] = [];
     const operations = createPhoenixIxOperations(
       createTestOperationContext(wrapCalls)
     );
@@ -182,12 +200,16 @@ describe("ix operations", () => {
 
     expect(wrapCalls).toHaveLength(2);
     expect(wrapCalls[0]?.instruction).toBe(marketIx);
-    expect(wrapCalls[0]?.authority).toBe("trader-authority");
+    expect(wrapCalls[0]?.signer).toBe("trader-authority");
+    expect(wrapCalls[0]?.usePositionAuthority).toBe(false);
     expect(Array.from(marketIx.data.slice(0, 8))).toEqual(
       Array.from(DISCRIMINANTS.PLACE_MARKET_ORDER)
     );
+    // The delegated order names a distinct signer, so the wrap is told the
+    // signer is a position authority.
     expect(wrapCalls[1]?.instruction).toBe(delegatedIx);
-    expect(wrapCalls[1]?.authority).toBe("trader-authority");
+    expect(wrapCalls[1]?.signer).toBe("delegated-wallet");
+    expect(wrapCalls[1]?.usePositionAuthority).toBe(true);
     expect(Array.from(delegatedIx.data.slice(0, 8))).toEqual(
       Array.from(DISCRIMINANTS.PLACE_MARKET_ORDER_DELEGATED)
     );
@@ -195,11 +217,34 @@ describe("ix operations", () => {
     expect(delegatedIx.accounts[4]?.address).toBe("permission-account");
   });
 
+  it("declares position authority only when the signer differs from the owner", async () => {
+    const wrapCalls: WrapCall[] = [];
+    const operations = createPhoenixIxOperations(
+      createTestOperationContext(wrapCalls)
+    );
+
+    await operations.placeMarketOrder({
+      authority: "trader-authority" as never,
+      positionAuthority: "trader-authority" as never,
+      symbol: "BTC-PERP" as never,
+      orderPacket: marketOrderPacket,
+    });
+    await operations.placeMarketOrder({
+      authority: "trader-authority" as never,
+      positionAuthority: "delegate-signer" as never,
+      symbol: "BTC-PERP" as never,
+      orderPacket: marketOrderPacket,
+    });
+
+    expect(wrapCalls).toHaveLength(2);
+    expect(wrapCalls[0]?.signer).toBe("trader-authority");
+    expect(wrapCalls[0]?.usePositionAuthority).toBe(false);
+    expect(wrapCalls[1]?.signer).toBe("delegate-signer");
+    expect(wrapCalls[1]?.usePositionAuthority).toBe(true);
+  });
+
   it("builds delegated primary-position-authority market orders through the shared wrapper", async () => {
-    const wrapCalls: Array<{
-      instruction: InstructionsWithAccountsAndData;
-      authority: Authority;
-    }> = [];
+    const wrapCalls: WrapCall[] = [];
     const operations = createPhoenixIxOperations(
       createTestOperationContext(wrapCalls)
     );
@@ -212,7 +257,8 @@ describe("ix operations", () => {
 
     expect(wrapCalls).toHaveLength(1);
     expect(wrapCalls[0]?.instruction).toBe(ix);
-    expect(wrapCalls[0]?.authority).toBe("trader-authority");
+    expect(wrapCalls[0]?.signer).toBe("trader-authority");
+    expect(wrapCalls[0]?.usePositionAuthority).toBe(false);
     expect(ix.accounts[3]?.address).toBe("position-authority");
     expect(ix.accounts[4]?.address).toBe("position-authority");
   });

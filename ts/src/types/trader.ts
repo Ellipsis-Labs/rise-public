@@ -132,6 +132,25 @@ export const TraderCapabilitiesSchema: z.ZodType<TraderCapabilities> = z.object(
   }
 );
 
+export interface SpotCollateralBalance {
+  assetIndex: number;
+  symbol: string;
+  balance: TokenAmount;
+  notional: TokenAmount;
+  discounted: TokenAmount;
+  withdrawable: TokenAmount;
+}
+
+export const SpotCollateralBalanceSchema: z.ZodType<SpotCollateralBalance> =
+  z.object({
+    assetIndex: z.number(),
+    symbol: z.string(),
+    balance: TokenAmountSchema,
+    notional: TokenAmountSchema,
+    discounted: TokenAmountSchema,
+    withdrawable: TokenAmountSchema,
+  });
+
 export interface TraderView {
   flags: number;
   state: string;
@@ -143,6 +162,7 @@ export interface TraderView {
   traderSubaccountIndex: number;
   authority: Authority;
   collateralBalance: TokenAmount;
+  spotCollaterals?: SpotCollateralBalance[];
   effectiveCollateral: TokenAmount;
   effectiveCollateralForWithdrawals: TokenAmount;
   unrealizedPnl: TokenAmount;
@@ -178,6 +198,10 @@ export const TraderViewSchema: z.ZodType<TraderView> = z
     traderSubaccountIndex: z.number(),
     authority: zAuthority,
     collateralBalance: TokenAmountSchema,
+    spotCollaterals: z
+      .array(SpotCollateralBalanceSchema)
+      .optional()
+      .default([]),
     effectiveCollateral: TokenAmountSchema,
     effectiveCollateralForWithdrawals: TokenAmountSchema,
     unsettledFundingOwed: TokenAmountSchema,
