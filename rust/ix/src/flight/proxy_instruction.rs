@@ -11,7 +11,9 @@ use crate::FlightInstruction;
 use crate::constants::PHOENIX_PROGRAM_ID;
 use crate::error::PhoenixIxError;
 use crate::flight::constants::{
-    FLIGHT_PROGRAM_ID, get_flight_builder_state_address, get_flight_global_state_address,
+    FLIGHT_PROGRAM_ID, get_flight_authorized_collateral_transfer_permission_address,
+    get_flight_builder_state_address, get_flight_collateral_transfer_authority_address,
+    get_flight_global_state_address,
 };
 use crate::types::{AccountMeta, Instruction};
 
@@ -37,6 +39,24 @@ pub struct ProxyInstructionParams {
     /// Optional builder fee override in basis points. When present, the
     /// instruction uses Flight's `proxy_instruction_with_fee_override` variant.
     fee_bps_override: Option<u64>,
+    /// Phoenix root authority used to derive the collateral-transfer
+    /// permission account; set iff the signer is a position authority —
+    /// presence appends the tail accounts.
+    ///
+    /// The collateral-transfer-authority PDA is scoped to the canonical
+    /// Phoenix program ID, and the permission PDA derives from
+    /// `["permission", root_authority, flight_pda]`. When present, the two
+    /// accounts are appended so the builder fee can move via
+    /// `AuthorizedTransferCollateral`; owner-signed orders (including
+    /// owner-signed delegated market orders) carry no tail. Misdeclaring the
+    /// signer kind fails closed on-chain: the program detects the signer kind
+    /// from the trader account and rejects position-authority orders whose
+    /// tail is missing.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, with = "crate::serde_helpers::pubkey_option")
+    )]
+    root_authority: Option<Pubkey>,
 }
 
 impl ProxyInstructionParams {
@@ -63,6 +83,10 @@ impl ProxyInstructionParams {
     pub fn fee_bps_override(&self) -> Option<u64> {
         self.fee_bps_override
     }
+
+    pub fn root_authority(&self) -> Option<Pubkey> {
+        self.root_authority
+    }
 }
 
 #[derive(Default)]
@@ -72,6 +96,7 @@ pub struct ProxyInstructionParamsBuilder {
     trader_wallet: Option<Pubkey>,
     inner_instruction: Option<Instruction>,
     fee_bps_override: Option<u64>,
+    root_authority: Option<Pubkey>,
 }
 
 impl ProxyInstructionParamsBuilder {
@@ -104,6 +129,15 @@ impl ProxyInstructionParamsBuilder {
         self
     }
 
+    /// Declare that `trader_wallet` signs as the trader's position authority,
+    /// so the collateral-transfer tail accounts (derived from this root
+    /// authority) must be appended. Set this iff the signer is not the trader
+    /// wallet owner — misdeclaring the signer kind fails closed on-chain.
+    pub fn root_authority(mut self, root_authority: Pubkey) -> Self {
+        self.root_authority = Some(root_authority);
+        self
+    }
+
     pub fn build(self) -> Result<ProxyInstructionParams, PhoenixIxError> {
         if self
             .fee_bps_override
@@ -126,6 +160,7 @@ impl ProxyInstructionParamsBuilder {
                 .inner_instruction
                 .ok_or(PhoenixIxError::MissingField("inner_instruction"))?,
             fee_bps_override: self.fee_bps_override,
+            root_authority: self.root_authority,
         })
     }
 }
@@ -136,8 +171,10 @@ impl ProxyInstructionParamsBuilder {
 /// discriminant, and its accounts are appended verbatim after the six Flight
 /// accounts. When `fee_bps_override` is set, this emits Flight's
 /// `proxy_instruction_with_fee_override` variant with the Borsh
-/// `Option<u64>` fee prefix before the inner instruction data. Returns an
-/// error if `inner_instruction.program_id` is not the Phoenix program.
+/// `Option<u64>` fee prefix before the inner instruction data. When
+/// `root_authority` is set, the collateral-transfer authority and permission
+/// accounts are appended after the inner accounts. Returns an error if
+/// `inner_instruction.program_id` is not the Phoenix program.
 pub fn create_proxy_instruction_ix(
     params: ProxyInstructionParams,
 ) -> Result<Instruction, PhoenixIxError> {
@@ -148,7 +185,16 @@ pub fn create_proxy_instruction_ix(
     let inner_data = &params.inner_instruction().data;
     let data = encode_proxy_instruction_data(params.fee_bps_override(), inner_data);
 
-    let mut accounts = Vec::with_capacity(6 + params.inner_instruction().accounts.len());
+    // The caller-declared signer kind is the single source of truth for the
+    // collateral-transfer tail: position-authority-signed orders declare a
+    // root authority and carry the tail, owner-signed orders (including
+    // owner-signed delegated market orders) do not.
+    let root_authority = params.root_authority();
+
+    let delegated_extra_accounts = usize::from(root_authority.is_some()) * 2;
+    let mut accounts = Vec::with_capacity(
+        6 + params.inner_instruction().accounts.len() + delegated_extra_accounts,
+    );
     accounts.push(AccountMeta::readonly(get_flight_global_state_address()?));
     accounts.push(AccountMeta::readonly(*PHOENIX_PROGRAM_ID));
     accounts.push(AccountMeta::readonly(params.builder_authority()));
@@ -158,6 +204,14 @@ pub fn create_proxy_instruction_ix(
     )?));
     accounts.push(AccountMeta::readonly(params.trader_wallet()));
     accounts.extend(params.inner_instruction().accounts.iter().cloned());
+    if let Some(root_authority) = root_authority {
+        let permission_account =
+            get_flight_authorized_collateral_transfer_permission_address(&root_authority)?;
+        accounts.push(AccountMeta::readonly(
+            get_flight_collateral_transfer_authority_address()?,
+        ));
+        accounts.push(AccountMeta::writable(permission_account));
+    }
 
     Ok(Instruction {
         program_id: FLIGHT_PROGRAM_ID,
@@ -319,6 +373,74 @@ mod tests {
         assert_eq!(ix.accounts[7].pubkey, inner_b);
         assert!(!ix.accounts[7].is_signer);
         assert!(!ix.accounts[7].is_writable);
+    }
+
+    #[test]
+    fn test_position_authority_appends_transfer_permission_and_authority() {
+        let builder_authority = Pubkey::new_unique();
+        let builder_trader_account = Pubkey::new_unique();
+        let trader_wallet = Pubkey::new_unique();
+        let root_authority = Pubkey::new_unique();
+        let inner_a = Pubkey::new_unique();
+        let inner = make_inner_ix(
+            crate::PhoenixInstruction::PlaceMarketOrder
+                .discriminant()
+                .to_vec(),
+            vec![AccountMeta::readonly(inner_a)],
+        );
+
+        let params = ProxyInstructionParams::builder()
+            .builder_authority(builder_authority)
+            .builder_trader_account(builder_trader_account)
+            .trader_wallet(trader_wallet)
+            .root_authority(root_authority)
+            .inner_instruction(inner)
+            .build()
+            .unwrap();
+
+        let ix = create_proxy_instruction_ix(params).unwrap();
+
+        assert_eq!(ix.accounts[6].pubkey, inner_a);
+        assert_eq!(
+            ix.accounts[7].pubkey,
+            get_flight_collateral_transfer_authority_address().unwrap()
+        );
+        assert!(!ix.accounts[7].is_writable);
+        assert!(!ix.accounts[7].is_signer);
+        assert_eq!(
+            ix.accounts[8].pubkey,
+            get_flight_authorized_collateral_transfer_permission_address(&root_authority).unwrap()
+        );
+        assert!(ix.accounts[8].is_writable);
+    }
+
+    #[test]
+    fn test_delegated_market_order_without_position_authority_appends_no_tail() {
+        let inner_a = Pubkey::new_unique();
+        let inner = make_inner_ix(
+            crate::PhoenixInstruction::PlaceMarketOrderDelegated
+                .discriminant()
+                .to_vec(),
+            vec![AccountMeta::readonly(inner_a)],
+        );
+
+        let params = ProxyInstructionParams::builder()
+            .builder_authority(Pubkey::new_unique())
+            .builder_trader_account(Pubkey::new_unique())
+            .trader_wallet(Pubkey::new_unique())
+            .inner_instruction(inner)
+            .build()
+            .unwrap();
+
+        let ix = create_proxy_instruction_ix(params).unwrap();
+
+        // An owner-signed delegated market order needs no collateral-transfer
+        // tail; only the declared signer kind appends it.
+        assert_eq!(ix.accounts.len(), 7);
+        assert_eq!(ix.accounts[6].pubkey, inner_a);
+        assert!(!ix.accounts.iter().any(|meta| {
+            meta.pubkey == get_flight_collateral_transfer_authority_address().unwrap()
+        }));
     }
 
     #[test]

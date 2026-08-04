@@ -1,7 +1,6 @@
 //! WebSocket client for connecting to the Phoenix API.
 
 use std::collections::HashMap;
-#[cfg(feature = "opentelemetry")]
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -10,8 +9,10 @@ use futures_util::{SinkExt, StreamExt};
 use opentelemetry::{Context, global};
 #[cfg(feature = "opentelemetry")]
 use opentelemetry_http::HeaderInjector;
+use parking_lot::Mutex;
 use phoenix_rise_types::prelude::{
-    AllMidsData, CandleData, CandlesSubscriptionRequest, ClientMessage, FundingRateMessage,
+    AllMidsData, CandleData, CandlesSubscriptionRequest, ClientMessage, ExchangeMessage,
+    ExchangeSnapshotEncoding, ExchangeSubscriptionRequest, FundingRateMessage,
     FundingRateSubscriptionRequest, L2BookUpdate, MarketStatsUpdate, MarketSubscriptionRequest,
     OrderbookSubscriptionRequest, ServerMessage, SubscriptionConfirmedMessage,
     SubscriptionErrorMessage, SubscriptionRequest, Timeframe, TraderStateServerMessage,
@@ -34,6 +35,7 @@ use url::Url;
 
 use crate::auth::AuthSession;
 use crate::env::PhoenixEnv;
+use crate::exchange_cache::SharedExchangeCacheStore;
 use crate::http_client::PhoenixHttpClient;
 use crate::subscription_key::SubscriptionKey;
 #[cfg(feature = "opentelemetry")]
@@ -105,6 +107,33 @@ impl Drop for SubscriptionHandle {
     }
 }
 
+/// Handle for the exchange-cache pump task spawned by
+/// [`PhoenixWSClient::subscribe_to_exchange_cache`].
+///
+/// Dropping the handle stops the pump and unsubscribes from the exchange
+/// channel. The primary path, [`PhoenixWSClient::exchange_store`], keeps
+/// this handle inside the client so the pump lives exactly as long as the
+/// client; only custom-store users of `subscribe_to_exchange_cache` manage
+/// it themselves.
+pub struct ExchangeCachePump {
+    task: tokio::task::JoinHandle<()>,
+}
+
+impl ExchangeCachePump {
+    /// True once the pump task has stopped, e.g. because the websocket
+    /// connection closed. The fed store keeps its last-applied state but no
+    /// longer receives updates.
+    pub fn is_finished(&self) -> bool {
+        self.task.is_finished()
+    }
+}
+
+impl Drop for ExchangeCachePump {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
 /// Subscriber channel for different message types.
 enum Subscriber {
     AllMids(mpsc::UnboundedSender<AllMidsData>),
@@ -114,6 +143,7 @@ enum Subscriber {
     MarketStats(mpsc::UnboundedSender<MarketStatsUpdate>),
     Trades(mpsc::UnboundedSender<TradesMessage>),
     Candles(mpsc::UnboundedSender<CandleData>),
+    Exchange(mpsc::UnboundedSender<ExchangeMessage>),
 }
 
 /// Internal control messages for the connection manager.
@@ -147,6 +177,14 @@ impl ActiveWebSocket {
     }
 }
 
+/// Memoized ws-fed exchange store together with the pump that keeps it
+/// fresh. Owned by [`PhoenixWSClient`] so the pump lives exactly as long as
+/// the client: dropping the client aborts the pump.
+struct OwnedExchangeStore {
+    store: SharedExchangeCacheStore,
+    _pump: ExchangeCachePump,
+}
+
 /// WebSocket client for Phoenix API.
 ///
 /// Handles connection management and message routing to subscribers.
@@ -155,7 +193,8 @@ pub struct PhoenixWSClient {
     ws_url: Url,
     ws_connection_status_rx: Option<mpsc::UnboundedReceiver<WsConnectionStatus>>,
     ws_subscription_event_rx: Option<mpsc::UnboundedReceiver<WsSubscriptionEvent>>,
-    next_subscriber_id: AtomicU64,
+    next_subscriber_id: Arc<AtomicU64>,
+    exchange_store_cell: Mutex<Option<OwnedExchangeStore>>,
 }
 
 impl PhoenixWSClient {
@@ -274,7 +313,8 @@ impl PhoenixWSClient {
             ws_url: url.clone(),
             ws_connection_status_rx,
             ws_subscription_event_rx: Some(ws_subscription_event_rx),
-            next_subscriber_id: AtomicU64::new(0),
+            next_subscriber_id: Arc::new(AtomicU64::new(0)),
+            exchange_store_cell: Mutex::new(None),
         };
         #[cfg(feature = "opentelemetry")]
         let trace_context_provider = auth_client
@@ -591,6 +631,186 @@ impl PhoenixWSClient {
         };
 
         Ok((rx, handle))
+    }
+
+    /// Subscribe to exchange snapshot/delta updates.
+    ///
+    /// The subscription requests JSON snapshot encoding explicitly: the
+    /// server defaults to `base64+zstd`, which this SDK does not decode.
+    ///
+    /// Returns a tuple of (receiver, handle). The receiver will receive
+    /// `ExchangeMessage` snapshots and deltas. Drop the handle to
+    /// unsubscribe.
+    pub fn subscribe_to_exchange(
+        &self,
+    ) -> Result<(mpsc::UnboundedReceiver<ExchangeMessage>, SubscriptionHandle), PhoenixWsError>
+    {
+        Self::subscribe_exchange_channel(&self.control_tx, &self.next_subscriber_id)
+    }
+
+    /// Shared exchange snapshot store fed by this client — the recommended
+    /// source of the store consumed by
+    /// [`crate::PhoenixFlightClient::from_exchange_store`].
+    ///
+    /// The first call creates the store, subscribes to the exchange channel,
+    /// and keeps the pump handle inside the client, so the pump lives
+    /// exactly as long as the client: dropping the client stops updates and
+    /// freezes the store at its last-applied state. It then waits for the
+    /// first snapshot to be applied, so the returned store is populated and
+    /// [`SharedExchangeCacheStore::root_authority`] works immediately.
+    /// Subsequent calls return the same store without creating another
+    /// subscription.
+    ///
+    /// There is no internal timeout: if the server never delivers a snapshot
+    /// (e.g. the connection failed), this future does not resolve. Wrap it
+    /// in `tokio::time::timeout` to bound the wait.
+    pub async fn exchange_store(&self) -> Result<SharedExchangeCacheStore, PhoenixWsError> {
+        let store = {
+            let mut cell = self.exchange_store_cell.lock();
+            match cell.as_ref() {
+                Some(owned) => owned.store.clone(),
+                None => {
+                    let store = SharedExchangeCacheStore::new_empty();
+                    let pump = self.subscribe_to_exchange_cache(store.clone())?;
+                    *cell = Some(OwnedExchangeStore {
+                        store: store.clone(),
+                        _pump: pump,
+                    });
+                    store
+                }
+            }
+        };
+        // Await outside the lock: concurrent callers share the same store
+        // and wait on the same populated signal.
+        store.wait_until_populated().await;
+        Ok(store)
+    }
+
+    /// Subscribe to the exchange channel and keep `store` synchronized with
+    /// the snapshot/delta stream.
+    ///
+    /// Prefer [`Self::exchange_store`], which creates the store, owns the
+    /// pump, and waits for the first snapshot; use this method only to feed
+    /// a custom [`SharedExchangeCacheStore`], and keep the returned pump
+    /// handle alive yourself.
+    ///
+    /// Snapshots replace the store contents; deltas are applied in sequence
+    /// order. On a sequence gap the pump re-subscribes to obtain a fresh
+    /// snapshot, mirroring the TS SDK exchange cache. Drop the returned pump
+    /// handle to stop the pump and unsubscribe.
+    pub fn subscribe_to_exchange_cache(
+        &self,
+        store: SharedExchangeCacheStore,
+    ) -> Result<ExchangeCachePump, PhoenixWsError> {
+        let (rx, handle) = self.subscribe_to_exchange()?;
+        let task = tokio::spawn(Self::run_exchange_cache_pump(
+            self.control_tx.clone(),
+            Arc::clone(&self.next_subscriber_id),
+            store,
+            rx,
+            handle,
+        ));
+        Ok(ExchangeCachePump { task })
+    }
+
+    fn subscribe_exchange_channel(
+        control_tx: &mpsc::UnboundedSender<ControlMessage>,
+        next_subscriber_id: &Arc<AtomicU64>,
+    ) -> Result<(mpsc::UnboundedReceiver<ExchangeMessage>, SubscriptionHandle), PhoenixWsError>
+    {
+        let subscriber_id = next_subscriber_id.fetch_add(1, Ordering::Relaxed);
+        let (tx, rx) = mpsc::unbounded_channel();
+        let sub_key = SubscriptionKey::exchange();
+        let request = SubscriptionRequest::Exchange(ExchangeSubscriptionRequest {
+            encoding: Some(ExchangeSnapshotEncoding::Json),
+        });
+
+        control_tx
+            .send(ControlMessage::Subscribe {
+                key: sub_key.clone(),
+                request,
+                subscriber: Subscriber::Exchange(tx),
+                subscriber_id,
+            })
+            .map_err(|_| PhoenixWsError::SubscriptionClosed)?;
+
+        let handle = SubscriptionHandle {
+            control_tx: control_tx.clone(),
+            key: sub_key,
+            subscriber_id,
+        };
+
+        Ok((rx, handle))
+    }
+
+    /// Apply exchange messages to `store` until the subscription channel
+    /// closes, re-subscribing for a fresh snapshot whenever a delta cannot be
+    /// applied in sequence.
+    async fn run_exchange_cache_pump(
+        control_tx: mpsc::UnboundedSender<ControlMessage>,
+        next_subscriber_id: Arc<AtomicU64>,
+        store: SharedExchangeCacheStore,
+        mut rx: mpsc::UnboundedReceiver<ExchangeMessage>,
+        mut handle: SubscriptionHandle,
+    ) {
+        // The subscribe that created `rx` already triggers a server-side
+        // snapshot bootstrap, so start with a refresh outstanding.
+        let mut awaiting_snapshot = true;
+        let mut refresh_pending = true;
+
+        loop {
+            let Some(message) = rx.recv().await else {
+                debug!("Exchange cache pump stopped: subscription channel closed");
+                return;
+            };
+
+            match message {
+                ExchangeMessage::Snapshot(snapshot) => {
+                    store.apply_snapshot_message(&snapshot);
+                    awaiting_snapshot = false;
+                    refresh_pending = false;
+                }
+                ExchangeMessage::EncodedSnapshot(_) => {
+                    warn!(
+                        "Ignoring encoded exchange snapshot; the exchange cache pump subscribes \
+                         with json encoding"
+                    );
+                }
+                ExchangeMessage::Delta(delta) => {
+                    if !awaiting_snapshot {
+                        match store.apply_delta(&delta) {
+                            Ok(_) => continue,
+                            Err(error) => {
+                                warn!(
+                                    "Exchange cache delta rejected ({error}); resubscribing for a \
+                                     fresh snapshot"
+                                );
+                                awaiting_snapshot = true;
+                            }
+                        }
+                    }
+                    if refresh_pending {
+                        continue;
+                    }
+                    // Drop the stale subscription first so its wire
+                    // unsubscribe precedes the new subscribe; the server then
+                    // replays a fresh snapshot bootstrap.
+                    drop(handle);
+                    drop(rx);
+                    match Self::subscribe_exchange_channel(&control_tx, &next_subscriber_id) {
+                        Ok((new_rx, new_handle)) => {
+                            rx = new_rx;
+                            handle = new_handle;
+                            refresh_pending = true;
+                        }
+                        Err(error) => {
+                            warn!("Exchange cache pump stopped: failed to resubscribe: {error}");
+                            return;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// Returns the WebSocket URL.
@@ -1128,6 +1348,14 @@ impl PhoenixWSClient {
                     |sub| matches!(sub, Subscriber::Candles(tx) if tx.send(msg.clone()).is_err()),
                 );
             }
+            Ok(ServerMessage::Exchange(msg)) => {
+                let key = SubscriptionKey::exchange();
+                Self::broadcast_to_subscribers(
+                    subscribers,
+                    &key,
+                    |sub| matches!(sub, Subscriber::Exchange(tx) if tx.send(msg.clone()).is_err()),
+                );
+            }
             Ok(ServerMessage::Error(err)) => {
                 error!("Server error: code={}, error={}", err.code, err.error);
                 let _ = subscription_event_tx.send(WsSubscriptionEvent::Error {
@@ -1428,6 +1656,162 @@ mod tests {
             &close_frame(Normal, "normal")
         )));
     }
+
+    #[tokio::test]
+    async fn exchange_store_populates_from_first_snapshot_and_memoizes() {
+        let (ws_url, feed_tx) = spawn_exchange_feed_ws_server().await;
+        let client = PhoenixWSClient::new(&ws_url).expect("ws client should build");
+        let root_authority = Pubkey::new_unique();
+        feed_tx
+            .send(exchange_snapshot_json(10, &root_authority))
+            .expect("feed channel should accept the snapshot");
+
+        let store = tokio::time::timeout(Duration::from_secs(5), client.exchange_store())
+            .await
+            .expect("exchange_store should resolve once the snapshot arrives")
+            .expect("exchange_store should succeed");
+
+        assert!(store.is_populated());
+        assert_eq!(store.root_authority(), Some(root_authority));
+
+        // A second call returns the SAME store (one subscription total).
+        let second = tokio::time::timeout(Duration::from_secs(5), client.exchange_store())
+            .await
+            .expect("memoized exchange_store should resolve immediately")
+            .expect("memoized exchange_store should succeed");
+        assert!(store.ptr_eq(&second));
+    }
+
+    #[tokio::test]
+    async fn exchange_store_keeps_receiving_updates_via_client_owned_pump() {
+        let (ws_url, feed_tx) = spawn_exchange_feed_ws_server().await;
+        let client = PhoenixWSClient::new(&ws_url).expect("ws client should build");
+        let initial_root = Pubkey::new_unique();
+        let rotated_root = Pubkey::new_unique();
+        feed_tx
+            .send(exchange_snapshot_json(10, &initial_root))
+            .expect("feed channel should accept the snapshot");
+
+        let store = tokio::time::timeout(Duration::from_secs(5), client.exchange_store())
+            .await
+            .expect("exchange_store should resolve once the snapshot arrives")
+            .expect("exchange_store should succeed");
+        assert_eq!(store.root_authority(), Some(initial_root));
+
+        // The pump owned by the client keeps applying deltas after
+        // `exchange_store()` returned; no guard for the caller to hold.
+        feed_tx
+            .send(exchange_keys_delta_json(11, &rotated_root))
+            .expect("feed channel should accept the delta");
+
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                if store.root_authority() == Some(rotated_root) {
+                    return;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("store should observe the rotated root authority");
+    }
+
+    fn test_exchange_state_snapshot(
+        root_authority: &Pubkey,
+    ) -> phoenix_rise_types::prelude::ExchangeStateSnapshot {
+        phoenix_rise_types::prelude::ExchangeStateSnapshot {
+            program_id: "program".to_string(),
+            global_config: "global-config".to_string(),
+            current_authorities: phoenix_rise_types::prelude::AuthoritySet {
+                root_authority: root_authority.to_string(),
+                risk_authority: "risk".to_string(),
+                market_authority: "market".to_string(),
+                oracle_authority: "oracle".to_string(),
+                adl_authority: "adl".to_string(),
+                cancel_authority: "cancel".to_string(),
+                backstop_authority: "backstop".to_string(),
+            },
+            canonical_mint: "canonical".to_string(),
+            usdc_mint: "usdc".to_string(),
+            global_vault: "vault".to_string(),
+            perp_asset_map: "perp-map".to_string(),
+            global_trader_index: vec!["gti-0".to_string()],
+            active_trader_buffer: vec!["atb-0".to_string()],
+            withdraw_queue: "withdraw-queue".to_string(),
+            exchange_status_bits: 129,
+            exchange_status_features: vec!["initialized".to_string(), "active".to_string()],
+            active: true,
+            gated: false,
+            withdrawals_available: true,
+        }
+    }
+
+    fn exchange_snapshot_json(sequence_number: u64, root_authority: &Pubkey) -> String {
+        let message = ServerMessage::Exchange(ExchangeMessage::Snapshot(Box::new(
+            phoenix_rise_types::prelude::ExchangeSnapshotMessage {
+                version: 1,
+                sequence_number: sequence_number.into(),
+                slot: 1,
+                slot_index: 0,
+                reason: phoenix_rise_types::exchange_ws::ExchangeSnapshotReason::Snapshot,
+                exchange: test_exchange_state_snapshot(root_authority),
+                markets: Vec::new(),
+                spot_collaterals: Vec::new(),
+            },
+        )));
+        serde_json::to_string(&message).expect("snapshot message should serialize")
+    }
+
+    fn exchange_keys_delta_json(sequence_number: u64, root_authority: &Pubkey) -> String {
+        let message = ServerMessage::Exchange(ExchangeMessage::Delta(
+            phoenix_rise_types::prelude::ExchangeDeltaMessage {
+                version: 1,
+                sequence_number: sequence_number.into(),
+                slot: 2,
+                slot_index: 0,
+                ops: vec![
+                    phoenix_rise_types::prelude::ExchangeDeltaOp::ExchangeKeysUpdated {
+                        exchange: test_exchange_state_snapshot(root_authority),
+                    },
+                ],
+            },
+        ));
+        serde_json::to_string(&message).expect("delta message should serialize")
+    }
+
+    /// WebSocket server that accepts one connection, waits for the client's
+    /// exchange subscribe message, then forwards every JSON string pushed to
+    /// the returned sender as a text frame.
+    async fn spawn_exchange_feed_ws_server() -> (String, mpsc::UnboundedSender<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("ws listener should bind");
+        let addr = listener.local_addr().expect("ws addr should exist");
+        let (feed_tx, mut feed_rx) = mpsc::unbounded_channel::<String>();
+        tokio::spawn(async move {
+            let Ok((stream, _)) = listener.accept().await else {
+                return;
+            };
+            let Ok(mut websocket) = tokio_tungstenite::accept_async(stream).await else {
+                return;
+            };
+            // Wait for the exchange subscribe before feeding messages.
+            if websocket.next().await.is_none() {
+                return;
+            }
+            while let Some(json) = feed_rx.recv().await {
+                if websocket
+                    .send(Message::Text(Utf8Bytes::from(json)))
+                    .await
+                    .is_err()
+                {
+                    return;
+                }
+            }
+        });
+        (format!("ws://{addr}/v1/ws"), feed_tx)
+    }
+
     #[cfg(feature = "opentelemetry")]
     #[test]
     fn inject_trace_headers_from_context_includes_traceparent() {

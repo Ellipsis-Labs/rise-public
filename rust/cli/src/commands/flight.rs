@@ -3,7 +3,7 @@ use std::error::Error;
 use clap::{Args, Subcommand};
 use phoenix_rise::core::{PhoenixMetadata, PhoenixTxBuilder, TraderKey};
 use phoenix_rise::ix::claim_fees::{ClaimFeesParams, create_claim_fees_ix};
-use phoenix_rise::ix::constants::{USDC_MINT, get_associated_token_address};
+use phoenix_rise::ix::constants::{get_associated_token_address, usdc_mint};
 use phoenix_rise::ix::discriminants::FlightAccount;
 use phoenix_rise::ix::flight::{
     RegisterBuilderParams, UpdateFeeParams, create_register_builder_ix, create_update_fee_ix,
@@ -326,7 +326,7 @@ async fn withdraw_collateral(
     let builder = PhoenixTxBuilder::new(&metadata);
     let instructions =
         builder.build_withdraw_funds_base_units(authority, trader_account, amount)?;
-    let destination_usdc_account = get_associated_token_address(&authority, &USDC_MINT)?;
+    let destination_usdc_account = get_associated_token_address(&authority, &usdc_mint())?;
 
     print_flight_bundle(
         "withdrawCollateral",

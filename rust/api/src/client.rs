@@ -87,11 +87,27 @@ impl PhoenixClient {
         env: PhoenixEnv,
         http_client: PhoenixHttpClient,
     ) -> Result<Self, PhoenixClientError> {
-        let exchange_response = http_client
-            .get_exchange()
-            .await
-            .map_err(PhoenixClientError::Http)?;
-        let metadata = PhoenixMetadata::new(exchange_response.into());
+        let (exchange_response, spot_collaterals) = tokio::join!(
+            http_client.get_exchange(),
+            http_client.get_spot_collaterals(),
+        );
+        let exchange_response = exchange_response.map_err(PhoenixClientError::Http)?;
+        let mut metadata = PhoenixMetadata::new(exchange_response.into());
+        // Servers that predate `/v1/collateral/assets` have no spot collateral
+        // to value, so a failed fetch degrades to empty params (spot valued at
+        // zero — the feature's fail-open-to-under-valuation rule) instead of
+        // failing client construction. A *successful* response that cannot be
+        // mapped still fails: that is a live server contradicting itself.
+        match spot_collaterals {
+            Ok(spot_collaterals) => {
+                metadata
+                    .apply_spot_collaterals(spot_collaterals)
+                    .map_err(PhoenixClientError::Metadata)?;
+            }
+            Err(err) => {
+                warn!("Failed to fetch spot collaterals; valuing them at zero: {err}");
+            }
+        }
 
         let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
         let (connection_status_tx, connection_status_rx) = watch::channel(
@@ -326,7 +342,7 @@ impl PhoenixClient {
 
                     ws_message = ws_streams.next(), if !ws_streams.is_empty() => {
                         if let Some((key, message)) = ws_message {
-                            let stale = Self::handle_ws_message(
+                            let (stale, spot_collaterals_changed) = Self::handle_ws_message(
                                 &key,
                                 message,
                                 &mut runtime_state,
@@ -344,6 +360,24 @@ impl PhoenixClient {
 
                                 for key in deactivated {
                                     Self::close_dependency(&key, &mut ws_handles, &mut ws_streams);
+                                }
+                            }
+
+                            if spot_collaterals_changed {
+                                for key in Self::add_spot_collateral_dependencies(
+                                    &runtime_state.metadata,
+                                    &mut logical_subscriptions,
+                                    &mut subscribers_by_key,
+                                    &mut dependency_refcounts,
+                                ) {
+                                    if let Err(e) = Self::open_dependency(
+                                        &ws_client,
+                                        &key,
+                                        &mut ws_handles,
+                                        &mut ws_streams,
+                                    ) {
+                                        warn!("Failed to open subscription {:?}: {:?}", key, e);
+                                    }
                                 }
                             }
                         }
@@ -619,6 +653,7 @@ impl PhoenixClient {
                 ..
             } => {
                 dependencies.insert(SubscriptionKey::trader(authority, *trader_pda_index));
+                dependencies.insert(SubscriptionKey::exchange());
 
                 if market_symbols.is_empty() {
                     for symbol in metadata.exchange().markets.keys() {
@@ -629,10 +664,56 @@ impl PhoenixClient {
                         dependencies.insert(SubscriptionKey::market(symbol.to_ascii_uppercase()));
                     }
                 }
+
+                for symbol in metadata.collateral_pricing_symbols() {
+                    dependencies.insert(SubscriptionKey::market(symbol.to_ascii_uppercase()));
+                }
             }
         }
 
         dependencies
+    }
+
+    /// Add dependencies introduced by live metadata without churning existing
+    /// streams. Spot collateral activation can require a pricing market that
+    /// was not part of a margin subscription at startup.
+    fn add_spot_collateral_dependencies(
+        metadata: &PhoenixMetadata,
+        logical_subscriptions: &mut HashMap<ClientSubscriptionId, LogicalSubscription>,
+        subscribers_by_key: &mut HashMap<SubscriptionKey, HashSet<ClientSubscriptionId>>,
+        dependency_refcounts: &mut HashMap<SubscriptionKey, usize>,
+    ) -> Vec<SubscriptionKey> {
+        let pricing_dependencies = metadata
+            .collateral_pricing_symbols()
+            .map(|symbol| SubscriptionKey::market(symbol.to_ascii_uppercase()))
+            .collect::<Vec<_>>();
+        let mut activated = Vec::new();
+
+        for (subscription_id, logical) in logical_subscriptions.iter_mut() {
+            if !matches!(
+                logical.subscription,
+                PhoenixSubscription::TraderMargin { .. }
+            ) {
+                continue;
+            }
+
+            for key in &pricing_dependencies {
+                if !logical.dependencies.insert(key.clone()) {
+                    continue;
+                }
+                subscribers_by_key
+                    .entry(key.clone())
+                    .or_default()
+                    .insert(*subscription_id);
+                let count = dependency_refcounts.entry(key.clone()).or_default();
+                *count += 1;
+                if *count == 1 {
+                    activated.push(key.clone());
+                }
+            }
+        }
+
+        activated
     }
 
     fn open_dependency(
@@ -736,6 +817,16 @@ impl PhoenixClient {
                         .boxed(),
                 );
             }
+            SubscriptionKey::Exchange => {
+                let (rx, handle) = ws_client.subscribe_to_exchange()?;
+                ws_handles.insert(key.clone(), handle);
+                ws_streams.insert(
+                    key.clone(),
+                    UnboundedReceiverStream::new(rx)
+                        .map(ServerMessage::Exchange)
+                        .boxed(),
+                );
+            }
         }
 
         Ok(())
@@ -756,8 +847,9 @@ impl PhoenixClient {
         runtime_state: &mut RuntimeState,
         logical_subscriptions: &mut HashMap<ClientSubscriptionId, LogicalSubscription>,
         subscribers_by_key: &HashMap<SubscriptionKey, HashSet<ClientSubscriptionId>>,
-    ) -> Vec<ClientSubscriptionId> {
+    ) -> (Vec<ClientSubscriptionId>, bool) {
         let mut stale = Vec::new();
+        let mut spot_collaterals_changed = false;
 
         match message {
             ServerMessage::Market(update) => {
@@ -825,14 +917,14 @@ impl PhoenixClient {
                             Ok(authority) => authority,
                             Err(e) => {
                                 warn!("Invalid trader authority {}: {}", authority, e);
-                                return stale;
+                                return (stale, spot_collaterals_changed);
                             }
                         };
                         SubscriptionKey::trader(&authority_pubkey, *trader_pda_index)
                     }
                     _ => {
                         warn!("Received trader message for non-trader key: {:?}", key);
-                        return stale;
+                        return (stale, spot_collaterals_changed);
                     }
                 };
 
@@ -850,7 +942,7 @@ impl PhoenixClient {
                     Ok(authority) => authority,
                     Err(e) => {
                         warn!("Invalid trader authority {}: {}", authority, e);
-                        return stale;
+                        return (stale, spot_collaterals_changed);
                     }
                 };
 
@@ -919,7 +1011,7 @@ impl PhoenixClient {
                     SubscriptionKey::Candles { symbol, timeframe } => (symbol.clone(), *timeframe),
                     _ => {
                         warn!("Received candle message for non-candle key: {:?}", key);
-                        return stale;
+                        return (stale, spot_collaterals_changed);
                     }
                 };
 
@@ -954,12 +1046,31 @@ impl PhoenixClient {
                     subscribers_by_key,
                 ));
             }
+            ServerMessage::Exchange(message) => {
+                match runtime_state.metadata.apply_exchange_message(message) {
+                    Ok(true) => {
+                        spot_collaterals_changed = true;
+                        stale.extend(Self::dispatch_margin_events(
+                            key,
+                            MarginTrigger::SpotCollateralsUpdated,
+                            None,
+                            runtime_state,
+                            logical_subscriptions,
+                            subscribers_by_key,
+                        ));
+                    }
+                    Ok(false) => {}
+                    Err(error) => {
+                        warn!("Failed to apply spot collateral update: {}", error);
+                    }
+                }
+            }
             ServerMessage::Error(_)
             | ServerMessage::SubscriptionStatus(_)
             | ServerMessage::Other => {}
         }
 
-        stale
+        (stale, spot_collaterals_changed)
     }
 
     fn dispatch_raw_event(
@@ -1030,8 +1141,8 @@ impl PhoenixClient {
                 .and_then(|trader| trader.subaccount(*subaccount_index))
                 .and_then(|subaccount| {
                     subaccount
-                        .to_trader_portfolio()
-                        .compute_margin(runtime_state.metadata.all_perp_asset_metadata())
+                        .to_trader_portfolio_with_metadata(&runtime_state.metadata)
+                        .compute_margin(&runtime_state.metadata)
                         .ok()
                 });
 
