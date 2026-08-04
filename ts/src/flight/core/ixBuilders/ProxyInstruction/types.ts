@@ -8,6 +8,17 @@ export interface ProxyInstructionParams extends ResolveFlightInstructionAddresse
   builderTraderAccount: TraderAddress;
   traderWallet: Authority;
   feeBpsOverride?: bigint | null;
+  /**
+   * Phoenix root authority used to derive the collateral-transfer permission
+   * account; set iff the signer is a position authority — presence appends
+   * the collateral-transfer tail accounts. This is the single source of
+   * truth for the tail (never inferred from the inner instruction): leave it
+   * unset for owner-signed orders — including owner-signed
+   * `PlaceMarketOrderDelegated`, which Flight detects on-chain and settles
+   * via the plain transfer — because the tail write-locks a global
+   * permission account.
+   */
+  rootAuthority?: Authority;
   innerInstruction: InstructionsWithAccountsAndData;
 }
 

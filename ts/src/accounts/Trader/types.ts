@@ -18,6 +18,7 @@ export interface Trader {
   traderPreferenceFlags: TraderPreferenceFlags;
   preferences: TraderPreferences;
   disableCollateralSweep: boolean;
+  disablePositionAuthoritySwap: boolean;
   positionAuthority: Authority;
   numMarketsWithSplines: number;
   traderPdaIndex: number;
@@ -27,4 +28,5 @@ export interface Trader {
   conditionalOrderBits: number[];
   occupiedConditionalOrderIndices: number[];
   positions: ShortEntries<bigint, TraderPosition>;
+  nativeSolCollateral: bigint;
 }

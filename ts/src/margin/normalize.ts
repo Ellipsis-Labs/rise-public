@@ -12,6 +12,9 @@ export interface NormalizedMarketParams {
   symbol: string;
   assetId: number;
   markPriceTicks: bigint;
+  /** Median-of-oracles index price, when supplied. Values spot collateral;
+   * never falls back to the mark price. */
+  indexPriceTicks?: bigint;
   tickSize: bigint;
   baseLotDecimals: number;
   leverageTiers: LeverageTier[];
@@ -27,7 +30,9 @@ export type NormalizedMarketParamsBySymbol = Record<
   NormalizedMarketParams
 >;
 
-const parseLeverageTiers = (tiers: LeverageTierParams[]): LeverageTier[] =>
+const parseLeverageTiers = (
+  tiers: readonly LeverageTierParams[]
+): LeverageTier[] =>
   tiers.map((tier) => ({
     upperBoundSize: toBigInt(tier.upperBoundSize),
     maxLeverage: toBigInt(tier.maxLeverage),
@@ -40,6 +45,10 @@ export const normalizeMarketParams = (
   symbol: market.symbol,
   assetId: market.assetId,
   markPriceTicks: toBigInt(market.markPriceTicks),
+  indexPriceTicks:
+    market.indexPriceTicks === undefined
+      ? undefined
+      : toBigInt(market.indexPriceTicks),
   tickSize: toBigInt(market.tickSize),
   baseLotDecimals: market.baseLotDecimals,
   leverageTiers: parseLeverageTiers(market.leverageTiers),
@@ -61,7 +70,7 @@ export const normalizeMarketParams = (
 });
 
 export const buildNormalizedMarketParamsBySymbol = (
-  markets: MarketParams[]
+  markets: readonly MarketParams[]
 ): NormalizedMarketParamsBySymbol => {
   const map: NormalizedMarketParamsBySymbol = {};
   for (const market of markets) {

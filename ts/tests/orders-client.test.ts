@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PlaceAttachedConditionalOrderRequestSchema,
   PlaceIsolatedLimitOrderWithConditionalsRequestSchema,
+  PlaceIsolatedMarketOrderRequestSchema,
   PlacePositionConditionalOrderRequestSchema,
 } from "@/api/orders";
 import { PhoenixHttpClient } from "@/index";
@@ -282,5 +283,35 @@ describe("conditional order request schemas", () => {
         greaterTrigger: trigger,
       }).success
     ).toBe(true);
+  });
+});
+
+describe("isolated market order request schema", () => {
+  const baseRequest = {
+    authority: "authority",
+    symbol: "SOL-PERP",
+    side: "buy",
+    numBaseLots: 25,
+  };
+
+  it("accepts a positive minimum fill and preserves omission for FOK defaults", () => {
+    expect(
+      PlaceIsolatedMarketOrderRequestSchema.parse({
+        ...baseRequest,
+        minBaseLotsToFill: 1,
+      }).minBaseLotsToFill
+    ).toBe(1);
+    expect(
+      PlaceIsolatedMarketOrderRequestSchema.parse(baseRequest).minBaseLotsToFill
+    ).toBeUndefined();
+  });
+
+  it("accepts a zero minimum fill", () => {
+    expect(
+      PlaceIsolatedMarketOrderRequestSchema.parse({
+        ...baseRequest,
+        minBaseLotsToFill: 0,
+      }).minBaseLotsToFill
+    ).toBe(0);
   });
 });
