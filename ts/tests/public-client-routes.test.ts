@@ -660,6 +660,50 @@ describe("public client route mapping", () => {
           ],
         ],
         [
+          "/v1/traders/trader-pubkey/time-weighted-returns",
+          {
+            method: "time_weighted",
+            scope: {
+              traderPubkey: "trader-pubkey",
+              userId: "9007199254740993",
+              traderPdaIndex: 0,
+            },
+            valuationIntervalSeconds: 600,
+            exactFlowBoundaryValuations: false,
+            totalReturn: 0.1,
+            returnStartTime: "1",
+            equityDefinition: "economic equity",
+            window: {
+              requestedStartTime: "1",
+              requestedEndTime: "2",
+              calculationEndTime: "2",
+              dataStartTime: "1",
+              dataEndTime: "2",
+              truncatedByLimit: false,
+            },
+            points: [
+              {
+                timestamp: "2",
+                startTime: "1",
+                endTime: "1",
+                periodReturn: 0.1,
+                cumulativeReturn: 0.1,
+                netExternalFlow: null,
+                qualityFlags: [],
+              },
+            ],
+            quality: {
+              coverageStart: "1",
+              coverageEnd: "2",
+              requestedStartCovered: true,
+              containsGaps: false,
+              resetCount: "18446744073709551615",
+              refreshedAt: "2",
+              completeness: "complete",
+            },
+          },
+        ],
+        [
           "/v1/traders/trader-pubkey/pnl",
           [
             {
@@ -866,6 +910,12 @@ describe("public client route mapping", () => {
       resolution: "1h",
       limit: 10,
     });
+    await traders.getTraderTimeWeightedReturns("trader-pubkey", {
+      resolution: "1d",
+      startTime: 1_767_225_600_000,
+      endTime: 1_785_456_000_000,
+      limit: 400,
+    });
     await traders.getTraderPnlValues("trader-pubkey", {
       resolution: "1h",
       limit: 10,
@@ -1052,6 +1102,17 @@ describe("public client route mapping", () => {
         method: "GET",
         endpoint: "/v1/traders/trader-pubkey/portfolio-values",
         params: { resolution: "1h", limit: 10 },
+        body: undefined,
+      },
+      {
+        method: "GET",
+        endpoint: "/v1/traders/trader-pubkey/time-weighted-returns",
+        params: {
+          resolution: "1d",
+          startTime: 1_767_225_600_000,
+          endTime: 1_785_456_000_000,
+          limit: 400,
+        },
         body: undefined,
       },
       {

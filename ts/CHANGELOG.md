@@ -3,6 +3,31 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.3 - 2026-08-04
+
+Source Phoenix commit: `19f87e1e6e19bf4ad42ce4e9489a8cad4fde0bcc`
+
+### Summary
+
+- Adds native SOL spot collateral support: new `SpotCollateralMetadata` account decoding, `GlobalConfiguration.nativeSolSpotMetadata`, `Trader.nativeSolCollateral`, and a full `NativeSol` instruction builder set (`buildSyncNativeIx`, `buildWithdrawNativeSolIx`, `buildSwapNativeIx`, `buildTransferNativeSolIx`, `buildLiquidateNativeSolIx`, etc.).
+- Adds spot collateral margin valuation (`margin/spotCollateral.ts`) and draft-order helpers (`computeDraftOrderMarginRequirementFrom*`, `computeMaxDraftOrderSizeForAvailableMarginFrom*`); `createMarginCalculator` now accepts an optional spot collateral params argument.
+- Adds a `/v1/collateral/assets` client (`V1CollateralClient.getAssets`) and propagates `spotCollaterals` through exchange snapshots, WS deltas, and trader-state streams.
+- Adds `buildFlameAtomicDepositFlow` and `buildFlameDepositToPhoenixIx` for sponsor-cranked atomic deposits, plus a new `DEPOSIT_PERMISSION` constant.
+- Adds `getTraderTimeWeightedReturns` and optional `minBaseLotsToFill`/`minQuoteLotsToFill` fields on isolated market order requests.
+
+### Breaking Changes
+
+- `wrapInstructionWithFlight` renamed its `authority` param to `signer` and now requires callers to explicitly pass `usePositionAuthority`/declare a `rootAuthority` to get the collateral-transfer fee tail — it is no longer inferred, so existing position-authority-signed integrations must be updated or they will silently stop collecting the builder fee.
+- `PhoenixFlightClient.tryWrapFlightInstruction` was renamed to `tryWrapOrderInstruction`.
+- `PhoenixIxOperationContext.maybeWrapOrderIx` signature changed from `(instruction, authority)` to `(instruction, signer, usePositionAuthority?)`, and a new required `maybeWrapConditionalOrderIx` method was added to the context interface — custom implementations of this context type will fail to compile.
+- `GlobalConfiguration` and `Trader` decoded account types gained new required fields (`nativeSolSpotMetadata`, `nativeSolCollateral`, `disablePositionAuthoritySwap`) — any code that constructs these types as literals (e.g. in tests/mocks) needs updating.
+
+### Consumer Notes
+
+- `ClientPlaceMarketOrderDelegatedInput.traderWallet` is deprecated in favor of `positionAuthority`, the shared spelling for the delegated signer across placement inputs.
+- New trader preference bit `disablePositionAuthoritySwap` (bit 1) is distinct from the exchange-wide `SPOT_COLLATERAL_FLAG_DISABLE_POSITION_AUTHORITY_SWAP` — do not conflate the two when checking swap eligibility.
+- Dependency overrides bumped: `brace-expansion` to `>=5.0.9`, `postcss` to `>=8.5.23`, and `undici` pinned to `^7.29.0`.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`
