@@ -255,6 +255,15 @@ pub enum AdminParameterUpdateKind {
         previous: FeatureSet,
         new: FeatureSet,
     },
+    /// Spot collateral configuration changed (`ConfigureNativeSol` /
+    /// `ActivateNativeSol`). Audit record of the full per-asset metadata,
+    /// including the `is_active` flag.
+    SpotCollateralConfig {
+        /// Position-map key of the spot asset.
+        asset_index: u32,
+        previous: SpotCollateralMetadata,
+        new: SpotCollateralMetadata,
+    },
 }
 
 impl fmt::Display for AdminParameterUpdateKind {
@@ -324,6 +333,16 @@ impl fmt::Display for AdminParameterUpdateKind {
                     "FeatureSet(0b{:08b} -> 0b{:08b})",
                     previous.bits(),
                     new.bits()
+                )
+            }
+            Self::SpotCollateralConfig {
+                asset_index,
+                previous,
+                new,
+            } => {
+                write!(
+                    f,
+                    "SpotCollateralConfig(asset_index={asset_index}, {previous:?} -> {new:?})"
                 )
             }
         }

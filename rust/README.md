@@ -118,9 +118,54 @@ metadata rather than server-assisted order helpers.
 
 ### `PhoenixFlightClient`
 
-Use this when you want to wrap supported Phoenix placement instructions through
-Flight. Use `try_wrap_order_instruction_with_fee_bps_override(...)` when a
-specific wrapped order should use Flight's `proxy_instruction_with_fee_override`
+Use this when you want to wrap supported Phoenix placement instructions
+through Flight with `try_wrap_order_instruction(ix, signer,
+use_position_authority)`. The `use_position_authority` flag declares the
+signer kind and is the one rule deciding the collateral-transfer tail — never
+the wrapped instruction's discriminant. Set it iff `signer` is the trader's
+position authority (a delegate key) rather than the owner, i.e.
+`position_authority.is_some_and(|pa| pa != owner)`; owner-signed orders
+(including owner-signed `PlaceMarketOrderDelegated`) leave it `false` and
+carry no tail. Position-authority wraps append the collateral-transfer
+accounts, with the permission PDA derived from the current Phoenix root
+authority.
+
+The root authority comes from a single source: a `SharedExchangeCacheStore`
+passed to `PhoenixFlightClient::from_exchange_store(...)`. It is re-resolved
+from the store at wrap time, so on-chain root-authority rotations are picked
+up automatically. Obtain the store from the websocket client:
+
+```rust
+let ws = PhoenixWSClient::new_from_env()?;
+// Resolves once the first snapshot is applied; the client owns the
+// subscription pump, so keep `ws` alive — dropping it stops updates.
+let exchange_store = ws.exchange_store().await?;
+let flight = PhoenixFlightClient::from_exchange_store(
+    builder_authority,
+    builder_pda_index,
+    builder_subaccount_index,
+    exchange_store,
+);
+```
+
+`exchange_store()` is memoized: repeated calls return the same store backed
+by a single exchange subscription, and there is no pump guard to hold or
+forget. It has no internal timeout — wrap it in `tokio::time::timeout` if
+the first snapshot may never arrive. The advanced path for custom stores is
+manual construction (`SharedExchangeCacheStore::new(snapshot)` seeded from
+`PhoenixHttpClient::get_exchange_snapshot()`, or
+`SharedExchangeCacheStore::new_empty()`) fed via
+`PhoenixWSClient::subscribe_to_exchange_cache`, whose pump handle you must
+keep alive yourself. Clients built with `PhoenixFlightClient::new(...)`
+carry no store, and position-authority wraps fail with
+`MissingRootAuthority`.
+
+Builder fee overrides come in two modes: configure a client-level default
+with `with_fee_bps_override(...)`, applied by every
+`try_wrap_order_instruction` call, or pass a per-call override to
+`try_wrap_order_instruction_with_fee_bps_override(...)`, whose explicit
+argument wins over the client-level configuration for that call. Either mode
+wraps routable orders in Flight's `proxy_instruction_with_fee_override`
 variant instead of the builder's registered fee.
 
 > **Use embedded wallets for Flight integrations.** Integrators are strongly

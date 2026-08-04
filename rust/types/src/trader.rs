@@ -56,13 +56,29 @@ pub struct TraderStateDelta {
 // Subaccount Types
 // ============================================================================
 
+/// Raw spot collateral balance row (native units, no valuation). The list is
+/// always the complete current set for the subaccount; an empty list means no
+/// spot collateral.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraderStateSpotCollateralSnapshot {
+    pub asset_index: u32,
+    pub symbol: String,
+    /// Balance in the asset's native units (lamports for SOL), as a decimal
+    /// integer string.
+    pub balance: String,
+}
+
 /// Complete subaccount view contained in a snapshot.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TraderStateSubaccountSnapshot {
     pub subaccount_index: u8,
     pub sequence: u64,
+    /// Quote collateral balance.
     pub collateral: String,
+    #[serde(default)]
+    pub spot_collaterals: Vec<TraderStateSpotCollateralSnapshot>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<TraderStateCapabilities>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -81,7 +97,10 @@ pub struct TraderStateSubaccountSnapshot {
 pub struct TraderStateSubaccountDelta {
     pub subaccount_index: u8,
     pub sequence: u64,
+    /// Quote collateral balance. Carries the full current value, not a diff.
     pub collateral: String,
+    #[serde(default)]
+    pub spot_collaterals: Vec<TraderStateSpotCollateralSnapshot>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<TraderStateCapabilities>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

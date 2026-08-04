@@ -3,6 +3,32 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.0 - 2026-08-04
+
+Source Phoenix commit: `72cb240e31283f3518f5f5f9ee4f2a64bfd89be2`
+
+### Summary
+
+This release adds native SOL spot collateral support across `accounts`, `ix`, `math`, `events`, `api`, and `types`, plus a Flight collateral-transfer path for position-authority-signed orders. It also reworks Flight's `PhoenixFlightClient`, extends the WebSocket exchange channel with a spot-collateral feed, and adds a builder-fee collateral-transfer instruction (`AuthorizedTransferCollateral`).
+
+### Breaking Changes
+
+- `PhoenixFlightClient::try_wrap_order_instruction` (and the fee-override variant) now take an additional `use_position_authority: bool` argument; all call sites must be updated. Set it `true` only when the signer is the trader's position authority (a delegate key), not the owner.
+- `RiskAction::Withdrawal` is replaced by `RiskAction::WithdrawQuoteCollateral` and `RiskAction::WithdrawSpotCollateral`; any exhaustive match on `RiskAction` needs updating, and `RiskAction::ADL` is now `#[deprecated]`.
+- `ScalarBounds::lower_bound()` / `upper_bound()` now return `Self` instead of the inner numeric type.
+- `ExchangeSnapshotMessage` dropped its `channel: String` field and is now delivered inside the new `ExchangeMessage` enum (`Snapshot` / `EncodedSnapshot` / `Delta`) on the WS `exchange` channel; struct literals and match arms must be updated.
+- `MarginTrigger` and `PhoenixClientError` each gained a new variant (`SpotCollateralsUpdated`, `Metadata`); exhaustive matches on either will need a new arm.
+- `TraderStateSubaccountSnapshot` and `TraderStateSubaccountDelta` gained a `spot_collaterals` field; struct literals built by hand (not via `serde`) must supply it.
+- `PhoenixWSClient` / `PhoenixFlightClient` construction changed: `PhoenixFlightClient` is no longer `Copy` (now holds an `Option<SharedExchangeCacheStore>` and fee override), and position-authority wraps require a populated exchange store or they fail with `PhoenixIxError::MissingRootAuthority`.
+
+### Consumer Notes
+
+- New native SOL collateral instructions (`sync_native`, `withdraw_native_sol`, `transfer_native_sol`, `transfer_native_sol_from_child_to_parent`, `liquidate_native_sol`, `swap_native`) and matching `MarketEvent` variants (`SpotCollateralDeposited/Withdrawn/Liquidated`); admin config changes surface via `AdminParameterUpdateKind::SpotCollateralConfig`.
+- New `/v1/collateral/assets` HTTP route (`CollateralClient::get_assets`) and `PhoenixClient` now fetches it on construction, valuing spot collateral at zero if the server predates the endpoint rather than failing.
+- `Trader`/`TraderView`/`GlobalConfiguration` gained additive fields (`native_sol_collateral`, `spot_collaterals`, `native_sol_spot_metadata`, `disable_position_authority_swap`) — existing deserializers using `#[serde(default)]` continue to decode older payloads.
+- Prefer the new `usdc_mint()` helper (env-aware, supports `PHOENIX_ENV=beta`) over the `USDC_MINT` constant, which remains for mainnet-only use.
+- New `AuthorizedTransferCollateral` instruction plus Flight PDAs (`get_flight_collateral_transfer_authority_address`, `get_flight_authorized_collateral_transfer_permission_address`) support builder-fee collection on position-authority-signed orders.
+
 ## v0.3.4 - 2026-07-08
 
 Source Phoenix commit: `6051225fb045fbb5b6a454bd445e7fc2e31e5722`

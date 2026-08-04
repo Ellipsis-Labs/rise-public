@@ -281,6 +281,8 @@ pub struct PlaceIsolatedMarketOrderRequest {
     #[serde(default)]
     pub num_base_lots: Option<u64>,
     #[serde(default)]
+    pub min_base_lots_to_fill: Option<u64>,
+    #[serde(default)]
     pub quantity: Option<f64>,
     #[serde(default)]
     pub transfer_amount: u64,
@@ -327,8 +329,8 @@ mod tests {
     use super::{
         CancelConditionalOrderRequest, CancelStopLossOrderRequest, ConditionalTriggerRequest,
         PlaceAttachedConditionalOrderRequest, PlaceIsolatedLimitOrderWithConditionalsRequest,
-        PlacePositionConditionalOrderRequest, PlaceStopLossOrderRequest,
-        StopLossExecutionDirection, TpSlOrderConfig,
+        PlaceIsolatedMarketOrderRequest, PlacePositionConditionalOrderRequest,
+        PlaceStopLossOrderRequest, StopLossExecutionDirection, TpSlOrderConfig,
     };
 
     #[test]
@@ -383,6 +385,22 @@ mod tests {
         assert_eq!(json["stopLossExecutionPrice"], 89.5);
         assert_eq!(json["orderKind"], "ioc");
         assert!(json.get("tpSl").is_none());
+    }
+
+    #[test]
+    fn isolated_market_order_request_serializes_minimum_fill() {
+        let request = PlaceIsolatedMarketOrderRequest {
+            authority: "11111111111111111111111111111112".to_string(),
+            symbol: "SOL-PERP".to_string(),
+            side: "buy".to_string(),
+            num_base_lots: Some(25),
+            min_base_lots_to_fill: Some(1),
+            ..Default::default()
+        };
+
+        let json = serde_json::to_value(request).unwrap();
+        assert_eq!(json["numBaseLots"], 25);
+        assert_eq!(json["minBaseLotsToFill"], 1);
     }
 
     #[test]

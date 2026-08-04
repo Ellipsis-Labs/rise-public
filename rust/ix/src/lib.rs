@@ -102,6 +102,7 @@ pub mod hawkeye;
 pub mod limit_order;
 pub mod market_order;
 pub mod multi_limit_order;
+pub mod native_sol;
 pub mod onboard_trader_delegated;
 pub mod order_packet;
 pub mod place_stop_loss;
@@ -150,6 +151,7 @@ pub mod prelude {
     pub use super::limit_order::*;
     pub use super::market_order::*;
     pub use super::multi_limit_order::*;
+    pub use super::native_sol::*;
     pub use super::onboard_trader_delegated::*;
     pub use super::order_packet::*;
     pub use super::place_stop_loss::*;
