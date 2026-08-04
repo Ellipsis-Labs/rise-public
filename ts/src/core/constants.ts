@@ -1,5 +1,6 @@
 import type {
   EmberProgramAddress,
+  EmberStateAddress,
   GlobalConfigurationAddress,
   LogAuthorityAddress,
   MintAddress,
@@ -42,6 +43,10 @@ export const EMBER_PROGRAM_ADDRESS = address(
   "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy"
 ) as EmberProgramAddress;
 
+export const EMBER_STATE_ADDRESS = address(
+  "6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz"
+) as EmberStateAddress;
+
 const BETA_PHOENIX_PROGRAM_ADDRESS = address(
   "phDEVv4w6BcfkLrLNeXr8HhhgQxnxziVGXpGPcaadMf"
 ) as PhoenixProgramAddress;
@@ -53,6 +58,14 @@ const BETA_PHOENIX_LOG_AUTHORITY_ADDRESS = address(
 const BETA_PHOENIX_GLOBAL_CONFIGURATION_ADDRESS = address(
   "3CkM38UaZW6nyTJku4ABE5jjS5AComQErrkd55LGTfxa"
 ) as GlobalConfigurationAddress;
+
+export const BETA_USDC_MINT_ADDRESS = address(
+  "DPTSTVhvfzQhY8pAJL5EeqfZxf9aNKTmHErfG4R3Z1SE"
+) as MintAddress;
+
+const BETA_EMBER_STATE_ADDRESS = address(
+  "HVpfk2HMkR85rvaXezoNjXfB5J4ds4PurSfi6n4DPm2Z"
+) as EmberStateAddress;
 
 export interface PhoenixInstructionAddresses {
   programAddress: PhoenixProgramAddress;
@@ -176,6 +189,75 @@ export const resolvePhoenixInstructionAddresses = (
       input.logAuthorityAddress ?? defaults.logAuthorityAddress,
     globalConfigurationAddress:
       input.globalConfigurationAddress ?? defaults.globalConfigurationAddress,
+  };
+};
+
+/**
+ * Full env-resolved address set for constructing a PhoenixInstructionClient's
+ * `addresses`, including the per-environment USDC mint and ember state.
+ * Unlike `resolvePhoenixInstructionAddresses`, this covers every address the
+ * builders read from the client, so a beta client cannot silently fall back
+ * to the mainnet USDC mint.
+ */
+export interface PhoenixBuilderAddressDefaults {
+  phoenixProgramAddress: PhoenixProgramAddress;
+  logAuthorityAddress: LogAuthorityAddress;
+  globalConfigurationAddress: GlobalConfigurationAddress;
+  usdcMintAddress: MintAddress;
+  emberStateAddress: EmberStateAddress;
+}
+
+export interface ResolvePhoenixBuilderAddressesInput extends Partial<PhoenixBuilderAddressDefaults> {
+  phoenixEnv?: string | null;
+}
+
+const PROD_PHOENIX_BUILDER_ADDRESSES: PhoenixBuilderAddressDefaults = {
+  phoenixProgramAddress: PHOENIX_PROGRAM_ADDRESS,
+  logAuthorityAddress: PHOENIX_LOG_AUTHORITY_ADDRESS,
+  globalConfigurationAddress: PHOENIX_GLOBAL_CONFIGURATION_ADDRESS,
+  usdcMintAddress: USDC_MINT_ADDRESS,
+  emberStateAddress: EMBER_STATE_ADDRESS,
+};
+
+const BETA_PHOENIX_BUILDER_ADDRESSES: PhoenixBuilderAddressDefaults = {
+  phoenixProgramAddress: BETA_PHOENIX_PROGRAM_ADDRESS,
+  logAuthorityAddress: BETA_PHOENIX_LOG_AUTHORITY_ADDRESS,
+  globalConfigurationAddress: BETA_PHOENIX_GLOBAL_CONFIGURATION_ADDRESS,
+  usdcMintAddress: BETA_USDC_MINT_ADDRESS,
+  emberStateAddress: BETA_EMBER_STATE_ADDRESS,
+};
+
+const knownPhoenixBuilderAddresses = (
+  phoenixProgramAddress?: PhoenixProgramAddress
+): PhoenixBuilderAddressDefaults | undefined => {
+  if (!phoenixProgramAddress) return undefined;
+  if (phoenixProgramAddress === BETA_PHOENIX_PROGRAM_ADDRESS) {
+    return BETA_PHOENIX_BUILDER_ADDRESSES;
+  }
+  if (phoenixProgramAddress === PHOENIX_PROGRAM_ADDRESS) {
+    return PROD_PHOENIX_BUILDER_ADDRESSES;
+  }
+  return undefined;
+};
+
+export const resolvePhoenixBuilderAddresses = (
+  input: ResolvePhoenixBuilderAddressesInput = {}
+): PhoenixBuilderAddressDefaults => {
+  const defaults =
+    knownPhoenixBuilderAddresses(input.phoenixProgramAddress) ??
+    (resolvePhoenixEnv(input) === "beta"
+      ? BETA_PHOENIX_BUILDER_ADDRESSES
+      : PROD_PHOENIX_BUILDER_ADDRESSES);
+
+  return {
+    phoenixProgramAddress:
+      input.phoenixProgramAddress ?? defaults.phoenixProgramAddress,
+    logAuthorityAddress:
+      input.logAuthorityAddress ?? defaults.logAuthorityAddress,
+    globalConfigurationAddress:
+      input.globalConfigurationAddress ?? defaults.globalConfigurationAddress,
+    usdcMintAddress: input.usdcMintAddress ?? defaults.usdcMintAddress,
+    emberStateAddress: input.emberStateAddress ?? defaults.emberStateAddress,
   };
 };
 
