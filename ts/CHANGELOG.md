@@ -3,6 +3,31 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.2 - 2026-08-04
+
+Source Phoenix commit: `1a0ff4c19848f92d519f3cb8db7e597a952f165f`
+
+### Summary
+
+- Adds native SOL spot collateral support end-to-end: new account decoding (`SpotCollateralMetadata`, `GlobalConfiguration.nativeSolSpotMetadata`, `Trader.nativeSolCollateral`/`disablePositionAuthoritySwap`), new instruction builders (`SyncNative`, `WithdrawNativeSol`, `TransferNativeSol`, `TransferNativeSolFromChildToParent`, `LiquidateNativeSol`, `SwapNative`), margin valuation (`margin/spotCollateral.ts`), and `spotCollaterals` fields across trader-state, exchange snapshot/cache, and the WS wire protocol.
+- Adds draft-order margin helpers (`computeDraftOrderMarginRequirementFromInputs`/`FromSnapshot`, `computeMaxDraftOrderSizeForAvailableMarginFromInputs`/`FromSnapshot`) for pre-trade margin estimation.
+- Adds a Flight collateral-transfer "tail" so position-authority-signed (delegated) market orders can pay builder fees, plus a new `buildFlameAtomicDepositFlow` for gasless sponsored deposits.
+- Adds new HTTP clients: `getTraderTimeWeightedReturns` and `collateral.getAssets` (`/v1/collateral/assets`).
+- Adds optional `minBaseLotsToFill`/`minQuoteLotsToFill` to isolated market order requests.
+
+### Breaking Changes
+
+- `wrapInstructionWithFlight`'s `authority` parameter is renamed to `signer`, and a new `usePositionAuthority` flag is now required to opt into the collateral-transfer tail — wraps no longer infer this from the wrapped instruction, so any caller passing a delegate/position-authority signer must be updated to pass `usePositionAuthority: true` explicitly or the builder fee will not be collected.
+- `PhoenixFlightClient.tryWrapFlightInstruction` is renamed to `tryWrapOrderInstruction`.
+- `GlobalConfiguration` and `Trader` account types gain new required fields (`nativeSolSpotMetadata`, `disablePositionAuthoritySwap`, `nativeSolCollateral`) — code that constructs these types as literals (e.g. test mocks) must be updated; decoded values from the SDK are unaffected.
+
+### Consumer Notes
+
+- `ClientPlaceMarketOrderDelegatedInput.traderWallet` is deprecated in favor of `positionAuthority`, the shared spelling for the delegated signer across all placement inputs.
+- `createMarginCalculator` accepts an optional second `spotCollaterals` argument — existing single-argument calls are unaffected.
+- `MarketParams`/`NormalizedMarketParams` gain an optional `indexPriceTicks` field used only for spot collateral valuation.
+- Dependency overrides bumped (`brace-expansion` ≥5.0.9, `postcss` ≥8.5.23, `undici` ^7.29.0) for supply-chain hygiene.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`

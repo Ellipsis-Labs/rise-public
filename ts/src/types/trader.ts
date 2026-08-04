@@ -132,6 +132,42 @@ export const TraderCapabilitiesSchema: z.ZodType<TraderCapabilities> = z.object(
   }
 );
 
+/**
+ * A trader's balance in one spot collateral asset, valued for margin.
+ *
+ * Spot collateral is collateral held in an asset other than the quote token;
+ * native SOL is the only one today. `balance` and `withdrawable` are in the
+ * asset's own units (SOL, 9 decimals), while `notional` and `discounted` are
+ * quote units.
+ */
+export interface SpotCollateralBalance {
+  /** Raw asset-index key of the asset in the trader position map. This is not
+   * the perp market asset id. */
+  assetIndex: number;
+  /** Spot asset symbol ("SOL" for native SOL), not the perp market symbol. */
+  symbol: string;
+  /** Balance in the asset's own units. */
+  balance: TokenAmount;
+  /** Balance valued at the index price, undiscounted. */
+  notional: TokenAmount;
+  /** Notional after the margin haircut — this asset's contribution to
+   * effective collateral. */
+  discounted: TokenAmount;
+  /** Maximum balance currently withdrawable while the account stays healthy.
+   * Zero when the account is not currently healthy. Excludes uncounted excess
+   * lamports, which are always withdrawable. */
+  withdrawable: TokenAmount;
+}
+
+export const SpotCollateralBalanceSchema: z.ZodType<SpotCollateralBalance> =
+  z.object({
+    assetIndex: z.number(),
+    symbol: z.string(),
+    balance: TokenAmountSchema,
+    notional: TokenAmountSchema,
+    discounted: TokenAmountSchema,
+    withdrawable: TokenAmountSchema,
+  });
 export interface TraderView {
   flags: number;
   state: string;
@@ -143,6 +179,7 @@ export interface TraderView {
   traderSubaccountIndex: number;
   authority: Authority;
   collateralBalance: TokenAmount;
+  spotCollaterals?: SpotCollateralBalance[];
   effectiveCollateral: TokenAmount;
   effectiveCollateralForWithdrawals: TokenAmount;
   unrealizedPnl: TokenAmount;
@@ -178,6 +215,10 @@ export const TraderViewSchema: z.ZodType<TraderView> = z
     traderSubaccountIndex: z.number(),
     authority: zAuthority,
     collateralBalance: TokenAmountSchema,
+    spotCollaterals: z
+      .array(SpotCollateralBalanceSchema)
+      .optional()
+      .default([]),
     effectiveCollateral: TokenAmountSchema,
     effectiveCollateralForWithdrawals: TokenAmountSchema,
     unsettledFundingOwed: TokenAmountSchema,
