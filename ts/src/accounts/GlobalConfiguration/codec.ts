@@ -9,6 +9,7 @@ import {
   getU8Decoder,
   transformDecoder,
 } from "@solana/kit";
+import { getSpotCollateralMetadataDecoder } from "../SpotCollateralMetadata";
 import type { GlobalConfiguration } from "./types";
 import {
   getFixedArrayDecoder,
@@ -49,13 +50,13 @@ export const getGlobalConfigurationDecoder = (): Decoder<GlobalConfiguration> =>
         ["_padding0", getFixedArrayDecoder(getU8Decoder, 4)],
         ["depositCooldownPeriodInSlots", getU64Decoder()],
         ["pendingAuthorities", getAuthoritySetDecoder()],
-        ["_padding1", getFixedArrayDecoder(getU64Decoder, 31)],
+        ["nativeSolSpotMetadata", getSpotCollateralMetadataDecoder()],
+        ["_padding1", getFixedArrayDecoder(getU64Decoder, 23)],
         ["_padding2", getFixedArrayDecoder(getU64Decoder, 32)],
         ["_padding3", getFixedArrayDecoder(getU64Decoder, 32)],
         ["_padding4", getFixedArrayDecoder(getU64Decoder, 32)],
         ["_padding5", getFixedArrayDecoder(getU64Decoder, 32)],
         ["_padding6", getFixedArrayDecoder(getU64Decoder, 32)],
-        ["_padding7", getFixedArrayDecoder(getU64Decoder, 32)],
       ]),
       [getConstantDecoder(ACCOUNT_DISCRIMINANTS.GLOBAL_CONFIGURATION)]
     ),
@@ -67,7 +68,6 @@ export const getGlobalConfigurationDecoder = (): Decoder<GlobalConfiguration> =>
       _padding4,
       _padding5,
       _padding6,
-      _padding7,
       ...configuration
     }): GlobalConfiguration => configuration
   );

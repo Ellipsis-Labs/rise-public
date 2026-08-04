@@ -326,6 +326,12 @@ USDC from the user's wallet ATA into that proxy ATA. They do not perform the
 Phoenix collateral deposit directly; the Flame crank/indexer completes that
 asynchronously after the proxy account is funded.
 
+For an atomic sponsored deposit, use `buildFlameAtomicDepositFlow`. It adds
+permission setup plus the Flame `DepositToPhoenix` instruction. The user signs
+the deposit permission; the sponsor fee payer cranks the deposit so wallets
+holding no SOL can deposit (the crank fronts rent for the transient proxy
+Phoenix ATA and the same instruction refunds it on close).
+
 `buildDepositFlow` remains the direct Ember + Phoenix deposit path.
 
 ## Sync Order Packet Builders

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PlaceAttachedConditionalOrderRequestSchema,
   PlaceIsolatedLimitOrderWithConditionalsRequestSchema,
+  PlaceIsolatedMarketOrderRequestSchema,
   PlacePositionConditionalOrderRequestSchema,
 } from "@/api/orders";
 import { PhoenixHttpClient } from "@/index";
@@ -282,5 +283,40 @@ describe("conditional order request schemas", () => {
         greaterTrigger: trigger,
       }).success
     ).toBe(true);
+  });
+});
+
+describe("isolated market order request schema", () => {
+  const baseRequest = {
+    authority: "authority",
+    symbol: "SOL-PERP",
+    side: "buy",
+    numBaseLots: 25,
+  };
+
+  it("accepts positive minimum fills and preserves omission for FOK defaults", () => {
+    const parsed = PlaceIsolatedMarketOrderRequestSchema.parse({
+      ...baseRequest,
+      minBaseLotsToFill: 1,
+      minQuoteLotsToFill: 1,
+    });
+
+    expect(parsed.minBaseLotsToFill).toBe(1);
+    expect(parsed.minQuoteLotsToFill).toBe(1);
+
+    const defaulted = PlaceIsolatedMarketOrderRequestSchema.parse(baseRequest);
+    expect(defaulted.minBaseLotsToFill).toBeUndefined();
+    expect(defaulted.minQuoteLotsToFill).toBeUndefined();
+  });
+
+  it("accepts zero base and quote minimums for true IOC orders", () => {
+    const parsed = PlaceIsolatedMarketOrderRequestSchema.parse({
+      ...baseRequest,
+      minBaseLotsToFill: 0,
+      minQuoteLotsToFill: 0,
+    });
+
+    expect(parsed.minBaseLotsToFill).toBe(0);
+    expect(parsed.minQuoteLotsToFill).toBe(0);
   });
 });

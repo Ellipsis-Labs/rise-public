@@ -1,3 +1,4 @@
+import { NATIVE_SOL_ASSET_INDEX as NATIVE_SOL_ASSET_INDEX_NUMBER } from "@/margin/spotCollateral";
 import type {
   Authority,
   MarketAddress,
@@ -57,6 +58,17 @@ export const ORDERBOOK_CAPACITY = 8192;
 export const CONDITIONAL_ORDER_BITS_LEN = 24;
 const TRADER_POSITION_ENTRY_ASSET_INDEX_BOUND = 0xff000000n;
 const TRADER_POSITION_ENTRY_ASSET_INDEX_MASK = 0xffffffffn;
+/**
+ * Asset index of the native SOL spot collateral entry, as the `bigint` the
+ * position-map decoder keys on. Derived from the single authoritative
+ * definition in `margin/spotCollateral.ts` rather than redefined. Entries at
+ * or above `TRADER_POSITION_ENTRY_ASSET_INDEX_BOUND` are header extensions
+ * rather than positions, so this balance is deliberately invisible to
+ * position iteration.
+ */
+export const NATIVE_SOL_ASSET_INDEX: bigint = BigInt(
+  NATIVE_SOL_ASSET_INDEX_NUMBER
+);
 
 export interface SequenceNumber {
   sequenceNumber: bigint;
@@ -650,19 +662,29 @@ export const getTraderPositionDecoder = (): Decoder<TraderPosition> =>
     ["accumulatedFundingForActivePosition", getSignedI56Decoder()],
   ]);
 
-export const getTraderPositionEntriesDecoder = (): Decoder<
-  ShortEntries<bigint, TraderPosition>
-> =>
+/**
+ * Everything the trader position map holds: the positions themselves plus the
+ * header-extension entries that share the map but are not positions.
+ */
+export interface TraderEntries {
+  positions: ShortEntries<bigint, TraderPosition>;
+  /** Accounted native SOL spot collateral, in lamports. */
+  nativeSolCollateral: bigint;
+}
+
+export const getTraderEntriesDecoder = (): Decoder<TraderEntries> =>
   transformDecoder(
     getStructDecoder([
       ["len", getU64Decoder()],
       ["capacity", getU64Decoder()],
       ["data", getBytesDecoder()],
     ]),
-    (shortMap): ShortEntries<bigint, TraderPosition> => {
+    (shortMap): TraderEntries => {
       const entries: Array<{ key: bigint; value: TraderPosition }> = [];
       const assetIdDecoder = getU64Decoder();
       const positionDecoder = getTraderPositionDecoder();
+      const lamportsDecoder = getU64Decoder();
+      let nativeSolCollateral = 0n;
       let offset = 0;
       const buffer = new Uint8Array(
         shortMap.data.buffer,
@@ -676,19 +698,32 @@ export const getTraderPositionEntriesDecoder = (): Decoder<
         const assetIndex = assetId & TRADER_POSITION_ENTRY_ASSET_INDEX_MASK;
         if (assetIndex < TRADER_POSITION_ENTRY_ASSET_INDEX_BOUND) {
           entries.push({ key: assetIndex, value });
-        } else {
-          // Non-position entries share this short map but are not exposed here.
+        } else if (assetIndex === NATIVE_SOL_ASSET_INDEX) {
+          // A header extension, not a position: its 32-byte value shares the
+          // position slot and opens with the lamport balance.
+          [nativeSolCollateral] = lamportsDecoder.read(buffer, afterAssetId);
         }
         offset = afterValue;
       }
 
       return {
-        len: BigInt(entries.length),
-        capacity: shortMap.capacity,
-        entries,
+        positions: {
+          len: BigInt(entries.length),
+          capacity: shortMap.capacity,
+          entries,
+        },
+        nativeSolCollateral,
       };
     }
   );
+
+/**
+ * Positions only. Kept for callers that do not care about header extensions.
+ */
+export const getTraderPositionEntriesDecoder = (): Decoder<
+  ShortEntries<bigint, TraderPosition>
+> =>
+  transformDecoder(getTraderEntriesDecoder(), (entries) => entries.positions);
 
 export const getTicksAtSlotDecoder = (): Decoder<TicksAtSlot> =>
   getStructDecoder([
