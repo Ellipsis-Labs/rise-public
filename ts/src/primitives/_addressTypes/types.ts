@@ -47,6 +47,9 @@ export type GlobalTraderIndexAddressArray = [
 
 export type TokenAccountAddress = Branded<Address, "TokenAccount">;
 export type GlobalVaultAddress = Branded<Address, "GlobalVault">;
+/** PDA that custodies native SOL spot collateral and signs the program's own
+ * withdrawals of it. Seeds: `["native_sol"]`. */
+export type NativeSolAuthorityAddress = Branded<Address, "NativeSolAuthority">;
 export type WithdrawQueueAddress = Branded<Address, "WithdrawQueue">;
 export type EmberStateAddress = Branded<Address, "EmberState">;
 export type EmberVaultAddress = Branded<Address, "EmberVault">;

@@ -3,6 +3,30 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.1 - 2026-08-04
+
+Source Phoenix commit: `5100f32502e7cc3217008f7b99e7038661c32777`
+
+### Summary
+
+- Adds native SOL spot collateral support: new `SpotCollateralMetadata` account type, `GlobalConfiguration.nativeSolSpotMetadata`, new `NativeSol` instruction builders (`SyncNative`, `WithdrawNativeSol`, `TransferNativeSol`, `TransferNativeSolFromChildToParent`, `LiquidateNativeSol`, `SwapNative`), margin valuation helpers (`margin/spotCollateral`), draft-order margin helpers (`margin/draftOrders`), a `/v1/collateral/assets` client, and spot balances on trader-state snapshots/deltas and the exchange cache.
+- Reworks Flight order wrapping: the collateral-transfer tail is now controlled by an explicit position-authority declaration instead of being inferred, and Flight wraps now also cover owner-signed `PlaceMarketOrderDelegated` instructions.
+- Adds a sponsor-funded atomic deposit flow (`buildFlameAtomicDepositFlow`, `buildFlameDepositToPhoenixIx`, `deriveFlameDepositToPhoenixAddresses`) plus new address resolution helpers (`resolvePhoenixBuilderAddresses`, `EMBER_STATE_ADDRESS`, `BETA_USDC_MINT_ADDRESS`).
+- Adds a trader time-weighted-returns endpoint client, an optional `minBaseLotsToFill` on isolated market order requests, and index-price-aware margin calculations (`indexPriceTicks` on market params).
+
+### Breaking Changes
+
+- `wrapInstructionWithFlight` renamed its `authority` parameter to `signer` and now requires callers to explicitly opt in via `usePositionAuthority` (and the resolved Flight `rootAuthority`) to append the collateral-transfer tail; this was previously inferred. `maybeWrapOrderIx` gained a matching `usePositionAuthority` parameter — callers relying on automatic tail inclusion for position-authority signers must update call sites.
+- Flight client method `tryWrapFlightInstruction` was renamed to `tryWrapOrderInstruction`.
+- `GlobalConfiguration.nativeSolSpotMetadata`, `Trader.disablePositionAuthoritySwap`, `Trader.nativeSolCollateral`, and `TraderPreferences.disablePositionAuthoritySwap` are new required fields on previously-stable public types — code that constructs these types directly (mocks/fixtures) needs updating; decoded account values are unaffected.
+- `ClientPlaceMarketOrderDelegatedInput.traderWallet` is now deprecated in favor of `positionAuthority`, which is the shared field name across all placement inputs.
+
+### Consumer Notes
+
+- New trader preference bit `disablePositionAuthoritySwap` lets traders opt out of position-authority-signed `SwapNative`; it occupies a different bit than the exchange-wide `SPOT_COLLATERAL_FLAG_DISABLE_POSITION_AUTHORITY_SWAP` kill switch, so don't share the constant.
+- `createMarginCalculator` and `computeSubaccountLiquidationPricesFromMargin` gained optional trailing parameters (spot collateral params / inputs) — existing call sites remain source-compatible.
+- Dependency overrides bumped: `brace-expansion` to `>=5.0.9`, `postcss` to `>=8.5.23`, and a new `undici` `^7.29.0` override was added.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`
