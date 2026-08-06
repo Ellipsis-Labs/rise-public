@@ -3,6 +3,27 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.3.5 - 2026-07-10
+
+Source Phoenix commit: `3343d458b9162061b4f810408bee2b14bcdf6af0`
+
+```markdown
+### Summary
+
+- `ix`: added `usdc_mint()`, an environment-aware USDC mint resolver that reads `PHOENIX_ENV` once (via `resolve_usdc_mint_for_env`) and returns `BETA_USDC_MINT` when set to `beta`, defaulting to the existing mainnet `USDC_MINT` otherwise.
+- `ix`: added the new `BETA_USDC_MINT` constant for the beta deployment's USDC mint address.
+- `core`, `cli`: internal call sites (`tx_builder`, `flight` command) now resolve the USDC mint via `usdc_mint()` instead of the static `USDC_MINT` constant, so transactions built through these paths follow `PHOENIX_ENV`.
+
+### Breaking Changes
+
+- None identified in the synced diff. `USDC_MINT` remains exported and still resolves to the mainnet address.
+
+### Consumer Notes
+
+- If your process may target the beta deployment, prefer calling `usdc_mint()` over the static `USDC_MINT` constant, and set `PHOENIX_ENV=beta` before first use — the resolved value is cached for the life of the process.
+- No action needed for mainnet-only consumers; behavior and the `USDC_MINT` constant are unchanged.
+```
+
 ## v0.3.4 - 2026-07-08
 
 Source Phoenix commit: `6051225fb045fbb5b6a454bd445e7fc2e31e5722`
