@@ -3,6 +3,30 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.5 - 2026-08-07
+
+Source Phoenix commit: `ed72a550627c627071186971830394234127b4ce`
+
+### Summary
+
+- Adds native SOL spot collateral support: new `GlobalConfiguration.nativeSolSpotMetadata` and `Trader.nativeSolCollateral`/`disablePositionAuthoritySwap` fields, new instruction builders (`SyncNative`, `WithdrawNativeSol`, `TransferNativeSol`, `TransferNativeSolFromChildToParent`, `LiquidateNativeSol`, `SwapNative`), and margin helpers (`margin/spotCollateral`, `margin/draftOrders`) for pricing, discounting, and sizing draft orders against spot collateral.
+- New collateral assets endpoint (`V1CollateralClient.getAssets`) plus matching exchange snapshot/WS delta support (`ExchangeSnapshotView.spotCollaterals`, `SpotCollateralsUpdatedOp`) and trader-state spot collateral balances.
+- New atomic sponsored Flame deposit flow (`buildFlameAtomicDepositFlow`, `buildFlameDepositToPhoenixIx`) for wallets with no SOL, cranked by a sponsor fee payer.
+- Flight order wrapping now supports position-authority (delegate)-signed orders end to end, appending the collateral-transfer tail to collect the builder fee; owner-signed `PlaceMarketOrderDelegated` is now Flight-routable as well.
+- New trader time-weighted returns endpoint (`getTraderTimeWeightedReturns`) and isolated market order minimum-fill fields (`minBaseLotsToFill`, `minQuoteLotsToFill`).
+
+### Breaking Changes
+
+- Flight wrap signature change: `wrapInstructionWithFlight`'s `authority` param is renamed to `signer`, and the low-level client method `tryWrapFlightInstruction` is renamed to `tryWrapOrderInstruction` with a new `usePositionAuthority` flag. Callers of these APIs directly must update call sites.
+- Custom `PhoenixIxOperationContext` implementations must update `maybeWrapOrderIx` to the new `(instruction, signer, usePositionAuthority?)` signature (was `(instruction, authority)`), and add the new required `maybeWrapConditionalOrderIx` method for conditional order wraps.
+- `TraderPreferences`/`TraderPreferenceKind` gains `disablePositionAuthoritySwap` (bit 1), expanding `TRADER_PREFERENCE_VALID_MASK`; code that hardcodes the trader preference bitmask needs updating.
+
+### Consumer Notes
+
+- `ClientPlaceMarketOrderDelegatedInput`'s old dedicated signer field is deprecated in favor of `positionAuthority`, now the shared spelling for the delegated signer across all placement inputs.
+- `createMarginCalculator` takes an optional second `spotCollaterals` argument, and `computeSubaccountLiquidationPricesFromMargin` takes an optional third `inputs` argument — both are additive and backward compatible.
+- New helpers: `getPhoenixNativeSolAuthorityAddress`, `resolvePhoenixBuilderAddresses`, and address constants `EMBER_STATE_ADDRESS`/`BETA_USDC_MINT_ADDRESS` for resolving builder-facing addresses in one call.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`
