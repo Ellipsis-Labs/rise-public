@@ -3,6 +3,12 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.7 - 2026-08-10
+
+Source Phoenix commit: `6826b06a0d967b9b926b6328302508546b62f573`
+
+Ready — what would you like me to do with this repo? If you're working the rise-changelog task, let me know and I'll draft the changelog entry per the skill's output contract.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`
