@@ -3,6 +3,30 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.6 - 2026-08-10
+
+Source Phoenix commit: `cac9d3de728d31bf20f2a9499f03866c305e2958`
+
+### Summary
+
+- Adds native SOL spot collateral support end-to-end: new account fields (`GlobalConfiguration.nativeSolSpotMetadata`, `Trader.nativeSolCollateral`, `Trader.disablePositionAuthoritySwap`), a full `NativeSol` instruction builder set (`buildSyncNativeIx`, `buildWithdrawNativeSolIx`, `buildTransferNativeSolIx`, `buildSwapNativeIx`, `buildLiquidateNativeSolIx`, `buildTransferNativeSolFromChildToParentIx`), margin/liquidation valuation helpers (`spotCollateralPrice`, `notionalSpotCollateral`, `discountedSpotCollateral`, `maxWithdrawableSpotCollateral`), and a `/v1/collateral/assets` client method plus `spotCollaterals` on exchange and trader-state snapshots/deltas.
+- Adds draft-order margin sizing helpers (`computeDraftOrderMarginRequirementFrom{Inputs,Snapshot}`, `computeMaxDraftOrderSizeForAvailableMarginFrom{Inputs,Snapshot}`) and a new `getTraderTimeWeightedReturns` trader API method.
+- Adds a sponsored/atomic Flame deposit flow (`buildFlameAtomicDepositFlow`, `buildFlameDepositToPhoenixIx`) for wallets holding no SOL, plus new address helpers (`EMBER_STATE_ADDRESS`, `BETA_USDC_MINT_ADDRESS`, `resolvePhoenixBuilderAddresses`, `getPhoenixNativeSolAuthorityAddress`).
+- Reworks Flight builder-fee routing for delegate-signed orders: the collateral-transfer tail is now controlled by an explicit flag instead of being inferred, and owner-signed `PlaceMarketOrderDelegated` is now recognized as Flight-routable without the tail.
+
+### Breaking Changes
+
+- `wrapInstructionWithFlight` renamed its `authority` param to `signer` and now requires an explicit `usePositionAuthority` flag to opt into the collateral-transfer tail (previously inferred); the flight client's `tryWrapFlightInstruction` method was renamed to `tryWrapOrderInstruction`. Direct callers of Flight order wrapping must update to the new parameter names/shape.
+- `PhoenixIxOperationContext.maybeWrapOrderIx` gained a required `usePositionAuthority` parameter, with a new separate `maybeWrapConditionalOrderIx` for conditional placements; custom implementations of this interface need updating.
+- `ProxyInstructionParams` no longer infers the collateral-transfer tail from the wrapped instruction — pass the new `rootAuthority` field explicitly when signing as a position authority, or the tail (and its builder-fee collection) is silently omitted.
+
+### Consumer Notes
+
+- `createMarginCalculator` now accepts an optional second `spotCollaterals: SpotCollateralParams[]` argument; existing single-argument calls are unaffected.
+- `ClientPlaceMarketOrderDelegatedInput`'s dedicated signer field is deprecated in favor of the shared `positionAuthority` field used across all placement inputs.
+- New instruction discriminants were added for `AuthorizedTransferCollateral`, `SyncNative`, `WithdrawNativeSol`, `TransferNativeSol`, `TransferNativeSolFromChildToParent`, `LiquidateNativeSol`, `SwapNative`, and `DelegateTrader`.
+- `PlaceIsolatedMarketOrderRequest` gained optional `minBaseLotsToFill`/`minQuoteLotsToFill` fields for partial-fill IOC/market orders.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`

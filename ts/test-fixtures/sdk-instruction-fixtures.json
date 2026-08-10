@@ -294,6 +294,16 @@
     {
       "program": "phoenix-eternal",
       "enumName": "PhoenixInstruction",
+      "instructionName": "AuthorizedTransferCollateral",
+      "snakeCaseName": "authorized_transfer_collateral",
+      "preimage": "global:authorized_transfer_collateral",
+      "tag": "2700316393894958814",
+      "discriminatorHex": "ded6450f74737925",
+      "discriminatorBase64": "3tZFD3RzeSU="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
       "instructionName": "CreateEscrowAccount",
       "snakeCaseName": "create_escrow_account",
       "preimage": "global:create_escrow_account",
@@ -950,6 +960,66 @@
       "tag": "6694341082165942043",
       "discriminatorHex": "1b17ceffbe13e75c",
       "discriminatorBase64": "GxfO/74T51w="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "SyncNative",
+      "snakeCaseName": "sync_native",
+      "preimage": "global:sync_native",
+      "tag": "4689796351568173979",
+      "discriminatorHex": "9bdb2424ef801541",
+      "discriminatorBase64": "m9skJO+AFUE="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "WithdrawNativeSol",
+      "snakeCaseName": "withdraw_native_sol",
+      "preimage": "global:withdraw_native_sol",
+      "tag": "9967816521021089993",
+      "discriminatorHex": "c968bb6950cc548a",
+      "discriminatorBase64": "yWi7aVDMVIo="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "TransferNativeSol",
+      "snakeCaseName": "transfer_native_sol",
+      "preimage": "global:transfer_native_sol",
+      "tag": "18179541001915941324",
+      "discriminatorHex": "cc41d9ce38b44afc",
+      "discriminatorBase64": "zEHZzji0Svw="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "TransferNativeSolFromChildToParent",
+      "snakeCaseName": "transfer_native_sol_from_child_to_parent",
+      "preimage": "global:transfer_native_sol_from_child_to_parent",
+      "tag": "13333033374377422682",
+      "discriminatorHex": "5aaf316a367308b9",
+      "discriminatorBase64": "Wq8xajZzCLk="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "LiquidateNativeSol",
+      "snakeCaseName": "liquidate_native_sol",
+      "preimage": "global:liquidate_native_sol",
+      "tag": "3621169425170902189",
+      "discriminatorHex": "ad2cd10a68fa4032",
+      "discriminatorBase64": "rSzRCmj6QDI="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "SwapNative",
+      "snakeCaseName": "swap_native",
+      "preimage": "global:swap_native",
+      "tag": "16712834585099080536",
+      "discriminatorHex": "5893b1ba81eaefe7",
+      "discriminatorBase64": "WJOxuoHq7+c="
     },
     {
       "program": "phoenix-ember",
