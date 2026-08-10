@@ -6,6 +6,21 @@
  *
  * Run with:
  *   bun examples/06-flight-market-order.ts <BUILDER_AUTHORITY> <TRADER_AUTHORITY> <SYMBOL> <bid|ask> <NUM_BASE_LOTS> [PRICE_LIMIT_TICKS]
+ *
+ * By default the order is owner-signed: TRADER_AUTHORITY is both the trader
+ * account owner and the wallet that signs. To build the delegate-signed
+ * variant instead, set POSITION_AUTHORITY to the delegate wallet:
+ *
+ *   POSITION_AUTHORITY=<DELEGATE_ADDRESS> bun examples/06-flight-market-order.ts ...
+ *
+ * Use it when the transaction is signed by the trader's position authority
+ * (a delegate key the owner authorized on-chain), not by the wallet owner.
+ * The trader account still derives from TRADER_AUTHORITY; passing the
+ * delegate as `positionAuthority` routes the wrap through the Flight
+ * position-authority path, which appends the collateral-transfer tail so the
+ * builder fee can be collected. The permission account in that tail is
+ * derived from the Phoenix root authority, resolved automatically from the
+ * exchange snapshot.
  */
 
 import {
@@ -28,6 +43,10 @@ const [
   numBaseLotsArg,
   priceLimitTicksArg,
 ] = process.argv.slice(2);
+
+// Optional delegate wallet that signs instead of the owner. When unset the
+// order is owner-signed (the common case).
+const positionAuthoritySigner = process.env.POSITION_AUTHORITY;
 
 if (
   !builderAuthority ||
@@ -107,8 +126,18 @@ async function main() {
       cancelExisting: false,
     };
 
+    // `authority` is always the trader account owner — the trader PDA
+    // derives from it. When POSITION_AUTHORITY is set, the delegate becomes
+    // the wallet on the instruction (the effective signer is
+    // `positionAuthority ?? authority`) and the wrap automatically takes the
+    // Flight position-authority path because the signer differs from the
+    // owner: the collateral-transfer tail is appended, with the permission
+    // account derived from the root authority in the exchange snapshot.
     const ix = await client.ixs.placeMarketOrder({
       authority: traderAuthority as Authority,
+      ...(positionAuthoritySigner
+        ? { positionAuthority: positionAuthoritySigner as Authority }
+        : {}),
       symbol: marketSymbol,
       orderPacket,
     });
@@ -116,6 +145,8 @@ async function main() {
     console.log({
       builderAuthority,
       traderAuthority,
+      signer: positionAuthoritySigner ?? traderAuthority,
+      signerKind: positionAuthoritySigner ? "position-authority" : "owner",
       requestedSymbol,
       marketSymbol,
       side: Side[side],
