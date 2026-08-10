@@ -482,6 +482,7 @@ export interface PlaceIsolatedLimitOrderRequest {
   numBaseLots?: number;
   quantity?: number;
   transferAmount?: number;
+  transferSpotCollateralAmounts?: Record<string, number>;
   pdaIndex?: number;
   allowCrossAndIsolatedForAsset?: boolean;
   feePayer?: string;
@@ -505,6 +506,9 @@ export const PlaceIsolatedLimitOrderRequestSchema: z.ZodType<PlaceIsolatedLimitO
     numBaseLots: z.number().int().nonnegative().optional(),
     quantity: z.number().optional(),
     transferAmount: z.number().int().nonnegative().optional(),
+    transferSpotCollateralAmounts: z
+      .record(z.string(), z.number().int().nonnegative())
+      .optional(),
     pdaIndex: z.number().int().nonnegative().optional(),
     allowCrossAndIsolatedForAsset: z.boolean().optional(),
     feePayer: z.string().optional(),
@@ -527,6 +531,7 @@ export interface PlaceIsolatedLimitOrderWithConditionalsRequest {
   numBaseLots?: number | null;
   quantity?: number | null;
   transferAmount?: number;
+  transferSpotCollateralAmounts?: Record<string, number>;
   pdaIndex?: number | null;
   allowCrossAndIsolatedForAsset?: boolean | null;
   feePayer?: string | null;
@@ -551,6 +556,9 @@ export const PlaceIsolatedLimitOrderWithConditionalsRequestSchema: z.ZodType<Pla
       numBaseLots: z.number().int().nonnegative().nullable().optional(),
       quantity: z.number().nullable().optional(),
       transferAmount: z.number().int().nonnegative().optional(),
+      transferSpotCollateralAmounts: z
+        .record(z.string(), z.number().int().nonnegative())
+        .optional(),
       pdaIndex: z.number().int().nonnegative().nullable().optional(),
       allowCrossAndIsolatedForAsset: z.boolean().nullable().optional(),
       feePayer: z.string().nullable().optional(),
@@ -570,8 +578,11 @@ export interface PlaceIsolatedMarketOrderRequest {
   symbol: string;
   side: string;
   numBaseLots?: number;
+  minBaseLotsToFill?: number;
+  minQuoteLotsToFill?: number;
   quantity?: number;
   transferAmount?: number;
+  transferSpotCollateralAmounts?: Record<string, number>;
   maxPriceInTicks?: number;
   pdaIndex?: number;
   allowCrossAndIsolatedForAsset?: boolean;
@@ -590,8 +601,13 @@ export const PlaceIsolatedMarketOrderRequestSchema: z.ZodType<PlaceIsolatedMarke
     symbol: z.string(),
     side: z.string(),
     numBaseLots: z.number().int().nonnegative().optional(),
+    minBaseLotsToFill: z.number().int().nonnegative().optional(),
+    minQuoteLotsToFill: z.number().int().nonnegative().optional(),
     quantity: z.number().optional(),
     transferAmount: z.number().int().nonnegative().optional(),
+    transferSpotCollateralAmounts: z
+      .record(z.string(), z.number().int().nonnegative())
+      .optional(),
     maxPriceInTicks: z.number().int().nonnegative().optional(),
     pdaIndex: z.number().int().nonnegative().optional(),
     allowCrossAndIsolatedForAsset: z.boolean().optional(),
