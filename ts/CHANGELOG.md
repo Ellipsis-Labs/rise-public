@@ -3,6 +3,33 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.8 - 2026-08-11
+
+Source Phoenix commit: `cca7cbac0ce315d181325cda81d711386d98b7a9`
+
+### Summary
+
+- Added native SOL spot collateral support: new `SpotCollateralMetadata` account type, `GlobalConfiguration.nativeSolSpotMetadata`, `Trader.nativeSolCollateral`/`disablePositionAuthoritySwap`, native-SOL instruction builders (`buildSyncNativeIx`, `buildWithdrawNativeSolIx`, `buildTransferNativeSolIx`, `buildSwapNativeIx`, `buildLiquidateNativeSolIx`, `buildTransferNativeSolFromChildToParentIx`), and margin valuation helpers (`margin/spotCollateral`, draft-order margin helpers, `spotCollateralBalancesFromInputs`).
+- Added `/v1/collateral/assets` client (`V1CollateralClient.getAssets`) plus exchange snapshot/cache/WS plumbing for spot collateral metadata (`spotCollaterals` on exchange snapshots, cache, and a new WS delta op) and trader-state spot collateral balances.
+- Added a sponsored/atomic Flame deposit flow (`buildFlameAtomicDepositFlow`, `buildFlameDepositToPhoenixIx`) and a new `DEPOSIT_PERMISSION` permission bit.
+- Added a trader time-weighted-returns client method (`getTraderTimeWeightedReturns`) and a `stop_loss_order_placed` order-placed notification schema.
+- Flight order wraps now support position-authority (delegate) signed orders that still collect the builder fee, via a new collateral-transfer tail.
+
+### Breaking Changes
+
+- `wrapInstructionWithFlight`'s `authority` param was renamed to `signer` (plus a new `usePositionAuthority` flag), and `flightClient.tryWrapFlightInstruction` was renamed to `tryWrapOrderInstruction`. Update call sites.
+- `PhoenixIxOperationContext.maybeWrapOrderIx` changed from `(instruction, authority)` to `(instruction, signer, usePositionAuthority?)`, and the interface gained a new `maybeWrapConditionalOrderIx` method — any custom implementation of this interface must be updated.
+- Internal required-accounts resolution (used by `builders.ts`/`core/helpers.ts`) moved `canonicalTokenMintKey`, `perpAssetMapKey`, and `withdrawQueueKey` out of a nested `globalConfiguration` object to top-level fields — code depending on that shape needs updating.
+- `ExchangeDeltaOp` gained a new `spotCollateralsUpdated` variant — exhaustive `switch`/type-narrowing over `ExchangeDeltaOp.kind` needs a new case to keep compiling as intended.
+
+### Consumer Notes
+
+- `Trader.positions` decoding now runs through an internal `entries` layout, but the public `positions` shape is unchanged; `Trader` additionally exposes `nativeSolCollateral` and `disablePositionAuthoritySwap`.
+- `TraderPreferences` gained `disablePositionAuthoritySwap`; `GlobalConfiguration` gained `nativeSolSpotMetadata` (decodes as inactive/all-zero on exchanges that haven't configured spot collateral).
+- Order placement requests (`PlaceIsolatedLimitOrderRequest`, `PlaceIsolatedLimitOrderWithConditionalsRequest`) accept a new optional `transferSpotCollateralAmounts` map.
+- `createMarginCalculator` and `computeSubaccountLiquidationPricesFromMargin` accept new optional parameters for spot collateral inputs; existing call sites remain valid.
+- `ClientPlaceMarketOrderDelegatedInput`'s explicit signer field is now deprecated in favor of `positionAuthority`, which the high-level `client.ixs` order methods already prefer.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`
