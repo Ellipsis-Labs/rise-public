@@ -3,6 +3,16 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.68 - 2026-07-10
+
+Source Phoenix commit: `3343d458b9162061b4f810408bee2b14bcdf6af0`
+
+### Summary
+
+- Added typed market-stats endpoints to `V1MarketsClient`: `getLatestMarketStats(symbol)` and `getLatestMarketsStats()`, backed by new exported `LatestMarketStatsResponse`/`LatestMarketsStatsResponse` types and Zod schemas.
+- Added `resolvePhoenixBuilderAddresses` (with `PhoenixBuilderAddressDefaults` and `ResolvePhoenixBuilderAddressesInput` types) to resolve a complete per-environment address set — program, log authority, global configuration, USDC mint, and ember state — in a single call.
+- Added new exported constants `EMBER_STATE_ADDRESS` and `BETA_USDC_MINT_ADDRESS`.
+- Bumped `@ellipsis-labs/rise` from `0.4.66` to `0.4.68`, syncing Phoenix `0.4.68` (phoenix-rise Rust crates bumped `0.3.4` → `0.3.5`).
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`
@@ -20,6 +30,8 @@ Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`
 
 ### Consumer Notes
 
+- For beta-environment instruction building, prefer `resolvePhoenixBuilderAddresses` over manually assembling addresses — it prevents silently falling back to the mainnet USDC mint when targeting beta.
+- `LatestMarketStatsResponse.timestamp_ms` is typed and parsed as `bigint` (accepting numeric or string input, consistent with other big-integer fields in the SDK).
 - `timestamp_ms` on the new response types is parsed as a `bigint` using the same big-integer schema used elsewhere in the SDK. It accepts `string`, `number`, or `bigint` input, but rejects non-integer numbers and numeric values beyond `Number.MAX_SAFE_INTEGER` — pass large timestamps as strings to avoid precision loss.
 - `getLatestMarketsStats()` returns `{ markets: LatestMarketStatsResponse[] }`.
 
