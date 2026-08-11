@@ -345,6 +345,38 @@ export {
 } from "../core/ixBuilders/SyncParentToChild";
 
 export {
+  MAX_PACKED_EXTERNAL_ACCOUNTS,
+  SwapDirection,
+  buildLiquidateNativeSolIx,
+  buildSwapNativeIx,
+  buildSyncNativeIx,
+  buildTransferNativeSolFromChildToParentIx,
+  buildTransferNativeSolIx,
+  buildWithdrawNativeSolIx,
+  encodeSwapNative,
+  encodeLiquidateNativeSol,
+  encodeSyncNative,
+  encodeTransferNativeSol,
+  encodeTransferNativeSolFromChildToParent,
+  encodeWithdrawNativeSol,
+  packVenueInstructions,
+  packedAccountMetaState,
+  type LiquidateNativeSolParams,
+  type NativeSolAccounts,
+  type NativeSolIx,
+  type PackedAccountMeta,
+  type PackedInstruction,
+  type PackedVenueInstructions,
+  type SwapNativeParams,
+  type SwapSlippage,
+  type SyncNativeParams,
+  type TransferNativeSolFromChildToParentParams,
+  type TransferNativeSolParams,
+  type WithdrawNativeSolAction,
+  type WithdrawNativeSolParams,
+} from "../core/ixBuilders/NativeSol";
+
+export {
   buildTransferCollateralIx,
   getTransferCollateralCodec,
   getTransferCollateralDecoder,
