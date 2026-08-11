@@ -13,6 +13,16 @@ Source Phoenix commit: `3343d458b9162061b4f810408bee2b14bcdf6af0`
 - Added `resolvePhoenixBuilderAddresses` (with `PhoenixBuilderAddressDefaults` and `ResolvePhoenixBuilderAddressesInput` types) to resolve a complete per-environment address set — program, log authority, global configuration, USDC mint, and ember state — in a single call.
 - Added new exported constants `EMBER_STATE_ADDRESS` and `BETA_USDC_MINT_ADDRESS`.
 - Bumped `@ellipsis-labs/rise` from `0.4.66` to `0.4.68`, syncing Phoenix `0.4.68` (phoenix-rise Rust crates bumped `0.3.4` → `0.3.5`).
+## v0.4.67 - 2026-07-09
+
+Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`
+
+### Summary
+
+- Added `getLatestMarketStats(symbol)` to `V1MarketsClient` for fetching the latest stats snapshot for a single market via `GET /v1/market/{symbol}/stats/latest`.
+- Added `getLatestMarketsStats()` to `V1MarketsClient` for fetching the latest stats snapshot across all markets via `GET /v1/markets/stats/latest`.
+- Exported new response types and Zod schemas: `LatestMarketStatsResponse`, `LatestMarketStatsResponseSchema`, `LatestMarketsStatsResponse`, `LatestMarketsStatsResponseSchema`.
+- `LatestMarketStatsResponse` includes `mark_price`, `oracle_price`, `prev_day_mark_price`, `open_interest`, `day_volume_usd`, `day_volume_base`, `current_funding_rate`, `eight_hour_funding_rate`, and `annualized_funding_rate`.
 
 ### Breaking Changes
 
@@ -22,6 +32,8 @@ Source Phoenix commit: `3343d458b9162061b4f810408bee2b14bcdf6af0`
 
 - For beta-environment instruction building, prefer `resolvePhoenixBuilderAddresses` over manually assembling addresses — it prevents silently falling back to the mainnet USDC mint when targeting beta.
 - `LatestMarketStatsResponse.timestamp_ms` is typed and parsed as `bigint` (accepting numeric or string input, consistent with other big-integer fields in the SDK).
+- `timestamp_ms` on the new response types is parsed as a `bigint` using the same big-integer schema used elsewhere in the SDK. It accepts `string`, `number`, or `bigint` input, but rejects non-integer numbers and numeric values beyond `Number.MAX_SAFE_INTEGER` — pass large timestamps as strings to avoid precision loss.
+- `getLatestMarketsStats()` returns `{ markets: LatestMarketStatsResponse[] }`.
 
 ## v0.4.66 - 2026-07-08
 
