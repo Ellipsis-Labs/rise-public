@@ -102,6 +102,7 @@ pub mod hawkeye;
 pub mod limit_order;
 pub mod market_order;
 pub mod multi_limit_order;
+pub mod native_sol;
 pub mod onboard_trader_delegated;
 pub mod order_packet;
 pub mod place_stop_loss;
@@ -113,6 +114,7 @@ pub mod spl_approve;
 pub mod spline;
 pub mod sync_parent_to_child;
 pub mod transfer_collateral;
+pub mod twap;
 pub mod types;
 pub mod uncross_crank;
 pub mod withdraw_funds;
@@ -123,10 +125,12 @@ pub use constants::{
     resolve_phoenix_instruction_addresses_for_env,
 };
 pub use discriminants::{
-    EmberInstruction, FlightAccount, FlightInstruction, HawkeyeInstruction, PhoenixInstruction,
+    EmberInstruction, FlickerInstruction, FlightAccount, FlightInstruction, HawkeyeInstruction,
+    PhoenixInstruction,
 };
 pub use error::PhoenixIxError;
 pub use hawkeye::HAWKEYE_PROGRAM_ID;
+pub use twap::FLICKER_PROGRAM_ID;
 
 /// Broad import surface for callers that want the old flat IX API explicitly.
 pub mod prelude {
@@ -150,6 +154,7 @@ pub mod prelude {
     pub use super::limit_order::*;
     pub use super::market_order::*;
     pub use super::multi_limit_order::*;
+    pub use super::native_sol::*;
     pub use super::onboard_trader_delegated::*;
     pub use super::order_packet::*;
     pub use super::place_stop_loss::*;
@@ -159,6 +164,7 @@ pub mod prelude {
     pub use super::spline::*;
     pub use super::sync_parent_to_child::*;
     pub use super::transfer_collateral::*;
+    pub use super::twap::*;
     pub use super::types::*;
     pub use super::uncross_crank::*;
     pub use super::withdraw_funds::*;

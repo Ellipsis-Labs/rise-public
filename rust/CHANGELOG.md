@@ -3,6 +3,34 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.1 - 2026-08-12
+
+Source Phoenix commit: `cd96962f181a2e28c87ec592db4f20460c6b510e`
+
+### Summary
+
+- Adds native SOL spot collateral end-to-end: new `GlobalConfig`/`Trader` account fields, an `accounts::spot_collateral` module, an `ix::native_sol` module (`SyncNative`, `WithdrawNativeSol`, `TransferNativeSol[FromChildToParent]`, `LiquidateNativeSol`, `SwapNative`), margin valuation (`math::spot_collateral`, `TraderPortfolio::spot_collaterals`), and wire types for balances/events.
+- Adds Flicker/TWAP instruction constructors (`ix::twap`, `FlickerInstruction`, `FLICKER_PROGRAM_ID`).
+- `PhoenixFlightClient` now supports wrapping orders signed by a trader's position authority, appending an `AuthorizedTransferCollateral` tail derived from the current Phoenix root authority (via a new `SharedExchangeCacheStore`/`exchange_store()` path).
+- The exchange snapshot/delta websocket channel now carries spot collateral asset config (`/v1/collateral/assets`, `CollateralAssetMetadata`), wrapped in a new `ExchangeMessage` enum.
+- `PhoenixClient` fetches spot collateral config on connect and values it in margin calculations; failures degrade to zero valuation instead of failing construction.
+
+### Breaking Changes
+
+- `PhoenixFlightClient::try_wrap_order_instruction` (and related wrap helpers) now take an additional `use_position_authority: bool` argument — update all call sites (pass `false` for owner-signed orders, including owner-signed `PlaceMarketOrderDelegated`).
+- `RiskAction::Withdrawal` is renamed to `WithdrawQuoteCollateral`, a new `WithdrawSpotCollateral` variant is added, and `ADL` is deprecated — update any `match` on `RiskAction`.
+- `ScalarBounds::lower_bound()`/`upper_bound()` now return `Self` instead of the raw inner numeric type.
+- `ExchangeSnapshotMessage` drops its `channel: String` field; snapshot/delta payloads are now wrapped in a new `ExchangeMessage` enum tagged by `messageType`, and `ServerMessage`/`SubscriptionRequest` gained `Exchange` variants.
+- `TraderPortfolio` gained a `spot_collaterals` field, and `SubaccountState::to_trader_portfolio()` is replaced by `to_trader_portfolio_with_metadata(&metadata)` — struct literals and existing call sites need updates.
+- `PhoenixIxError`, `MarginTrigger`, and `PhoenixClientError` gained new variants (e.g. `MissingRootAuthority`, `SpotCollateralsUpdated`, `Metadata`) — exhaustive matches on these public enums need new arms.
+
+### Consumer Notes
+
+- Prefer the new `usdc_mint()` function (env-aware, supports the beta deployment via `PHOENIX_ENV`) over the `USDC_MINT` constant directly; `USDC_MINT` is unchanged but a `BETA_USDC_MINT` alternative now exists.
+- `TraderPreferenceKind` gained `DisablePositionAuthoritySwap`; `Trader` gained `disable_position_authority_swap` and `native_sol_collateral` fields, decoding as zero/false on accounts that predate the feature.
+- `TraderView`, `TraderStateSubaccountSnapshot`, and `TraderStateSubaccountDelta` gained a defaulted `spot_collaterals` field, so existing JSON payloads still deserialize without changes.
+- New instruction/account discriminants were added (`AuthorizedTransferCollateral` plus the native-SOL instructions listed above); regenerate any locally cached discriminant tables if you maintain your own.
+
 ## v0.3.4 - 2026-07-08
 
 Source Phoenix commit: `6051225fb045fbb5b6a454bd445e7fc2e31e5722`

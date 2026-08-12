@@ -21,7 +21,7 @@
 
 use std::fmt::{Debug, Display};
 use std::iter::Sum;
-use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Rem, Sub, SubAssign};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use bytemuck::{Pod, Zeroable};
@@ -152,6 +152,20 @@ basic_u64_struct_with_bounds!(QuoteLotsPerBaseLotPerTick, 0, 10_000);
 // Basis points for general percentage calculations (0.0 to 1.0, where 10_000 =
 // 100%)
 basic_u64_struct_with_bounds!(BasisPoints, 0, 10_000);
+// Basis points stored as a `u32`, mirroring the on-chain field width.
+basic_u32_struct_with_bounds!(BasisPointsU32, 0, 10_000);
+
+impl BasisPointsU32 {
+    /// The denominator for basis points (10,000 = 100%).
+    pub const DENOMINATOR: u32 = 10_000;
+
+    /// Widen to the `u64`-backed [`BasisPoints`] the math paths compute in,
+    /// mirroring the on-chain conversion.
+    #[inline(always)]
+    pub fn upcast(self) -> BasisPoints {
+        BasisPoints::new(u64::from(self.as_inner()))
+    }
+}
 
 // Risk factor (discount) for positive uPnL (0.0 to 1.0)
 // This is just an alias to BasisPoints since they're semantically identical.
@@ -172,7 +186,7 @@ impl BasisPoints {
             .as_inner()
             .checked_mul(self.as_inner())?
             .checked_div(Self::DENOMINATOR)?;
-        Some(QuoteLots::new(result))
+        QuoteLots::new_checked(result).ok()
     }
 
     /// Apply basis points to a QuoteLots value with ceiling division
@@ -180,10 +194,10 @@ impl BasisPoints {
     /// up)
     pub fn apply_to_quote_lots_ceil(&self, value: QuoteLots) -> Option<QuoteLots> {
         // Try checked arithmetic first
-        if let Some(numerator) = value.as_inner().checked_mul(self.as_inner()) {
-            if let Some(result) = numerator.checked_add(Self::DENOMINATOR - 1) {
-                return Some(QuoteLots::new(result / Self::DENOMINATOR));
-            }
+        if let Some(numerator) = value.as_inner().checked_mul(self.as_inner())
+            && let Some(result) = numerator.checked_add(Self::DENOMINATOR - 1)
+        {
+            return QuoteLots::new_checked(result / Self::DENOMINATOR).ok();
         }
 
         // Upcast to u128 for intermediate calculations
@@ -191,7 +205,9 @@ impl BasisPoints {
         let result = numerator.div_ceil(Self::DENOMINATOR as u128);
 
         // Try to downcast back to u64
-        u64::try_from(result).ok().map(QuoteLots::new)
+        u64::try_from(result)
+            .ok()
+            .and_then(|result| QuoteLots::new_checked(result).ok())
     }
 
     /// Apply basis points to a Ticks value
@@ -200,13 +216,13 @@ impl BasisPoints {
             .as_inner()
             .checked_mul(self.as_inner())?
             .checked_div(Self::DENOMINATOR)
-            .map(Ticks::new)
+            .and_then(|ticks| Ticks::new_checked(ticks).ok())
     }
 
     /// Create from a u16 value (common for risk factors stored as u16)
     pub fn from_u16(value: u16) -> Option<Self> {
         if value <= Self::UPPER_BOUND as u16 {
-            Some(Self::new(value as u64))
+            Self::new_checked(value as u64).ok()
         } else {
             None
         }
@@ -250,7 +266,7 @@ impl FeeRateMicro {
             .as_inner()
             .checked_mul(self.as_u64())?
             .div_ceil(MicroDivisor::MICRO.as_inner());
-        Some(QuoteLots::new(fee))
+        QuoteLots::new_checked(fee).ok()
     }
 
     /// Apply fee rate using saturating arithmetic
@@ -259,7 +275,7 @@ impl FeeRateMicro {
             .as_inner()
             .saturating_mul(self.as_u64())
             .div_ceil(MicroDivisor::MICRO.as_inner());
-        QuoteLots::new(fee)
+        QuoteLots::new_saturating(fee)
     }
 
     /// Adjust quote budget for fees (for buy orders)
@@ -269,7 +285,7 @@ impl FeeRateMicro {
             .as_inner()
             .saturating_mul(divisor.as_inner())
             .saturating_div(divisor.as_inner().saturating_add(self.as_u64()));
-        QuoteLots::new(fee_adjusted_budget)
+        QuoteLots::new_saturating(fee_adjusted_budget)
     }
 }
 
@@ -279,7 +295,8 @@ impl SignedFeeRateMicro {
     }
 
     pub fn to_unsigned_fee_rate_micro(self) -> FeeRateMicro {
-        FeeRateMicro::new(self.as_inner() as u32)
+        FeeRateMicro::new_checked(self.as_inner() as u32)
+            .expect("non-negative signed fee rate must fit in FeeRateMicro")
     }
 
     /// Apply signed fee rate to quote lots
@@ -344,6 +361,11 @@ allow_multiply!(QuoteLotsPerBaseLot, BaseLots, QuoteLots);
 basic_u64_struct!(BaseLotsPerTick);
 
 allow_multiply!(BaseLotsPerTick, Ticks, BaseLots);
+
+// Native SOL's own unit. Spot collateral balances in general are raw `u64`
+// native units, because the unit differs per asset — `Lamports` is correct only
+// where the asset *is* native SOL.
+basic_u64_struct_with_bounds!(Lamports, 0, u64::MAX);
 
 #[repr(transparent)]
 #[derive(

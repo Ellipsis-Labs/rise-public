@@ -21,6 +21,7 @@ pub mod portfolio;
 pub mod price;
 pub mod quantities;
 pub mod risk;
+pub mod spot_collateral;
 pub mod trader_position;
 
 pub use direction::{Direction, Side, StopLossOrderKind};
@@ -44,23 +45,30 @@ pub use portfolio::{
     MarginSimulationMode, PerpMetadataProvider, ProjectedLiquidation, ProjectedLiquidationFill,
     ProjectedLiquidationParams, Pubkey as PortfolioPubkey, SimulateMarginParams,
     SimulateMarginScenariosParams, SimulatePositionFillParams, SimulatedMargin,
-    SimulatedMarginScenarios, SimulatedPositionFill, StopLossInfo, TraderPortfolio,
-    TraderPortfolioBuilder, TraderPortfolioMargin, calculate_liquidation_price_usd,
+    SimulatedMarginScenarios, SimulatedPositionFill, SpotCollateralMargin,
+    StaticLiquidationPriceParams, StopLossInfo, TraderPortfolio, TraderPortfolioBuilder,
+    TraderPortfolioMargin, calculate_liquidation_price_usd,
     calculate_liquidation_price_usd_with_target_limit_order_maintenance,
-    projected_liquidation_price,
+    projected_liquidation_price, static_liquidation_price_ticks,
 };
 pub use price::{Price, dynamic_price_decimals};
 pub use quantities::{
-    BaseLots, BaseLotsPerBaseUnit, BaseLotsPerTick, BaseUnits, BasisPoints, Constant, FeeRateMicro,
-    FundingRateUnitInSeconds, MathError, MicroDivisor, QuoteLots, QuoteLotsPerBaseLot,
-    QuoteLotsPerBaseLotPerTick, QuoteLotsPerQuoteUnit, QuoteUnits, ScalarBounds, SequenceNumberU8,
-    SignedBaseLots, SignedBaseLotsUpcasted, SignedConstant, SignedFeeRateMicro, SignedQuoteLots,
-    SignedQuoteLotsBaseLots, SignedQuoteLotsBaseLotsUpcasted, SignedQuoteLotsI56,
-    SignedQuoteLotsI56Error, SignedQuoteLotsPerBaseLot, SignedQuoteLotsPerBaseLotUpcasted,
-    SignedQuoteLotsUpcasted, SignedTicks, Slot, Ticks, UPnlRiskFactor, WrapperNum,
+    BaseLots, BaseLotsPerBaseUnit, BaseLotsPerTick, BaseUnits, BasisPoints, BasisPointsU32,
+    Constant, FeeRateMicro, FundingRateUnitInSeconds, Lamports, MathError, MicroDivisor, QuoteLots,
+    QuoteLotsPerBaseLot, QuoteLotsPerBaseLotPerTick, QuoteLotsPerQuoteUnit, QuoteUnits,
+    ScalarBounds, SequenceNumberU8, SignedBaseLots, SignedBaseLotsUpcasted, SignedConstant,
+    SignedFeeRateMicro, SignedQuoteLots, SignedQuoteLotsBaseLots, SignedQuoteLotsBaseLotsUpcasted,
+    SignedQuoteLotsI56, SignedQuoteLotsI56Error, SignedQuoteLotsPerBaseLot,
+    SignedQuoteLotsPerBaseLotUpcasted, SignedQuoteLotsUpcasted, SignedTicks, Slot, Ticks,
+    UPnlRiskFactor, WrapperNum,
 };
 pub use risk::{MarginError, MarginState, ProgramError, RiskAction, RiskState, RiskTier};
 use sha2_const_stable::Sha256;
+pub use spot_collateral::{
+    NATIVE_SOL_ASSET_INDEX, SpotCollateralParams, SpotCollateralValuationError,
+    discounted_spot_collateral, margin_retained_bps, notional_spot_collateral,
+    spot_collateral_price,
+};
 pub use trader_position::{TraderPosition, calculate_unrealized_pnl};
 
 pub const fn sha2_const(input: &[u8]) -> u64 {
