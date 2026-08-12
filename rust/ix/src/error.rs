@@ -35,6 +35,13 @@ pub enum PhoenixIxError {
     #[error("Missing required field: {0}")]
     MissingField(&'static str),
 
+    #[error(
+        "no root authority available for a position-authority wrap; obtain a populated exchange \
+         store from the websocket client (`PhoenixWSClient::exchange_store()`) and pass it to \
+         `PhoenixFlightClient::from_exchange_store`"
+    )]
+    MissingRootAuthority,
+
     #[error("Invalid deposit amount (must be greater than 0)")]
     InvalidDepositAmount,
 
@@ -46,6 +53,18 @@ pub enum PhoenixIxError {
 
     #[error("Invalid transfer amount (must be greater than 0)")]
     InvalidTransferAmount,
+
+    #[error("Invalid swap amount (must be greater than 0)")]
+    InvalidSwapAmount,
+
+    #[error("Withdraw destination must be a system account other than the trader account")]
+    InvalidWithdrawDestination,
+
+    #[error("Only the swap signer may sign a venue instruction")]
+    UnexpectedVenueSigner,
+
+    #[error("Venue instructions reference more accounts than the packed encoding can address")]
+    TooManyVenueAccounts,
 
     #[error("Inner instruction must target the Phoenix program")]
     InvalidInnerProgram,
@@ -91,4 +110,7 @@ pub enum PhoenixIxError {
 
     #[error("PDA derivation failed")]
     PdaDerivationUnavailable,
+
+    #[error("Invalid TWAP optional field {field} (must be greater than 0 when set)")]
+    InvalidTwapOptionalU64 { field: &'static str },
 }
