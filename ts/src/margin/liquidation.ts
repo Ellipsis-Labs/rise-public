@@ -13,10 +13,15 @@ import type {
   NormalizedMarketParamsBySymbol,
 } from "./normalize";
 import type {
+  MarketMarginInputs,
   MarketMarginResult,
+  SpotCollateralMarginResult,
+  SubaccountMarginInputs,
   SubaccountMarginResult,
+  TraderMarginInputs,
   TraderMarginResult,
 } from "./types";
+import { notionalSpotCollateral } from "./spotCollateral";
 
 const QUOTE_LOTS_PER_USD = 1_000_000;
 const EPSILON = 1e-12;
@@ -234,23 +239,30 @@ const targetUnrealizedPnlUsd = (
  */
 export const computeSubaccountLiquidationPricesFromMargin = (
   subaccount: SubaccountMarginResult,
-  marketsBySymbol: NormalizedMarketParamsBySymbol
-): SubaccountLiquidationPricesResult => ({
-  subaccountIndex: subaccount.subaccountIndex,
-  positions: subaccount.marketMargins.flatMap((market) => {
-    const marketParams = marketsBySymbol[market.symbol];
-    if (!marketParams) {
-      throw new Error(`Missing market params for symbol ${market.symbol}`);
-    }
+  marketsBySymbol: NormalizedMarketParamsBySymbol,
+  inputs?: SubaccountMarginInputs
+): SubaccountLiquidationPricesResult => {
+  const inputsBySymbol = new Map(
+    inputs?.markets.map((input) => [input.symbol, input])
+  );
+  return {
+    subaccountIndex: subaccount.subaccountIndex,
+    positions: subaccount.marketMargins.flatMap((market) => {
+      const marketParams = marketsBySymbol[market.symbol];
+      if (!marketParams) {
+        throw new Error(`Missing market params for symbol ${market.symbol}`);
+      }
 
-    const liquidationPrice = computeMarketLiquidationPriceFromMargin(
-      market,
-      subaccount,
-      marketParams
-    );
-    return liquidationPrice ? [liquidationPrice] : [];
-  }),
-});
+      const liquidationPrice = computeMarketLiquidationPriceFromMargin(
+        market,
+        subaccount,
+        marketParams,
+        inputsBySymbol.get(market.symbol)
+      );
+      return liquidationPrice ? [liquidationPrice] : [];
+    }),
+  };
+};
 
 /**
  * Computes Hawkeye-compatible static liquidation prices for every subaccount
@@ -258,14 +270,24 @@ export const computeSubaccountLiquidationPricesFromMargin = (
  */
 export const computeTraderLiquidationPricesFromMargin = (
   trader: TraderMarginResult,
-  marketsBySymbol: NormalizedMarketParamsBySymbol
-): TraderLiquidationPricesResult => ({
-  authority: trader.authority,
-  traderPdaIndex: trader.traderPdaIndex,
-  subaccounts: trader.subaccounts.map((subaccount) =>
-    computeSubaccountLiquidationPricesFromMargin(subaccount, marketsBySymbol)
-  ),
-});
+  marketsBySymbol: NormalizedMarketParamsBySymbol,
+  inputs?: TraderMarginInputs
+): TraderLiquidationPricesResult => {
+  const inputsBySubaccount = new Map(
+    inputs?.subaccounts.map((input) => [input.subaccountIndex, input])
+  );
+  return {
+    authority: trader.authority,
+    traderPdaIndex: trader.traderPdaIndex,
+    subaccounts: trader.subaccounts.map((subaccount) =>
+      computeSubaccountLiquidationPricesFromMargin(
+        subaccount,
+        marketsBySymbol,
+        inputsBySubaccount.get(subaccount.subaccountIndex)
+      )
+    ),
+  };
+};
 
 /**
  * Computes one market's static/current-state liquidation price from a margin
@@ -278,7 +300,8 @@ export const computeTraderLiquidationPricesFromMargin = (
 export const computeMarketLiquidationPriceFromMargin = (
   market: MarketMarginResult,
   subaccount: SubaccountMarginResult,
-  marketParams: NormalizedMarketParams
+  marketParams: NormalizedMarketParams,
+  marketInput?: MarketMarginInputs
 ): MarketLiquidationPriceResult | null => {
   const basePositionLots = toBigInt(market.basePositionLots);
   if (basePositionLots === 0n) {
@@ -309,7 +332,13 @@ export const computeMarketLiquidationPriceFromMargin = (
   const currentMarkTicks = toBigInt(marketParams.markPriceTicks);
 
   if (
-    isLiquidatableAtTicks(currentMarkTicks, market, subaccount, marketParams)
+    isLiquidatableAtTicks(
+      currentMarkTicks,
+      market,
+      subaccount,
+      marketParams,
+      marketInput
+    )
   ) {
     return {
       symbol: market.symbol,
@@ -324,7 +353,8 @@ export const computeMarketLiquidationPriceFromMargin = (
   const liquidationPriceTicks = findLiquidationBoundaryTicks(
     market,
     subaccount,
-    marketParams
+    marketParams,
+    marketInput
   );
   const liquidationPriceUsd =
     liquidationPriceTicks === null
@@ -411,7 +441,8 @@ const markPriceUsdFromParams = (marketParams: NormalizedMarketParams): number =>
 const findLiquidationBoundaryTicks = (
   market: MarketMarginResult,
   subaccount: SubaccountMarginResult,
-  marketParams: NormalizedMarketParams
+  marketParams: NormalizedMarketParams,
+  marketInput?: MarketMarginInputs
 ): bigint | null => {
   const basePositionLots = toBigInt(market.basePositionLots);
   if (basePositionLots === 0n) {
@@ -424,7 +455,9 @@ const findLiquidationBoundaryTicks = (
   }
 
   if (basePositionLots > 0n) {
-    if (!isLiquidatableAtTicks(0n, market, subaccount, marketParams)) {
+    if (
+      !isLiquidatableAtTicks(0n, market, subaccount, marketParams, marketInput)
+    ) {
       return null;
     }
 
@@ -432,7 +465,15 @@ const findLiquidationBoundaryTicks = (
     let high = currentMarkTicks;
     while (low + 1n < high) {
       const mid = low + (high - low) / 2n;
-      if (isLiquidatableAtTicks(mid, market, subaccount, marketParams)) {
+      if (
+        isLiquidatableAtTicks(
+          mid,
+          market,
+          subaccount,
+          marketParams,
+          marketInput
+        )
+      ) {
         low = mid;
       } else {
         high = mid;
@@ -447,7 +488,8 @@ const findLiquidationBoundaryTicks = (
       MAX_HAWKEYE_LIQUIDATION_TICKS,
       market,
       subaccount,
-      marketParams
+      marketParams,
+      marketInput
     )
   ) {
     return null;
@@ -457,7 +499,9 @@ const findLiquidationBoundaryTicks = (
   let high = MAX_HAWKEYE_LIQUIDATION_TICKS;
   while (low + 1n < high) {
     const mid = low + (high - low) / 2n;
-    if (isLiquidatableAtTicks(mid, market, subaccount, marketParams)) {
+    if (
+      isLiquidatableAtTicks(mid, market, subaccount, marketParams, marketInput)
+    ) {
       high = mid;
     } else {
       low = mid;
@@ -471,7 +515,8 @@ const isLiquidatableAtTicks = (
   ticks: bigint,
   market: MarketMarginResult,
   subaccount: SubaccountMarginResult,
-  marketParams: NormalizedMarketParams
+  marketParams: NormalizedMarketParams,
+  marketInput?: MarketMarginInputs
 ): boolean => {
   const basePositionLots = toBigInt(market.basePositionLots);
   const virtualQuotePositionLots = toBigInt(market.virtualQuotePositionLots);
@@ -483,12 +528,19 @@ const isLiquidatableAtTicks = (
     rawTargetPnl > 0n
       ? applyBpsCeil(rawTargetPnl, upnlRiskFactor)
       : rawTargetPnl;
+  const spotCollateral = spotCollateralValueAtTicks(
+    ticks,
+    market.symbol,
+    subaccount.spotCollaterals ?? [],
+    toBigInt(marketParams.tickSize)
+  );
   const effectiveCollateral =
     toBigInt(subaccount.margin.collateralBalanceQuoteLots) +
     toBigInt(subaccount.margin.unsettledFundingQuoteLots) +
     (toBigInt(subaccount.margin.discountedUnrealizedPnlQuoteLots) -
       toBigInt(market.discountedUnrealizedPnlQuoteLots)) +
-    targetDiscountedPnl;
+    targetDiscountedPnl +
+    spotCollateral;
   if (effectiveCollateral < 0n) {
     return true;
   }
@@ -497,7 +549,8 @@ const isLiquidatableAtTicks = (
     ticks,
     market,
     subaccount,
-    marketParams
+    marketParams,
+    marketInput
   );
   const maintenance =
     otherMarketMaintenanceMarginQuoteLots(market, subaccount) +
@@ -505,18 +558,65 @@ const isLiquidatableAtTicks = (
   return effectiveCollateral < maintenance;
 };
 
+const spotCollateralValueAtTicks = (
+  ticks: bigint,
+  targetMarketSymbol: string,
+  spotCollaterals: readonly SpotCollateralMarginResult[],
+  tickSize: bigint
+): bigint => {
+  let total = 0n;
+  const priceQuoteLotsPerBaseLot = ticks * tickSize;
+  for (const spot of spotCollaterals) {
+    if (spot.pricingMarketSymbol === targetMarketSymbol) {
+      const nativeUnitsPerBaseLot = toBigInt(spot.nativeUnitsPerBaseLot);
+      if (nativeUnitsPerBaseLot === 0n) {
+        throw new Error(
+          `Spot collateral nativeUnitsPerBaseLot for ${spot.symbol} must be positive`
+        );
+      }
+      const notional = notionalSpotCollateral(
+        { priceQuoteLotsPerBaseLot, nativeUnitsPerBaseLot },
+        toBigInt(spot.balance)
+      );
+      total += applyBps(notional, toBigInt(spot.retainedBps));
+    } else {
+      total += toBigInt(spot.discountedQuoteLots);
+    }
+  }
+  return total;
+};
+
 const maintenanceMarginAtTicks = (
   ticks: bigint,
   market: MarketMarginResult,
   subaccount: SubaccountMarginResult,
-  marketParams: NormalizedMarketParams
+  marketParams: NormalizedMarketParams,
+  marketInput?: MarketMarginInputs
 ): bigint => {
   const basePositionLots = toBigInt(market.basePositionLots);
-  const limitOrderState = aggregateLimitOrderState(
-    market,
-    subaccount,
-    toBigInt(marketParams.markPriceTicks)
-  );
+  const inputLimitOrderState = marketInput?.limitOrderMargin;
+  const limitOrderState = inputLimitOrderState
+    ? {
+        totalNonReduceOnlyAskBaseLots: toBigInt(
+          inputLimitOrderState.totalNonReduceOnlyAskBaseLots
+        ),
+        totalReduceOnlyAskBaseLots: toBigInt(
+          inputLimitOrderState.totalReduceOnlyAskBaseLots
+        ),
+        totalNonReduceOnlyBidBaseLots: toBigInt(
+          inputLimitOrderState.totalNonReduceOnlyBidBaseLots
+        ),
+        totalReduceOnlyBidBaseLots: toBigInt(
+          inputLimitOrderState.totalReduceOnlyBidBaseLots
+        ),
+        lowestAsk: toBigInt(inputLimitOrderState.lowestAsk),
+        highestBid: toBigInt(inputLimitOrderState.highestBid),
+      }
+    : aggregateLimitOrderState(
+        market,
+        subaccount,
+        toBigInt(marketParams.markPriceTicks)
+      );
   const initialMargin = initialMarginForAssetAtTicks(
     basePositionLots,
     limitOrderState,
@@ -841,6 +941,8 @@ export interface ProjectedLiquidationInput {
   portfolioMaintenanceMarginQuoteLots: bigint;
   targetDiscountedUnrealizedPnlQuoteLots: bigint;
   targetMaintenanceMarginQuoteLots: bigint;
+  /** Valued spot collateral; target-market assets reprice along the path. */
+  spotCollaterals?: readonly SpotCollateralMarginResult[];
 }
 
 /**
@@ -1022,12 +1124,19 @@ const isProjectedLiquidatableAtTicks = (
     rawTargetPnl > 0n
       ? applyBpsCeil(rawTargetPnl, upnlRiskFactor)
       : rawTargetPnl;
+  const spotCollateral = spotCollateralValueAtTicks(
+    ticks,
+    marketParams.symbol,
+    input.spotCollaterals ?? [],
+    tickSize
+  );
   const effectiveCollateral =
     input.collateralBalanceQuoteLots +
     input.portfolioUnsettledFundingQuoteLots +
     (input.portfolioDiscountedUnrealizedPnlQuoteLots -
       input.targetDiscountedUnrealizedPnlQuoteLots) +
-    targetDiscountedPnl;
+    targetDiscountedPnl +
+    spotCollateral;
   if (effectiveCollateral < 0n) {
     return true;
   }
@@ -1242,6 +1351,7 @@ const buildProjectedLiquidationInput = (
     targetMaintenanceMarginQuoteLots: toBigInt(
       market.maintenanceMarginQuoteLots
     ),
+    spotCollaterals: subaccount.spotCollaterals,
   };
 };
 
