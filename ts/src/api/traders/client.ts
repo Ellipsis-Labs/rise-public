@@ -6,6 +6,8 @@ import type {
   HistoricalValuesRequest,
   PnlDataPoint,
   PortfolioValueDataPoint,
+  TimeWeightedReturnsRequest,
+  TimeWeightedReturnsResponse,
   TraderCapabilitiesMetadata,
   TraderMarketPnLQueryParams,
   TraderMarketPnLSeries,
@@ -14,6 +16,7 @@ import type {
 import {
   PnlDataPointSchema,
   PortfolioValueDataPointSchema,
+  TimeWeightedReturnsResponseSchema,
   TraderCapabilitiesMetadataSchema,
   TraderMarketPnLSeriesSchema,
   TraderViewSchema,
@@ -84,6 +87,18 @@ export class V1TradersClient {
       this.http,
       `/v1/traders/${encodeURIComponent(traderPubkey)}/portfolio-values`,
       PortfolioValueDataPointSchema.array(),
+      { params: buildHistoricalValuesQuery(request) }
+    );
+  }
+
+  async getTraderTimeWeightedReturns(
+    traderPubkey: string,
+    request: TimeWeightedReturnsRequest
+  ): Promise<TimeWeightedReturnsResponse> {
+    return get(
+      this.http,
+      `/v1/traders/${encodeURIComponent(traderPubkey)}/time-weighted-returns`,
+      TimeWeightedReturnsResponseSchema,
       { params: buildHistoricalValuesQuery(request) }
     );
   }

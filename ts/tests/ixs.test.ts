@@ -4,12 +4,17 @@ import {
   SelfTradeBehavior,
   Side,
   StopLossOrderKind,
+  TWAP_IOC_ORDER_PACKET_BYTE_LENGTH,
   TraderPreferenceKind,
   baseLots,
   buildCancelAllIxResolved,
   buildCancelOrdersByIdIxResolved,
   buildCancelStopLossIxResolved,
   buildCancelUpToIxResolved,
+  buildCancelTwapOrderIx,
+  buildCloseInactiveTwapAccountIx,
+  buildCreateTwapAccountIx,
+  buildExecuteTwapOrderIx,
   buildUncrossCrankIxResolved,
   buildCreateEscrowRequestIxResolved,
   buildDelegateTraderIxResolved,
@@ -23,6 +28,7 @@ import {
   buildPlaceMultiLimitOrderIx,
   buildPlacePostOnlyOrderIxResolved,
   buildPlaceStopLossIxResolved,
+  buildPlaceTwapOrderIx,
   buildRegisterTraderIxResolved,
   buildOnboardTraderDelegatedIxResolved,
   buildSyncParentToChildIxResolved,
@@ -30,6 +36,9 @@ import {
   buildTransferCollateralIxResolved,
   buildWithdrawFundsIxResolved,
   buildWithdrawIxsResolved,
+  decodeTwapIocOrderPacket,
+  getExecuteTwapOrderDecoder,
+  getPlaceTwapOrderDecoder,
   quoteLots,
   ticks,
 } from "@/index";
@@ -43,7 +52,7 @@ import type { Authority } from "@/primitives";
 import type { InstructionsWithAccountsAndData } from "@/primitives/_utilityTypes";
 import { AccountRole } from "@solana/kit";
 import { describe, expect, it } from "vitest";
-import { DISCRIMINANTS } from "@/core/discriminants";
+import { DISCRIMINANTS, FLICKER_DISCRIMINANTS } from "@/core/discriminants";
 
 const resolvedOrderContext = {
   exchange: {
@@ -109,7 +118,8 @@ const unexpectedOperationResolver = async (): Promise<never> => {
 const createTestOperationContext = (
   wrapCalls: Array<{
     instruction: InstructionsWithAccountsAndData;
-    authority: Authority;
+    signer: Authority;
+    usePositionAuthority: boolean | undefined;
   }>
 ): PhoenixIxOperationContext => ({
   orderPackets: {} as never,
@@ -128,12 +138,234 @@ const createTestOperationContext = (
   resolveStopLossAddress: unexpectedOperationResolver,
   maybeWrapOrderIx: async <TIx extends InstructionsWithAccountsAndData>(
     instruction: TIx,
+    signer: Authority,
+    usePositionAuthority?: boolean
+  ) => {
+    wrapCalls.push({ instruction, signer, usePositionAuthority });
+    return instruction;
+  },
+  maybeWrapConditionalOrderIx: async <
+    TIx extends InstructionsWithAccountsAndData,
+  >(
+    instruction: TIx,
     authority: Authority
   ) => {
-    wrapCalls.push({ instruction, authority });
+    wrapCalls.push({
+      instruction,
+      signer: authority,
+      usePositionAuthority: false,
+    });
     return instruction;
   },
   accountExists: async () => false,
+});
+
+type WrapCall = {
+  instruction: InstructionsWithAccountsAndData;
+  signer: Authority;
+  usePositionAuthority: boolean | undefined;
+};
+
+const twapAddresses = {
+  programAddress: "phoenix-program" as never,
+  flickerProgramAddress: "flicker-program" as never,
+  hawkeyeProgramAddress: "hawkeye-program" as never,
+  twapGlobalStateAddress: "twap-global-state" as never,
+  twapLogAuthorityAddress: "twap-log-authority" as never,
+} as const;
+
+const twapChildOrderPacket = {
+  side: Side.Bid,
+  priceInTicks: ticks(50_000n),
+  numBaseLots: baseLots(1_000n),
+  numQuoteLots: null,
+  minBaseLotsToFill: baseLots(1_000n),
+  minQuoteLotsToFill: quoteLots(1n),
+  selfTradeBehavior: SelfTradeBehavior.CancelProvide,
+  matchLimit: 25n,
+  clientOrderId: 0x1122_3344_5566_7788_99aa_bbcc_ddee_ff00n,
+  lastValidSlot: 42n,
+  orderFlags: OrderFlags.ReduceOnly,
+  cancelExisting: true,
+} as const;
+
+const accountMeta = (address: string, role: AccountRole) => ({
+  address: address as never,
+  role,
+});
+
+const bytes = (data: Uint8Array | readonly number[]) => Array.from(data);
+
+describe("twap raw ix builders", () => {
+  it("builds create TWAP account with Flicker account order and data", () => {
+    const ix = buildCreateTwapAccountIx({
+      ...twapAddresses,
+      twapAccount: "twap-account" as never,
+      traderAccount: "trader-account" as never,
+      payer: "payer" as never,
+      marketId: 7,
+    });
+
+    expect(ix.programAddress).toBe("flicker-program");
+    expect(ix.accounts.map((account) => account.address)).toEqual([
+      "twap-global-state",
+      "phoenix-program",
+      "twap-account",
+      "trader-account",
+      "payer",
+      "11111111111111111111111111111111",
+      "twap-log-authority",
+      "flicker-program",
+    ]);
+    expect(ix.accounts[2]?.role).toBe(AccountRole.WRITABLE);
+    expect(ix.accounts[4]?.role).toBe(AccountRole.WRITABLE_SIGNER);
+    expect(bytes(ix.data.slice(0, 8))).toEqual(
+      bytes(FLICKER_DISCRIMINANTS.CREATE_TWAP_ACCOUNT)
+    );
+    expect(bytes(ix.data.slice(8))).toEqual([7, 0, 0, 0]);
+  });
+
+  it("builds place TWAP order with transfer and order CPI tails", () => {
+    const transferAccounts = [
+      accountMeta("transfer-phoenix-program", AccountRole.READONLY),
+    ];
+    const orderAccounts = [
+      accountMeta("order-phoenix-program", AccountRole.READONLY),
+      accountMeta("order-market", AccountRole.WRITABLE),
+    ];
+    const ix = buildPlaceTwapOrderIx({
+      ...twapAddresses,
+      twapAccount: "twap-account" as never,
+      authority: "trader-authority" as never,
+      cooldownSlots: 12n,
+      nChildOrders: 3n,
+      childOrderMaxSlippageBps: 25n,
+      childOrderMinPriceInTicks: null,
+      childOrderMaxPriceInTicks: ticks(60_000n),
+      childOrderPacket: twapChildOrderPacket,
+      childOrderCollateralQuoteLotsToTransfer: quoteLots(5n),
+      lastValidSlot: 0n,
+      transferAccounts,
+      orderAccounts,
+    });
+
+    expect(ix.programAddress).toBe("flicker-program");
+    expect(ix.accounts.map((account) => account.address)).toEqual([
+      "twap-global-state",
+      "phoenix-program",
+      "hawkeye-program",
+      "twap-log-authority",
+      "twap-account",
+      "trader-authority",
+      "flicker-program",
+      "transfer-phoenix-program",
+      "order-phoenix-program",
+      "order-market",
+    ]);
+    expect(ix.accounts[4]?.role).toBe(AccountRole.WRITABLE);
+    expect(ix.accounts[5]?.role).toBe(AccountRole.READONLY_SIGNER);
+    expect(bytes(ix.data.slice(0, 8))).toEqual(
+      bytes(FLICKER_DISCRIMINANTS.PLACE_TWAP_ORDER)
+    );
+
+    const decoded = getPlaceTwapOrderDecoder().decode(ix.data);
+    expect(decoded.cooldownSlots).toBe(12n);
+    expect(decoded.nChildOrders).toBe(3n);
+    expect(decoded.childOrderMaxSlippageBps).toBe(25n);
+    expect(decoded.childOrderMinPriceInTicks).toBeNull();
+    expect(decoded.childOrderMaxPriceInTicks).toBe(ticks(60_000n));
+    expect(decoded.childOrderCollateralQuoteLotsToTransfer).toBe(quoteLots(5n));
+    expect(decoded.lastValidSlot).toBe(0n);
+    expect(decoded.transferCollateralAccountCount).toBe(1);
+    expect(decoded.childOrderPacket).toEqual(twapChildOrderPacket);
+
+    const packetOffset = 8 + 8 + 8 + 8 + 1 + 9;
+    const packetBytes = ix.data.slice(
+      packetOffset,
+      packetOffset + TWAP_IOC_ORDER_PACKET_BYTE_LENGTH
+    );
+    expect(decodeTwapIocOrderPacket(packetBytes)).toEqual(twapChildOrderPacket);
+  });
+
+  it("rejects optional IOC fields set to zero", () => {
+    expect(() =>
+      buildPlaceTwapOrderIx({
+        ...twapAddresses,
+        twapAccount: "twap-account" as never,
+        authority: "trader-authority" as never,
+        cooldownSlots: 12n,
+        nChildOrders: 3n,
+        childOrderMaxSlippageBps: 25n,
+        childOrderPacket: {
+          ...twapChildOrderPacket,
+          priceInTicks: ticks(0n),
+        },
+        orderAccounts: [
+          accountMeta("order-phoenix-program", AccountRole.READONLY),
+        ],
+      })
+    ).toThrow(/priceInTicks must be greater than 0/);
+  });
+
+  it("builds execute, cancel, and close TWAP instructions", () => {
+    const executeIx = buildExecuteTwapOrderIx({
+      ...twapAddresses,
+      twapAccount: "twap-account" as never,
+      transferAccounts: [
+        accountMeta("transfer-phoenix-program", AccountRole.READONLY),
+      ],
+      orderAccounts: [
+        accountMeta("order-phoenix-program", AccountRole.READONLY),
+      ],
+    });
+    expect(executeIx.accounts.map((account) => account.address)).toEqual([
+      "twap-global-state",
+      "phoenix-program",
+      "hawkeye-program",
+      "twap-log-authority",
+      "twap-account",
+      "flicker-program",
+      "transfer-phoenix-program",
+      "order-phoenix-program",
+    ]);
+    expect(getExecuteTwapOrderDecoder().decode(executeIx.data)).toEqual({
+      transferCollateralAccountCount: 1,
+    });
+
+    const cancelIx = buildCancelTwapOrderIx({
+      ...twapAddresses,
+      twapAccount: "twap-account" as never,
+      authority: "trader-authority" as never,
+    });
+    expect(cancelIx.accounts.map((account) => account.address)).toEqual([
+      "twap-global-state",
+      "phoenix-program",
+      "twap-log-authority",
+      "twap-account",
+      "trader-authority",
+      "flicker-program",
+    ]);
+    expect(bytes(cancelIx.data)).toEqual(
+      bytes(FLICKER_DISCRIMINANTS.CANCEL_TWAP_ORDER)
+    );
+
+    const closeIx = buildCloseInactiveTwapAccountIx({
+      ...twapAddresses,
+      twapAccount: "twap-account" as never,
+      recipient: "funding-key" as never,
+    });
+    expect(closeIx.accounts.map((account) => account.address)).toEqual([
+      "twap-global-state",
+      "phoenix-program",
+      "twap-account",
+      "funding-key",
+      "twap-log-authority",
+      "flicker-program",
+    ]);
+    expect(bytes(closeIx.data)).toEqual(
+      bytes(FLICKER_DISCRIMINANTS.CLOSE_INACTIVE_TWAP_ACCOUNT)
+    );
+  });
 });
 
 describe("ix operations", () => {
@@ -158,11 +390,8 @@ describe("ix operations", () => {
       resolveTraderAccount: async () => "trader-account" as never,
     });
 
-  it("wraps market order entrypoints with the trader account authority", async () => {
-    const wrapCalls: Array<{
-      instruction: InstructionsWithAccountsAndData;
-      authority: Authority;
-    }> = [];
+  it("wraps market order entrypoints with the effective signer", async () => {
+    const wrapCalls: WrapCall[] = [];
     const operations = createPhoenixIxOperations(
       createTestOperationContext(wrapCalls)
     );
@@ -182,12 +411,16 @@ describe("ix operations", () => {
 
     expect(wrapCalls).toHaveLength(2);
     expect(wrapCalls[0]?.instruction).toBe(marketIx);
-    expect(wrapCalls[0]?.authority).toBe("trader-authority");
+    expect(wrapCalls[0]?.signer).toBe("trader-authority");
+    expect(wrapCalls[0]?.usePositionAuthority).toBe(false);
     expect(Array.from(marketIx.data.slice(0, 8))).toEqual(
       Array.from(DISCRIMINANTS.PLACE_MARKET_ORDER)
     );
+    // The delegated order names a distinct signer, so the wrap is told the
+    // signer is a position authority.
     expect(wrapCalls[1]?.instruction).toBe(delegatedIx);
-    expect(wrapCalls[1]?.authority).toBe("trader-authority");
+    expect(wrapCalls[1]?.signer).toBe("delegated-wallet");
+    expect(wrapCalls[1]?.usePositionAuthority).toBe(true);
     expect(Array.from(delegatedIx.data.slice(0, 8))).toEqual(
       Array.from(DISCRIMINANTS.PLACE_MARKET_ORDER_DELEGATED)
     );
@@ -195,11 +428,34 @@ describe("ix operations", () => {
     expect(delegatedIx.accounts[4]?.address).toBe("permission-account");
   });
 
+  it("declares position authority only when the signer differs from the owner", async () => {
+    const wrapCalls: WrapCall[] = [];
+    const operations = createPhoenixIxOperations(
+      createTestOperationContext(wrapCalls)
+    );
+
+    await operations.placeMarketOrder({
+      authority: "trader-authority" as never,
+      positionAuthority: "trader-authority" as never,
+      symbol: "BTC-PERP" as never,
+      orderPacket: marketOrderPacket,
+    });
+    await operations.placeMarketOrder({
+      authority: "trader-authority" as never,
+      positionAuthority: "delegate-signer" as never,
+      symbol: "BTC-PERP" as never,
+      orderPacket: marketOrderPacket,
+    });
+
+    expect(wrapCalls).toHaveLength(2);
+    expect(wrapCalls[0]?.signer).toBe("trader-authority");
+    expect(wrapCalls[0]?.usePositionAuthority).toBe(false);
+    expect(wrapCalls[1]?.signer).toBe("delegate-signer");
+    expect(wrapCalls[1]?.usePositionAuthority).toBe(true);
+  });
+
   it("builds delegated primary-position-authority market orders through the shared wrapper", async () => {
-    const wrapCalls: Array<{
-      instruction: InstructionsWithAccountsAndData;
-      authority: Authority;
-    }> = [];
+    const wrapCalls: WrapCall[] = [];
     const operations = createPhoenixIxOperations(
       createTestOperationContext(wrapCalls)
     );
@@ -212,7 +468,8 @@ describe("ix operations", () => {
 
     expect(wrapCalls).toHaveLength(1);
     expect(wrapCalls[0]?.instruction).toBe(ix);
-    expect(wrapCalls[0]?.authority).toBe("trader-authority");
+    expect(wrapCalls[0]?.signer).toBe("trader-authority");
+    expect(wrapCalls[0]?.usePositionAuthority).toBe(false);
     expect(ix.accounts[3]?.address).toBe("position-authority");
     expect(ix.accounts[4]?.address).toBe("position-authority");
   });

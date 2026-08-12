@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.9 - 2026-08-12
+
+Source Phoenix commit: `cd96962f181a2e28c87ec592db4f20460c6b510e`
+
+### Summary
+
+- Adds native SOL spot collateral support: `GlobalConfiguration.nativeSolSpotMetadata`, `SpotCollateralMetadata` account decoding, new `NativeSol` instruction builders (`buildSyncNativeIx`, `buildWithdrawNativeSolIx`, `buildSwapNativeIx`, `buildTransferNativeSolIx`, `buildTransferNativeSolFromChildToParentIx`, `buildLiquidateNativeSolIx`), and margin valuation helpers in `margin/spotCollateral.ts` (`createMarginCalculator` now accepts an optional spot-collateral config, plus `SpotCollateralBalance`/`SpotCollateralValue` types).
+- Adds TWAP order support: `buildCreateTwapAccountIx`, `buildPlaceTwapOrderIx`, `buildExecuteTwapOrderIx`, `buildCancelTwapOrderIx`, `buildCloseInactiveTwapAccountIx`, and related codecs/discriminants under `core/ixBuilders/Twap`.
+- Adds `/v1/collateral/assets` and trader time-weighted-returns HTTP endpoints, a `spotCollateralsUpdated` exchange WS delta op, and a `stop_loss_order_placed`/order-placed notification payload type.
+- Adds `buildFlameAtomicDepositFlow` for sponsor-funded atomic deposits (no SOL required in the depositing wallet) and a new `DEPOSIT_PERMISSION` bit.
+- Flight order wrapping now requires callers to explicitly declare whether the signer is a position authority (`usePositionAuthority`), which controls whether the collateral-transfer tail accounts are appended.
+
+### Breaking Changes
+
+- `wrapInstructionWithFlight`'s `authority` parameter is renamed to `signer`, and a new `usePositionAuthority` flag now determines whether the collateral-transfer tail is appended (previously inferred implicitly). Direct callers of `wrapInstructionWithFlight` (outside the high-level `client.ixs` order methods, which derive this automatically) must update call sites.
+- `buildProxyInstructionIx`/`ProxyInstructionParams` add a `rootAuthority` field that is now the sole trigger for appending the collateral-transfer tail accounts; direct low-level callers relying on prior implicit tail behavior should verify their wraps still produce the expected account list.
+
+### Consumer Notes
+
+- `Trader` accounts gain new fields (`nativeSolCollateral`, `disablePositionAuthoritySwap`); `TraderPreferences` gains `disablePositionAuthoritySwap` alongside `disableCollateralSweep`. Consumers that only read decoded account data are unaffected; those constructing `Trader`/`TraderPreferences` object literals directly will need to add the new fields.
+- `GlobalConfiguration` now decodes a `nativeSolSpotMetadata` field (all-zero/inactive on exchanges that never configured it); this is additive and transparent for normal usage.
+- Package version bumps to `0.5.9`; dependency overrides updated (`brace-expansion`, `nanoid`, `postcss`, `undici`) — no consumer action needed unless you pin these transitively.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`

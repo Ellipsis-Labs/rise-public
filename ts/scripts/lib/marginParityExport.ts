@@ -1,19 +1,14 @@
-import {
-  computeSubaccountMarginFromInputs,
-  createMarginCalculator,
-} from "../../src/margin/compute";
+import { createMarginCalculator } from "../../src/margin/compute";
 import {
   computeProjectedLiquidation,
+  computeSubaccountLiquidationPricesFromMargin,
   type ProjectedLiquidationInput,
 } from "../../src/margin/liquidation";
 import { normalizeMarketParams } from "../../src/margin/normalize";
 import {
   absBigInt,
-  applyBps,
-  applyBpsCeil,
   divCeil,
   getLeverageConstant,
-  getLimitOrderRiskFactor,
   maxBigInt,
   toBigInt,
   type LeverageTier,
@@ -23,6 +18,7 @@ import type {
   MarketMarginInputs,
   MarketMarginResult,
   OrderMarginResult,
+  SpotCollateralMarginResult,
   SubaccountMarginInputs,
 } from "../../src/margin/types";
 
@@ -50,6 +46,23 @@ export type MarginParitySnapshotFile = {
     upnlRiskFactor: string;
     upnlRiskFactorForWithdrawals: string;
     isolatedOnly: boolean;
+    indexPriceTicks?: string;
+  }>;
+  /**
+   * Exchange configuration for every active spot collateral asset; empty before
+   * the rollout. The chain configures a single asset today, so this holds at
+   * most one entry.
+   */
+  spotCollaterals?: Array<{
+    assetIndex: number;
+    symbol: string;
+    perpSymbol: string;
+    decimals: number;
+    maxPerTraderBalance: string;
+    maxGlobalBalance: string;
+    currGlobalBalance: string;
+    minMarginDiscountBps: number;
+    maxMarginDiscountBps: number;
   }>;
   traders: Array<{
     authority: string;
@@ -59,6 +72,8 @@ export type MarginParitySnapshotFile = {
       traderSubaccountIndex: number;
       input: {
         collateralBalanceQuoteLots: string;
+        nativeSolCollateralLamports?: string;
+        spotCollateralBalances?: Record<string, string>;
         markets: Array<{
           symbol: string;
           position?: {
@@ -114,8 +129,17 @@ export type MarginParityOutputFile = {
       traderKey: string;
       traderSubaccountIndex: number;
       margin: MarginTotals & {
+        spotCollateralNotional?: string;
+        discountedSpotCollateral: string;
         riskScore: number;
       };
+      spotCollaterals?: Array<{
+        assetIndex: number;
+        symbol: string;
+        balance: string;
+        notional: string;
+        discounted: string;
+      }>;
       marketMargins: Array<
         MarketMarginResult & {
           liquidationPriceTicks?: string;
@@ -168,7 +192,6 @@ const computeRiskScore = (
   );
 };
 
-const MAX_HAWKEYE_LIQUIDATION_TICKS = 0xffff_ffffn;
 const emptyLimitOrderState: NonNullable<
   MarketMarginInputs["limitOrderMargin"]
 > = {
@@ -191,37 +214,6 @@ const parseLeverageTiers = (
     limitOrderRiskFactorBps: toBigInt(tier.limitOrderRiskFactorBps),
   }));
 
-const computeLiquidationPriceTicks = (
-  market: MarketMarginResult,
-  totals: MarginTotals,
-  marketParams: MarginParitySnapshotFile["markets"][number],
-  marketInput: MarketMarginInputs
-): string | undefined => {
-  const basePositionLots = toBigInt(market.basePositionLots);
-  if (basePositionLots === 0n) {
-    return undefined;
-  }
-  const currentMarkTicks = toBigInt(marketParams.markPriceTicks);
-  if (
-    isLiquidatableAtTicks(
-      currentMarkTicks,
-      market,
-      totals,
-      marketParams,
-      marketInput
-    )
-  ) {
-    return currentMarkTicks.toString();
-  }
-  const liquidationPriceTicks = findLiquidationBoundaryTicks(
-    market,
-    totals,
-    marketParams,
-    marketInput
-  );
-  return liquidationPriceTicks?.toString();
-};
-
 /**
  * Computes the projected (path-dependent) liquidation boundary through the
  * rise TypeScript SDK implementation so the exported value exercises the same
@@ -231,7 +223,8 @@ const computeProjectedLiquidationPriceTicks = (
   market: MarketMarginResult,
   totals: MarginTotals,
   marketParams: MarginParitySnapshotFile["markets"][number],
-  marketInput: MarketMarginInputs
+  marketInput: MarketMarginInputs,
+  spotCollaterals: readonly SpotCollateralMarginResult[]
 ): string | undefined => {
   const basePositionLots = toBigInt(market.basePositionLots);
   if (basePositionLots === 0n) {
@@ -278,6 +271,7 @@ const computeProjectedLiquidationPriceTicks = (
     targetMaintenanceMarginQuoteLots: toBigInt(
       market.maintenanceMarginQuoteLots
     ),
+    spotCollaterals,
   };
 
   const result = computeProjectedLiquidation(
@@ -285,305 +279,6 @@ const computeProjectedLiquidationPriceTicks = (
     normalizeMarketParams(marketParams)
   );
   return result.liquidationPriceTicks?.toString();
-};
-
-const otherMarketMaintenanceMarginQuoteLots = (
-  market: MarketMarginResult,
-  totals: MarginTotals
-): bigint => {
-  const portfolioMaintenanceMargin = toBigInt(
-    String(totals.maintenanceMarginQuoteLots)
-  );
-
-  return checkedSubtractQuoteLots(
-    portfolioMaintenanceMargin,
-    toBigInt(market.maintenanceMarginQuoteLots),
-    `Portfolio maintenance margin underflow for symbol ${market.symbol}`
-  );
-};
-
-const checkedSubtractQuoteLots = (
-  minuend: bigint,
-  subtrahend: bigint,
-  underflowMessage: string
-): bigint => {
-  if (minuend < subtrahend) {
-    throw new Error(
-      `${underflowMessage}: ${minuend.toString()} < ${subtrahend.toString()}`
-    );
-  }
-
-  return minuend - subtrahend;
-};
-
-const findLiquidationBoundaryTicks = (
-  market: MarketMarginResult,
-  totals: MarginTotals,
-  marketParams: MarginParitySnapshotFile["markets"][number],
-  marketInput: MarketMarginInputs
-): bigint | undefined => {
-  const basePositionLots = toBigInt(market.basePositionLots);
-  if (basePositionLots === 0n) {
-    return undefined;
-  }
-
-  const currentMarkTicks = toBigInt(marketParams.markPriceTicks);
-  if (currentMarkTicks <= 0n) {
-    return undefined;
-  }
-
-  if (basePositionLots > 0n) {
-    if (!isLiquidatableAtTicks(0n, market, totals, marketParams, marketInput)) {
-      return undefined;
-    }
-
-    let low = 0n;
-    let high = currentMarkTicks;
-    while (low + 1n < high) {
-      const mid = low + (high - low) / 2n;
-      if (
-        isLiquidatableAtTicks(mid, market, totals, marketParams, marketInput)
-      ) {
-        low = mid;
-      } else {
-        high = mid;
-      }
-    }
-
-    return low;
-  }
-
-  if (
-    !isLiquidatableAtTicks(
-      MAX_HAWKEYE_LIQUIDATION_TICKS,
-      market,
-      totals,
-      marketParams,
-      marketInput
-    )
-  ) {
-    return undefined;
-  }
-
-  let low = currentMarkTicks;
-  let high = MAX_HAWKEYE_LIQUIDATION_TICKS;
-  while (low + 1n < high) {
-    const mid = low + (high - low) / 2n;
-    if (isLiquidatableAtTicks(mid, market, totals, marketParams, marketInput)) {
-      high = mid;
-    } else {
-      low = mid;
-    }
-  }
-
-  return high;
-};
-
-const isLiquidatableAtTicks = (
-  ticks: bigint,
-  market: MarketMarginResult,
-  totals: MarginTotals,
-  marketParams: MarginParitySnapshotFile["markets"][number],
-  marketInput: MarketMarginInputs
-): boolean => {
-  const basePositionLots = toBigInt(market.basePositionLots);
-  const virtualQuotePositionLots = toBigInt(market.virtualQuotePositionLots);
-  const tickSize = toBigInt(marketParams.tickSize);
-  const rawTargetPnl =
-    virtualQuotePositionLots + basePositionLots * ticks * tickSize;
-  const upnlRiskFactor = toBigInt(marketParams.upnlRiskFactor);
-  const targetDiscountedPnl =
-    rawTargetPnl > 0n
-      ? applyBpsCeil(rawTargetPnl, upnlRiskFactor)
-      : rawTargetPnl;
-  const effectiveCollateral =
-    toBigInt(String(totals.collateralBalanceQuoteLots)) +
-    toBigInt(String(totals.unsettledFundingQuoteLots)) +
-    (toBigInt(String(totals.discountedUnrealizedPnlQuoteLots)) -
-      toBigInt(market.discountedUnrealizedPnlQuoteLots)) +
-    targetDiscountedPnl;
-  if (effectiveCollateral < 0n) {
-    return true;
-  }
-
-  const maintenance =
-    otherMarketMaintenanceMarginQuoteLots(market, totals) +
-    maintenanceMarginAtTicks(ticks, market, marketParams, marketInput);
-  return effectiveCollateral < maintenance;
-};
-
-const maintenanceMarginAtTicks = (
-  ticks: bigint,
-  market: MarketMarginResult,
-  marketParams: MarginParitySnapshotFile["markets"][number],
-  marketInput: MarketMarginInputs
-): bigint => {
-  const initialMargin = initialMarginForAssetAtTicks(
-    toBigInt(market.basePositionLots),
-    marketInput.limitOrderMargin ?? emptyLimitOrderState,
-    ticks,
-    marketParams
-  );
-  const maintenanceBps = toBigInt(
-    marketParams.riskFactors.maintenanceMarginFactorBps
-  );
-  return applyBps(initialMargin, maintenanceBps);
-};
-
-const initialMarginForAssetAtTicks = (
-  position: bigint,
-  limitOrderState: NonNullable<MarketMarginInputs["limitOrderMargin"]>,
-  ticks: bigint,
-  marketParams: MarginParitySnapshotFile["markets"][number]
-): bigint => {
-  const totalBid = toBigInt(limitOrderState.totalNonReduceOnlyBidBaseLots);
-  const totalAsk = toBigInt(limitOrderState.totalNonReduceOnlyAskBaseLots);
-  const totalBidAll =
-    totalBid + toBigInt(limitOrderState.totalReduceOnlyBidBaseLots);
-  const totalAskAll =
-    totalAsk + toBigInt(limitOrderState.totalReduceOnlyAskBaseLots);
-  if (
-    position === 0n &&
-    totalBid === 0n &&
-    totalAsk === 0n &&
-    totalBidAll === 0n &&
-    totalAskAll === 0n
-  ) {
-    return 0n;
-  }
-
-  const tiers = parseLeverageTiers(marketParams);
-  const tickSize = toBigInt(marketParams.tickSize);
-  const assetUnitPrice = ticks * tickSize;
-  let collateralRequired = 0n;
-  let existingPositionMarginOffset = 0n;
-
-  if (position !== 0n) {
-    const absolutePositionSize = absBigInt(position);
-    const absoluteBookValue = assetUnitPrice * absolutePositionSize;
-    const leverage = getLeverageConstant(tiers, absolutePositionSize);
-    const leverageBasedMargin = divCeil(absoluteBookValue, leverage);
-    collateralRequired += leverageBasedMargin;
-    existingPositionMarginOffset = leverageBasedMargin;
-  }
-
-  const marginBid =
-    totalBid > 0n
-      ? marginIncreaseForBids(
-          position,
-          totalBid,
-          assetUnitPrice,
-          tiers,
-          existingPositionMarginOffset
-        )
-      : 0n;
-  const marginAsk =
-    totalAsk > 0n
-      ? marginIncreaseForAsks(
-          position,
-          totalAsk,
-          assetUnitPrice,
-          tiers,
-          existingPositionMarginOffset
-        )
-      : 0n;
-
-  collateralRequired += maxBigInt(marginBid, marginAsk);
-  collateralRequired +=
-    totalBidAll > 0n
-      ? limitOrderFillLoss(
-          "bid",
-          totalBidAll,
-          toBigInt(limitOrderState.highestBid),
-          assetUnitPrice,
-          tickSize
-        )
-      : 0n;
-  collateralRequired +=
-    totalAskAll > 0n
-      ? limitOrderFillLoss(
-          "ask",
-          totalAskAll,
-          toBigInt(limitOrderState.lowestAsk),
-          assetUnitPrice,
-          tickSize
-        )
-      : 0n;
-
-  return collateralRequired;
-};
-
-const marginIncreaseForBids = (
-  position: bigint,
-  bidSize: bigint,
-  assetUnitPrice: bigint,
-  tiers: LeverageTier[],
-  existingPositionMarginOffset: bigint
-): bigint => {
-  const newExposureSigned = bidSize + position - absBigInt(position);
-  if (newExposureSigned <= 0n) {
-    return 0n;
-  }
-
-  const totalExposure = absBigInt(position + bidSize);
-  const totalGrossValue = assetUnitPrice * totalExposure;
-  const totalLeverage = getLeverageConstant(tiers, totalExposure);
-  const totalMargin = divCeil(totalGrossValue, totalLeverage);
-  const incrementalMargin = maxBigInt(
-    totalMargin - existingPositionMarginOffset,
-    0n
-  );
-  return applyBpsCeil(
-    incrementalMargin,
-    getLimitOrderRiskFactor(tiers, totalExposure)
-  );
-};
-
-const marginIncreaseForAsks = (
-  position: bigint,
-  askSize: bigint,
-  assetUnitPrice: bigint,
-  tiers: LeverageTier[],
-  existingPositionMarginOffset: bigint
-): bigint => {
-  const newExposureSigned = askSize - position - absBigInt(position);
-  if (newExposureSigned <= 0n) {
-    return 0n;
-  }
-
-  const totalExposure = absBigInt(position - askSize);
-  const totalGrossValue = assetUnitPrice * totalExposure;
-  const totalLeverage = getLeverageConstant(tiers, totalExposure);
-  const totalMargin = divCeil(totalGrossValue, totalLeverage);
-  const incrementalMargin = maxBigInt(
-    totalMargin - existingPositionMarginOffset,
-    0n
-  );
-  return applyBpsCeil(
-    incrementalMargin,
-    getLimitOrderRiskFactor(tiers, totalExposure)
-  );
-};
-
-const limitOrderFillLoss = (
-  side: "bid" | "ask",
-  size: bigint,
-  limitPriceTicks: bigint,
-  assetUnitPrice: bigint,
-  tickSize: bigint
-): bigint => {
-  if (limitPriceTicks === 0n) {
-    return 0n;
-  }
-  const limitPrice = limitPriceTicks * tickSize;
-  if (side === "bid") {
-    return limitPrice > assetUnitPrice
-      ? size * (limitPrice - assetUnitPrice)
-      : 0n;
-  }
-  return limitPrice < assetUnitPrice
-    ? size * (assetUnitPrice - limitPrice)
-    : 0n;
 };
 
 const ceilDiv = (numerator: bigint, denominator: bigint): bigint => {
@@ -680,7 +375,25 @@ export const buildMarginParityOutput = (
   snapshot: MarginParitySnapshotFile,
   options: GeneratedOutputOptions = {}
 ): MarginParityOutputFile => {
-  const calculator = createMarginCalculator(snapshot.markets);
+  // Absent configuration means the snapshot predates the rollout, so every
+  // engine values spot collateral at zero.
+  const spotCollateralParams = snapshot.spotCollaterals?.length
+    ? snapshot.spotCollaterals.map((params) => ({
+        assetIndex: params.assetIndex,
+        symbol: params.symbol,
+        perpSymbol: params.perpSymbol,
+        decimals: params.decimals,
+        maxPerTraderBalance: BigInt(params.maxPerTraderBalance),
+        maxGlobalBalance: BigInt(params.maxGlobalBalance),
+        currGlobalBalance: BigInt(params.currGlobalBalance),
+        minMarginDiscountBps: params.minMarginDiscountBps,
+        maxMarginDiscountBps: params.maxMarginDiscountBps,
+      }))
+    : undefined;
+  const calculator = createMarginCalculator(
+    snapshot.markets,
+    spotCollateralParams
+  );
   const marketsBySymbol = new Map(
     snapshot.markets.map((market) => [market.symbol, market])
   );
@@ -734,11 +447,21 @@ export const buildMarginParityOutput = (
       const inputs: SubaccountMarginInputs = {
         subaccountIndex: subaccount.traderSubaccountIndex,
         collateralBalanceQuoteLots: subaccount.input.collateralBalanceQuoteLots,
+        nativeSolCollateralLamports:
+          subaccount.input.nativeSolCollateralLamports ?? "0",
+        spotCollateralBalances: subaccount.input.spotCollateralBalances,
         markets,
       };
-      const result = computeSubaccountMarginFromInputs(
-        inputs,
-        calculator.markets
+      const result = calculator.computeSubaccountMarginFromInputs(inputs);
+      const liquidationPricesBySymbol = new Map(
+        computeSubaccountLiquidationPricesFromMargin(
+          result,
+          calculator.markets,
+          inputs
+        ).positions.map((position) => [
+          position.symbol,
+          position.liquidationPriceTicks,
+        ])
       );
       const effectiveCollateral = BigInt(
         result.margin.effectiveCollateralQuoteLots
@@ -746,6 +469,11 @@ export const buildMarginParityOutput = (
       const maintenanceMargin = BigInt(
         result.margin.maintenanceMarginQuoteLots
       );
+      const {
+        spotCollateralNotionalQuoteLots,
+        spotCollateralDiscountedQuoteLots,
+        ...margin
+      } = result.margin;
       const marketMargins = result.marketMargins.map((market) => {
         const marketParams = marketsBySymbol.get(market.symbol);
         if (!marketParams) {
@@ -789,18 +517,14 @@ export const buildMarginParityOutput = (
         return {
           ...market,
           liquidationPriceTicks:
-            computeLiquidationPriceTicks(
-              market,
-              result.margin,
-              marketParams,
-              marketInput
-            ) ?? undefined,
+            liquidationPricesBySymbol.get(market.symbol) ?? undefined,
           projectedLiquidationPriceTicks:
             computeProjectedLiquidationPriceTicks(
               market,
               result.margin,
               marketParams,
-              marketInput
+              marketInput,
+              result.spotCollaterals ?? []
             ) ?? undefined,
           maxLimitBidBaseLots: maxLimit.maxBidLots.toString(),
           maxLimitAskBaseLots: maxLimit.maxAskLots.toString(),
@@ -813,9 +537,18 @@ export const buildMarginParityOutput = (
         traderKey: subaccount.traderKey,
         traderSubaccountIndex: subaccount.traderSubaccountIndex,
         margin: {
-          ...result.margin,
+          ...margin,
+          spotCollateralNotional: spotCollateralNotionalQuoteLots,
+          discountedSpotCollateral: spotCollateralDiscountedQuoteLots ?? "0",
           riskScore: computeRiskScore(effectiveCollateral, maintenanceMargin),
         },
+        spotCollaterals: (result.spotCollaterals ?? []).map((spot) => ({
+          assetIndex: spot.assetIndex,
+          symbol: spot.symbol,
+          balance: spot.balance,
+          notional: spot.notionalQuoteLots,
+          discounted: spot.discountedQuoteLots,
+        })),
         marketMargins,
         limitOrders: result.limitOrders.map((order) => ({
           ...order,
@@ -834,7 +567,9 @@ export const buildMarginParityOutput = (
   }));
 
   return {
-    schemaVersion: 1,
+    // Keep in step with `SCHEMA_VERSION` in the parity tool's types.rs; the
+    // Rust engines stamp the same number.
+    schemaVersion: 2,
     generatedAt: options.generatedAt ?? new Date().toISOString(),
     slot: snapshot.slot,
     engine: "rise-ts",
