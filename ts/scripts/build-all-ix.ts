@@ -10,9 +10,14 @@ import {
   buildCancelAllIx,
   buildCancelOrdersByIdIx,
   buildCancelStopLossIx,
+  buildCancelTwapOrderIx,
+  buildCloseInactiveTwapAccountIx,
   buildCancelUpToIx,
+  buildCreateTwapAccountIx,
+  buildExecuteTwapOrderIx,
   buildUncrossCrankIx,
   buildPlaceStopLossIx,
+  buildPlaceTwapOrderIx,
   buildCancelConditionalOrderIx,
   buildCreateConditionalOrdersAccountIx,
   buildPlaceAttachedConditionalOrderIx,
@@ -43,12 +48,13 @@ import {
   Direction,
   StopLossOrderKind,
   flight,
+  getPhoenixTraderSubaccountAddress,
   PHOENIX_PROGRAM_ADDRESS,
   PHOENIX_LOG_AUTHORITY_ADDRESS,
   PHOENIX_GLOBAL_CONFIGURATION_ADDRESS,
   USDC_MINT_ADDRESS,
 } from "@/index";
-import { address } from "@solana/kit";
+import { AccountRole, address, type AccountMeta } from "@solana/kit";
 
 // 20 dummy Solana addresses (matches Rust: bytes [0..31] with bytes[31] = i)
 const pubkeys: string[] = [
@@ -76,6 +82,10 @@ const pubkeys: string[] = [
 
 const p = (i: number) => address(pubkeys[i]) as any;
 const vec2 = (a: number, b: number) => [p(a), p(b)] as any;
+const accountMeta = (i: number, role: AccountRole): AccountMeta => ({
+  address: p(i),
+  role,
+});
 
 console.error("Building all shared instruction builders...");
 
@@ -635,7 +645,7 @@ try {
       executionDirection: Direction.LessThan,
       orderKind: StopLossOrderKind.IOC,
     });
-    const wrappedStopLossIx = await flightClient.tryWrapFlightInstruction(
+    const wrappedStopLossIx = await flightClient.tryWrapOrderInstruction(
       stopLossIx,
       p(0)
     );
@@ -664,7 +674,7 @@ try {
       sizePercent: null,
     });
     const wrappedPositionConditionalIx =
-      await flightClient.tryWrapFlightInstruction(positionConditionalIx, p(0));
+      await flightClient.tryWrapOrderInstruction(positionConditionalIx, p(0));
     results["FlightPlacePositionConditionalOrder"] = hexEncode(
       wrappedPositionConditionalIx.data
     );
@@ -692,7 +702,7 @@ try {
       },
     });
     const wrappedAttachedConditionalIx =
-      await flightClient.tryWrapFlightInstruction(attachedConditionalIx, p(0));
+      await flightClient.tryWrapOrderInstruction(attachedConditionalIx, p(0));
     results["FlightPlaceAttachedConditionalOrder"] = hexEncode(
       wrappedAttachedConditionalIx.data
     );
@@ -736,10 +746,7 @@ try {
       },
     });
     const wrappedLimitWithConditionalsIx =
-      await flightClient.tryWrapFlightInstruction(
-        limitWithConditionalsIx,
-        p(0)
-      );
+      await flightClient.tryWrapOrderInstruction(limitWithConditionalsIx, p(0));
     results["FlightPlaceLimitOrderWithConditionals"] = hexEncode(
       wrappedLimitWithConditionalsIx.data
     );
@@ -914,6 +921,179 @@ try {
       newPositionAuthority: p(2),
     });
     results["DelegateTrader"] = hexEncode(ix.data);
+  }
+
+  // 33. TWAP instruction constructors.
+  {
+    console.error("Building TWAP instructions...");
+    const twapGlobalStateAddress = p(13);
+    const twapLogAuthorityAddress = p(14);
+    const twapAccount = p(15);
+    const transferAccounts = [
+      accountMeta(16, AccountRole.READONLY),
+      accountMeta(17, AccountRole.WRITABLE),
+    ] as const;
+    const orderAccounts = [
+      accountMeta(18, AccountRole.READONLY),
+      accountMeta(19, AccountRole.WRITABLE),
+      accountMeta(0, AccountRole.READONLY_SIGNER),
+    ] as const;
+    const childOrderPacket = {
+      side: Side.Bid,
+      priceInTicks: ticks(1000n),
+      numBaseLots: baseLots(10n),
+      numQuoteLots: quoteLots(12_500n),
+      minBaseLotsToFill: baseLots(1n),
+      minQuoteLotsToFill: quoteLots(1_000n),
+      selfTradeBehavior: SelfTradeBehavior.CancelProvide,
+      matchLimit: 3n,
+      clientOrderId: 123_456_789n,
+      lastValidSlot: 99_999n,
+      orderFlags: OrderFlags.ReduceOnly,
+      cancelExisting: true,
+    };
+
+    const sharedTwapAccounts = {
+      twapGlobalStateAddress,
+      twapLogAuthorityAddress,
+    };
+
+    results["CreateTwapAccount"] = hexEncode(
+      buildCreateTwapAccountIx({
+        ...sharedTwapAccounts,
+        twapAccount,
+        traderAccount: p(1),
+        payer: p(0),
+        marketId: 7,
+      }).data
+    );
+    results["PlaceTwapOrder"] = hexEncode(
+      buildPlaceTwapOrderIx({
+        ...sharedTwapAccounts,
+        twapAccount,
+        authority: p(0),
+        cooldownSlots: 75n,
+        nChildOrders: 10n,
+        childOrderMaxSlippageBps: 25n,
+        childOrderMinPriceInTicks: ticks(900n),
+        childOrderMaxPriceInTicks: ticks(1100n),
+        childOrderPacket,
+        childOrderCollateralQuoteLotsToTransfer: quoteLots(5_000n),
+        lastValidSlot: 123_456n,
+        transferAccounts,
+        orderAccounts,
+      }).data
+    );
+    results["ExecuteTwapOrder"] = hexEncode(
+      buildExecuteTwapOrderIx({
+        ...sharedTwapAccounts,
+        twapAccount,
+        transferAccounts,
+        orderAccounts,
+      }).data
+    );
+    results["CancelTwapOrder"] = hexEncode(
+      buildCancelTwapOrderIx({
+        ...sharedTwapAccounts,
+        twapAccount,
+        authority: p(0),
+      }).data
+    );
+    results["CloseInactiveTwapAccount"] = hexEncode(
+      buildCloseInactiveTwapAccountIx({
+        ...sharedTwapAccounts,
+        twapAccount,
+        recipient: p(0),
+      }).data
+    );
+  }
+
+  // 34. Flight ProxyInstruction wrapping PlaceMarketOrderDelegated signed by
+  // a secondary position authority (distinct delegate wallet plus a fixed
+  // permission account), with the collateral-transfer tail appended via
+  // `rootAuthority`.
+  {
+    console.error("Building FlightProxyPlaceMarketOrderDelegated...");
+    const inner = buildPlaceMarketOrderDelegatedIx({
+      traderWallet: p(9),
+      permissionAccount: p(10),
+      traderAccount: p(1),
+      perpAssetMap: p(2),
+      orderbook: p(3),
+      splineCollection: p(4),
+      globalTraderIndex: vec2(5, 6),
+      activeTraderBuffer: vec2(7, 8),
+      orderPacket: {
+        side: Side.Ask,
+        priceInTicks: null,
+        numBaseLots: baseLots(100n),
+        numQuoteLots: null,
+        minBaseLotsToFill: baseLots(0n),
+        minQuoteLotsToFill: quoteLots(0n),
+        selfTradeBehavior: SelfTradeBehavior.Abort,
+        matchLimit: null,
+        clientOrderId: 0n,
+        lastValidSlot: null,
+        orderFlags: OrderFlags.None,
+        cancelExisting: false,
+      },
+    });
+
+    const ix = await flight.buildProxyInstructionIx({
+      builderAuthority: p(11),
+      builderTraderAccount: p(12),
+      traderWallet: p(9),
+      rootAuthority: p(0),
+      innerInstruction: inner,
+    });
+    results["FlightProxyPlaceMarketOrderDelegated"] = hexEncode(ix.data);
+  }
+
+  // 35. Flight ProxyInstruction wrapping a plain PlaceMarketOrder whose
+  // trader wallet is the trader's position authority (the delegate signs;
+  // the trader account is derived from the owner), with the
+  // collateral-transfer tail appended via `rootAuthority`.
+  {
+    console.error("Building FlightProxyPlaceMarketOrderPositionAuthority...");
+    const ownerTraderAccount = await getPhoenixTraderSubaccountAddress({
+      authority: p(0),
+      traderPdaIndex: 0,
+      subaccountIndex: 0,
+    });
+    const inner = buildPlaceMarketOrderIx({
+      trader: p(9),
+      traderAccount: ownerTraderAccount,
+      perpAssetMap: p(2),
+      orderbook: p(3),
+      splineCollection: p(4),
+      globalTraderIndex: vec2(5, 6),
+      activeTraderBuffer: vec2(7, 8),
+      orderPacket: {
+        side: Side.Ask,
+        priceInTicks: null,
+        numBaseLots: baseLots(100n),
+        numQuoteLots: null,
+        minBaseLotsToFill: baseLots(0n),
+        minQuoteLotsToFill: quoteLots(0n),
+        selfTradeBehavior: SelfTradeBehavior.Abort,
+        matchLimit: null,
+        clientOrderId: 0n,
+        lastValidSlot: null,
+        orderFlags: OrderFlags.None,
+        cancelExisting: false,
+      },
+    });
+
+    const ix = await flight.buildProxyInstructionIx({
+      builderAuthority: p(11),
+      builderTraderAccount: p(12),
+      traderWallet: p(9),
+      rootAuthority: p(0),
+      innerInstruction: inner,
+    });
+    results["FlightProxyPlaceMarketOrderPositionAuthority"] = hexEncode(
+      ix.data
+    );
   }
 
   // Output JSON in sorted order

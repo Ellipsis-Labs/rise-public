@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.11 - 2026-08-14
+
+Source Phoenix commit: `41d501ac9b4b1f84fe680987d4e491cac0d55338`
+
+### Summary
+
+- Added native SOL spot collateral support: `GlobalConfiguration.nativeSolSpotMetadata` / `Trader.nativeSolCollateral`, new `NativeSol` instruction builders (`SwapNative`, `SyncNative`, `TransferNativeSol[FromChildToParent]`, `WithdrawNativeSol`, `LiquidateNativeSol`), margin valuation helpers (`margin/spotCollateral.ts`), a `/v1/collateral/assets` API client method, and spot collateral balances surfaced through trader-state and the exchange cache.
+- Added TWAP order support (Flicker program): `CreateTwapAccount`, `PlaceTwapOrder`, `ExecuteTwapOrder`, `CancelTwapOrder`, `CloseInactiveTwapAccount` instruction builders and codecs.
+- Added `place_multi_limit_order_v2` / `CondensedOrderV2`, which replaces the borsh `Option` expiry with a fixed-width `u64` sentinel; `DEFAULT_MAX_ORDERS_PER_TX_V2` (24) reflects the larger per-order wire size.
+- Added draft-order margin helpers (`computeDraftOrderMarginRequirementFrom*`, `computeMaxDraftOrderSizeForAvailableMarginFrom*`) and a `getTraderTimeWeightedReturns` trader API client method.
+- Added `AuthorizedTransferCollateral` instruction, a `DEPOSIT_PERMISSION` permission bit, and `buildFlameAtomicDepositFlow` for sponsor-cranked atomic deposits.
+
+### Breaking Changes
+
+- `wrapInstructionWithFlight`'s `authority` parameter was renamed to `signer`. Callers of this lower-level Flight wrap function (and `buildProxyInstructionIx`, which gained a `rootAuthority` param) must update call sites; the wrap no longer infers whether a position authority signed — it must be declared explicitly. High-level `client.ixs` order builders handle this automatically and are unaffected.
+
+### Consumer Notes
+
+- `Trader.disablePositionAuthoritySwap` (`TraderPreferenceKind.DisablePositionAuthoritySwap`) and the exchange-wide `SPOT_COLLATERAL_FLAG_DISABLE_POSITION_AUTHORITY_SWAP` are independent gates on delegate-signed `SwapNative` calls — check both when building native SOL swap flows.
+- Dependency overrides bumped: `brace-expansion` >=5.0.9, `postcss` >=8.5.23, plus new `nanoid` ^3.3.18 and `undici` ^7.29.0 overrides.
+- `buildFlameAtomicDepositFlow` requires the caller to sign a deposit permission; the sponsor fee payer cranks the Flame `DepositToPhoenix` instruction so wallets with no SOL can deposit.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`
