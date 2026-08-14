@@ -1,4 +1,6 @@
 import {
+  DEFAULT_MAX_ORDERS_PER_TX,
+  DEFAULT_MAX_ORDERS_PER_TX_V2,
   MAX_SCALE_ORDERS,
   MIN_SCALE_ORDERS,
   buildPlaceMultiLimitOrderIxResolved,
@@ -13,6 +15,8 @@ import {
   type ScaleOrderInput,
   type ScaleOrderLevel,
 } from "@/index";
+import { scaleLevelsToMultipleOrderPacketV2 } from "@/scaleOrders";
+import { CondensedOrderFlags } from "@/primitives";
 import type { ResolvedPlaceOrderContext } from "@/ixs/types";
 import { Side } from "@/primitives/Side";
 import { DISCRIMINANTS } from "@/core/discriminants";
@@ -376,6 +380,72 @@ describe("scaleLevelsToMultipleOrderPacket", () => {
   });
 });
 
+describe("scaleLevelsToMultipleOrderPacketV2", () => {
+  const levels = computeScaleOrderLevels(baseInput);
+
+  it("defaults to no flags, no scaleSetId, and the 0-sentinel expiry", () => {
+    const packet = scaleLevelsToMultipleOrderPacketV2(levels, Side.Bid);
+    expect(packet.asks).toHaveLength(0);
+    expect(packet.bids).toHaveLength(levels.length);
+    expect(packet.scaleSetId).toBe(0);
+    for (const order of packet.bids) {
+      expect(order.flags).toBe(CondensedOrderFlags.None);
+      expect(order.lastValidSlot).toBeNull();
+    }
+  });
+
+  it("fans packet-level slide and reduceOnly into every leg's flags", () => {
+    const packet = scaleLevelsToMultipleOrderPacketV2(levels, Side.Ask, {
+      slide: true,
+      reduceOnly: true,
+      clientOrderId: 7n,
+      lastValidSlot: 123n,
+      scaleSetId: 42,
+    });
+    expect(packet.bids).toHaveLength(0);
+    expect(packet.asks).toHaveLength(levels.length);
+    expect(packet.clientOrderId).toBe(7n);
+    expect(packet.scaleSetId).toBe(42);
+    for (const order of packet.asks) {
+      expect(order.flags).toBe(
+        CondensedOrderFlags.Slide | CondensedOrderFlags.ReduceOnly
+      );
+      expect(order.lastValidSlot).toBe(123n);
+    }
+  });
+
+  it("skips zero-size levels", () => {
+    const withZero: ScaleOrderLevel[] = [
+      ...levels,
+      {
+        index: 99,
+        priceUsd: 999,
+        priceInTicks: 999000n,
+        sizeBaseLots: 0,
+        sizeUnits: 0,
+      },
+    ];
+    const packet = scaleLevelsToMultipleOrderPacketV2(withZero, Side.Bid);
+    expect(packet.bids).toHaveLength(levels.length);
+  });
+
+  it("throws when more than the per-side cap is supplied", () => {
+    const tooMany: ScaleOrderLevel[] = Array.from(
+      { length: MAX_SCALE_ORDERS + 1 },
+      (_, i) => ({
+        index: i,
+        priceUsd: 100 + i,
+        priceInTicks: BigInt(100000 + i),
+        sizeBaseLots: 1,
+        sizeUnits: 0.001,
+      })
+    );
+    expect(() =>
+      scaleLevelsToMultipleOrderPacketV2(tooMany, Side.Bid)
+    ).toThrow();
+  });
+});
+
 describe("chunkScaleLevelsForTx", () => {
   const levels = computeScaleOrderLevels({ ...baseInput, orderCount: 64 });
 
@@ -390,6 +460,32 @@ describe("chunkScaleLevelsForTx", () => {
     const chunks = chunkScaleLevelsForTx(levels, { maxOrdersPerTx: 1000 });
     expect(chunks).toHaveLength(1);
     expect(chunks[0].length).toBeLessThanOrEqual(MAX_SCALE_ORDERS);
+  });
+
+  it("uses the smaller V2 default for V2 batches", () => {
+    expect(DEFAULT_MAX_ORDERS_PER_TX_V2).toBeLessThan(
+      DEFAULT_MAX_ORDERS_PER_TX
+    );
+    expect(
+      chunkScaleLevelsForTx(levels, { usesV2Instruction: true }).map(
+        (c) => c.length
+      )
+    ).toEqual([
+      DEFAULT_MAX_ORDERS_PER_TX_V2,
+      DEFAULT_MAX_ORDERS_PER_TX_V2,
+      MAX_SCALE_ORDERS - 2 * DEFAULT_MAX_ORDERS_PER_TX_V2,
+    ]);
+    expect(chunkScaleLevelsForTx(levels).map((c) => c.length)[0]).toEqual(
+      DEFAULT_MAX_ORDERS_PER_TX
+    );
+  });
+
+  it("lets an explicit maxOrdersPerTx override the V2 default", () => {
+    const chunks = chunkScaleLevelsForTx(levels, {
+      maxOrdersPerTx: 32,
+      usesV2Instruction: true,
+    });
+    expect(chunks.map((c) => c.length)).toEqual([32, 32]);
   });
 });
 
