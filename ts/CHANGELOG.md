@@ -3,6 +3,31 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.10 - 2026-08-14
+
+Source Phoenix commit: `29c2f9e5571ff898b32cf6a2e3a310bde2016ae9`
+
+### Summary
+
+- Adds native SOL spot collateral support: new `NativeSol` instruction builders (`buildSyncNativeIx`, `buildWithdrawNativeSolIx`, `buildTransferNativeSolIx`, `buildTransferNativeSolFromChildToParentIx`, `buildLiquidateNativeSolIx`, `buildSwapNativeIx`), a `SpotCollateralMetadata` account decoder, spot collateral margin valuation/discount-curve helpers in `@/margin`, and a new `/v1/collateral/assets` HTTP endpoint (`V1CollateralClient.getAssets`).
+- Adds TWAP order instruction builders and codecs (`buildCreateTwapAccountIx`, `buildPlaceTwapOrderIx`, `buildExecuteTwapOrderIx`, `buildCancelTwapOrderIx`, `buildCloseInactiveTwapAccountIx`).
+- Adds draft-order margin sizing helpers: `computeDraftOrderMarginRequirementFromInputs`/`FromSnapshot` and `computeMaxDraftOrderSizeForAvailableMarginFromInputs`/`FromSnapshot`.
+- Adds `buildFlameAtomicDepositFlow` for sponsor-cranked atomic deposits (with a new `DEPOSIT_PERMISSION` constant), and a trader time-weighted returns endpoint (`getTraderTimeWeightedReturns`).
+- Package version bumped `0.4.67` → `0.5.10`.
+
+### Breaking Changes
+
+- `wrapInstructionWithFlight`'s `authority` parameter was renamed to `signer`, and callers signing as a trader's position authority must now explicitly pass `usePositionAuthority`/`rootAuthority` — this is no longer inferred from the wrapped instruction. Direct callers of this low-level Flight wrap API (bypassing the high-level `client.ixs` order methods) need to update call sites or their proxy instructions will silently omit the collateral-transfer tail.
+- `buildProxyInstructionIx`/`ProxyInstructionParams` gained a `rootAuthority` field that is now the sole trigger for appending the collateral-transfer tail accounts; previously-working position-authority flows that don't set it will stop collecting the builder fee via that path.
+
+### Consumer Notes
+
+- `Trader.preferences`/`TraderPreferenceKind` gains `DisablePositionAuthoritySwap` (a new, distinct bit from the existing `SwapNative` exchange-level kill switch), and `Trader` gains a `nativeSolCollateral` balance field.
+- `createMarginCalculator` accepts an optional second `spotCollaterals` argument; existing single-argument call sites are unaffected.
+- `PlaceIsolatedLimitOrderRequest` gains an optional `transferSpotCollateralAmounts` map for depositing spot collateral alongside an order.
+- Flight's routable-instruction detection now also matches owner-signed `PlaceMarketOrderDelegated`, which is settled via the plain transfer rather than the collateral-transfer tail.
+- New exported constants/helpers: `FLICKER_PROGRAM_ADDRESS`, `EMBER_STATE_ADDRESS`, `BETA_USDC_MINT_ADDRESS`, and `resolvePhoenixBuilderAddresses`.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`

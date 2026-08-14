@@ -16,14 +16,20 @@ export {
   type PhoenixInstructionAddressSource,
   type ResolvePhoenixInstructionAddressesInput,
   USDC_MINT_ADDRESS,
+  BETA_USDC_MINT_ADDRESS,
+  EMBER_STATE_ADDRESS,
   SPL_TOKEN_PROGRAM_ADDRESS,
   SPL_ATA_PROGRAM_ADDRESS,
   SYSTEM_PROGRAM_ADDRESS,
   EMBER_PROGRAM_ADDRESS,
+  FLICKER_PROGRAM_ADDRESS,
+  type PhoenixBuilderAddressDefaults,
+  type ResolvePhoenixBuilderAddressesInput,
   clientPhoenixInstructionAddresses,
   getPhoenixInstructionAddresses,
   getPhoenixProgramAddress,
   phoenixInstructionAddresses,
+  resolvePhoenixBuilderAddresses,
   resolvePhoenixEnv,
   resolvePhoenixInstructionAddresses,
 } from "../core/constants";
@@ -33,6 +39,7 @@ export {
   sha2_const,
   DISCRIMINANTS,
   EMBER_DISCRIMINANTS,
+  FLICKER_DISCRIMINANTS,
 } from "../core/discriminants";
 
 export * from "../accounts";
@@ -47,11 +54,15 @@ export type {
   SystemProgramAddress,
   EmberProgramAddress,
   FlameProgramAddress,
+  FlickerProgramAddress,
   Authority,
   PerpAssetMapAddress,
   TraderAddress,
   MarketAddress,
   SplineCollectionAddress,
+  TwapGlobalStateAddress,
+  TwapAccountAddress,
+  TwapLogAuthorityAddress,
   ActiveTraderBufferHeaderAddress,
   ActiveTraderBufferArenaAddress,
   ActiveTraderBufferAddressArray,
@@ -235,9 +246,14 @@ export {
   getPhoenixStopLossAddress,
   getPhoenixTraderSubaccountAddress,
   getPhoenixTraderTokenAccountAddress,
+  getTwapAccountAddress,
+  getTwapGlobalStateAddress,
+  getTwapLogAuthorityAddress,
   type ConditionalOrdersAddressParams,
   type StopLossAddressParams,
   type TraderSubaccountAddressParams,
+  type TwapAccountAddressParams,
+  type TwapAddressParams,
 } from "../pdas";
 
 export type {
@@ -272,11 +288,17 @@ export {
 
 export {
   FLAME_PROGRAM_ADDRESS,
+  buildFlameDepositToPhoenixIx,
+  deriveFlameDepositToPhoenixAddresses,
   deriveFlameDepositAddress,
   deriveFlameDepositAddresses,
+  deriveFlameGlobalStateAddress,
   deriveFlameProxyAuthorityAddress,
   type FlameDepositAddressInput,
   type FlameDepositAddresses,
+  type FlameDepositToPhoenixAddresses,
+  type FlameDepositToPhoenixIx,
+  type FlameDepositToPhoenixParams,
   type FlameProxyAuthorityAddressInput,
   type ResolveFlameAddressesInput,
 } from "../flame";
@@ -295,6 +317,7 @@ export {
   getSetPermissionParamsCodec,
   getSetPermissionParamsDecoder,
   getSetPermissionParamsEncoder,
+  DEPOSIT_PERMISSION,
   TRADER_MANAGEMENT_PERMISSION,
   TRADER_ONBOARDING_PERMISSION,
   type CreatePermissionAccounts,
@@ -354,6 +377,7 @@ export {
 
 export {
   buildDepositFlow,
+  buildFlameAtomicDepositFlow,
   buildFlameDepositFundingFlow,
   buildGrantEscrowPermissionFlow,
   buildPlaceLimitOrderFlow,
@@ -364,6 +388,9 @@ export {
   type DepositFlowInstructions,
   type DepositFlowParams,
   type DepositFlowResult,
+  type FlameAtomicDepositFlowInstructions,
+  type FlameAtomicDepositFlowParams,
+  type FlameAtomicDepositFlowResult,
   type FlameDepositFundingFlowInstructions,
   type FlameDepositFundingFlowParams,
   type FlameDepositFundingFlowResult,
