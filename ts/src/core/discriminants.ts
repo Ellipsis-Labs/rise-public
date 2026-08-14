@@ -27,10 +27,21 @@ export const DISCRIMINANTS: DiscriminantMap = {
     "global:set_trader_capabilities_delegated"
   ),
   TRANSFER_COLLATERAL: sha2_const("global:transfer_collateral"),
+  AUTHORIZED_TRANSFER_COLLATERAL: sha2_const(
+    "global:authorized_transfer_collateral"
+  ),
   TRANSFER_COLLATERAL_CHILD_TO_PARENT: sha2_const(
     "global:transfer_collateral_child_to_parent"
   ),
   SYNC_PARENT_TO_CHILD: sha2_const("global:sync_parent_to_child"),
+  SYNC_NATIVE: sha2_const("global:sync_native"),
+  WITHDRAW_NATIVE_SOL: sha2_const("global:withdraw_native_sol"),
+  TRANSFER_NATIVE_SOL: sha2_const("global:transfer_native_sol"),
+  TRANSFER_NATIVE_SOL_FROM_CHILD_TO_PARENT: sha2_const(
+    "global:transfer_native_sol_from_child_to_parent"
+  ),
+  LIQUIDATE_NATIVE_SOL: sha2_const("global:liquidate_native_sol"),
+  SWAP_NATIVE: sha2_const("global:swap_native"),
   REGISTER_SPLINE: sha2_const("global:register_spline"),
   DEACTIVATE_SPLINE: sha2_const("global:deactivate_spline"),
   UPDATE_SPLINE_PRICE: sha2_const("global:update_spline_price"),
@@ -66,6 +77,19 @@ export const DISCRIMINANTS: DiscriminantMap = {
 export const EMBER_DISCRIMINANTS: DiscriminantMap = {
   DEPOSIT: sha2_const("global:deposit"),
   WITHDRAW: sha2_const("global:withdraw"),
+};
+
+export const FLICKER_DISCRIMINANTS: DiscriminantMap = {
+  INIT: sha2_const("global:init"),
+  NAME_SUCCESSOR: sha2_const("global:name_successor"),
+  CLAIM_SUCCESSOR: sha2_const("global:claim_successor"),
+  CREATE_TWAP_ACCOUNT: sha2_const("global:create_twap_account"),
+  PLACE_TWAP_ORDER: sha2_const("global:place_twap_order"),
+  EXECUTE_TWAP_ORDER: sha2_const("global:execute_twap_order"),
+  CANCEL_TWAP_ORDER: sha2_const("global:cancel_twap_order"),
+  CLOSE_INACTIVE_TWAP_ACCOUNT: sha2_const("global:close_inactive_twap_account"),
+  LOG: sha2_const("global:log"),
+  LOG_EVENT_LENGTHS: sha2_const("global:log_event_lengths"),
 };
 
 export const ACCOUNT_DISCRIMINANTS: DiscriminantMap = {

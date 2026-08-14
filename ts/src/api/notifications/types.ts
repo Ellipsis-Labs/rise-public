@@ -181,6 +181,45 @@ export const CloseMatchedPositionsEventDataSchema: z.ZodType<CloseMatchedPositio
     inProfitCollateralChange: bigintLikeSchema,
   });
 
+export interface OrderPlacedEventData {
+  slot: bigint;
+  slotIndex: number;
+  timestamp: bigint;
+  symbol: string;
+  orderSequenceNumber: bigint;
+  trader: string;
+  /** Bit-packed order flags (serialized as a single bare u8). */
+  orderFlags: number;
+  clientOrderId?: string | null;
+  orderId?: string | null;
+  price: bigint;
+  /** Signed quantity. */
+  quantity: bigint;
+  side: "bid" | "ask";
+  lastValidSlot?: bigint | null;
+  initialSlot: bigint;
+  orderbookSequenceNumber: bigint;
+}
+
+export const OrderPlacedEventDataSchema: z.ZodType<OrderPlacedEventData> =
+  z.object({
+    slot: bigintLikeSchema,
+    slotIndex: safeIntegerSchema,
+    timestamp: bigintLikeSchema,
+    symbol: z.string(),
+    orderSequenceNumber: bigintLikeSchema,
+    trader: z.string(),
+    orderFlags: safeIntegerSchema,
+    clientOrderId: z.string().nullable().optional(),
+    orderId: z.string().nullable().optional(),
+    price: bigintLikeSchema,
+    quantity: bigintLikeSchema,
+    side: z.enum(["bid", "ask"]),
+    lastValidSlot: bigintLikeSchema.nullable().optional(),
+    initialSlot: bigintLikeSchema,
+    orderbookSequenceNumber: bigintLikeSchema,
+  });
+
 export interface GetNotificationsQuery {
   limit?: number;
   cursor?: string;
@@ -202,6 +241,7 @@ export const EVENT_NOTIFICATION_TYPES = [
   "risk_engine_cancel_order",
   "stop_loss_executed",
   "conditional_order_executed",
+  "stop_loss_order_placed",
 ] as const;
 
 export type EventNotificationType = (typeof EVENT_NOTIFICATION_TYPES)[number];
@@ -249,6 +289,21 @@ export interface ConditionalOrderExecutedDetails {
   baseAmount: number;
   quoteAmount: number;
   triggerType?: "take_profit" | "stop_loss";
+}
+
+export interface StopLossOrderPlacedDetails {
+  type: "stopLossOrderPlaced";
+  symbol: string;
+  side: string;
+  triggerType: "take_profit" | "stop_loss";
+  /** Raw price in ticks. */
+  priceInTicks: number;
+  /** Signed by side. */
+  baseLotsRemaining: number;
+  /** Omitted when the order rested in full. */
+  filledBaseAmount?: number;
+  /** Omitted when the order rested in full. */
+  filledQuoteAmount?: number;
 }
 
 export interface LiquidationDetails {
@@ -315,6 +370,12 @@ export type ConditionalOrderExecutedNotification = EventNotificationBase & {
   details?: ConditionalOrderExecutedDetails;
 };
 
+export type StopLossOrderPlacedNotification = EventNotificationBase & {
+  notificationType: "stop_loss_order_placed";
+  data: OrderPlacedEventData;
+  details?: StopLossOrderPlacedDetails;
+};
+
 export type EventNotificationItem =
   | OrderFilledNotification
   | LiquidationNotification
@@ -322,7 +383,8 @@ export type EventNotificationItem =
   | AdlNotification
   | RiskEngineCancelOrderNotification
   | StopLossExecutedNotification
-  | ConditionalOrderExecutedNotification;
+  | ConditionalOrderExecutedNotification
+  | StopLossOrderPlacedNotification;
 
 export interface AdminNotificationItem {
   source: "admin";
@@ -396,6 +458,17 @@ const ConditionalOrderExecutedDetailsSchema = z.object({
   triggerType: z.enum(["take_profit", "stop_loss"]).optional(),
 });
 
+const StopLossOrderPlacedDetailsSchema = z.object({
+  type: z.literal("stopLossOrderPlaced"),
+  symbol: z.string(),
+  side: z.string(),
+  triggerType: z.enum(["take_profit", "stop_loss"]),
+  priceInTicks: z.number(),
+  baseLotsRemaining: z.number(),
+  filledBaseAmount: z.number().optional(),
+  filledQuoteAmount: z.number().optional(),
+});
+
 const LiquidationDetailsSchema = z.object({
   type: z.literal("liquidation"),
   symbol: z.string(),
@@ -453,6 +526,11 @@ const EventNotificationItemSchema = z.discriminatedUnion("notificationType", [
     notificationType: z.literal("conditional_order_executed"),
     data: TradeEventDataSchema,
     details: ConditionalOrderExecutedDetailsSchema.optional(),
+  }),
+  EventNotificationBaseSchema.extend({
+    notificationType: z.literal("stop_loss_order_placed"),
+    data: OrderPlacedEventDataSchema,
+    details: StopLossOrderPlacedDetailsSchema.optional(),
   }),
 ]);
 
