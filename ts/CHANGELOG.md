@@ -3,6 +3,31 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.12 - 2026-08-17
+
+Source Phoenix commit: `444e5fcc741719021c13a92e16e573f385357c60`
+
+### Summary
+
+- Added native SOL spot collateral support: new `SpotCollateralMetadata` account decoding, `GlobalConfiguration.nativeSolSpotMetadata` / `Trader.nativeSolCollateral` fields, native SOL instruction builders (`buildSyncNativeIx`, `buildSwapNativeIx`, `buildWithdrawNativeSolIx`, `buildLiquidateNativeSolIx`, `buildTransferNativeSolIx`), margin valuation helpers (`ts/src/margin/spotCollateral.ts`), and exchange/API/WS surfacing (`/v1/collateral/assets`, `ExchangeSnapshotView.spotCollaterals`, `spotCollateralsUpdated` WS op).
+- Added TWAP order support: `CreateTwapAccount`, `PlaceTwapOrder`, `ExecuteTwapOrder`, `CancelTwapOrder`, `CloseInactiveTwapAccount` instruction builders backed by a new Flicker program integration.
+- Added `place_multi_limit_order_v2` (`buildPlaceMultiLimitOrderV2Ix`, `MultipleOrderPacketV2`, `CondensedOrderFlags`) with per-order slide/reduce-only flags and a fixed-width expiry, plus a matching `scaleLevelsToMultipleOrderPacketV2` / `DEFAULT_MAX_ORDERS_PER_TX_V2`, and scale-order-set-id (`scaleSetId`) tracking through order history and trader-state.
+- Added `AuthorizedTransferCollateral` instruction, `DelegateTrader` instruction, a `DEPOSIT_PERMISSION` constant, and `buildFlameAtomicDepositFlow` for sponsor-cranked atomic Flame deposits (no SOL required in the depositor's wallet).
+- Added draft-order margin helpers (`computeDraftOrderMarginRequirementFromInputs/FromSnapshot`, `computeMaxDraftOrderSizeForAvailableMarginFromInputs/FromSnapshot`) and a trader time-weighted-returns API client method (`getTraderTimeWeightedReturns`).
+- Flight order wrapping changed: builder-fee collateral-transfer tail accounts are no longer inferred from the wrapped instruction and must be explicitly declared when signing as a position authority.
+
+### Breaking Changes
+
+- `wrapInstructionWithFlight`'s params object renamed `authority` → `signer`. Callers passing `authority` by name must update to `signer`.
+- Flight/order-wrap behavior change: the collateral-transfer tail (needed for Flight to collect the builder fee on delegate-signed orders) is now opt-in only, via `usePositionAuthority` on the internal `maybeWrapOrderIx`/`PhoenixIxOperationContext` or `rootAuthority` on `ProxyInstructionParams`/`buildProxyInstructionIx`. It is never inferred from the inner instruction anymore — code that relied on automatic detection for delegated market orders must now pass the position authority explicitly or builder fees will silently stop being collected for those orders.
+- `Trader` account decoding: the raw struct key underlying the position map changed from `positions` to `entries` internally, and the account picks up new fields (`nativeSolCollateral`, `disablePositionAuthoritySwap`). Code that decodes/re-encodes the full raw `Trader` layout (rather than using the public `Trader` interface) needs to account for the new field and layout size.
+
+### Consumer Notes
+
+- If you use Flight to wrap delegate-signed orders (position authority ≠ trader owner), pass the delegate as `positionAuthority` on the high-level `client.ixs` order methods — the SDK now derives the position-authority wrap path for you from `positionAuthority ?? authority`. Lower-level callers of `wrapInstructionWithFlight`/`buildProxyInstructionIx` directly must set the new fields themselves.
+- This release requires the corresponding on-chain program updates (Flicker for TWAP, Flight's collateral-transfer authority PDA, native SOL collateral support) — coordinate npm upgrade with program deployment.
+- New optional-field additions (`GlobalConfiguration.nativeSolSpotMetadata`, `ExchangeSnapshotView.spotCollaterals`, `OrderHistoryItem.scaleSetId`, etc.) are additive and safe to ignore if you don't use spot collateral or scale orders.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`

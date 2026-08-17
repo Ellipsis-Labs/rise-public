@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   PlaceAttachedConditionalOrderRequestSchema,
+  PlaceIsolatedLimitOrderRequestSchema,
   PlaceIsolatedLimitOrderWithConditionalsRequestSchema,
+  PlaceIsolatedMarketOrderRequestSchema,
   PlacePositionConditionalOrderRequestSchema,
 } from "@/api/orders";
 import { PhoenixHttpClient } from "@/index";
@@ -282,5 +284,98 @@ describe("conditional order request schemas", () => {
         greaterTrigger: trigger,
       }).success
     ).toBe(true);
+  });
+});
+
+describe("isolated market order request schema", () => {
+  const baseRequest = {
+    authority: "authority",
+    symbol: "SOL-PERP",
+    side: "buy",
+    numBaseLots: 25,
+  };
+
+  it("accepts positive minimum fills and preserves omission for FOK defaults", () => {
+    const parsed = PlaceIsolatedMarketOrderRequestSchema.parse({
+      ...baseRequest,
+      minBaseLotsToFill: 1,
+      minQuoteLotsToFill: 1,
+    });
+
+    expect(parsed.minBaseLotsToFill).toBe(1);
+    expect(parsed.minQuoteLotsToFill).toBe(1);
+
+    const defaulted = PlaceIsolatedMarketOrderRequestSchema.parse(baseRequest);
+    expect(defaulted.minBaseLotsToFill).toBeUndefined();
+    expect(defaulted.minQuoteLotsToFill).toBeUndefined();
+  });
+
+  it("accepts zero base and quote minimums for true IOC orders", () => {
+    const parsed = PlaceIsolatedMarketOrderRequestSchema.parse({
+      ...baseRequest,
+      minBaseLotsToFill: 0,
+      minQuoteLotsToFill: 0,
+    });
+
+    expect(parsed.minBaseLotsToFill).toBe(0);
+    expect(parsed.minQuoteLotsToFill).toBe(0);
+  });
+});
+
+describe("isolated order spot collateral transfer schemas", () => {
+  const baseRequest = {
+    authority: "authority",
+    symbol: "SOL-PERP",
+    side: "buy",
+  };
+
+  it("accepts optional whole native-unit amounts on every isolated order request", () => {
+    for (const [schema, routeFields] of [
+      [PlaceIsolatedLimitOrderRequestSchema, {}],
+      [
+        PlaceIsolatedLimitOrderWithConditionalsRequestSchema,
+        {
+          greaterTrigger: {
+            side: "sell",
+            triggerPrice: 120,
+          },
+        },
+      ],
+      [PlaceIsolatedMarketOrderRequestSchema, {}],
+    ]) {
+      const request = {
+        ...baseRequest,
+        ...routeFields,
+        transferAmount: 2_000_000,
+        transferSpotCollateralAmounts: {
+          SOL: 1_000_000_000,
+          BTC: 25_000,
+        },
+      };
+
+      const parsed = schema.parse(request);
+      expect(parsed.transferAmount).toBe(2_000_000);
+      expect(parsed.transferSpotCollateralAmounts).toEqual({
+        SOL: 1_000_000_000,
+        BTC: 25_000,
+      });
+      expect(
+        schema.safeParse({
+          ...request,
+          transferSpotCollateralAmounts: { SOL: 0.5 },
+        }).success
+      ).toBe(false);
+      expect(
+        schema.safeParse({
+          ...request,
+          transferSpotCollateralAmounts: { SOL: -1 },
+        }).success
+      ).toBe(false);
+    }
+  });
+
+  it("preserves omission so the API can apply its empty default", () => {
+    const parsed = PlaceIsolatedLimitOrderRequestSchema.parse(baseRequest);
+    expect(parsed.transferSpotCollateralAmounts).toBeUndefined();
   });
 });
