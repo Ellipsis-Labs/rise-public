@@ -94,6 +94,10 @@ class PhoenixExchangeMetadataImpl implements PhoenixExchangeMetadata {
     return snapshot;
   }
 
+  spotCollaterals() {
+    return this.snapshot().spotCollaterals ?? [];
+  }
+
   market(symbol: string): ExchangeMarketSnapshot | undefined {
     this.ensureStarted();
     this.rpcSource.maybeScheduleTtlRefresh();

@@ -25,6 +25,7 @@ export {
   MAX_SCALE_BIAS,
   DEFAULT_MIN_BASE_LOTS_PER_ORDER,
   DEFAULT_MAX_ORDERS_PER_TX,
+  DEFAULT_MAX_ORDERS_PER_TX_V2,
   clampScaleBias,
   clampScaleOrderCount,
   computeScaleOrderLevels,

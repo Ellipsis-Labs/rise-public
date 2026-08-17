@@ -112,6 +112,11 @@ export interface TraderStateMarketLimitOrderRow {
   isStopLoss?: boolean;
   isStopLossDirection?: boolean;
   isConditionalOrder?: boolean;
+  /**
+   * Scale-order set id (1-255) shared by every leg of a scale-order packet;
+   * absent for standalone orders.
+   */
+  scaleSetId?: number;
   status: string;
 }
 
@@ -205,10 +210,21 @@ export interface TraderStateOrderHistoryDelta {
   filledSize: string;
 }
 
+export interface TraderStateSpotCollateral {
+  assetIndex: number;
+  symbol: string;
+  /** Balance in the asset's native units (lamports for SOL), decimal integer string. */
+  balance: string;
+  /** Native-unit decimals of the asset (9 for SOL). */
+  decimals: number;
+}
+
 export interface TraderStateSubaccountSnapshot {
   subaccountIndex: number;
   sequence: number;
+  /** Quote collateral balance. */
   collateral: string;
+  spotCollaterals?: TraderStateSpotCollateral[];
   capabilities?: TraderStateCapabilities;
   cooldownStatus?: CooldownStatus;
   positions: TraderStatePositionSnapshot[];
@@ -220,7 +236,9 @@ export interface TraderStateSubaccountSnapshot {
 export interface TraderStateSubaccountDelta {
   subaccountIndex: number;
   sequence: number;
+  /** Quote collateral balance. Carries the full current value, not a diff. */
   collateral: string;
+  spotCollaterals?: TraderStateSpotCollateral[];
   capabilities?: TraderStateCapabilities;
   cooldownStatus?: CooldownStatus;
   positions: TraderStatePositionDelta[];
@@ -381,6 +399,7 @@ const TraderStateMarketLimitOrderRowSchema: z.ZodType<TraderStateMarketLimitOrde
     isStopLoss: z.boolean().optional().default(false),
     isStopLossDirection: z.boolean().optional().default(false),
     isConditionalOrder: z.boolean().optional().default(false),
+    scaleSetId: z.number().int().min(1).max(255).optional(),
     status: z.string(),
   });
 
@@ -500,11 +519,20 @@ const TraderStateOrderHistoryDeltaSchema: z.ZodType<TraderStateOrderHistoryDelta
     filledSize: z.string(),
   });
 
+const TraderStateSpotCollateralSchema: z.ZodType<TraderStateSpotCollateral> =
+  z.object({
+    assetIndex: z.number(),
+    symbol: z.string(),
+    balance: z.string(),
+    decimals: z.number(),
+  });
+
 const TraderStateSubaccountSnapshotSchema: z.ZodType<TraderStateSubaccountSnapshot> =
   z.object({
     subaccountIndex: z.number(),
     sequence: z.number(),
     collateral: z.string(),
+    spotCollaterals: z.array(TraderStateSpotCollateralSchema).default([]),
     capabilities: TraderStateCapabilitiesSchema.optional(),
     cooldownStatus: CooldownStatusSchema.optional(),
     positions: z.array(TraderStatePositionSnapshotSchema).default([]),
@@ -518,6 +546,7 @@ const TraderStateSubaccountDeltaSchema: z.ZodType<TraderStateSubaccountDelta> =
     subaccountIndex: z.number(),
     sequence: z.number(),
     collateral: z.string(),
+    spotCollaterals: z.array(TraderStateSpotCollateralSchema).default([]),
     capabilities: TraderStateCapabilitiesSchema.optional(),
     cooldownStatus: CooldownStatusSchema.optional(),
     positions: z.array(TraderStatePositionDeltaSchema).default([]),
