@@ -3,6 +3,30 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.13 - 2026-08-18
+
+Source Phoenix commit: `a5e6fdf08f31c275a2d366f136834a6d29501833`
+
+### Summary
+
+- Added native SOL spot collateral support: new `NativeSol` instruction builders (sync, swap, transfer, withdraw, liquidate), `SpotCollateralMetadata` account decoding, and margin valuation utilities (`margin/spotCollateral`, an optional spot-collateral param on `createMarginCalculator`, and new `margin/draftOrders` helpers).
+- Added TWAP order instructions (`CreateTwapAccount`, `PlaceTwapOrder`, `ExecuteTwapOrder`, `CancelTwapOrder`, `CloseInactiveTwapAccount`) backed by a new Flicker program integration.
+- Added `PlaceMultiLimitOrderV2` (`buildPlaceMultiLimitOrderV2Ix`) with per-order reduce-only/slide flags (`CondensedOrderFlags`), plus `cancelIdsForScaleSet` for cancelling one scale-order ladder by its shared set id.
+- Added a `/v1/collateral/assets` endpoint with `CollateralAssetMetadata` types, an exchange-cache `spotCollaterals()` selector, and a `/v1/traders/{pubkey}/time-weighted-returns` endpoint.
+- Notification parsing now falls back to an `UnknownEventNotification` shape for unrecognized `notificationType` values instead of failing validation.
+
+### Breaking Changes
+
+- `flight.wrapInstructionWithFlight` renamed its `authority` parameter to `signer` and now requires callers to explicitly declare position-authority signing (it is no longer inferred from the wrapped instruction) to get the collateral-transfer fee tail appended.
+- The builder onboarding flow (`build-register-ixs` / `send-register-ixs`) no longer expects the trader authority to sign locally — the trader authority is address-only, and the transaction fee payer is the sole local signer. Custom integrations mirroring the old `examples/10-builder-onboarding-tx.ts` flow need to update their signing logic.
+
+### Consumer Notes
+
+- `GlobalConfiguration` now decodes a `nativeSolSpotMetadata` field (carved out of previously-reserved padding); `Trader` gains `disablePositionAuthoritySwap` and `nativeSolCollateral` fields.
+- New `TraderPreferenceKind.DisablePositionAuthoritySwap` trader preference bit and an exchange-wide `SPOT_COLLATERAL_FLAG_DISABLE_POSITION_AUTHORITY_SWAP` kill switch gate `SwapNative` when signed by a position authority — these are two distinct bit positions, not shared.
+- `LimitOrder`, `OrderHistoryItem`, and `TraderStateMarketLimitOrderRow` gain an optional `scaleSetId` for grouping scale-order legs.
+- New `AuthorizedTransferCollateral` and `DelegateTrader` instructions, plus a `DEPOSIT_PERMISSION` permission bit constant.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`
