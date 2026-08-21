@@ -117,12 +117,17 @@ bun examples/09-referral-activation-tx.ts <REFERRAL_CODE> [TRADER_KEYPAIR_PATH]
 
 Builds and submits the `/v1/exchange/build-register-ixs` and
 `/v1/exchange/send-register-ixs` flow without a referral code. The example
-builds and signs the user-controlled transaction locally, then the API validates,
-signs as onboarder, simulates, and sends it.
+accepts the trader authority as a public key and signs only with the transaction
+fee payer locally. The API then validates, signs as onboarder, simulates, and
+sends it. The fee-payer keypair path defaults to
+`~/.config/solana/id.json`; the trader authority is optional and defaults to
+the fee payer's public key.
 
-```bash
+```text
 PHOENIX_API_URL=http://127.0.0.1:8080 PHOENIX_RPC_URL=<RPC_URL> \
-bun examples/10-builder-onboarding-tx.ts --trader-keypair-path ~/.config/solana/id.json
+bun examples/10-builder-onboarding-tx.ts \
+  [--fee-payer-keypair-path <PATH>] \
+  [--trader-authority <TRADER_AUTHORITY_PUBKEY>]
 ```
 
 ## Larger Demos
