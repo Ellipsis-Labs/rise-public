@@ -1,5 +1,6 @@
 import {
   FLAME_PROGRAM_ADDRESS,
+  buildFlameAtomicDepositFlow,
   buildFlameDepositFundingFlow,
   deriveFlameDepositAddress,
   deriveFlameDepositAddresses,
@@ -17,9 +18,11 @@ import { getPhoenixTraderTokenAccountAddress } from "@/pdas";
 import type {
   Authority,
   EmberStateAddress,
+  FlameAtomicDepositFlowParams,
   MintAddress,
   PhoenixInstructionClient,
 } from "@/index";
+import type { PhoenixExchangeMetadata } from "@/exchange-cache/types";
 import { AccountRole, address } from "@solana/kit";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -29,6 +32,20 @@ const authority = address(
 const feePayer = address("11111111111111111111111111111111") as Authority;
 const vectorAuthority = address(
   "11111111111111111111111111111112"
+) as Authority;
+const marketAuthority = address(
+  "11111111111111111111111111111113"
+) as Authority;
+const globalVault = address("11111111111111111111111111111114") as Authority;
+const perpAssetMap = address("11111111111111111111111111111115") as Authority;
+const globalTraderIndex = address(
+  "11111111111111111111111111111116"
+) as Authority;
+const activeTraderBuffer = address(
+  "11111111111111111111111111111117"
+) as Authority;
+const withdrawQueue = address(
+  "So11111111111111111111111111111111111111112"
 ) as Authority;
 const vectorMint = address(
   "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
@@ -59,6 +76,43 @@ const client = {
   fetchAccount: async () => {
     throw new Error("buildFlameDepositFundingFlow should not fetch accounts");
   },
+} satisfies PhoenixInstructionClient;
+
+const atomicClient = {
+  ...client,
+  exchange: {
+    ready: async () => ({
+      version: 1,
+      slot: 1n,
+      slotIndex: 0,
+      markets: [],
+      exchange: {
+        programId: PHOENIX_PROGRAM_ADDRESS,
+        globalConfig: PHOENIX_GLOBAL_CONFIGURATION_ADDRESS,
+        currentAuthorities: {
+          rootAuthority: marketAuthority,
+          riskAuthority: marketAuthority,
+          marketAuthority,
+          oracleAuthority: marketAuthority,
+          adlAuthority: marketAuthority,
+          cancelAuthority: marketAuthority,
+          backstopAuthority: marketAuthority,
+        },
+        canonicalMint: vectorMint,
+        usdcMint: USDC_MINT_ADDRESS,
+        globalVault,
+        perpAssetMap,
+        globalTraderIndex: [globalTraderIndex],
+        activeTraderBuffer: [activeTraderBuffer],
+        withdrawQueue,
+        exchangeStatusBits: 0,
+        exchangeStatusFeatures: [],
+        active: true,
+        gated: false,
+        withdrawalsAvailable: true,
+      },
+    }),
+  } as Pick<PhoenixExchangeMetadata, "ready"> as PhoenixExchangeMetadata,
 } satisfies PhoenixInstructionClient;
 
 const originalPhoenixEnv = process.env.PHOENIX_ENV;
@@ -196,5 +250,96 @@ describe("Flame deposit helpers", () => {
     expect(Array.from(transferUsdcToProxy.data)).toEqual([
       3, 128, 222, 128, 2, 0, 0, 0, 0,
     ]);
+  });
+
+  it("builds an atomic sponsored Flame deposit bundle", async () => {
+    const result = await buildFlameAtomicDepositFlow(
+      {
+        authority,
+        amount: 42_000_000n,
+        traderPdaIndex: 7,
+        feePayer,
+        sponsorshipToken: "test-token",
+      },
+      atomicClient
+    );
+
+    expect(result.instructions).toEqual([
+      result.named.createProxyAta,
+      result.named.transferUsdcToProxy,
+      result.named.createPermission,
+      result.named.setPermission,
+      result.named.depositToPhoenix,
+    ]);
+    expect(result.traderPdaIndex).toBe(7);
+    expect(result.traderSubaccountIndex).toBe(0);
+
+    expect(result.named.createPermission.accounts[2]).toEqual({
+      address: feePayer,
+      role: AccountRole.WRITABLE_SIGNER,
+    });
+    expect(result.named.setPermission.accounts[3]).toEqual({
+      address: authority,
+      role: AccountRole.READONLY_SIGNER,
+    });
+    expect(result.named.setPermission.accounts[4]).toEqual({
+      address: result.proxyAuthority,
+      role: AccountRole.READONLY,
+    });
+
+    const depositToPhoenix = result.named.depositToPhoenix;
+    expect(depositToPhoenix.programAddress).toBe(FLAME_PROGRAM_ADDRESS);
+    expect(depositToPhoenix.accounts[2]).toEqual({
+      address: feePayer,
+      role: AccountRole.WRITABLE_SIGNER,
+    });
+    expect(depositToPhoenix.accounts[3]).toEqual({
+      address: authority,
+      role: AccountRole.READONLY,
+    });
+    expect(depositToPhoenix.accounts[4]).toEqual({
+      address: result.proxyAuthority,
+      role: AccountRole.READONLY,
+    });
+    expect(depositToPhoenix.accounts[5]).toEqual({
+      address: result.proxyAta,
+      role: AccountRole.WRITABLE,
+    });
+    expect(Array.from(depositToPhoenix.data.slice(8))).toEqual([7, 0]);
+  });
+
+  it("defaults the Flame crank to the sponsor fee payer", async () => {
+    const result = await buildFlameAtomicDepositFlow(
+      {
+        authority,
+        amount: 42_000_000n,
+        traderPdaIndex: 7,
+        feePayer,
+        sponsorshipToken: "test-token",
+      },
+      atomicClient
+    );
+
+    expect(result.named.depositToPhoenix.accounts[2]).toEqual({
+      address: feePayer,
+      role: AccountRole.WRITABLE_SIGNER,
+    });
+  });
+
+  it("rejects non-zero trader subaccounts for sponsored atomic deposits", async () => {
+    await expect(
+      buildFlameAtomicDepositFlow(
+        {
+          authority,
+          feePayer,
+          sponsorshipToken: "token",
+          amount: 1_000_000n,
+          traderSubaccountIndex: 1,
+        } as FlameAtomicDepositFlowParams & { traderSubaccountIndex: number },
+        atomicClient
+      )
+    ).rejects.toThrow(
+      "Flame atomic deposit sponsorship only supports traderSubaccountIndex 0"
+    );
   });
 });

@@ -20,12 +20,18 @@ export {
 } from "../api/candles/types";
 
 export {
+  type CollateralAssetMetadata,
+  CollateralAssetMetadataSchema,
+  type CollateralAssetsResponse,
+  CollateralAssetsResponseSchema,
   type CollateralEvent,
   CollateralEventSchema,
   type CollateralEventType,
   type CollateralHistoryRequest,
   type CollateralHistoryResponse,
   CollateralHistoryResponseSchema,
+  type SpotAssetConfig,
+  SpotAssetConfigSchema,
 } from "../api/collateral/types";
 
 export {
@@ -190,6 +196,7 @@ export {
   GetNotificationsResponseSchema,
   type NotificationItem,
   NotificationItemSchema,
+  type UnknownEventNotification,
 } from "../api/notifications/types";
 
 export {
@@ -321,6 +328,8 @@ export {
   type HistoricalValuesRequest,
   type MarketPositionSnapshot,
   MarketPositionSnapshotSchema,
+  type SpotCollateralValue,
+  SpotCollateralValueSchema,
   type PortfolioValueDataPoint,
   PortfolioValueDataPointSchema,
   type TraderMarketPnLQueryParams,

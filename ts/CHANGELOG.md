@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.14 - 2026-08-21
+
+Source Phoenix commit: `be93e77bc13e301ace3c9cd7132e867d258ce17e`
+
+### Summary
+
+- Adds native SOL as spot collateral: `SpotCollateralMetadata` account decoding, new `NativeSol` instruction builders (`SwapNative`, `WithdrawNativeSol`, `SyncNative`, `LiquidateNativeSol`, transfer/child-to-parent variants), margin valuation helpers in `margin/spotCollateral`, a `/v1/collateral/assets` HTTP client method, and exchange-cache/WS support (`spotCollaterals()` selector, `spotCollateralsUpdated` delta op).
+- Adds TWAP order support (`Twap` instruction builders: create/place/execute/cancel/close TWAP account) and a v2 multi-limit-order path (`buildPlaceMultiLimitOrderV2Ix`, `CondensedOrderFlags`, `scaleSetId`, `cancelIdsForScaleSet`) for grouped scale-order legs.
+- Adds delegated ("position authority") signing support for order placement and Flight wraps, a `getTraderTimeWeightedReturns` trader API client method, and a `spot_collateral_liquidation` notification type (with a generic `UnknownEventNotification` fallback for future notification types).
+- Bumps the package version `0.4.67` -> `0.5.14` and tightens several transitive dependency overrides (`brace-expansion`, `postcss`, adds `nanoid`, `undici`).
+
+### Breaking Changes
+
+- `flight.wrapInstructionWithFlight`'s `authority` parameter is renamed to `signer`, and the collateral-transfer tail for delegated (position-authority) signers is now opt-in rather than inferred from the wrapped instruction — update any custom Flight wrap call sites.
+- The `PhoenixIxOperationContext.maybeWrapOrderIx` interface signature changes from `(instruction, authority)` to `(instruction, signer, usePositionAuthority?)` — code implementing or calling this interface directly needs updating.
+- The `SetExchangeStatusBits` and `DisableExchangeCapabilities` instructions are removed from the instruction set (dropped from `sdk-instruction-fixtures.json`); any code building these instructions must be removed.
+
+### Consumer Notes
+
+- `GlobalConfiguration` decoding gains a `nativeSolSpotMetadata` field carved out of previously-reserved padding; harmless if unused, but double-check any code that indexed the padding array positionally.
+- `OrderHistoryItem` and trader-state limit-order rows gain an optional `scaleSetId` for identifying legs of a scale-order batch; existing consumers can ignore it.
+- The builder-onboarding example and README now document that the trader authority is a public key only — the fee payer is the sole local signer — update integrations following that example flow.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`
