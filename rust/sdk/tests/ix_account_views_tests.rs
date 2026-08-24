@@ -477,7 +477,7 @@ fn phoenix_instruction_discriminants_round_trip() {
         );
     }
 
-    assert_eq!(PhoenixInstruction::ALL.len(), 95);
+    assert_eq!(PhoenixInstruction::ALL.len(), 100);
     assert_eq!(
         PhoenixInstruction::SetMultiArenaAdditionalNodesWatermark.discriminant(),
         compute_discriminant("global:set_multi_arena_additional_nodes_watermark")

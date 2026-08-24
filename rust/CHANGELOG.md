@@ -3,6 +3,36 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.0 - 2026-08-24
+
+Source Phoenix commit: `7e656050cf75743be140e7fb1ab849056f002e62`
+
+### Summary
+
+- Adds native SOL spot collateral support: new `native_sol` instruction builders (`SyncNative`, `WithdrawNativeSol`, `TransferNativeSol`, `TransferNativeSolFromChildToParent`, `SwapNative`, `LiquidateNativeSol`), account/margin decoding (`accounts::spot_collateral`, `math::spot_collateral`), new spot-collateral events, and portfolio/margin valuation via `TraderPortfolio::spot_collaterals`.
+- Adds Flicker/TWAP order support (`ix::twap`, `FlickerInstruction`, `FLICKER_PROGRAM_ID`).
+- `PhoenixFlightClient` now resolves the Phoenix root authority from a live `SharedExchangeCacheStore` and can wrap position-authority-signed orders with an appended collateral-transfer tail via a new `AuthorizedTransferCollateral` instruction.
+- Adds a `candles_v2` HTTP client path (`get_candles_v2`, cursor/window pagination, mark-price OHLC) alongside the existing legacy `get_candles`.
+- Adds an exchange snapshot/delta websocket channel and a `/v1/collateral/assets` HTTP route, both feeding spot-collateral valuation into `PhoenixMetadata`/`PhoenixClient`.
+
+### Breaking Changes
+
+- `PhoenixFlightClient::try_wrap_order_instruction` gained a required `use_position_authority: bool` parameter; all call sites must update.
+- `PhoenixFlightClient` construction changed — it now carries an `Option<SharedExchangeCacheStore>` and is built via `from_exchange_store(...)`; ad hoc struct construction will need updating.
+- `RiskAction::Withdrawal` was renamed to `RiskAction::WithdrawQuoteCollateral`, a new `WithdrawSpotCollateral` variant was added, and `ADL` is deprecated — non-exhaustive matches on `RiskAction` will fail to compile.
+- `PhoenixInstruction` removed the `SetExchangeStatusBits` and `DisableExchangeCapabilities` discriminants and added `AuthorizedTransferCollateral` plus the six native-SOL discriminants; the enum's discriminant count changed (95 → 100).
+- `MarginTrigger` gained a `SpotCollateralsUpdated` variant and `PhoenixClientError` gained a `Metadata` variant — non-exhaustive matches on either will fail to compile.
+- `TraderPortfolio` gained a required `spot_collaterals: Vec<SpotCollateralInput>` field — struct literals must be updated.
+- `ScalarBounds::lower_bound()`/`upper_bound()` now return `Self` instead of the inner scalar type.
+- `GlobalConfiguration`/`Trader` account layouts grew (`GlobalConfigPrefixRaw` is now 1096 bytes, was 776) with new `native_sol_spot_metadata`, `disable_position_authority_swap`, and `native_sol_collateral` fields — any code assuming the old byte layout must be updated.
+- `ExchangeSnapshotMessage` dropped its `channel: String` field; snapshot/delta/encoded-snapshot payloads are now wrapped in the new `ExchangeMessage` enum.
+
+### Consumer Notes
+
+- To value native SOL collateral client-side, fetch `/v1/collateral/assets` (or read `PhoenixExchangeCacheStore::spot_collaterals()`) and apply it via `PhoenixMetadata::apply_spot_collaterals`; `PhoenixClient::new` now does this automatically and degrades gracefully on servers that predate the endpoint.
+- Prefer `usdc_mint()` over the `USDC_MINT` constant if a process may target the beta deployment (`PHOENIX_ENV=beta`).
+- The `builder_onboarding_tx` example and onboarding docs changed: the trader authority is a pubkey only, and `--fee-payer-keypair-path` (defaulting to `~/.config/solana/id.json`) is now the sole local signer.
+
 ## v0.3.4 - 2026-07-08
 
 Source Phoenix commit: `6051225fb045fbb5b6a454bd445e7fc2e31e5722`

@@ -59,6 +59,11 @@ pub struct OrderHistoryItem {
     pub placed_at: Option<chrono::DateTime<chrono::Utc>>,
     /// Timestamp when the order was completed (ISO 8601).
     pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// Scale-order set id (1-255) shared by every leg of a
+    /// `PlaceMultiLimitOrderV2` scale-order packet; absent for standalone
+    /// orders.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale_set_id: Option<u8>,
 }
 
 /// Response from the order history endpoint.
@@ -745,6 +750,37 @@ pub struct LimitOrder {
     pub is_reduce_only: bool,
     #[serde(default)]
     pub is_stop_loss: bool,
+    /// Client-assigned scale set id when the order was placed as part of a
+    /// scale (ladder) order batch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale_set_id: Option<u8>,
+}
+
+/// A trader's balance in one spot collateral asset, valued for margin.
+///
+/// Spot collateral is collateral held in an asset other than the quote token;
+/// native SOL is the only one today. `balance` and `withdrawable` are in the
+/// asset's own units (SOL, 9 decimals), while `notional` and `discounted` are
+/// quote units.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpotCollateralBalanceView {
+    /// Raw asset-index key of the asset in the trader position map. This is
+    /// not the perp market asset id.
+    pub asset_index: u32,
+    /// Spot asset symbol ("SOL" for native SOL), not the perp market symbol.
+    pub symbol: String,
+    /// Balance in the asset's own units.
+    pub balance: Decimal,
+    /// Balance valued at the index price, undiscounted.
+    pub notional: Decimal,
+    /// Notional after the margin haircut — this asset's contribution to
+    /// effective collateral.
+    pub discounted: Decimal,
+    /// Maximum balance currently withdrawable while the account stays healthy.
+    /// Zero when the account is not currently healthy. Excludes uncounted
+    /// excess lamports, which are always withdrawable.
+    pub withdrawable: Decimal,
 }
 
 /// Trader view with all trading information (HTTP API response).
@@ -760,6 +796,12 @@ pub struct TraderView {
     pub authority: String,
 
     pub collateral_balance: Decimal,
+    /// Spot collateral balances (native SOL today), valued at the index price.
+    /// Empty when the trader holds none or the exchange has the feature
+    /// disabled. Defaulted so responses from API versions that predate the
+    /// field still decode.
+    #[serde(default)]
+    pub spot_collaterals: Vec<SpotCollateralBalanceView>,
     pub effective_collateral: Decimal,
     pub effective_collateral_for_withdrawals: Decimal,
     pub unrealized_pnl: Decimal,

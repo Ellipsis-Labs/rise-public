@@ -7,7 +7,8 @@ pub use constants::{
     FLIGHT_PROGRAM_ID, flight_builder_state_account_discriminant,
     flight_global_state_account_discriminant, flight_proxy_instruction_discriminant,
     flight_proxy_instruction_with_fee_override_discriminant, flight_register_builder_discriminant,
-    flight_update_fee_discriminant, get_flight_builder_state_address,
+    flight_update_fee_discriminant, get_flight_authorized_collateral_transfer_permission_address,
+    get_flight_builder_state_address, get_flight_collateral_transfer_authority_address,
     get_flight_global_state_address,
 };
 pub use proxy_instruction::{
