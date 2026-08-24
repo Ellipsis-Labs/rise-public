@@ -1,7 +1,7 @@
 use serde::Serialize;
 use solana_pubkey::Pubkey;
 
-use super::internal::AuthoritySet;
+use super::internal::{AuthoritySet, SpotCollateralMetadata};
 use super::{AccountDeserialize, AccountDeserializeError};
 use crate::global_config as borrowed;
 
@@ -22,6 +22,7 @@ pub struct GlobalConfiguration {
     pub withdrawal_margin_factor_bps: u16,
     pub deposit_cooldown_period_in_slots: u64,
     pub pending_authorities: AuthoritySet,
+    pub native_sol_spot_metadata: SpotCollateralMetadata,
 }
 
 impl AccountDeserialize for GlobalConfiguration {
@@ -70,6 +71,7 @@ impl From<borrowed::GlobalConfig> for GlobalConfiguration {
                 cancel_authority: Pubkey::new_from_array(value.pending_cancel_authority()),
                 backstop_authority: Pubkey::new_from_array(value.pending_backstop_authority()),
             },
+            native_sol_spot_metadata: value.native_sol_spot_metadata().into(),
         }
     }
 }

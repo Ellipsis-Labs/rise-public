@@ -22,6 +22,9 @@ use crate::quantities::{
     Ticks,
 };
 use crate::risk::{MarginError, MarginState, RiskAction, RiskState, RiskTier};
+use crate::spot_collateral::{
+    SpotCollateralParams, margin_retained_bps, notional_spot_collateral, spot_collateral_price,
+};
 use crate::trader_position::TraderPosition;
 
 /// Trait for providing perp asset metadata needed for margin calculations.
@@ -67,11 +70,81 @@ pub struct TraderPortfolio {
     pub trader_subaccount_index: u8,
 
     pub quote_lot_collateral: SignedQuoteLots,
+    /// Spot collateral balances with their valuation context; valued by
+    /// [`TraderPortfolio::compute_margin`].
+    pub spot_collaterals: Vec<SpotCollateralInput>,
 
     pub positions: HashMap<String, TraderPosition>,
     /// Individual limit orders per market
     pub limit_orders: HashMap<String, Vec<LimitOrder>>,
     pub stop_losses: Vec<StopLossInfo>,
+}
+
+/// One spot collateral asset (native SOL today) with the context needed to
+/// value it the way the on-chain RiskView does: the balance is priced against
+/// the pricing perp market and discounted along the linear margin-discount
+/// curve. The curve parameters come from `/v1/collateral/assets`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpotCollateralInput {
+    /// Raw `AssetIndex` key of the asset in the trader position map.
+    pub asset_index: u32,
+    /// Spot asset symbol ("SOL"), not necessarily a perp market symbol.
+    pub symbol: String,
+    /// Symbol of the perp market whose price values the asset.
+    pub pricing_market_symbol: String,
+    /// Balance in the asset's native units (lamports for SOL).
+    pub balance: u64,
+    /// Native-unit decimals of the asset (9 for SOL).
+    pub decimals: u8,
+    /// Valuation price in ticks of the pricing market. `None` uses the
+    /// pricing market's mark price (on-chain uses the index price; supply it
+    /// when available).
+    pub index_price: Option<Ticks>,
+    /// Global balance cap in native units — the discount curve's right
+    /// endpoint.
+    pub max_global_balance: u64,
+    /// Margin discount at zero balance, basis points.
+    pub min_margin_discount_bps: u16,
+    /// Margin discount at the global cap, basis points.
+    pub max_margin_discount_bps: u16,
+}
+
+/// One spot collateral asset valued for margin.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpotCollateralMargin {
+    pub asset_index: u32,
+    pub symbol: String,
+    /// Perp market whose price values this collateral.
+    pub pricing_market_symbol: String,
+    /// Balance in the asset's native units.
+    pub balance: u64,
+    /// Native units represented by one base lot of the pricing market.
+    pub native_units_per_base_lot: u64,
+    /// Share of notional retained after the margin haircut.
+    pub retained_bps: BasisPoints,
+    /// Balance valued at the pricing market's price (undiscounted).
+    pub notional: QuoteLots,
+    /// Notional with the margin discount applied — the term this asset
+    /// contributes to effective collateral.
+    pub discounted: QuoteLots,
+}
+
+/// Exact inputs for the static, Hawkeye-compatible liquidation-price search.
+///
+/// Callers that already computed margin can supply the canonical aggregate
+/// limit-order state directly, including orders that are not present in a
+/// visible order list.
+#[derive(Debug, Clone, Copy)]
+pub struct StaticLiquidationPriceParams<'a> {
+    pub position: TraderPosition,
+    pub limit_order_state: LimitOrderMarginState,
+    pub collateral_balance: SignedQuoteLots,
+    pub portfolio_unsettled_funding: SignedQuoteLots,
+    pub portfolio_discounted_unrealized_pnl: SignedQuoteLots,
+    pub target_discounted_unrealized_pnl: SignedQuoteLots,
+    pub portfolio_maintenance_margin: QuoteLots,
+    pub target_maintenance_margin: QuoteLots,
+    pub spot_collaterals: &'a [SpotCollateralMargin],
 }
 
 /// Builder for constructing a [`TraderPortfolio`] incrementally.
@@ -81,6 +154,7 @@ pub struct TraderPortfolioBuilder {
     trader_pda_index: u8,
     trader_subaccount_index: u8,
     quote_lot_collateral: SignedQuoteLots,
+    spot_collaterals: Vec<SpotCollateralInput>,
     positions: HashMap<String, TraderPosition>,
     limit_orders: HashMap<String, Vec<LimitOrder>>,
     stop_losses: Vec<StopLossInfo>,
@@ -474,6 +548,11 @@ impl TraderPortfolioBuilder {
         self
     }
 
+    pub fn spot_collateral(mut self, spot: SpotCollateralInput) -> Self {
+        self.spot_collaterals.push(spot);
+        self
+    }
+
     pub fn position(mut self, symbol: impl Into<String>, position: TraderPosition) -> Self {
         self.positions.insert(symbol.into(), position);
         self
@@ -495,6 +574,7 @@ impl TraderPortfolioBuilder {
             trader_pda_index: self.trader_pda_index,
             trader_subaccount_index: self.trader_subaccount_index,
             quote_lot_collateral: self.quote_lot_collateral,
+            spot_collaterals: self.spot_collaterals,
             positions: self.positions,
             limit_orders: self.limit_orders,
             stop_losses: self.stop_losses,
@@ -567,11 +647,18 @@ impl TraderPortfolio {
 
         let margin: Margin = positions.values().map(|p| p.margin).sum();
 
+        let spot_collaterals = self
+            .spot_collaterals
+            .iter()
+            .map(|spot| value_spot_collateral(spot, provider))
+            .collect::<Result<Vec<_>, _>>()?;
+
         Ok(TraderPortfolioMargin {
             authority: self.authority,
             trader_pda_index: self.trader_pda_index,
             trader_subaccount_index: self.trader_subaccount_index,
             quote_lot_collateral: self.quote_lot_collateral,
+            spot_collaterals,
             margin,
             positions,
             stop_losses: self.stop_losses.clone(),
@@ -769,6 +856,8 @@ impl TraderPortfolio {
             trader_pda_index: self.trader_pda_index,
             trader_subaccount_index: self.trader_subaccount_index,
             quote_lot_collateral: collateral,
+            // Spot collateral only backs cross margin.
+            spot_collaterals: Vec::new(),
             positions,
             limit_orders,
             stop_losses: self
@@ -1762,54 +1851,52 @@ fn liquidation_price_for_market(
             ),
         });
     }
-
-    let Some(current_mark_price) = perp_asset_metadata
-        .try_get_mark_price(RiskAction::View)
-        .ok()
-    else {
-        return Ok(None);
-    };
-    if is_liquidatable_at_ticks(
-        current_mark_price,
-        market_margin,
-        portfolio_margin,
-        market_margin.limit_order_margin(),
-        perp_asset_metadata,
-    )
-    .unwrap_or(false)
-    {
-        return Ok(Some(calculator.ticks_to_price(current_mark_price)));
-    }
-
-    let ticks = find_liquidation_boundary_ticks(
-        market_margin,
-        portfolio_margin,
-        market_margin.limit_order_margin(),
-        current_mark_price,
+    let ticks = static_liquidation_price_ticks(
+        &StaticLiquidationPriceParams {
+            position,
+            limit_order_state: market_margin.limit_order_margin(),
+            collateral_balance: portfolio_margin.quote_lot_collateral,
+            portfolio_unsettled_funding: portfolio_margin.margin.unsettled_funding,
+            portfolio_discounted_unrealized_pnl: portfolio_margin.margin.discounted_unrealized_pnl,
+            target_discounted_unrealized_pnl: market_margin.margin.discounted_unrealized_pnl,
+            portfolio_maintenance_margin: portfolio_margin.margin.maintenance_margin,
+            target_maintenance_margin: market_margin.margin.maintenance_margin,
+            spot_collaterals: &portfolio_margin.spot_collaterals,
+        },
         perp_asset_metadata,
     );
 
     Ok(ticks.map(|ticks| calculator.ticks_to_price(ticks)))
 }
 
+/// Computes the exact tick-level static liquidation boundary used by Hawkeye.
+/// Only the adverse side implied by the current position is searched.
+pub fn static_liquidation_price_ticks(
+    params: &StaticLiquidationPriceParams<'_>,
+    perp_asset_metadata: &PerpAssetMetadata,
+) -> Option<Ticks> {
+    if params.position.base_lot_position == SignedBaseLots::ZERO {
+        return None;
+    }
+    let current_mark_price = perp_asset_metadata
+        .try_get_mark_price(RiskAction::View)
+        .ok()?;
+    if is_liquidatable_at_ticks(current_mark_price, params, perp_asset_metadata)? {
+        return Some(current_mark_price);
+    }
+
+    find_liquidation_boundary_ticks(params, current_mark_price, perp_asset_metadata)
+}
+
 const MAX_HAWKEYE_LIQUIDATION_TICKS: u64 = u32::MAX as u64;
 
 fn find_liquidation_boundary_ticks(
-    market_margin: &MarketMargin,
-    portfolio_margin: &TraderPortfolioMargin,
-    limit_order_state: LimitOrderMarginState,
+    params: &StaticLiquidationPriceParams<'_>,
     current_mark_price: Ticks,
     perp_asset_metadata: &PerpAssetMetadata,
 ) -> Option<Ticks> {
-    let position = market_margin.position?;
-    if position.base_lot_position > SignedBaseLots::ZERO {
-        if !is_liquidatable_at_ticks(
-            Ticks::ZERO,
-            market_margin,
-            portfolio_margin,
-            limit_order_state,
-            perp_asset_metadata,
-        )? {
+    if params.position.base_lot_position > SignedBaseLots::ZERO {
+        if !is_liquidatable_at_ticks(Ticks::ZERO, params, perp_asset_metadata)? {
             return None;
         }
 
@@ -1817,13 +1904,7 @@ fn find_liquidation_boundary_ticks(
         let mut high = current_mark_price.as_inner();
         while low + 1 < high {
             let mid = low + (high - low) / 2;
-            if is_liquidatable_at_ticks(
-                Ticks::new(mid),
-                market_margin,
-                portfolio_margin,
-                limit_order_state,
-                perp_asset_metadata,
-            )? {
+            if is_liquidatable_at_ticks(Ticks::new(mid), params, perp_asset_metadata)? {
                 low = mid;
             } else {
                 high = mid;
@@ -1834,9 +1915,7 @@ fn find_liquidation_boundary_ticks(
     } else {
         if !is_liquidatable_at_ticks(
             Ticks::new(MAX_HAWKEYE_LIQUIDATION_TICKS),
-            market_margin,
-            portfolio_margin,
-            limit_order_state,
+            params,
             perp_asset_metadata,
         )? {
             return None;
@@ -1846,13 +1925,7 @@ fn find_liquidation_boundary_ticks(
         let mut high = MAX_HAWKEYE_LIQUIDATION_TICKS;
         while low + 1 < high {
             let mid = low + (high - low) / 2;
-            if is_liquidatable_at_ticks(
-                Ticks::new(mid),
-                market_margin,
-                portfolio_margin,
-                limit_order_state,
-                perp_asset_metadata,
-            )? {
+            if is_liquidatable_at_ticks(Ticks::new(mid), params, perp_asset_metadata)? {
                 high = mid;
             } else {
                 low = mid;
@@ -1865,41 +1938,60 @@ fn find_liquidation_boundary_ticks(
 
 fn is_liquidatable_at_ticks(
     ticks: Ticks,
-    market_margin: &MarketMargin,
-    portfolio_margin: &TraderPortfolioMargin,
-    limit_order_state: LimitOrderMarginState,
+    params: &StaticLiquidationPriceParams<'_>,
     perp_asset_metadata: &PerpAssetMetadata,
 ) -> Option<bool> {
-    let position = market_margin.position?;
     let target_discounted_pnl =
-        discounted_unrealized_pnl_at_ticks(ticks, position, perp_asset_metadata)?;
-    let collateral_with_funding = portfolio_margin
-        .quote_lot_collateral
-        .checked_add(portfolio_margin.margin.unsettled_funding)?;
-    let other_discounted_pnl = portfolio_margin
-        .margin
-        .discounted_unrealized_pnl
-        .checked_sub(market_margin.margin.discounted_unrealized_pnl)?;
+        discounted_unrealized_pnl_at_ticks(ticks, params.position, perp_asset_metadata)?;
+    let collateral_with_funding = params
+        .collateral_balance
+        .checked_add(params.portfolio_unsettled_funding)?;
+    let other_discounted_pnl = params
+        .portfolio_discounted_unrealized_pnl
+        .checked_sub(params.target_discounted_unrealized_pnl)?;
+    let spot_collateral =
+        spot_collateral_value_at_ticks(ticks, params.spot_collaterals, perp_asset_metadata)?;
     let effective_collateral = i128::from(collateral_with_funding.as_inner())
         + i128::from(other_discounted_pnl.as_inner())
-        + target_discounted_pnl;
+        + target_discounted_pnl
+        + i128::from(spot_collateral.as_inner());
     if effective_collateral < 0 {
         return Some(true);
     }
 
-    let other_maintenance_margin = portfolio_margin
-        .margin
-        .maintenance_margin
-        .checked_sub(market_margin.margin.maintenance_margin)?;
+    let other_maintenance_margin = params
+        .portfolio_maintenance_margin
+        .checked_sub(params.target_maintenance_margin)?;
     let maintenance_margin = i128::from(other_maintenance_margin.as_inner())
         + i128::try_from(maintenance_margin_at_ticks(
             ticks,
-            market_margin,
-            limit_order_state,
+            params.position,
+            params.limit_order_state,
             perp_asset_metadata,
         )?)
         .ok()?;
     Some(effective_collateral < maintenance_margin)
+}
+
+fn spot_collateral_value_at_ticks(
+    ticks: Ticks,
+    spot_collaterals: &[SpotCollateralMargin],
+    perp_asset_metadata: &PerpAssetMetadata,
+) -> Option<QuoteLots> {
+    let mut total = 0u128;
+    let price = ticks * perp_asset_metadata.tick_size();
+    for spot in spot_collaterals {
+        if spot.pricing_market_symbol.eq(&perp_asset_metadata.symbol) {
+            let notional =
+                notional_spot_collateral(price, spot.native_units_per_base_lot, spot.balance)
+                    .ok()?;
+            let discounted = spot.retained_bps.apply_to_quote_lots(notional)?;
+            total = total.checked_add(u128::from(discounted.as_inner()))?;
+        } else {
+            total = total.checked_add(u128::from(spot.discounted.as_inner()))?;
+        }
+    }
+    u64::try_from(total).ok().map(QuoteLots::new)
 }
 
 fn discounted_unrealized_pnl_at_ticks(
@@ -1925,11 +2017,10 @@ fn discounted_unrealized_pnl_at_ticks(
 
 fn maintenance_margin_at_ticks(
     ticks: Ticks,
-    market_margin: &MarketMargin,
+    position: TraderPosition,
     limit_order_state: LimitOrderMarginState,
     perp_asset_metadata: &PerpAssetMetadata,
 ) -> Option<u128> {
-    let position = market_margin.position?;
     let initial_margin = initial_margin_for_asset_with_mark_price(
         perp_asset_metadata,
         &position,
@@ -1994,6 +2085,7 @@ pub struct ProjectedLiquidationParams<'a> {
     pub portfolio_maintenance_margin: QuoteLots,
     pub target_discounted_unrealized_pnl: SignedQuoteLots,
     pub target_maintenance_margin: QuoteLots,
+    pub spot_collaterals: &'a [SpotCollateralMargin],
 }
 
 /// Computes a projected liquidation price by re-solving the static boundary
@@ -2040,28 +2132,7 @@ pub fn projected_liquidation_price(
         return ProjectedLiquidation::default();
     };
 
-    // The non-target components stay fixed along the path. Express them as
-    // synthetic portfolio/target margins so the static predicate and boundary
-    // search can be reused unchanged for every path segment.
-    let portfolio_margin = TraderPortfolioMargin {
-        quote_lot_collateral: params.collateral_balance,
-        margin: Margin {
-            unsettled_funding: params.portfolio_unsettled_funding,
-            discounted_unrealized_pnl: params.portfolio_discounted_unrealized_pnl,
-            maintenance_margin: params.portfolio_maintenance_margin,
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-    let mut market_margin = MarketMargin {
-        position: Some(position),
-        limit_orders: Vec::new(),
-        margin: Margin {
-            discounted_unrealized_pnl: params.target_discounted_unrealized_pnl,
-            maintenance_margin: params.target_maintenance_margin,
-            ..Default::default()
-        },
-    };
+    let mut current_position = position;
 
     let mut consumed = vec![false; params.visible_orders.len()];
     let mut fill_order: Vec<usize> = (0..params.visible_orders.len())
@@ -2086,14 +2157,19 @@ pub fn projected_liquidation_price(
     let mut limit_order_state = params.limit_order_state;
     let mut next_fill = 0;
     loop {
-        if is_liquidatable_at_ticks(
-            sim_mark_price,
-            &market_margin,
-            &portfolio_margin,
+        let static_params = StaticLiquidationPriceParams {
+            position: current_position,
             limit_order_state,
-            perp_asset_metadata,
-        )
-        .unwrap_or(false)
+            collateral_balance: params.collateral_balance,
+            portfolio_unsettled_funding: params.portfolio_unsettled_funding,
+            portfolio_discounted_unrealized_pnl: params.portfolio_discounted_unrealized_pnl,
+            target_discounted_unrealized_pnl: params.target_discounted_unrealized_pnl,
+            portfolio_maintenance_margin: params.portfolio_maintenance_margin,
+            target_maintenance_margin: params.target_maintenance_margin,
+            spot_collaterals: params.spot_collaterals,
+        };
+        if is_liquidatable_at_ticks(sim_mark_price, &static_params, perp_asset_metadata)
+            .unwrap_or(false)
         {
             return ProjectedLiquidation {
                 liquidation_price_ticks: Some(sim_mark_price),
@@ -2101,13 +2177,8 @@ pub fn projected_liquidation_price(
             };
         }
 
-        let boundary = find_liquidation_boundary_ticks(
-            &market_margin,
-            &portfolio_margin,
-            limit_order_state,
-            sim_mark_price,
-            perp_asset_metadata,
-        );
+        let boundary =
+            find_liquidation_boundary_ticks(&static_params, sim_mark_price, perp_asset_metadata);
         let Some(&order_index) = fill_order.get(next_fill) else {
             return ProjectedLiquidation {
                 liquidation_price_ticks: boundary,
@@ -2129,7 +2200,6 @@ pub fn projected_liquidation_price(
             }
         }
 
-        let current_position = market_margin.position.unwrap_or_default();
         let Some(filled_position) =
             apply_projected_fill(&current_position, &order, perp_asset_metadata)
         else {
@@ -2140,7 +2210,7 @@ pub fn projected_liquidation_price(
                 fills,
             };
         };
-        market_margin.position = Some(filled_position);
+        current_position = filled_position;
         consumed[order_index] = true;
         fills.push(ProjectedLiquidationFill {
             side: order.side,
@@ -2213,6 +2283,66 @@ fn rebuild_limit_order_state(
     state
 }
 
+/// Values one spot collateral asset the way the on-chain RiskView does
+/// (program-core/exchange/src/risk_view/mod.rs `notional_native_sol_balance` +
+/// `discounted_native_sol_collateral`): the balance is priced per base lot
+/// with truncating dust handling, and the margin discount interpolates
+/// linearly from `min_margin_discount_bps` at zero balance to
+/// `max_margin_discount_bps` at the global cap, evaluated at the trader's own
+/// balance.
+fn value_spot_collateral(
+    spot: &SpotCollateralInput,
+    provider: &impl PerpMetadataProvider,
+) -> Result<SpotCollateralMargin, PhoenixStateError> {
+    let metadata = provider
+        .get_perp_metadata(&spot.pricing_market_symbol)
+        .ok_or_else(|| PhoenixStateError::MarketNotFound {
+            symbol: spot.pricing_market_symbol.clone(),
+            markets: provider.get_all_markets(),
+        })?;
+    let valuation_error = |reason: &str| PhoenixStateError::SpotCollateralValuation {
+        symbol: spot.symbol.clone(),
+        reason: reason.to_string(),
+    };
+
+    let params = SpotCollateralParams {
+        asset_index: spot.asset_index,
+        symbol: spot.symbol.clone(),
+        perp_symbol: spot.pricing_market_symbol.clone(),
+        decimals: u32::from(spot.decimals),
+        max_per_trader_balance: spot.max_global_balance,
+        max_global_balance: spot.max_global_balance,
+        curr_global_balance: 0,
+        min_margin_discount: BasisPoints::new(u64::from(spot.min_margin_discount_bps)),
+        max_margin_discount: BasisPoints::new(u64::from(spot.max_margin_discount_bps)),
+    };
+    let (price, native_units_per_base_lot) = spot_collateral_price(
+        &params,
+        spot.index_price.unwrap_or(metadata.mark_price),
+        metadata.tick_size(),
+        metadata.base_lot_decimals(),
+    )
+    .map_err(|error| valuation_error(&format!("{error:?}")))?;
+    let notional = notional_spot_collateral(price, native_units_per_base_lot, spot.balance)
+        .map_err(|error| valuation_error(&format!("{error:?}")))?;
+    let retained_bps = margin_retained_bps(&params, spot.balance)
+        .map_err(|error| valuation_error(&format!("{error:?}")))?;
+    let discounted = retained_bps
+        .apply_to_quote_lots(notional)
+        .ok_or_else(|| valuation_error("discounted valuation overflows u64 quote lots"))?;
+
+    Ok(SpotCollateralMargin {
+        asset_index: spot.asset_index,
+        symbol: spot.symbol.clone(),
+        pricing_market_symbol: spot.pricing_market_symbol.clone(),
+        balance: spot.balance,
+        native_units_per_base_lot,
+        retained_bps,
+        notional,
+        discounted,
+    })
+}
+
 /// A trader's portfolio with computed margin and PnL across all markets.
 /// Includes per-market breakdown and aggregated totals.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
@@ -2222,6 +2352,9 @@ pub struct TraderPortfolioMargin {
     pub trader_subaccount_index: u8,
 
     pub quote_lot_collateral: SignedQuoteLots,
+    /// Valued spot collateral per asset, mirroring phoenix-state's
+    /// `TraderPortfolioMargin`.
+    pub spot_collaterals: Vec<SpotCollateralMargin>,
 
     pub margin: Margin,
     pub positions: HashMap<String, MarketMargin>,
@@ -2233,16 +2366,36 @@ impl TraderPortfolioMargin {
         self.quote_lot_collateral
             + self.margin.discounted_unrealized_pnl
             + self.margin.unsettled_funding
+            + SignedQuoteLots::new(self.discounted_spot_collateral().as_inner() as i64)
     }
 
+    /// Mirrors the on-chain `RiskAction::WithdrawQuoteCollateral` semantics:
+    /// spot collateral cannot back a quote-collateral withdrawal, so it is not
+    /// valued here.
     pub fn effective_collateral_for_withdrawals(&self) -> SignedQuoteLots {
         self.quote_lot_collateral
             + self.margin.discounted_pnl_for_withdrawals
             + self.margin.unsettled_funding
     }
 
+    /// Sum of discounted spot collateral values across assets.
+    pub fn discounted_spot_collateral(&self) -> QuoteLots {
+        self.spot_collaterals
+            .iter()
+            .fold(QuoteLots::ZERO, |acc, s| acc + s.discounted)
+    }
+
+    /// Sum of undiscounted spot collateral notionals across assets.
+    pub fn spot_collateral_notional(&self) -> QuoteLots {
+        self.spot_collaterals
+            .iter()
+            .fold(QuoteLots::ZERO, |acc, s| acc + s.notional)
+    }
+
     pub fn portfolio_value(&self) -> SignedQuoteLots {
-        self.quote_lot_collateral + self.margin.unrealized_pnl
+        self.quote_lot_collateral
+            + self.margin.unrealized_pnl
+            + SignedQuoteLots::new(self.spot_collateral_notional().as_inner() as i64)
     }
 
     pub fn initial_margin(&self) -> QuoteLots {
@@ -2307,6 +2460,7 @@ impl TraderPortfolioMargin {
                 portfolio_maintenance_margin: self.margin.maintenance_margin,
                 target_discounted_unrealized_pnl: market_margin.margin.discounted_unrealized_pnl,
                 target_maintenance_margin: market_margin.margin.maintenance_margin,
+                spot_collaterals: &self.spot_collaterals,
             };
             prices.insert(
                 symbol.clone(),
@@ -2354,6 +2508,145 @@ mod tests {
 
     const MICRO_USD: f64 = 1_000_000.0;
     const BASE_LOTS_PER_UNIT: f64 = 100.0;
+
+    // SOL pricing market for spot collateral valuation: tick_size 10,
+    // base_lot_decimals 3, mark 5000 ticks. One base lot = 1e6 lamports priced
+    // at 5000 * 10 = 50_000 quote lots, so 1 SOL (1e9 lamports) = 50_000_000
+    // quote lots ($50). Mirrors rise/ts margin-spot-collateral.test.ts.
+    fn sol_spot_pricing_market() -> HashMap<String, PerpAssetMetadata> {
+        let tier = LeverageTier {
+            upper_bound_size: BaseLots::new(1_000_000_000),
+            max_leverage: Constant::new(10),
+            limit_order_risk_factor: BasisPoints::new(5_000),
+        };
+        let metadata = PerpAssetMetadata::new(
+            "SOL".to_string(),
+            1,
+            3,
+            Ticks::new(5_000),
+            QuoteLotsPerBaseLotPerTick::new(10),
+            LeverageTiers::new_unchecked([tier; 4]),
+            [5_000, 10_000, 10_000],
+            5_000,
+            10_000,
+            10_000,
+        );
+        HashMap::from([("SOL".to_string(), metadata)])
+    }
+
+    fn sol_spot_input(balance: u64) -> SpotCollateralInput {
+        SpotCollateralInput {
+            asset_index: 4294901760,
+            symbol: "SOL".to_string(),
+            pricing_market_symbol: "SOL".to_string(),
+            balance,
+            decimals: 9,
+            index_price: None,
+            max_global_balance: 10_000_000_000, // 10 SOL
+            min_margin_discount_bps: 500,
+            max_margin_discount_bps: 2_000,
+        }
+    }
+
+    #[test]
+    fn spot_collateral_enters_effective_collateral_and_portfolio_value() {
+        let markets = sol_spot_pricing_market();
+        let portfolio = TraderPortfolio::builder()
+            .quote_lot_collateral(SignedQuoteLots::new(1_000_000))
+            .spot_collateral(sol_spot_input(2_000_000_000)) // 2 SOL
+            .build();
+
+        let margin = portfolio.compute_margin(&markets).unwrap();
+        let spot = &margin.spot_collaterals[0];
+        // notional: 2000 base lots * 50_000 = 100_000_000; retention at 2/10
+        // of the cap: 9500 - 1500 * 2/10 = 9200 bps.
+        assert_eq!(spot.notional, QuoteLots::new(100_000_000));
+        assert_eq!(spot.discounted, QuoteLots::new(92_000_000));
+        assert_eq!(margin.portfolio_value(), SignedQuoteLots::new(101_000_000));
+        assert_eq!(
+            margin.effective_collateral(),
+            SignedQuoteLots::new(93_000_000)
+        );
+        // Spot never backs quote withdrawals.
+        assert_eq!(
+            margin.effective_collateral_for_withdrawals(),
+            SignedQuoteLots::new(1_000_000)
+        );
+    }
+
+    #[test]
+    fn spot_collateral_values_dust_with_truncating_division() {
+        let markets = sol_spot_pricing_market();
+        let portfolio = TraderPortfolio::builder()
+            // 1.5 SOL + 500 lamports of dust.
+            .spot_collateral(sol_spot_input(1_500_000_500))
+            .build();
+
+        let margin = portfolio.compute_margin(&markets).unwrap();
+        // 1500 base lots * 50_000 + floor(500 * 50_000 / 1e6) = 75_000_025.
+        assert_eq!(
+            margin.spot_collaterals[0].notional,
+            QuoteLots::new(75_000_025)
+        );
+    }
+
+    #[test]
+    fn spot_collateral_discount_hits_curve_endpoints() {
+        let markets = sol_spot_pricing_market();
+
+        let at_cap = TraderPortfolio::builder()
+            .spot_collateral(sol_spot_input(10_000_000_000))
+            .build()
+            .compute_margin(&markets)
+            .unwrap();
+        // 10 SOL notional 500_000_000, retention at the cap = 8000 bps.
+        assert_eq!(
+            at_cap.spot_collaterals[0].discounted,
+            QuoteLots::new(400_000_000)
+        );
+
+        let empty = TraderPortfolio::builder()
+            .spot_collateral(sol_spot_input(0))
+            .build()
+            .compute_margin(&markets)
+            .unwrap();
+        assert_eq!(empty.spot_collaterals[0].notional, QuoteLots::ZERO);
+        assert_eq!(empty.spot_collaterals[0].discounted, QuoteLots::ZERO);
+    }
+
+    #[test]
+    fn liquidation_price_reprices_spot_collateral_at_candidate_ticks() {
+        let markets = sol_spot_pricing_market();
+        let portfolio = TraderPortfolio::builder()
+            .quote_lot_collateral(SignedQuoteLots::new(-20_000_000))
+            .spot_collateral(sol_spot_input(2_000_000_000))
+            .position(
+                "SOL",
+                TraderPosition {
+                    base_lot_position: SignedBaseLots::new(1_000),
+                    virtual_quote_lot_position: SignedQuoteLots::new(-50_000_000),
+                    cumulative_funding_snapshot: SignedQuoteLotsPerBaseLot::ZERO,
+                    position_sequence_number: Default::default(),
+                    accumulated_funding_for_active_position: SignedQuoteLotsI56::default(),
+                },
+            )
+            .build();
+
+        let margin = portfolio.compute_margin(&markets).unwrap();
+        let price = liquidation_prices_for_margin(&margin, &markets).unwrap()["SOL"].unwrap();
+
+        assert!(
+            (25.0..26.0).contains(&price),
+            "unexpected boundary: {price}"
+        );
+
+        let projected = margin.projected_liquidation_prices(&markets).unwrap();
+        let projected_ticks = projected["SOL"].liquidation_price_ticks.unwrap();
+        assert!(
+            (2_500..2_600).contains(&projected_ticks.as_inner()),
+            "unexpected projected boundary: {projected_ticks:?}"
+        );
+    }
 
     fn quote_lots(usd: f64) -> SignedQuoteLots {
         SignedQuoteLots::new((usd * MICRO_USD).round() as i64)
@@ -2520,6 +2813,7 @@ mod tests {
             portfolio_maintenance_margin: QuoteLots::new(1_819_093_750),
             target_discounted_unrealized_pnl: SignedQuoteLots::new(103_929_100),
             target_maintenance_margin: QuoteLots::new(1_623_872_500),
+            spot_collaterals: &[],
         };
         let result = projected_liquidation_price(&params, &metadata);
 

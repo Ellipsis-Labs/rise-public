@@ -272,6 +272,15 @@ fn generated_perp_asset_map_account_fixture_matches_rise_decoders() {
 
 #[test]
 fn generated_instruction_fixtures_match_rise_discriminants() {
+    // The loop below only checks the instructions the fixture happens to
+    // contain, so a stale fixture would pass silently. Pin the count so a
+    // missed regeneration fails loudly instead.
+    assert_eq!(
+        instruction_fixtures().instructions.len(),
+        116,
+        "regenerate with `cargo run -p eternal-cli -- sdk-fixtures export`"
+    );
+
     for fixture in instruction_fixtures().instructions {
         let (snake_case_name, tag, discriminant) = match fixture.enum_name.as_str() {
             "PhoenixInstruction" => {

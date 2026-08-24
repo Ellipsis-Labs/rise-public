@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::candles::{CandleData, Timeframe};
+use crate::exchange_ws::{ExchangeMessage, ExchangeSnapshotEncoding};
 use crate::market::{L2BookUpdate, MarketStatsUpdate};
 use crate::trader::TraderStateServerMessage;
 use crate::trades::{TradesMessage, TradesSubscriptionRequest};
@@ -61,6 +62,17 @@ pub struct CandlesSubscriptionRequest {
     pub timeframe: Timeframe,
 }
 
+/// Subscription request for the exchange snapshot/delta channel.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub struct ExchangeSubscriptionRequest {
+    /// Snapshot encoding. When omitted, the server defaults to
+    /// `base64+zstd`; clients that cannot decode zstd should request
+    /// [`ExchangeSnapshotEncoding::Json`] explicitly.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encoding: Option<ExchangeSnapshotEncoding>,
+}
+
 /// Subscription request from client.
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, Eq, PartialEq)]
 #[serde(tag = "channel")]
@@ -79,6 +91,8 @@ pub enum SubscriptionRequest {
     Trades(TradesSubscriptionRequest),
     #[serde(rename = "candles")]
     Candles(CandlesSubscriptionRequest),
+    #[serde(rename = "exchange")]
+    Exchange(ExchangeSubscriptionRequest),
     /// Other subscription types exist but are not used by this SDK.
     #[serde(other)]
     Other,
@@ -138,6 +152,8 @@ pub enum ServerMessage {
     Trades(TradesMessage),
     #[serde(rename = "candle", alias = "candles")]
     Candles(CandleData),
+    #[serde(rename = "exchange")]
+    Exchange(ExchangeMessage),
     #[serde(rename = "error")]
     Error(ErrorMessage),
     #[serde(rename = "subscriptionStatus")]
@@ -187,6 +203,131 @@ pub struct ErrorMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::exchange_ws::{
+        AuthoritySet, ExchangeDeltaMessage, ExchangeDeltaOp, ExchangeSnapshotMessage,
+        ExchangeSnapshotReason, ExchangeStateSnapshot,
+    };
+
+    fn sample_exchange_state_snapshot() -> ExchangeStateSnapshot {
+        ExchangeStateSnapshot {
+            program_id: "program".to_string(),
+            global_config: "global-config".to_string(),
+            current_authorities: AuthoritySet {
+                root_authority: "root".to_string(),
+                risk_authority: "risk".to_string(),
+                market_authority: "market".to_string(),
+                oracle_authority: "oracle".to_string(),
+                adl_authority: "adl".to_string(),
+                cancel_authority: "cancel".to_string(),
+                backstop_authority: "backstop".to_string(),
+            },
+            canonical_mint: "canonical".to_string(),
+            usdc_mint: "usdc".to_string(),
+            global_vault: "vault".to_string(),
+            perp_asset_map: "perp-map".to_string(),
+            global_trader_index: vec!["gti-0".to_string()],
+            active_trader_buffer: vec!["atb-0".to_string()],
+            withdraw_queue: "withdraw-queue".to_string(),
+            exchange_status_bits: 129,
+            exchange_status_features: vec!["initialized".to_string(), "active".to_string()],
+            active: true,
+            gated: false,
+            withdrawals_available: true,
+        }
+    }
+
+    #[test]
+    fn test_exchange_subscription_request_round_trip() {
+        let msg = ClientMessage::Subscribe {
+            subscription: SubscriptionRequest::Exchange(ExchangeSubscriptionRequest {
+                encoding: Some(ExchangeSnapshotEncoding::Json),
+            }),
+        };
+
+        let value = serde_json::to_value(&msg).unwrap();
+        assert_eq!(value["type"], "subscribe");
+        assert_eq!(value["subscription"]["channel"], "exchange");
+        assert_eq!(value["subscription"]["encoding"], "json");
+
+        let decoded: ClientMessage = serde_json::from_value(value).unwrap();
+        let ClientMessage::Subscribe {
+            subscription: SubscriptionRequest::Exchange(request),
+        } = decoded
+        else {
+            panic!("Expected exchange subscribe message");
+        };
+        assert_eq!(request.encoding, Some(ExchangeSnapshotEncoding::Json));
+    }
+
+    #[test]
+    fn test_exchange_subscription_request_omits_missing_encoding() {
+        let subscription = SubscriptionRequest::Exchange(ExchangeSubscriptionRequest::default());
+
+        let value = serde_json::to_value(&subscription).unwrap();
+        assert_eq!(value["channel"], "exchange");
+        assert!(value.get("encoding").is_none());
+
+        let decoded: SubscriptionRequest =
+            serde_json::from_value(serde_json::json!({ "channel": "exchange" })).unwrap();
+        assert_eq!(decoded, subscription);
+    }
+
+    #[test]
+    fn test_exchange_snapshot_server_message_round_trip() {
+        let message = ServerMessage::Exchange(ExchangeMessage::Snapshot(Box::new(
+            ExchangeSnapshotMessage {
+                version: 1,
+                sequence_number: 10u64.into(),
+                slot: 42,
+                slot_index: 7,
+                reason: ExchangeSnapshotReason::Snapshot,
+                exchange: sample_exchange_state_snapshot(),
+                markets: Vec::new(),
+                spot_collaterals: Vec::new(),
+            },
+        )));
+
+        let value = serde_json::to_value(&message).unwrap();
+        assert_eq!(value["channel"], "exchange");
+        assert_eq!(value["messageType"], "snapshot");
+        // JsSafeU64 serializes as a string for JS number-precision safety.
+        assert_eq!(value["sequenceNumber"], "10");
+
+        let decoded: ServerMessage = serde_json::from_value(value).unwrap();
+        let ServerMessage::Exchange(ExchangeMessage::Snapshot(snapshot)) = decoded else {
+            panic!("Expected exchange snapshot message");
+        };
+        assert_eq!(snapshot.sequence_number, 10u64);
+        assert_eq!(snapshot.exchange.current_authorities.root_authority, "root");
+    }
+
+    #[test]
+    fn test_exchange_delta_server_message_round_trip() {
+        let message = ServerMessage::Exchange(ExchangeMessage::Delta(ExchangeDeltaMessage {
+            version: 1,
+            sequence_number: 11u64.into(),
+            slot: 43,
+            slot_index: 0,
+            ops: vec![ExchangeDeltaOp::ExchangeKeysUpdated {
+                exchange: sample_exchange_state_snapshot(),
+            }],
+        }));
+
+        let value = serde_json::to_value(&message).unwrap();
+        assert_eq!(value["channel"], "exchange");
+        assert_eq!(value["messageType"], "delta");
+        assert_eq!(value["ops"][0]["kind"], "exchangeKeysUpdated");
+
+        let decoded: ServerMessage = serde_json::from_value(value).unwrap();
+        let ServerMessage::Exchange(ExchangeMessage::Delta(delta)) = decoded else {
+            panic!("Expected exchange delta message");
+        };
+        assert_eq!(delta.sequence_number, 11u64);
+        assert!(matches!(
+            delta.ops.as_slice(),
+            [ExchangeDeltaOp::ExchangeKeysUpdated { .. }]
+        ));
+    }
 
     #[test]
     fn test_deserialize_client_message() {

@@ -75,6 +75,7 @@ fn test_apply_snapshot() {
             subaccount_index: 0,
             sequence: 100,
             collateral: "1000".to_string(),
+            spot_collaterals: Vec::new(),
             capabilities: Some(make_capabilities()),
             cooldown_status: None,
             positions: vec![TraderStatePositionSnapshot {
@@ -128,6 +129,7 @@ fn test_apply_delta_updates_position() {
             subaccount_index: 0,
             sequence: 100,
             collateral: "1000".to_string(),
+            spot_collaterals: Vec::new(),
             capabilities: Some(make_capabilities()),
             cooldown_status: None,
             positions: vec![TraderStatePositionSnapshot {
@@ -152,6 +154,7 @@ fn test_apply_delta_updates_position() {
             subaccount_index: 0,
             sequence: 101,
             collateral: "1050".to_string(),
+            spot_collaterals: Vec::new(),
             capabilities: None,
             cooldown_status: None,
             positions: vec![TraderStatePositionDelta {
@@ -199,6 +202,7 @@ fn test_apply_delta_closes_position() {
             subaccount_index: 0,
             sequence: 100,
             collateral: "1000".to_string(),
+            spot_collaterals: Vec::new(),
             capabilities: Some(make_capabilities()),
             cooldown_status: None,
             positions: vec![TraderStatePositionSnapshot {
@@ -225,6 +229,7 @@ fn test_apply_delta_closes_position() {
             subaccount_index: 0,
             sequence: 101,
             collateral: "1100".to_string(),
+            spot_collaterals: Vec::new(),
             capabilities: None,
             cooldown_status: None,
             positions: vec![TraderStatePositionDelta {
@@ -266,6 +271,7 @@ fn test_stale_delta_ignored() {
             subaccount_index: 0,
             sequence: 100,
             collateral: "1000".to_string(),
+            spot_collaterals: Vec::new(),
             capabilities: Some(make_capabilities()),
             cooldown_status: None,
             positions: vec![],
@@ -287,6 +293,7 @@ fn test_stale_delta_ignored() {
             subaccount_index: 0,
             sequence: 99, // Stale!
             collateral: "999".to_string(),
+            spot_collaterals: Vec::new(),
             capabilities: None,
             cooldown_status: None,
             positions: vec![],
@@ -326,6 +333,7 @@ fn test_multiple_subaccounts() {
                 subaccount_index: 0,
                 sequence: 100,
                 collateral: "1000".to_string(),
+                spot_collaterals: Vec::new(),
                 capabilities: Some(make_capabilities()),
                 cooldown_status: None,
                 positions: vec![],
@@ -336,6 +344,7 @@ fn test_multiple_subaccounts() {
                 subaccount_index: 1,
                 sequence: 50,
                 collateral: "500".to_string(),
+                spot_collaterals: Vec::new(),
                 capabilities: Some(make_capabilities()),
                 cooldown_status: None,
                 positions: vec![],
@@ -377,6 +386,7 @@ fn test_cooldown_status_snapshot_and_delta() {
             subaccount_index: 0,
             sequence: 100,
             collateral: "1000".to_string(),
+            spot_collaterals: Vec::new(),
             capabilities: Some(make_capabilities()),
             cooldown_status: Some(CooldownStatus {
                 last_deposit_slot: 1_000,
@@ -406,6 +416,7 @@ fn test_cooldown_status_snapshot_and_delta() {
             subaccount_index: 0,
             sequence: 101,
             collateral: "1100".to_string(),
+            spot_collaterals: Vec::new(),
             capabilities: None,
             cooldown_status: None,
             positions: vec![],
@@ -433,6 +444,7 @@ fn test_cooldown_status_snapshot_and_delta() {
             subaccount_index: 0,
             sequence: 102,
             collateral: "1200".to_string(),
+            spot_collaterals: Vec::new(),
             capabilities: None,
             cooldown_status: Some(CooldownStatus {
                 last_deposit_slot: 1_500,
@@ -495,6 +507,7 @@ fn trader_state_cache_preserves_triggers_and_conditional_order_metadata() {
             subaccount_index: 0,
             sequence: 100,
             collateral: "1000".to_string(),
+            spot_collaterals: Vec::new(),
             capabilities: Some(make_capabilities()),
             cooldown_status: None,
             positions: vec![TraderStatePositionSnapshot {
@@ -515,6 +528,7 @@ fn trader_state_cache_preserves_triggers_and_conditional_order_metadata() {
                     initial_size_lots: "10".to_string(),
                     reduce_only: true,
                     is_stop_loss: false,
+                    scale_set_id: None,
                     status: "open".to_string(),
                 }],
             }],
@@ -553,6 +567,7 @@ fn isolated_subaccount_selection_is_deterministic() {
                 subaccount_index: 5,
                 sequence: 100,
                 collateral: "10".to_string(),
+                spot_collaterals: Vec::new(),
                 capabilities: Some(make_capabilities()),
                 cooldown_status: None,
                 positions: vec![TraderStatePositionSnapshot {
@@ -566,6 +581,7 @@ fn isolated_subaccount_selection_is_deterministic() {
                 subaccount_index: 2,
                 sequence: 100,
                 collateral: "10".to_string(),
+                spot_collaterals: Vec::new(),
                 capabilities: Some(make_capabilities()),
                 cooldown_status: None,
                 positions: vec![TraderStatePositionSnapshot {
@@ -579,6 +595,7 @@ fn isolated_subaccount_selection_is_deterministic() {
                 subaccount_index: 4,
                 sequence: 100,
                 collateral: "500".to_string(),
+                spot_collaterals: Vec::new(),
                 capabilities: Some(make_capabilities()),
                 cooldown_status: None,
                 positions: vec![],
@@ -614,6 +631,7 @@ fn isolated_empty_subaccount_ties_choose_lowest_index() {
                 subaccount_index: 7,
                 sequence: 100,
                 collateral: "500".to_string(),
+                spot_collaterals: Vec::new(),
                 capabilities: Some(make_capabilities()),
                 cooldown_status: None,
                 positions: vec![],
@@ -624,6 +642,7 @@ fn isolated_empty_subaccount_ties_choose_lowest_index() {
                 subaccount_index: 4,
                 sequence: 100,
                 collateral: "500".to_string(),
+                spot_collaterals: Vec::new(),
                 capabilities: Some(make_capabilities()),
                 cooldown_status: None,
                 positions: vec![],

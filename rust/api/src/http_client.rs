@@ -9,7 +9,8 @@ use std::time::Duration;
 
 use phoenix_rise_ix::types::{IsolatedCollateralFlow, Side};
 use phoenix_rise_types::prelude::{
-    ApiCandle, CancelStopLossOrderRequest, CandlesQueryParams, CollateralHistoryQueryParams,
+    ApiCandle, CancelStopLossOrderRequest, CandlesQueryParams, CandlesV2QueryParams,
+    CandlesV2Response, CollateralAssetsResponse, CollateralHistoryQueryParams,
     CollateralHistoryResponse, CommodityMarketCalendarResponse, ExchangeKeysView,
     ExchangeMarketConfig, ExchangeResponse, ExchangeSnapshotView, FundingHistoryQueryParams,
     FundingHistoryResponse, FundingHourlyHistoryResponse, FundingHourlyQuery,
@@ -665,6 +666,10 @@ impl PhoenixHttpClient {
             .await
     }
 
+    pub async fn get_spot_collaterals(&self) -> Result<CollateralAssetsResponse, PhoenixHttpError> {
+        self.collateral().get_assets().await
+    }
+
     pub async fn get_collateral_history_with_trader_key(
         &self,
         trader_key: &TraderKey,
@@ -740,6 +745,13 @@ impl PhoenixHttpClient {
         params: CandlesQueryParams,
     ) -> Result<Vec<ApiCandle>, PhoenixHttpError> {
         self.candles().get_candles(params).await
+    }
+
+    pub async fn get_candles_v2<Q>(&self, params: Q) -> Result<CandlesV2Response, PhoenixHttpError>
+    where
+        Q: Into<CandlesV2QueryParams>,
+    {
+        self.candles().get_candles_v2(params).await
     }
 
     pub async fn get_trade_history(

@@ -32,6 +32,7 @@ pub enum SubscriptionKey {
         symbol: String,
         timeframe: Timeframe,
     },
+    Exchange,
 }
 
 impl SubscriptionKey {
@@ -111,5 +112,9 @@ impl SubscriptionKey {
             symbol: msg.symbol.clone(),
             timeframe,
         })
+    }
+
+    pub fn exchange() -> Self {
+        Self::Exchange
     }
 }
