@@ -92,7 +92,7 @@ cargo run -p phoenix-rise --example subscribe_l2_book --features ws -- SOL
 cargo run -p phoenix-rise --example register_trader --features api -- <AUTHORITY_PUBKEY> --access-code ACCESS123
 cargo run -p phoenix-rise --example subscribe_trader_state --features ws
 cargo run -p phoenix-rise --example referral_activation_tx --features api,tx-builder -- REFERRAL_CODE --trader-keypair-path ~/.config/solana/id.json
-cargo run -p phoenix-rise --example builder_onboarding_tx --features api -- --trader-keypair-path ~/.config/solana/id.json
+cargo run -p phoenix-rise --example builder_onboarding_tx --features api -- --fee-payer-keypair-path ~/.config/solana/id.json [--trader-authority <TRADER_AUTHORITY_PUBKEY>]
 cargo run -p phoenix-rise --example onboard_trader_delegated --features api,tx-builder -- <TRADER_AUTHORITY>
 cargo run -p phoenix-rise-cli -- --json market list
 cargo run -p phoenix-rise-cli -- --json rpc account --address <ACCOUNT_PUBKEY> --account-type trader
@@ -100,8 +100,12 @@ cargo run -p phoenix-rise-cli -- --json rpc account --address <ACCOUNT_PUBKEY> -
 
 `referral_activation_tx` demonstrates delegated onboarding with a referral code
 through `/v1/referral/activate-tx`. `builder_onboarding_tx` demonstrates
-registering a trader without a referral code through
+registering a trader authority public key without a referral code, with only
+the fee payer signing locally, through
 `/v1/exchange/build-register-ixs` and `/v1/exchange/send-register-ixs`.
+The fee-payer keypair path defaults to `~/.config/solana/id.json` and can be
+overridden with `--fee-payer-keypair-path`. The `--trader-authority` argument
+is optional and defaults to the fee payer's public key when omitted.
 
 ## Basic Usage
 

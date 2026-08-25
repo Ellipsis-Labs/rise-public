@@ -1,11 +1,16 @@
 use std::collections::HashMap;
+use std::str::FromStr;
+use std::sync::Arc;
 
+use parking_lot::RwLock;
 use phoenix_rise_types::prelude::{
-    ExchangeDeltaMessage, ExchangeDeltaOp, ExchangeMarketParameterUpdate, ExchangeMarketSnapshot,
-    ExchangeSnapshotMessage, ExchangeSnapshotView, ExchangeStateSnapshot, MarketPublicMetadata,
-    MarketStatus,
+    CollateralAssetMetadata, ExchangeDeltaMessage, ExchangeDeltaOp, ExchangeMarketParameterUpdate,
+    ExchangeMarketSnapshot, ExchangeSnapshotMessage, ExchangeSnapshotView, ExchangeStateSnapshot,
+    MarketPublicMetadata, MarketStatus,
 };
+use solana_pubkey::Pubkey;
 use thiserror::Error;
+use tokio::sync::watch;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExchangeCacheSnapshotSource {
@@ -17,6 +22,7 @@ pub enum ExchangeCacheSnapshotSource {
 pub enum ExchangeCacheExchangeChangeKind {
     Keys,
     Status,
+    SpotCollaterals,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,6 +106,10 @@ impl PhoenixExchangeCacheStore {
 
     pub fn snapshot(&self) -> &ExchangeSnapshotView {
         &self.snapshot
+    }
+
+    pub fn spot_collaterals(&self) -> &[CollateralAssetMetadata] {
+        &self.snapshot.spot_collaterals
     }
 
     pub fn market(&self, symbol: &str) -> Option<&ExchangeMarketSnapshot> {
@@ -219,6 +229,14 @@ impl PhoenixExchangeCacheStore {
                     next_snapshot.exchange.withdrawals_available = *withdrawals_available;
                     events.push(ExchangeCacheEvent::ExchangeUpdated {
                         change: ExchangeCacheExchangeChangeKind::Status,
+                        slot: delta.slot,
+                        slot_index: delta.slot_index,
+                    });
+                }
+                ExchangeDeltaOp::SpotCollateralsUpdated { assets } => {
+                    next_snapshot.spot_collaterals = assets.clone();
+                    events.push(ExchangeCacheEvent::ExchangeUpdated {
+                        change: ExchangeCacheExchangeChangeKind::SpotCollaterals,
                         slot: delta.slot,
                         slot_index: delta.slot_index,
                     });
@@ -343,6 +361,181 @@ impl PhoenixExchangeCacheStore {
 
     fn replace_snapshot(&mut self, snapshot: ExchangeSnapshotView) {
         *self = Self::from_snapshot(snapshot);
+    }
+}
+
+/// Cloneable, thread-safe handle around a live [`PhoenixExchangeCacheStore`].
+///
+/// Intended to be shared between a websocket pump that applies exchange
+/// snapshots/deltas and consumers that read live exchange state at use time,
+/// such as [`crate::PhoenixFlightClient`] resolving the current Phoenix root
+/// authority.
+///
+/// Obtain it from `PhoenixWSClient::exchange_store()`, which owns the
+/// subscription pump and returns the store already populated. The store can
+/// also start empty ([`Self::new_empty`]) and reports no data (e.g.
+/// [`Self::root_authority`] returns `None`) until the first snapshot is
+/// applied.
+#[derive(Debug, Clone)]
+pub struct SharedExchangeCacheStore {
+    inner: Arc<SharedExchangeCacheStoreInner>,
+}
+
+#[derive(Debug)]
+struct SharedExchangeCacheStoreInner {
+    store: RwLock<Option<PhoenixExchangeCacheStore>>,
+    /// Latched to `true` once the first snapshot has been applied.
+    populated_tx: watch::Sender<bool>,
+}
+
+impl SharedExchangeCacheStore {
+    /// Store pre-seeded with `initial_snapshot` (e.g. from
+    /// `PhoenixHttpClient::get_exchange_snapshot`).
+    ///
+    /// This is the secondary path for tests and advanced setups that manage
+    /// their own snapshot feed; prefer `PhoenixWSClient::exchange_store()`,
+    /// which creates, feeds, and populates the store for you.
+    pub fn new(initial_snapshot: ExchangeSnapshotView) -> Self {
+        Self::from_store(PhoenixExchangeCacheStore::new(initial_snapshot))
+    }
+
+    /// Empty store awaiting its first snapshot. Read accessors return `None`
+    /// and [`Self::apply_delta`] fails with
+    /// [`ExchangeCacheApplyError::MissingSequenceBaseline`] until a snapshot
+    /// is applied.
+    pub fn new_empty() -> Self {
+        Self {
+            inner: Arc::new(SharedExchangeCacheStoreInner {
+                store: RwLock::new(None),
+                populated_tx: watch::channel(false).0,
+            }),
+        }
+    }
+
+    pub fn from_store(store: PhoenixExchangeCacheStore) -> Self {
+        Self {
+            inner: Arc::new(SharedExchangeCacheStoreInner {
+                store: RwLock::new(Some(store)),
+                populated_tx: watch::channel(true).0,
+            }),
+        }
+    }
+
+    /// True once at least one snapshot has been applied (stores created via
+    /// [`Self::new`] or [`Self::from_store`] start populated).
+    pub fn is_populated(&self) -> bool {
+        *self.inner.populated_tx.borrow()
+    }
+
+    /// Wait until at least one snapshot has been applied; returns
+    /// immediately when the store is already populated.
+    ///
+    /// There is no internal timeout: if no snapshot ever arrives (e.g. the
+    /// feeding pump stopped), this future never resolves. Wrap it in
+    /// `tokio::time::timeout` to bound the wait.
+    pub async fn wait_until_populated(&self) {
+        let mut populated_rx = self.inner.populated_tx.subscribe();
+        // `wait_for` only fails when the sender is dropped, which cannot
+        // happen while `self` holds it.
+        let _ = populated_rx.wait_for(|populated| *populated).await;
+    }
+
+    /// True when both handles point at the same underlying store.
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
+    }
+
+    /// Run `f` against the current store contents under the read lock, or
+    /// return `None` while the store is still awaiting its first snapshot.
+    pub fn with_store<R>(&self, f: impl FnOnce(&PhoenixExchangeCacheStore) -> R) -> Option<R> {
+        self.inner.store.read().as_ref().map(f)
+    }
+
+    /// Clone of the current exchange snapshot, or `None` while the store is
+    /// still awaiting its first snapshot.
+    pub fn snapshot(&self) -> Option<ExchangeSnapshotView> {
+        self.inner
+            .store
+            .read()
+            .as_ref()
+            .map(|store| store.snapshot().clone())
+    }
+
+    pub fn spot_collaterals(&self) -> Option<Vec<CollateralAssetMetadata>> {
+        self.inner
+            .store
+            .read()
+            .as_ref()
+            .map(|store| store.spot_collaterals().to_vec())
+    }
+
+    /// The current Phoenix root authority, or `None` when the store has not
+    /// applied a snapshot yet or the authority is unset or not a valid
+    /// pubkey.
+    pub fn root_authority(&self) -> Option<Pubkey> {
+        let guard = self.inner.store.read();
+        let store = guard.as_ref()?;
+        Pubkey::from_str(&store.snapshot().exchange.current_authorities.root_authority).ok()
+    }
+
+    pub fn apply_snapshot(
+        &self,
+        snapshot: ExchangeSnapshotView,
+        source: ExchangeCacheSnapshotSource,
+    ) -> Vec<ExchangeCacheEvent> {
+        let events = {
+            let mut guard = self.inner.store.write();
+            match guard.as_mut() {
+                Some(store) => store.apply_snapshot(snapshot, source),
+                None => {
+                    let store = PhoenixExchangeCacheStore::new(snapshot);
+                    let events = vec![ExchangeCacheEvent::SnapshotApplied {
+                        source,
+                        slot: store.snapshot().slot,
+                        slot_index: store.snapshot().slot_index,
+                        market_count: store.snapshot().markets.len(),
+                    }];
+                    *guard = Some(store);
+                    events
+                }
+            }
+        };
+        self.inner.populated_tx.send_if_modified(|populated| {
+            let was_unpopulated = !*populated;
+            *populated = true;
+            was_unpopulated
+        });
+        events
+    }
+
+    pub fn apply_snapshot_message(
+        &self,
+        message: &ExchangeSnapshotMessage,
+    ) -> Vec<ExchangeCacheEvent> {
+        self.apply_snapshot(
+            ExchangeSnapshotView::from(message),
+            ExchangeCacheSnapshotSource::Websocket,
+        )
+    }
+
+    pub fn apply_delta(
+        &self,
+        delta: &ExchangeDeltaMessage,
+    ) -> Result<Vec<ExchangeCacheEvent>, ExchangeCacheApplyError> {
+        self.inner
+            .store
+            .write()
+            .as_mut()
+            .ok_or(ExchangeCacheApplyError::MissingSequenceBaseline {
+                found: delta.sequence_number.into_inner(),
+            })?
+            .apply_delta(delta)
+    }
+}
+
+impl From<PhoenixExchangeCacheStore> for SharedExchangeCacheStore {
+    fn from(store: PhoenixExchangeCacheStore) -> Self {
+        Self::from_store(store)
     }
 }
 
@@ -490,7 +683,7 @@ mod tests {
         ExchangeSnapshotMessage, ExchangeWsCommodityMetadata, ExchangeWsFundingConfig,
         ExchangeWsLeverageTier, ExchangeWsMarkPriceParameters, ExchangeWsMarketPriceBand,
         ExchangeWsMarketPriceBand as MarketPriceBand, ExchangeWsRiskActionPriceValidityRules,
-        ExchangeWsValidationRule, JsSafeU64, MarketCalendar,
+        ExchangeWsValidationRule, JsSafeU64, MarketCalendar, SpotAssetConfig,
     };
 
     use super::*;
@@ -612,6 +805,23 @@ mod tests {
                     last_index_expiry_timestamp: Some(1_713_200_000),
                 }),
             }],
+            spot_collaterals: vec![CollateralAssetMetadata {
+                asset_index: 0xffff0000,
+                symbol: "SOL".to_string(),
+                decimals: 9,
+                spot: Some(SpotAssetConfig {
+                    is_active: true,
+                    perp_asset_index: Some(1),
+                    max_per_trader_balance: 1_000_000_000u64.into(),
+                    max_global_balance: 10_000_000_000u64.into(),
+                    curr_global_balance: 500_000_000u64.into(),
+                    min_margin_discount_bps: 100,
+                    max_margin_discount_bps: 1_000,
+                    max_liquidation_discount_bps: 500,
+                    min_liquidation_slippage_bps: 50,
+                    max_liquidation_size: 1_000_000_000u64.into(),
+                }),
+            }],
         }
     }
 
@@ -622,7 +832,6 @@ mod tests {
     fn build_snapshot_message(sequence_number: u64) -> ExchangeSnapshotMessage {
         let snapshot = build_snapshot(2, 1);
         ExchangeSnapshotMessage {
-            channel: "exchange".to_string(),
             version: snapshot.version,
             sequence_number: sequence_number.into(),
             slot: snapshot.slot,
@@ -630,6 +839,7 @@ mod tests {
             reason: phoenix_rise_types::exchange_ws::ExchangeSnapshotReason::Snapshot,
             exchange: snapshot.exchange,
             markets: snapshot.markets,
+            spot_collaterals: snapshot.spot_collaterals,
         }
     }
 
@@ -638,7 +848,6 @@ mod tests {
         new_base_lots: u64,
     ) -> ExchangeDeltaMessage {
         ExchangeDeltaMessage {
-            channel: "exchange".to_string(),
             version: 1,
             sequence_number: sequence_number.into(),
             slot: 3,
@@ -653,10 +862,32 @@ mod tests {
         }
     }
 
+    fn build_spot_collaterals_delta(
+        sequence_number: u64,
+        curr_global_balance: u64,
+    ) -> ExchangeDeltaMessage {
+        let mut asset = build_snapshot(1, 0).spot_collaterals.remove(0);
+        asset
+            .spot
+            .as_mut()
+            .expect("SOL spot collateral config")
+            .curr_global_balance = curr_global_balance.into();
+        ExchangeDeltaMessage {
+            version: 1,
+            sequence_number: sequence_number.into(),
+            slot: 3,
+            slot_index: 2,
+            ops: vec![ExchangeDeltaOp::SpotCollateralsUpdated {
+                assets: vec![asset],
+            }],
+        }
+    }
+
     fn sample_public_metadata(name: &str) -> MarketPublicMetadata {
         MarketPublicMetadata {
             name: Some(name.to_string()),
             description: Some("Solana perpetual market".to_string()),
+            search_aliases: vec!["SOL".to_string()],
             logo_uri: Some("https://example.com/sol.png".to_string()),
             coin_gecko_id: Some("solana".to_string()),
             coin_market_cap_id: Some(5426),
@@ -682,7 +913,6 @@ mod tests {
         metadata: Option<MarketPublicMetadata>,
     ) -> ExchangeDeltaMessage {
         ExchangeDeltaMessage {
-            channel: "exchange".to_string(),
             version: 1,
             sequence_number: sequence_number.into(),
             slot: 4,
@@ -696,7 +926,6 @@ mod tests {
 
     fn build_unknown_delta(sequence_number: u64) -> ExchangeDeltaMessage {
         ExchangeDeltaMessage {
-            channel: "exchange".to_string(),
             version: 1,
             sequence_number: sequence_number.into(),
             slot: 5,
@@ -707,7 +936,6 @@ mod tests {
 
     fn build_unknown_market_parameter_delta(sequence_number: u64) -> ExchangeDeltaMessage {
         ExchangeDeltaMessage {
-            channel: "exchange".to_string(),
             version: 1,
             sequence_number: sequence_number.into(),
             slot: 5,
@@ -777,6 +1005,33 @@ mod tests {
     }
 
     #[test]
+    fn applies_collateral_registry_deltas() {
+        let mut cache = PhoenixExchangeCacheStore::new(build_snapshot(1, 0));
+        cache.apply_snapshot_message(&build_snapshot_message(10));
+
+        let events = cache
+            .apply_delta(&build_spot_collaterals_delta(11, 750_000_000))
+            .expect("collateral registry delta should apply");
+
+        assert_eq!(
+            cache.spot_collaterals()[0]
+                .spot
+                .as_ref()
+                .expect("SOL spot collateral config")
+                .curr_global_balance
+                .into_inner(),
+            750_000_000
+        );
+        assert!(matches!(
+            events.get(1),
+            Some(ExchangeCacheEvent::ExchangeUpdated {
+                change: ExchangeCacheExchangeChangeKind::SpotCollaterals,
+                ..
+            })
+        ));
+    }
+
+    #[test]
     fn ignores_unknown_delta_ops_while_advancing_sequence() {
         let mut cache = PhoenixExchangeCacheStore::new(build_snapshot(1, 0));
         cache.apply_snapshot_message(&build_snapshot_message(10));
@@ -836,6 +1091,96 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    #[test]
+    fn shared_store_tracks_root_authority_rotation() {
+        let initial_root = Pubkey::new_unique();
+        let rotated_root = Pubkey::new_unique();
+        let mut snapshot = build_snapshot(1, 0);
+        snapshot.sequence_number = Some(10u64.into());
+        snapshot.exchange.current_authorities.root_authority = initial_root.to_string();
+        let store = SharedExchangeCacheStore::new(snapshot.clone());
+
+        assert_eq!(store.root_authority(), Some(initial_root));
+
+        let mut rotated_exchange = snapshot.exchange.clone();
+        rotated_exchange.current_authorities.root_authority = rotated_root.to_string();
+        store
+            .apply_delta(&ExchangeDeltaMessage {
+                version: 1,
+                sequence_number: 11u64.into(),
+                slot: 2,
+                slot_index: 0,
+                ops: vec![ExchangeDeltaOp::ExchangeKeysUpdated {
+                    exchange: rotated_exchange,
+                }],
+            })
+            .expect("keys delta should apply");
+
+        assert_eq!(store.root_authority(), Some(rotated_root));
+        assert_eq!(
+            store
+                .snapshot()
+                .expect("populated store should expose a snapshot")
+                .sequence_number
+                .map(JsSafeU64::into_inner),
+            Some(11)
+        );
+    }
+
+    #[test]
+    fn shared_store_root_authority_is_none_for_invalid_pubkey() {
+        // `build_snapshot` uses the placeholder string "root", which is not a
+        // valid pubkey.
+        let store = SharedExchangeCacheStore::new(build_snapshot(1, 0));
+        assert_eq!(store.root_authority(), None);
+    }
+
+    #[test]
+    fn empty_shared_store_starts_unpopulated() {
+        let store = SharedExchangeCacheStore::new_empty();
+
+        assert!(!store.is_populated());
+        assert_eq!(store.root_authority(), None);
+        assert!(store.snapshot().is_none());
+        assert_eq!(store.with_store(|store| store.snapshot().slot), None);
+
+        let error = store
+            .apply_delta(&build_open_interest_cap_delta(2, 7_500))
+            .expect_err("delta should fail before the first snapshot");
+        assert_eq!(
+            error,
+            ExchangeCacheApplyError::MissingSequenceBaseline { found: 2 }
+        );
+    }
+
+    #[tokio::test]
+    async fn empty_shared_store_populates_after_first_snapshot() {
+        let store = SharedExchangeCacheStore::new_empty();
+        let waiter = {
+            let store = store.clone();
+            tokio::spawn(async move { store.wait_until_populated().await })
+        };
+
+        let events = store.apply_snapshot_message(&build_snapshot_message(10));
+
+        tokio::time::timeout(std::time::Duration::from_secs(2), waiter)
+            .await
+            .expect("wait_until_populated should resolve after the first snapshot")
+            .expect("waiter task should not panic");
+        assert!(matches!(
+            events.first(),
+            Some(ExchangeCacheEvent::SnapshotApplied {
+                source: ExchangeCacheSnapshotSource::Websocket,
+                ..
+            })
+        ));
+        assert!(store.is_populated());
+        assert_eq!(store.snapshot().map(|snapshot| snapshot.slot), Some(2));
+        store
+            .apply_delta(&build_open_interest_cap_delta(11, 7_500))
+            .expect("delta should apply once populated");
     }
 
     #[test]

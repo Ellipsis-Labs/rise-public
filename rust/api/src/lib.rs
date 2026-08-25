@@ -83,10 +83,12 @@ pub use env::PhoenixEnv;
 pub use exchange_cache::{
     ExchangeCacheApplyError, ExchangeCacheEvent, ExchangeCacheExchangeChangeKind,
     ExchangeCacheMarketChangeKind, ExchangeCacheSnapshotSource, ExchangeInstructionContext,
-    PhoenixExchangeCacheStore,
+    PhoenixExchangeCacheStore, SharedExchangeCacheStore,
 };
 pub use flight_client::PhoenixFlightClient;
-pub use http_client::{PhoenixHttpClient, PhoenixHttpClientBuilder, RateLimitRetryConfig};
+pub use http_client::{
+    PhoenixHttpClient, PhoenixHttpClientBuilder, RateLimitCooldownConfig, RateLimitRetryConfig,
+};
 pub use http_error::PhoenixHttpError;
 pub use metadata::PhoenixMetadata;
 pub use phoenix_rise_types::exchange::{ExchangeKeysView, ExchangeMarketConfig, ExchangeView};
@@ -104,5 +106,7 @@ pub use subscription_key::SubscriptionKey;
 pub use trader_key::{CROSS_MARGIN_SUBACCOUNT_IDX, ETERNAL_PROGRAM_ID, TraderKey};
 pub use trader_state::{LimitOrder, Position, Spline, SubaccountState, Trader};
 #[cfg(feature = "ws")]
-pub use ws_client::{PhoenixWSClient, SubscriptionHandle, WsConnectionStatus, WsSubscriptionEvent};
+pub use ws_client::{
+    ExchangeCachePump, PhoenixWSClient, SubscriptionHandle, WsConnectionStatus, WsSubscriptionEvent,
+};
 pub use ws_error::PhoenixWsError;

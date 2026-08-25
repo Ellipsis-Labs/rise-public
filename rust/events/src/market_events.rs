@@ -16,6 +16,7 @@ mod oracle;
 mod orderbook;
 mod pnl;
 mod spline;
+mod spot_collateral;
 mod trader;
 mod withdrawal;
 
@@ -28,6 +29,7 @@ pub use oracle::*;
 pub use orderbook::*;
 pub use pnl::*;
 pub use spline::*;
+pub use spot_collateral::*;
 pub use trader::*;
 pub use withdrawal::*;
 
@@ -180,6 +182,11 @@ pub enum MarketEvent {
 
     // Residual quantity discarded during order placement
     OrderResidualDiscarded(OrderResidualDiscardedEvent),
+
+    // Spot collateral (native SOL) balance changes
+    SpotCollateralDeposited(SpotCollateralDepositedEvent),
+    SpotCollateralWithdrawn(SpotCollateralWithdrawnEvent),
+    SpotCollateralLiquidated(SpotCollateralLiquidatedEvent),
 }
 
 /// Stable event type for a decoded [`MarketEvent`].
@@ -256,6 +263,9 @@ pub enum MarketEventType {
     MarketTombstoned,
     ShutdownClosePositions,
     OrderResidualDiscarded,
+    SpotCollateralDeposited,
+    SpotCollateralWithdrawn,
+    SpotCollateralLiquidated,
 }
 
 impl fmt::Display for MarketEventType {
@@ -352,6 +362,9 @@ impl MarketEvent {
             MarketEvent::MarketTombstoned(_) => MarketEventType::MarketTombstoned,
             MarketEvent::ShutdownClosePositions(_) => MarketEventType::ShutdownClosePositions,
             MarketEvent::OrderResidualDiscarded(_) => MarketEventType::OrderResidualDiscarded,
+            MarketEvent::SpotCollateralDeposited(_) => MarketEventType::SpotCollateralDeposited,
+            MarketEvent::SpotCollateralWithdrawn(_) => MarketEventType::SpotCollateralWithdrawn,
+            MarketEvent::SpotCollateralLiquidated(_) => MarketEventType::SpotCollateralLiquidated,
         }
     }
 }

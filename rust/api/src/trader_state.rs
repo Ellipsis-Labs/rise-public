@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use phoenix_rise_math::portfolio::SpotCollateralInput;
 use phoenix_rise_math::{
     BaseLots, LimitOrder as MarginLimitOrder, SequenceNumberU8, Side as MarginSide, SignedBaseLots,
     SignedQuoteLots, SignedQuoteLotsI56, SignedQuoteLotsPerBaseLot, Ticks, TraderPortfolio,
@@ -10,13 +11,14 @@ use phoenix_rise_math::{
 use rust_decimal::Decimal;
 use tracing::{debug, warn};
 
+use crate::metadata::PhoenixMetadata;
 use crate::trader_key::TraderKey;
 use crate::types::prelude::{
     CooldownStatus, TraderStateCapabilities, TraderStateMarketLimitOrderEvent, TraderStatePayload,
     TraderStatePositionRow, TraderStatePositionSnapshot, TraderStateRowChangeKind,
     TraderStateServerMessage, TraderStateSplineRow, TraderStateSplineSnapshot,
-    TraderStateStopLossTrigger, TraderStateSubaccountDelta, TraderStateSubaccountSnapshot,
-    TraderStateTakeProfitTrigger,
+    TraderStateSpotCollateralSnapshot, TraderStateStopLossTrigger, TraderStateSubaccountDelta,
+    TraderStateSubaccountSnapshot, TraderStateTakeProfitTrigger,
 };
 
 /// A position held by the trader in a specific market.
@@ -84,6 +86,7 @@ pub struct LimitOrder {
     pub initial_size_lots: u64,
     pub reduce_only: bool,
     pub is_stop_loss: bool,
+    pub scale_set_id: Option<u8>,
     pub status: String,
 }
 
@@ -101,6 +104,7 @@ impl LimitOrder {
             initial_size_lots: event.initial_size_lots.parse().unwrap_or(0),
             reduce_only: event.reduce_only,
             is_stop_loss: event.is_stop_loss,
+            scale_set_id: event.scale_set_id,
             status: event.status.clone(),
         }
     }
@@ -130,12 +134,38 @@ impl Spline {
     }
 }
 
+/// Raw spot collateral balance for a single asset (native units, no
+/// valuation).
+#[derive(Debug, Clone)]
+pub struct SpotCollateral {
+    pub asset_index: u32,
+    pub symbol: String,
+    /// Balance in the asset's native units (lamports for SOL).
+    pub balance: u64,
+    /// Native-unit decimals of the asset (9 for native SOL).
+    pub decimals: u8,
+}
+
+impl SpotCollateral {
+    fn from_snapshot(snapshot: &TraderStateSpotCollateralSnapshot) -> Self {
+        Self {
+            asset_index: snapshot.asset_index,
+            symbol: snapshot.symbol.clone(),
+            balance: snapshot.balance.parse().unwrap_or(0),
+            decimals: snapshot.decimals,
+        }
+    }
+}
+
 /// State for a single subaccount.
 #[derive(Debug, Clone, Default)]
 pub struct SubaccountState {
     pub subaccount_index: u8,
     pub sequence: u64,
     pub collateral: SignedQuoteLots,
+    /// Raw spot collateral balances keyed by asset index. Both snapshots and
+    /// deltas carry the complete current set, so this is replaced wholesale.
+    pub spot_collaterals: HashMap<u32, SpotCollateral>,
     pub capabilities: Option<TraderStateCapabilities>,
     pub cooldown_status: Option<CooldownStatus>,
     /// Positions keyed by market symbol.
@@ -152,6 +182,14 @@ impl SubaccountState {
             subaccount_index,
             ..Default::default()
         }
+    }
+
+    fn collect_spot_collaterals(
+        rows: &[TraderStateSpotCollateralSnapshot],
+    ) -> HashMap<u32, SpotCollateral> {
+        rows.iter()
+            .map(|row| (row.asset_index, SpotCollateral::from_snapshot(row)))
+            .collect()
     }
 
     /// Build a TraderPortfolio from this subaccount's positions and orders.
@@ -189,6 +227,46 @@ impl SubaccountState {
         builder.build()
     }
 
+    /// Build a portfolio with spot collateral valued through the supplied
+    /// exchange metadata while preserving the master `TraderPortfolio` input
+    /// model.
+    pub fn to_trader_portfolio_with_metadata(&self, metadata: &PhoenixMetadata) -> TraderPortfolio {
+        let mut portfolio = self.to_trader_portfolio();
+        for spot in self.spot_collaterals.values() {
+            let Some(params) = metadata
+                .spot_collateral_params()
+                .iter()
+                .find(|params| params.asset_index == spot.asset_index)
+            else {
+                continue;
+            };
+            let (Ok(decimals), Ok(min_margin_discount_bps), Ok(max_margin_discount_bps)) = (
+                u8::try_from(params.decimals),
+                u16::try_from(params.min_margin_discount.as_inner()),
+                u16::try_from(params.max_margin_discount.as_inner()),
+            ) else {
+                warn!(
+                    asset_index = spot.asset_index,
+                    "skipping invalid spot collateral metadata"
+                );
+                continue;
+            };
+            let index_price = metadata.get_index_price(&params.perp_symbol);
+            portfolio.spot_collaterals.push(SpotCollateralInput {
+                asset_index: spot.asset_index,
+                symbol: spot.symbol.clone(),
+                pricing_market_symbol: params.perp_symbol.clone(),
+                balance: spot.balance,
+                decimals,
+                index_price,
+                max_global_balance: params.max_global_balance,
+                min_margin_discount_bps,
+                max_margin_discount_bps,
+            });
+        }
+        portfolio
+    }
+
     fn apply_snapshot(&mut self, snapshot: &TraderStateSubaccountSnapshot) {
         self.sequence = snapshot.sequence;
         self.collateral = snapshot
@@ -196,6 +274,7 @@ impl SubaccountState {
             .parse::<i64>()
             .map(SignedQuoteLots::new)
             .unwrap_or(SignedQuoteLots::ZERO);
+        self.spot_collaterals = Self::collect_spot_collaterals(&snapshot.spot_collaterals);
         self.capabilities = snapshot.capabilities.clone();
         self.cooldown_status = snapshot.cooldown_status.clone();
 
@@ -241,6 +320,7 @@ impl SubaccountState {
             .parse::<i64>()
             .map(SignedQuoteLots::new)
             .unwrap_or(self.collateral);
+        self.spot_collaterals = Self::collect_spot_collaterals(&delta.spot_collaterals);
         if delta.capabilities.is_some() {
             self.capabilities = delta.capabilities.clone();
         }

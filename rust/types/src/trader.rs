@@ -56,13 +56,31 @@ pub struct TraderStateDelta {
 // Subaccount Types
 // ============================================================================
 
+/// Raw spot collateral balance row (native units, no valuation). The list is
+/// always the complete current set for the subaccount; an empty list means no
+/// spot collateral.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraderStateSpotCollateralSnapshot {
+    pub asset_index: u32,
+    pub symbol: String,
+    /// Balance in the asset's native units (lamports for SOL), as a decimal
+    /// integer string.
+    pub balance: String,
+    /// Native-unit decimals of the asset (9 for native SOL).
+    pub decimals: u8,
+}
+
 /// Complete subaccount view contained in a snapshot.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TraderStateSubaccountSnapshot {
     pub subaccount_index: u8,
     pub sequence: u64,
+    /// Quote collateral balance.
     pub collateral: String,
+    #[serde(default)]
+    pub spot_collaterals: Vec<TraderStateSpotCollateralSnapshot>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<TraderStateCapabilities>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -81,7 +99,10 @@ pub struct TraderStateSubaccountSnapshot {
 pub struct TraderStateSubaccountDelta {
     pub subaccount_index: u8,
     pub sequence: u64,
+    /// Quote collateral balance. Carries the full current value, not a diff.
     pub collateral: String,
+    #[serde(default)]
+    pub spot_collaterals: Vec<TraderStateSpotCollateralSnapshot>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<TraderStateCapabilities>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -204,6 +225,10 @@ pub struct TraderStateMarketLimitOrderEvent {
     pub reduce_only: bool,
     #[serde(default)]
     pub is_stop_loss: bool,
+    /// Client-assigned scale set id when the order was placed as part of a
+    /// scale (ladder) order batch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale_set_id: Option<u8>,
     pub status: String,
 }
 

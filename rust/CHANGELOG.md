@@ -3,6 +3,35 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.1 - 2026-08-25
+
+Source Phoenix commit: `da9e74fe54eb6430cedc59ff530feaa5da8130e9`
+
+### Summary
+
+- Adds native SOL spot collateral support end to end: new `ix::native_sol` instruction builders (`SyncNative`, `WithdrawNativeSol`, `TransferNativeSol`, `SwapNative`, `LiquidateNativeSol`), `accounts::spot_collateral` account layout, `math::spot_collateral` valuation/discount curve, and a `/v1/collateral/assets` client (`collateral().get_assets()`).
+- Adds TWAP/Flicker instruction builders under the new `ix::twap` module (`TwapInstruction`, `FLICKER_PROGRAM_ID`).
+- `PhoenixFlightClient` now resolves the Phoenix root authority from a live exchange snapshot store (`from_exchange_store`, `SharedExchangeCacheStore`) to support position-authority (delegate-signed) order wraps with builder-fee collateral transfer.
+- Adds a canonical candles v2 client (`candles().get_candles_v2`) with cursor pagination, mark-price OHLC, and up to 10,000 bars per page; the legacy `get_candles` endpoint is unchanged.
+- The exchange websocket channel is restructured into a tagged `ExchangeMessage` (snapshot/encoded-snapshot/delta) with an explicit `exchange` subscription and server-message variant.
+
+### Breaking Changes
+
+- `PhoenixFlightClient::try_wrap_order_instruction` (and the fee-override variant) now take an additional `use_position_authority: bool` argument; callers must update all call sites.
+- `RiskAction::Withdrawal` is renamed to `WithdrawQuoteCollateral`, a new `WithdrawSpotCollateral` variant is added, and `ADL` is deprecated — exhaustive matches on `RiskAction` must be updated.
+- `PhoenixInstruction` drops the `SetExchangeStatusBits` and `DisableExchangeCapabilities` discriminants and adds several new ones (`AuthorizedTransferCollateral`, `AcknowledgeRestart`, native-SOL and TWAP instructions); anything matching on or persisting raw discriminant values must be regenerated.
+- `ScalarBounds::lower_bound()`/`upper_bound()` now return `Self` instead of the inner numeric type.
+- `GlobalConfiguration` and `Trader` (owned account mirrors) gained new required fields (`native_sol_spot_metadata`, `acknowledged_restart_slot`, `disable_position_authority_swap`, `native_sol_collateral`); any struct-literal construction of these types must be updated.
+- The exchange websocket wire format changed: `ExchangeSnapshotMessage` no longer carries a `channel` field, payloads are now wrapped in the tagged `ExchangeMessage` enum, and `ServerMessage`/`SubscriptionRequest` gained an `Exchange` variant — downstream WS consumers must update their decoders.
+- New enum variants require handling in exhaustive matches: `PhoenixClientError::Metadata`, `MarginTrigger::SpotCollateralsUpdated`, `ExchangeCacheExchangeChangeKind::SpotCollaterals`, `TraderPreferenceKind::DisablePositionAuthoritySwap`.
+- `TraderStateSubaccountSnapshot`/`TraderStateSubaccountDelta` gained a `spot_collaterals` field, breaking existing struct literals.
+
+### Consumer Notes
+
+- Use `usdc_mint()`/`resolve_usdc_mint_for_env()` instead of the `USDC_MINT` constant when the process may target the beta deployment.
+- The HTTP client now shares a rate-limit cooldown across concurrent requests (`RateLimitCooldownConfig`) after receiving a 429.
+- Builder onboarding (`build-register-ixs`/`send-register-ixs`) now treats the trader authority as a plain public key rather than a local signer; only the fee payer signs locally.
+
 ## v0.3.4 - 2026-07-08
 
 Source Phoenix commit: `6051225fb045fbb5b6a454bd445e7fc2e31e5722`
