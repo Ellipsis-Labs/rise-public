@@ -21,6 +21,15 @@ at [docs.phoenix.trade](https://docs.phoenix.trade/).
 - `PhoenixClient` (`ws`)
 - `PhoenixFlightClient`
 
+`PhoenixHttpClient::candles().get_candles_v2(...)` exposes explicit
+millisecond windows, cursor pagination, mark-price OHLC, external-source
+metadata, partial-bar control, and finality. The existing
+`get_candles(...)` method keeps its original array response and millisecond
+timestamps. It remains on the legacy endpoint to preserve its exchange-only
+default, server-relative finalized window, and 2,500-bar server limit. The v2
+method defaults to 1,000 bars per page and accepts explicit page sizes up to
+10,000.
+
 ## Crate Links
 
 [`phoenix-rise`](../sdk/README.md) |
