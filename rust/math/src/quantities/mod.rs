@@ -57,11 +57,11 @@ pub mod types;
 pub use errors::MathError;
 pub use traits::{ScalarBounds, WrapperNum};
 pub use types::{
-    BaseLots, BaseLotsPerBaseUnit, BaseLotsPerTick, BaseUnits, BasisPoints, Constant, FeeRateMicro,
-    FundingRateUnitInSeconds, MicroDivisor, QuoteLots, QuoteLotsPerBaseLot,
-    QuoteLotsPerBaseLotPerTick, QuoteLotsPerQuoteUnit, QuoteUnits, SequenceNumberU8,
-    SignedBaseLots, SignedBaseLotsUpcasted, SignedConstant, SignedFeeRateMicro, SignedQuoteLots,
-    SignedQuoteLotsBaseLots, SignedQuoteLotsBaseLotsUpcasted, SignedQuoteLotsI56,
+    BaseLots, BaseLotsPerBaseUnit, BaseLotsPerTick, BaseUnits, BasisPoints, BasisPointsU32,
+    Constant, FeeRateMicro, FundingRateUnitInSeconds, Lamports, MicroDivisor, QuoteLots,
+    QuoteLotsPerBaseLot, QuoteLotsPerBaseLotPerTick, QuoteLotsPerQuoteUnit, QuoteUnits,
+    SequenceNumberU8, SignedBaseLots, SignedBaseLotsUpcasted, SignedConstant, SignedFeeRateMicro,
+    SignedQuoteLots, SignedQuoteLotsBaseLots, SignedQuoteLotsBaseLotsUpcasted, SignedQuoteLotsI56,
     SignedQuoteLotsI56Error, SignedQuoteLotsPerBaseLot, SignedQuoteLotsPerBaseLotUpcasted,
     SignedQuoteLotsUpcasted, SignedTicks, Slot, Ticks, UPnlRiskFactor,
 };

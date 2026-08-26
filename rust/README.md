@@ -118,9 +118,54 @@ metadata rather than server-assisted order helpers.
 
 ### `PhoenixFlightClient`
 
-Use this when you want to wrap supported Phoenix placement instructions through
-Flight. Use `try_wrap_order_instruction_with_fee_bps_override(...)` when a
-specific wrapped order should use Flight's `proxy_instruction_with_fee_override`
+Use this when you want to wrap supported Phoenix placement instructions
+through Flight with `try_wrap_order_instruction(ix, signer,
+use_position_authority)`. The `use_position_authority` flag declares the
+signer kind and is the one rule deciding the collateral-transfer tail — never
+the wrapped instruction's discriminant. Set it iff `signer` is the trader's
+position authority (a delegate key) rather than the owner, i.e.
+`position_authority.is_some_and(|pa| pa != owner)`; owner-signed orders
+(including owner-signed `PlaceMarketOrderDelegated`) leave it `false` and
+carry no tail. Position-authority wraps append the collateral-transfer
+accounts, with the permission PDA derived from the current Phoenix root
+authority.
+
+The root authority comes from a single source: a `SharedExchangeCacheStore`
+passed to `PhoenixFlightClient::from_exchange_store(...)`. It is re-resolved
+from the store at wrap time, so on-chain root-authority rotations are picked
+up automatically. Obtain the store from the websocket client:
+
+```rust
+let ws = PhoenixWSClient::new_from_env()?;
+// Resolves once the first snapshot is applied; the client owns the
+// subscription pump, so keep `ws` alive — dropping it stops updates.
+let exchange_store = ws.exchange_store().await?;
+let flight = PhoenixFlightClient::from_exchange_store(
+    builder_authority,
+    builder_pda_index,
+    builder_subaccount_index,
+    exchange_store,
+);
+```
+
+`exchange_store()` is memoized: repeated calls return the same store backed
+by a single exchange subscription, and there is no pump guard to hold or
+forget. It has no internal timeout — wrap it in `tokio::time::timeout` if
+the first snapshot may never arrive. The advanced path for custom stores is
+manual construction (`SharedExchangeCacheStore::new(snapshot)` seeded from
+`PhoenixHttpClient::get_exchange_snapshot()`, or
+`SharedExchangeCacheStore::new_empty()`) fed via
+`PhoenixWSClient::subscribe_to_exchange_cache`, whose pump handle you must
+keep alive yourself. Clients built with `PhoenixFlightClient::new(...)`
+carry no store, and position-authority wraps fail with
+`MissingRootAuthority`.
+
+Builder fee overrides come in two modes: configure a client-level default
+with `with_fee_bps_override(...)`, applied by every
+`try_wrap_order_instruction` call, or pass a per-call override to
+`try_wrap_order_instruction_with_fee_bps_override(...)`, whose explicit
+argument wins over the client-level configuration for that call. Either mode
+wraps routable orders in Flight's `proxy_instruction_with_fee_override`
 variant instead of the builder's registered fee.
 
 > **Use embedded wallets for Flight integrations.** Integrators are strongly
@@ -256,7 +301,8 @@ cargo run -p phoenix-rise --example subscribe_trader_state --features ws
 cargo run -p phoenix-rise --example referral_activation_tx --features api,tx-builder -- \
     REFERRAL_CODE --trader-keypair-path ~/.config/solana/id.json
 cargo run -p phoenix-rise --example builder_onboarding_tx --features api -- \
-    --trader-keypair-path ~/.config/solana/id.json
+    --fee-payer-keypair-path ~/.config/solana/id.json \
+    [--trader-authority <TRADER_AUTHORITY_PUBKEY>]
 cargo run -p phoenix-rise --example send_market_order --features api,tx-builder -- SOL
 cargo run -p phoenix-rise --example send_flight_market_order --features api,tx-builder -- \
     Builder1111111111111111111111111111111111 0 0 SOL bid 67
@@ -271,4 +317,9 @@ cargo run -p phoenix-rise-cli -- --rpc-url http://localhost:8899 --json rpc perp
 `referral_activation_tx` uses `/v1/referral/activate-tx` when the user has a
 referral code. `builder_onboarding_tx` uses
 `/v1/exchange/build-register-ixs` and `/v1/exchange/send-register-ixs` to
-register a trader without a referral code.
+register a trader authority public key without a referral code. Only the fee
+payer signs the transaction locally before the API adds the onboarder
+signature. The fee-payer keypair path defaults to
+`~/.config/solana/id.json` and can be overridden with
+`--fee-payer-keypair-path`. The `--trader-authority` argument is optional and
+defaults to the fee payer's public key when omitted.

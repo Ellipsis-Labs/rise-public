@@ -53,17 +53,22 @@ pub mod prelude {
         WalletNonceQuery, WalletNonceResponse, WalletTransactionChallengeRequest,
         WalletTransactionChallengeResponse, WalletTransactionLoginRequest,
     };
-    pub use super::candles::{ApiCandle, CandleData, CandlesQueryParams, Timeframe};
+    pub use super::candles::{
+        ApiCandle, ApiCandleV2, CandleData, CandlesQueryParams, CandlesV2CursorQueryParams,
+        CandlesV2InitialQueryParams, CandlesV2Page, CandlesV2QueryParams, CandlesV2Response,
+        Timeframe,
+    };
     pub use super::core::{Decimal, PaginatedResponse, Price, Side};
     pub use super::exchange::{
-        AuthoritySetView, ExchangeKeysView, ExchangeLeverageTier, ExchangeMarketConfig,
-        ExchangeResponse, ExchangeRiskFactors, ExchangeStatusView, ExchangeView, MarketCalendar,
-        MarketPublicMetadata, MarketStatsSnapshot,
+        AuthoritySetView, CollateralAssetMetadata, CollateralAssetsResponse, ExchangeKeysView,
+        ExchangeLeverageTier, ExchangeMarketConfig, ExchangeResponse, ExchangeRiskFactors,
+        ExchangeStatusView, ExchangeView, MarketCalendar, MarketPublicMetadata,
+        MarketStatsSnapshot, SpotAssetConfig,
     };
     pub use super::exchange_ws::{
         AuthoritySet, CommodityMarketState, ExchangeDeltaMessage, ExchangeDeltaOp,
         ExchangeEncodedSnapshotMessage, ExchangeMarketParameterUpdate, ExchangeMarketSnapshot,
-        ExchangeSnapshotEncoding, ExchangeSnapshotMessage, ExchangeSnapshotReason,
+        ExchangeMessage, ExchangeSnapshotEncoding, ExchangeSnapshotMessage, ExchangeSnapshotReason,
         ExchangeSnapshotView, ExchangeStateSnapshot, ExchangeWsCommodityMetadata,
         ExchangeWsFeeConfig, ExchangeWsFundingConfig, ExchangeWsLeverageTier,
         ExchangeWsMarkPriceParameters, ExchangeWsMarketPriceBand,
@@ -111,26 +116,29 @@ pub mod prelude {
         TraderStatePositionDelta, TraderStatePositionRow, TraderStatePositionSnapshot,
         TraderStateRowChangeKind, TraderStateServerMessage, TraderStateSnapshot,
         TraderStateSplineDelta, TraderStateSplineRow, TraderStateSplineSnapshot,
-        TraderStateStopLossTrigger, TraderStateSubaccountDelta, TraderStateSubaccountSnapshot,
-        TraderStateTakeProfitTrigger, TraderStateTickRegion, TraderStateTrigger,
+        TraderStateSpotCollateralSnapshot, TraderStateStopLossTrigger, TraderStateSubaccountDelta,
+        TraderStateSubaccountSnapshot, TraderStateTakeProfitTrigger, TraderStateTickRegion,
+        TraderStateTrigger,
     };
     pub use super::trader_http::{
         CollateralEvent, CollateralHistoryQueryParams, CollateralHistoryRequest,
         CollateralHistoryResponse, FundingHistoryEvent, FundingHistoryQueryParams,
         FundingHistoryResponse, LimitOrder, OrderHistoryItem, OrderHistoryQueryParams,
         OrderHistoryResponse, OrderStatus, PnlPoint, PnlQueryParams, PnlResolution, PnlResponse,
-        TraderActivityState, TraderPositionView, TraderStateResponse, TraderView,
-        UserLiquidationHistoryKind, UserLiquidationHistoryPoint, UserLiquidationHistoryQueryParams,
-        UserLiquidationHistoryResponse, UserLiquidationHistoryRole, UserLiquidationHistoryType,
+        SpotCollateralBalanceView, TraderActivityState, TraderPositionView, TraderStateResponse,
+        TraderView, UserLiquidationHistoryKind, UserLiquidationHistoryPoint,
+        UserLiquidationHistoryQueryParams, UserLiquidationHistoryResponse,
+        UserLiquidationHistoryRole, UserLiquidationHistoryType,
     };
     pub use super::trades::{
         LiquidityRole, TradeEvent, TradeHistoryItem, TradeHistoryQueryParams, TradeHistoryResponse,
         TradeType, TradesMessage, TradesSubscriptionRequest,
     };
     pub use super::ws::{
-        AllMidsData, CandlesSubscriptionRequest, ClientMessage, ErrorMessage, FundingRateMessage,
-        FundingRateSubscriptionRequest, MarketSubscriptionRequest, OrderbookSubscriptionRequest,
-        ServerMessage, SubscriptionConfirmedMessage, SubscriptionErrorMessage, SubscriptionRequest,
+        AllMidsData, CandlesSubscriptionRequest, ClientMessage, ErrorMessage,
+        ExchangeSubscriptionRequest, FundingRateMessage, FundingRateSubscriptionRequest,
+        MarketSubscriptionRequest, OrderbookSubscriptionRequest, ServerMessage,
+        SubscriptionConfirmedMessage, SubscriptionErrorMessage, SubscriptionRequest,
         SubscriptionStatusMessage, TraderStateSubscriptionRequest,
     };
 }

@@ -1,4 +1,6 @@
-use phoenix_rise_types::prelude::{CollateralHistoryQueryParams, CollateralHistoryResponse};
+use phoenix_rise_types::prelude::{
+    CollateralAssetsResponse, CollateralHistoryQueryParams, CollateralHistoryResponse,
+};
 use serde::Serialize;
 use solana_pubkey::Pubkey;
 
@@ -11,6 +13,10 @@ pub struct CollateralClient<'a> {
 }
 
 impl CollateralClient<'_> {
+    pub async fn get_assets(&self) -> Result<CollateralAssetsResponse, PhoenixHttpError> {
+        self.http.get_json("/v1/collateral/assets").await
+    }
+
     pub async fn get_user_collateral_history(
         &self,
         authority: &Pubkey,

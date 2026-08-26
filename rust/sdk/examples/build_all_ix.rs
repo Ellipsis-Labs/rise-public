@@ -619,6 +619,7 @@ fn main() {
             .try_wrap_order_instruction(
                 create_place_stop_loss_ix(stop_loss_params).unwrap().into(),
                 pubkeys[0],
+                false,
             )
             .unwrap();
         results.insert("FlightPlaceStopLoss".to_string(), hex_encode(&ix.data));
@@ -650,6 +651,7 @@ fn main() {
                     .unwrap()
                     .into(),
                 pubkeys[0],
+                false,
             )
             .unwrap();
         results.insert(
@@ -685,6 +687,7 @@ fn main() {
                     .unwrap()
                     .into(),
                 pubkeys[0],
+                false,
             )
             .unwrap();
         results.insert(
@@ -737,6 +740,7 @@ fn main() {
                     .unwrap()
                     .into(),
                 pubkeys[0],
+                false,
             )
             .unwrap();
         results.insert(
@@ -917,6 +921,191 @@ fn main() {
 
         let ix = create_delegate_trader_ix(params).unwrap();
         results.insert("DelegateTrader".to_string(), hex_encode(&ix.data));
+    }
+
+    // 33. TWAP instruction constructors.
+    {
+        let twap_global_state = pubkeys[13];
+        let twap_log_authority = pubkeys[14];
+        let twap_account = pubkeys[15];
+        let transfer_accounts = vec![
+            AccountMeta::readonly(pubkeys[16]),
+            AccountMeta::writable(pubkeys[17]),
+        ];
+        let order_accounts = vec![
+            AccountMeta::readonly(pubkeys[18]),
+            AccountMeta::writable(pubkeys[19]),
+            AccountMeta::readonly_signer(pubkeys[0]),
+        ];
+        let child_order_packet = TwapIocOrderPacket::builder()
+            .side(Side::Bid)
+            .price_in_ticks(1000)
+            .num_base_lots(10)
+            .num_quote_lots(12_500)
+            .min_base_lots_to_fill(1)
+            .min_quote_lots_to_fill(1_000)
+            .self_trade_behavior(SelfTradeBehavior::CancelProvide)
+            .match_limit(3)
+            .client_order_id(123_456_789)
+            .last_valid_slot(99_999)
+            .order_flags(OrderFlags::ReduceOnly)
+            .cancel_existing(true)
+            .build()
+            .unwrap();
+
+        let create_params = CreateTwapAccountParams::builder()
+            .twap_global_state(twap_global_state)
+            .twap_log_authority(twap_log_authority)
+            .twap_account(twap_account)
+            .trader_account(pubkeys[1])
+            .payer(pubkeys[0])
+            .market_id(7)
+            .build()
+            .unwrap();
+        let create_ix = create_twap_account_ix(create_params).unwrap();
+        results.insert("CreateTwapAccount".to_string(), hex_encode(&create_ix.data));
+
+        let place_params = PlaceTwapOrderParams::builder()
+            .twap_global_state(twap_global_state)
+            .twap_log_authority(twap_log_authority)
+            .twap_account(twap_account)
+            .authority(pubkeys[0])
+            .cooldown_slots(75)
+            .n_child_orders(10)
+            .child_order_max_slippage_bps(25)
+            .child_order_min_price_in_ticks(900)
+            .child_order_max_price_in_ticks(1100)
+            .child_order_packet(child_order_packet)
+            .child_order_collateral_quote_lots_to_transfer(5_000)
+            .last_valid_slot(123_456)
+            .transfer_accounts(transfer_accounts.clone())
+            .order_accounts(order_accounts.clone())
+            .build()
+            .unwrap();
+        let place_ix = create_place_twap_order_ix(place_params).unwrap();
+        results.insert("PlaceTwapOrder".to_string(), hex_encode(&place_ix.data));
+
+        let execute_params = ExecuteTwapOrderParams::builder()
+            .twap_global_state(twap_global_state)
+            .twap_log_authority(twap_log_authority)
+            .twap_account(twap_account)
+            .transfer_accounts(transfer_accounts)
+            .order_accounts(order_accounts)
+            .build()
+            .unwrap();
+        let execute_ix = create_execute_twap_order_ix(execute_params).unwrap();
+        results.insert("ExecuteTwapOrder".to_string(), hex_encode(&execute_ix.data));
+
+        let cancel_params = CancelTwapOrderParams::builder()
+            .twap_global_state(twap_global_state)
+            .twap_log_authority(twap_log_authority)
+            .twap_account(twap_account)
+            .authority(pubkeys[0])
+            .build()
+            .unwrap();
+        let cancel_ix = create_cancel_twap_order_ix(cancel_params).unwrap();
+        results.insert("CancelTwapOrder".to_string(), hex_encode(&cancel_ix.data));
+
+        let close_params = CloseInactiveTwapAccountParams::builder()
+            .twap_global_state(twap_global_state)
+            .twap_log_authority(twap_log_authority)
+            .twap_account(twap_account)
+            .recipient(pubkeys[0])
+            .build()
+            .unwrap();
+        let close_ix = create_close_inactive_twap_account_ix(close_params).unwrap();
+        results.insert(
+            "CloseInactiveTwapAccount".to_string(),
+            hex_encode(&close_ix.data),
+        );
+    }
+
+    // 34. Flight ProxyInstruction wrapping PlaceMarketOrderDelegated signed by a
+    //     secondary position authority (distinct delegate wallet plus a fixed
+    //     permission account), with the collateral-transfer tail appended via
+    //     `root_authority`.
+    {
+        let market_order = MarketOrderParams::builder()
+            .trader(pubkeys[0])
+            .trader_account(pubkeys[1])
+            .perp_asset_map(pubkeys[2])
+            .orderbook(pubkeys[3])
+            .spline_collection(pubkeys[4])
+            .global_trader_index(vec2(5, 6))
+            .active_trader_buffer(vec2(7, 8))
+            .side(Side::Ask)
+            .num_base_lots(100)
+            .min_base_lots_to_fill(0)
+            .min_quote_lots_to_fill(0)
+            .self_trade_behavior(SelfTradeBehavior::Abort)
+            .client_order_id(0)
+            .order_flags(OrderFlags::None)
+            .cancel_existing(false)
+            .build()
+            .unwrap();
+        let delegated_params = MarketOrderDelegatedParams::builder()
+            .market_order(market_order)
+            .trader_wallet(pubkeys[9])
+            .permission_account(pubkeys[10])
+            .build()
+            .unwrap();
+        let inner = create_place_market_order_delegated_ix(delegated_params).unwrap();
+
+        let params = ProxyInstructionParams::builder()
+            .builder_authority(pubkeys[11])
+            .builder_trader_account(pubkeys[12])
+            .trader_wallet(pubkeys[9])
+            .root_authority(pubkeys[0])
+            .inner_instruction(inner)
+            .build()
+            .unwrap();
+
+        let ix = create_proxy_instruction_ix(params).unwrap();
+        results.insert(
+            "FlightProxyPlaceMarketOrderDelegated".to_string(),
+            hex_encode(&ix.data),
+        );
+    }
+
+    // 35. Flight ProxyInstruction wrapping a plain PlaceMarketOrder whose trader
+    //     wallet is the trader's position authority (the delegate signs; the trader
+    //     account is derived from the owner), with the collateral-transfer tail
+    //     appended via `root_authority`.
+    {
+        let market_order = MarketOrderParams::builder()
+            .trader(pubkeys[9])
+            .trader_account(derive_trader_account_pda(pubkeys[0], 0, 0))
+            .perp_asset_map(pubkeys[2])
+            .orderbook(pubkeys[3])
+            .spline_collection(pubkeys[4])
+            .global_trader_index(vec2(5, 6))
+            .active_trader_buffer(vec2(7, 8))
+            .side(Side::Ask)
+            .num_base_lots(100)
+            .min_base_lots_to_fill(0)
+            .min_quote_lots_to_fill(0)
+            .self_trade_behavior(SelfTradeBehavior::Abort)
+            .client_order_id(0)
+            .order_flags(OrderFlags::None)
+            .cancel_existing(false)
+            .build()
+            .unwrap();
+        let inner = create_place_market_order_ix(market_order).unwrap();
+
+        let params = ProxyInstructionParams::builder()
+            .builder_authority(pubkeys[11])
+            .builder_trader_account(pubkeys[12])
+            .trader_wallet(pubkeys[9])
+            .root_authority(pubkeys[0])
+            .inner_instruction(inner)
+            .build()
+            .unwrap();
+
+        let ix = create_proxy_instruction_ix(params).unwrap();
+        results.insert(
+            "FlightProxyPlaceMarketOrderPositionAuthority".to_string(),
+            hex_encode(&ix.data),
+        );
     }
 
     // Output JSON

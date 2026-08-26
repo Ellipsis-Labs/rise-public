@@ -1,31 +1,33 @@
 //! Example: register and onboard a trader without a referral code.
 //!
 //! This uses `POST /v1/exchange/build-register-ixs` to fetch the
-//! register/onboard instructions, signs the user-controlled signer slots, then
+//! register/onboard instructions, signs with the transaction fee payer, then
 //! submits the transaction to `POST /v1/exchange/send-register-ixs`. The API
 //! validates, signs with the configured Phoenix onboarding keypair, simulates,
-//! and sends it.
+//! and sends it. The trader authority is only a public key and does not sign.
 //!
 //! Run with:
 //! ```text
 //!   cargo run -p phoenix-rise --example builder_onboarding_tx \
 //!     --features api -- \
-//!     --trader-keypair-path ~/.config/solana/id.json
+//!     [--fee-payer-keypair-path <PATH>] \
+//!     [--trader-authority <TRADER_AUTHORITY_PUBKEY>]
 //! ```
 //!
 //! Options:
 //!   --api-url <url>                  Phoenix API URL
 //!   --rpc-url <url>                  Solana RPC URL
-//!   --trader-keypair-path <path>     Trader authority keypair path
 //!   --fee-payer-keypair-path <path>  Fee-payer keypair path
+//!                                    (default: ~/.config/solana/id.json)
+//!   --trader-authority <pubkey>      Trader authority (default: fee payer)
 //!   --max-positions <n>              Max positions when registering
 //!   --recent-blockhash <blockhash>   Optional blockhash for the transaction
 //!
 //! Environment:
 //!   PHOENIX_API_URL
 //!   PHOENIX_RPC_URL / SOLANA_RPC_URL
-//!   TRADER_KEYPAIR_PATH / KEYPAIR_PATH
 //!   FEE_PAYER_KEYPAIR_PATH
+//!   TRADER_AUTHORITY
 
 use std::str::FromStr;
 use std::{env, process};
@@ -53,8 +55,8 @@ const USAGE: &str = r#"Usage:
 Options:
   --api-url <url>                  Phoenix API URL
   --rpc-url <url>                  Solana RPC URL
-  --trader-keypair-path <path>     Trader authority keypair path
-  --fee-payer-keypair-path <path>  Fee-payer keypair path (default: trader keypair)
+  --fee-payer-keypair-path <path>  Fee-payer keypair path (default: ~/.config/solana/id.json)
+  --trader-authority <pubkey>       Trader authority public key (default: fee payer)
   --max-positions <n>              Max positions when registering (32-128, default: 128)
   --recent-blockhash <blockhash>   Optional blockhash to use in the transaction
   -h, --help                       Show this help
@@ -62,15 +64,15 @@ Options:
 Environment:
   PHOENIX_API_URL
   PHOENIX_RPC_URL / SOLANA_RPC_URL
-  TRADER_KEYPAIR_PATH / KEYPAIR_PATH
   FEE_PAYER_KEYPAIR_PATH
+  TRADER_AUTHORITY
 "#;
 
 struct CliArgs {
     api_url: String,
     rpc_url: String,
-    trader_keypair_path: String,
-    fee_payer_keypair_path: Option<String>,
+    trader_authority: Option<String>,
+    fee_payer_keypair_path: String,
     max_positions: u32,
     recent_blockhash: Option<String>,
 }
@@ -102,10 +104,9 @@ fn parse_args(argv: Vec<String>) -> CliArgs {
     let mut rpc_url = env::var("PHOENIX_RPC_URL")
         .or_else(|_| env::var("SOLANA_RPC_URL"))
         .unwrap_or_else(|_| DEFAULT_RPC_URL.to_string());
-    let mut trader_keypair_path = env::var("TRADER_KEYPAIR_PATH")
-        .or_else(|_| env::var("KEYPAIR_PATH"))
-        .unwrap_or_else(|_| default_keypair_path());
-    let mut fee_payer_keypair_path = env::var("FEE_PAYER_KEYPAIR_PATH").ok();
+    let mut trader_authority = env::var("TRADER_AUTHORITY").ok();
+    let mut fee_payer_keypair_path =
+        env::var("FEE_PAYER_KEYPAIR_PATH").unwrap_or_else(|_| default_keypair_path());
     let mut max_positions = DEFAULT_MAX_POSITIONS;
     let mut recent_blockhash = None::<String>;
 
@@ -122,16 +123,16 @@ fn parse_args(argv: Vec<String>) -> CliArgs {
                     .next()
                     .unwrap_or_else(|| fail("Missing value for --rpc-url"));
             }
-            "--trader-keypair-path" => {
-                trader_keypair_path = args
-                    .next()
-                    .unwrap_or_else(|| fail("Missing value for --trader-keypair-path"));
+            "--trader-authority" => {
+                trader_authority = Some(
+                    args.next()
+                        .unwrap_or_else(|| fail("Missing value for --trader-authority")),
+                );
             }
             "--fee-payer-keypair-path" => {
-                fee_payer_keypair_path = Some(
-                    args.next()
-                        .unwrap_or_else(|| fail("Missing value for --fee-payer-keypair-path")),
-                );
+                fee_payer_keypair_path = args
+                    .next()
+                    .unwrap_or_else(|| fail("Missing value for --fee-payer-keypair-path"));
             }
             "--max-positions" => {
                 let value = args
@@ -156,7 +157,7 @@ fn parse_args(argv: Vec<String>) -> CliArgs {
     CliArgs {
         api_url,
         rpc_url,
-        trader_keypair_path,
+        trader_authority,
         fee_payer_keypair_path,
         max_positions,
         recent_blockhash,
@@ -195,27 +196,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if argv.len() == 1 {
         println!("This example submits a live builder onboarding transaction.");
         println!(
-            "Pass --trader-keypair-path, or set TRADER_KEYPAIR_PATH, to register and onboard that \
-             trader without a referral code.\n"
+            "The fee payer is the only local signer. Its keypair path defaults to \
+             ~/.config/solana/id.json and can be overridden with --fee-payer-keypair-path or \
+             FEE_PAYER_KEYPAIR_PATH; --trader-authority is optional and defaults to the fee \
+             payer's public key.\n"
         );
         println!("{USAGE}");
         return Ok(());
     }
 
     let args = parse_args(argv);
-    let trader_keypair = read_keypair_file(&args.trader_keypair_path)
-        .map_err(|error| format!("Failed to read trader keypair: {error}"))?;
-    let fee_payer_keypair = args
-        .fee_payer_keypair_path
-        .as_deref()
-        .map(read_keypair_file)
-        .transpose()
+    let fee_payer_keypair = read_keypair_file(&args.fee_payer_keypair_path)
         .map_err(|error| format!("Failed to read fee-payer keypair: {error}"))?;
-    let trader_authority = trader_keypair.pubkey();
-    let tx_fee_payer = fee_payer_keypair
-        .as_ref()
-        .map(Signer::pubkey)
-        .unwrap_or(trader_authority);
+    let tx_fee_payer = fee_payer_keypair.pubkey();
+    let trader_authority = match args.trader_authority.as_deref() {
+        Some(authority) => Pubkey::from_str(authority)
+            .map_err(|error| format!("Invalid trader authority: {error}"))?,
+        None => tx_fee_payer,
+    };
 
     println!("API URL:           {}", args.api_url);
     println!("RPC URL:           {}", args.rpc_url);
@@ -242,16 +240,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None => rpc.get_latest_blockhash().await?,
     };
     let mut transaction = Transaction::new_with_payer(&instructions, Some(&tx_fee_payer));
-    if let Some(fee_payer_keypair) = fee_payer_keypair.as_ref() {
-        if fee_payer_keypair.pubkey() != trader_authority {
-            transaction
-                .try_partial_sign(&[&trader_keypair, fee_payer_keypair], recent_blockhash)?;
-        } else {
-            transaction.try_partial_sign(&[&trader_keypair], recent_blockhash)?;
-        }
-    } else {
-        transaction.try_partial_sign(&[&trader_keypair], recent_blockhash)?;
-    }
+    transaction.try_partial_sign(&[&fee_payer_keypair], recent_blockhash)?;
 
     let transaction = VersionedTransaction::from(transaction);
     let signed_transaction = encode_transaction(&transaction)?;

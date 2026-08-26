@@ -278,7 +278,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 // Rebuild portfolio from trader state using new conversion methods
                 if let Some(subaccount) = trader.primary_subaccount() {
-                    portfolio = subaccount.to_trader_portfolio();
+                    portfolio = subaccount.to_trader_portfolio_with_metadata(&metadata);
 
                     println!("\nTrader State Updated (slot {})", trader.last_slot);
                     println!("  Collateral: ${:.2}", subaccount.collateral);

@@ -208,6 +208,10 @@ name              = "client_identity_tests"
 required-features = ["api"]
 
 [[test]]
+name              = "candles_client_tests"
+required-features = ["api"]
+
+[[test]]
 name              = "file_auth_session_store_tests"
 required-features = ["api"]
 
