@@ -30,6 +30,9 @@ pub enum PhoenixClientError {
     /// HTTP error.
     #[error("HTTP error: {0}")]
     Http(PhoenixHttpError),
+    /// Invalid exchange metadata returned by the API.
+    #[error("Invalid exchange metadata: {0}")]
+    Metadata(String),
     /// Client is shutting down.
     #[error("Client is shutting down")]
     Shutdown,
@@ -94,6 +97,8 @@ pub enum MarginTrigger {
     Trader(TraderStateServerMessage),
     /// Market stats update triggered recomputation.
     Market(MarketStatsUpdate),
+    /// Spot collateral configuration changed.
+    SpotCollateralsUpdated,
 }
 
 /// Event emitted by high-level client subscription receivers.

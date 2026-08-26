@@ -267,6 +267,7 @@ define_instruction_discriminants! {
         PlaceMarketOrderDelegated => "place_market_order_delegated",
         PlaceLimitOrder => "place_limit_order",
         PlaceMultiLimitOrder => "place_multi_limit_order",
+        PlaceMultiLimitOrderV2 => "place_multi_limit_order_v2",
         CancelOrdersById => "cancel_orders_by_id",
         CancelUpTo => "cancel_up_to",
         CancelAll => "cancel_all",
@@ -284,12 +285,11 @@ define_instruction_discriminants! {
         NameSuccessor => "name_successor",
         ChangeMarketStatus => "change_market_status",
         ChangeExchangeStatus => "change_exchange_status",
-        SetExchangeStatusBits => "set_exchange_status_bits",
-        DisableExchangeCapabilities => "disable_exchange_capabilities",
         SetTraderCapabilitiesDelegated => "set_trader_capabilities_delegated",
         ConsumeWithdrawQueue => "consume_withdraw_queue",
         RegisterTrader => "register_trader",
         TransferCollateral => "transfer_collateral",
+        AuthorizedTransferCollateral => "authorized_transfer_collateral",
         CreateEscrowAccount => "create_escrow_account",
         CreateEscrowRequest => "create_escrow_request",
         AcceptEscrowRequest => "accept_escrow_request",
@@ -355,7 +355,14 @@ define_instruction_discriminants! {
         CancelAllPlusConditional => "cancel_all_plus_conditional",
         UpdateSplinePositionLimitsConfig => "update_spline_position_limits_config",
         CloseTraderAccount => "close_trader_account",
+        AcknowledgeRestart => "acknowledge_restart",
         EnableFeature => "enable_feature",
+        SyncNative => "sync_native",
+        WithdrawNativeSol => "withdraw_native_sol",
+        TransferNativeSol => "transfer_native_sol",
+        TransferNativeSolFromChildToParent => "transfer_native_sol_from_child_to_parent",
+        LiquidateNativeSol => "liquidate_native_sol",
+        SwapNative => "swap_native",
     }
     aliases {
         UpdateSplinePriceWithOrdering => UpdateSplinePrice = "update_spline_price_with_ordering",
@@ -396,6 +403,22 @@ define_instruction_discriminants! {
     }
 }
 
+define_instruction_discriminants! {
+    /// Flicker/TWAP instruction type discriminants.
+    pub enum FlickerInstruction {
+        Init => "init",
+        NameSuccessor => "name_successor",
+        ClaimSuccessor => "claim_successor",
+        CreateTWAPAccount => "create_twap_account",
+        PlaceTWAPOrder => "place_twap_order",
+        ExecuteTWAPOrder => "execute_twap_order",
+        CancelTWAPOrder => "cancel_twap_order",
+        CloseInactiveTWAPAccount => "close_inactive_twap_account",
+        Log => "log",
+        LogEventLengths => "log_event_lengths",
+    }
+}
+
 define_account_discriminants! {
     /// Flight account type discriminants.
     pub enum FlightAccount {
@@ -407,6 +430,20 @@ define_account_discriminants! {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Pinned against the verified discriminant in
+    /// `phoenix-eternal-types/sdk/src/instructions/discriminants.rs`.
+    #[test]
+    fn place_multi_limit_order_v2_discriminant_matches_eternal_types() {
+        assert_eq!(
+            PhoenixInstruction::PlaceMultiLimitOrderV2.discriminant(),
+            [64, 111, 40, 210, 2, 177, 38, 178]
+        );
+        assert_ne!(
+            PhoenixInstruction::PlaceMultiLimitOrderV2.discriminant(),
+            PhoenixInstruction::PlaceMultiLimitOrder.discriminant()
+        );
+    }
 
     #[test]
     fn update_spline_price_with_ordering_is_update_spline_price_alias() {
@@ -585,6 +622,72 @@ mod tests {
             );
             assert_eq!(
                 HawkeyeInstruction::from_discriminant(instruction.discriminant()),
+                Some(*instruction)
+            );
+        }
+    }
+
+    #[test]
+    fn flicker_instruction_discriminants_round_trip() {
+        const FLICKER_INSTRUCTIONS: &[(FlickerInstruction, &str, &str)] = &[
+            (FlickerInstruction::Init, "Init", "init"),
+            (
+                FlickerInstruction::NameSuccessor,
+                "NameSuccessor",
+                "name_successor",
+            ),
+            (
+                FlickerInstruction::ClaimSuccessor,
+                "ClaimSuccessor",
+                "claim_successor",
+            ),
+            (
+                FlickerInstruction::CreateTWAPAccount,
+                "CreateTWAPAccount",
+                "create_twap_account",
+            ),
+            (
+                FlickerInstruction::PlaceTWAPOrder,
+                "PlaceTWAPOrder",
+                "place_twap_order",
+            ),
+            (
+                FlickerInstruction::ExecuteTWAPOrder,
+                "ExecuteTWAPOrder",
+                "execute_twap_order",
+            ),
+            (
+                FlickerInstruction::CancelTWAPOrder,
+                "CancelTWAPOrder",
+                "cancel_twap_order",
+            ),
+            (
+                FlickerInstruction::CloseInactiveTWAPAccount,
+                "CloseInactiveTWAPAccount",
+                "close_inactive_twap_account",
+            ),
+            (FlickerInstruction::Log, "Log", "log"),
+            (
+                FlickerInstruction::LogEventLengths,
+                "LogEventLengths",
+                "log_event_lengths",
+            ),
+        ];
+
+        assert_eq!(FlickerInstruction::ALL.len(), 10);
+        for (instruction, instruction_name, snake_case_name) in FLICKER_INSTRUCTIONS {
+            assert_eq!(instruction.instruction_name(), *instruction_name);
+            assert_eq!(instruction.snake_case_instruction_name(), *snake_case_name);
+            assert_eq!(
+                FlickerInstruction::from_instruction_name(instruction_name),
+                Some(*instruction)
+            );
+            assert_eq!(
+                FlickerInstruction::from_snake_case_instruction_name(snake_case_name),
+                Some(*instruction)
+            );
+            assert_eq!(
+                FlickerInstruction::from_discriminant(instruction.discriminant()),
                 Some(*instruction)
             );
         }

@@ -8,14 +8,15 @@ use std::str::FromStr;
 use phoenix_rise_accounts::stop_losses::StopLosses;
 use phoenix_rise_ix::prelude::{
     CancelAllParams, CancelId, CancelOrdersByIdParams, CancelStopLossParams, CancelUpToParams,
-    CondensedOrder, CreateConditionalOrdersAccountParams, DepositFundsParams, Direction,
-    EmberDepositParams, EmberWithdrawParams, HawkeyeBboViewAccounts, HawkeyeTraderViewAccounts,
-    IsolatedCollateralFlow, IsolatedLimitOrderParams, IsolatedMarketOrderParams, LimitOrderParams,
-    MarketOrderDelegatedParams, MarketOrderParams, MultiLimitOrderParams, OrderFlags, OrderPacket,
-    PHOENIX_PROGRAM_ID, PlaceLimitOrderWithConditionalsParams, PlacePositionConditionalOrderParams,
+    CondensedOrder, CondensedOrderV2, CreateConditionalOrdersAccountParams, DepositFundsParams,
+    Direction, EmberDepositParams, EmberWithdrawParams, HawkeyeBboViewAccounts,
+    HawkeyeTraderViewAccounts, IsolatedCollateralFlow, IsolatedLimitOrderParams,
+    IsolatedMarketOrderParams, LimitOrderParams, MarketOrderDelegatedParams, MarketOrderParams,
+    MultiLimitOrderParams, MultiLimitOrderParamsV2, OrderFlags, OrderPacket, PHOENIX_PROGRAM_ID,
+    PlaceLimitOrderWithConditionalsParams, PlacePositionConditionalOrderParams,
     PlaceStopLossParams, RegisterTraderParams, SelfTradeBehavior, Side, SplApproveParams,
     StopLossOrderKind, SyncParentToChildParams, TraderPreferenceKind,
-    TransferCollateralChildToParentParams, TransferCollateralParams, TriggerOrderParams, USDC_MINT,
+    TransferCollateralChildToParentParams, TransferCollateralParams, TriggerOrderParams,
     UncrossCrankParams, WithdrawFundsParams, client_order_id_to_bytes,
     create_associated_token_account_idempotent_ix, create_cancel_all_ix,
     create_cancel_orders_by_id_ix, create_cancel_stop_loss_ix, create_cancel_up_to_ix,
@@ -25,11 +26,12 @@ use phoenix_rise_ix::prelude::{
     create_hawkeye_view_margin_ix, create_place_limit_order_ix,
     create_place_limit_order_with_conditionals_ix, create_place_market_order_delegated_ix,
     create_place_market_order_ix, create_place_multi_limit_order_ix,
-    create_place_position_conditional_order_ix, create_place_stop_loss_ix,
-    create_register_trader_ix, create_spl_approve_ix, create_sync_parent_to_child_ix,
-    create_transfer_collateral_child_to_parent_ix, create_transfer_collateral_ix,
-    create_uncross_crank_ix, create_withdraw_funds_ix, get_associated_token_address,
-    get_conditional_orders_address, get_ember_state_address, get_stop_loss_address,
+    create_place_multi_limit_order_v2_ix, create_place_position_conditional_order_ix,
+    create_place_stop_loss_ix, create_register_trader_ix, create_spl_approve_ix,
+    create_sync_parent_to_child_ix, create_transfer_collateral_child_to_parent_ix,
+    create_transfer_collateral_ix, create_uncross_crank_ix, create_withdraw_funds_ix,
+    get_associated_token_address, get_conditional_orders_address, get_ember_state_address,
+    get_stop_loss_address, usdc_mint,
 };
 use phoenix_rise_math::MathError;
 use solana_instruction::Instruction;
@@ -466,6 +468,89 @@ impl<'a> PhoenixTxBuilder<'a> {
         self.build_multi_limit_order_with_params(params)
     }
 
+    /// Build a multi-limit-order V2 instruction with pre-built params.
+    pub fn build_multi_limit_order_v2_with_params(
+        &self,
+        params: MultiLimitOrderParamsV2,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        let ix = create_place_multi_limit_order_v2_ix(params)?;
+        Ok(vec![ix.into()])
+    }
+
+    /// Build a multi-limit-order V2 instruction.
+    ///
+    /// Places multiple post-only limit orders (bids and asks) in a single
+    /// instruction. `slide` and `reduce_only` apply to every leg; for per-leg
+    /// flags use [`Self::build_multi_limit_order_v2_with_params`].
+    ///
+    /// # Arguments
+    ///
+    /// * `authority` - The trader's wallet address (signer)
+    /// * `trader_pda` - The trader's PDA account
+    /// * `symbol` - Market symbol
+    /// * `bids` - Bid orders as (price_usd, num_base_lots) tuples
+    /// * `asks` - Ask orders as (price_usd, num_base_lots) tuples
+    /// * `slide` - Whether orders should slide to top of book if they would
+    ///   cross
+    /// * `reduce_only` - Whether orders may only reduce an existing position
+    /// * `scale_set_id` - 0 = not part of a scale-order set; 1-255 =
+    ///   caller-assigned ladder id
+    #[allow(clippy::too_many_arguments)]
+    pub fn build_multi_limit_order_v2(
+        &self,
+        authority: Pubkey,
+        trader_pda: Pubkey,
+        symbol: &str,
+        bids: &[(f64, u64)],
+        asks: &[(f64, u64)],
+        slide: bool,
+        reduce_only: bool,
+        scale_set_id: u8,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        let market = self
+            .metadata
+            .get_market(symbol)
+            .ok_or_else(|| PhoenixTxBuilderError::UnknownSymbol(symbol.to_string()))?;
+
+        let calc = self
+            .metadata
+            .get_market_calculator(symbol)
+            .ok_or_else(|| PhoenixTxBuilderError::UnknownSymbol(symbol.to_string()))?;
+
+        let addrs = self.parse_addresses(market)?;
+
+        let to_orders =
+            |levels: &[(f64, u64)]| -> Result<Vec<CondensedOrderV2>, PhoenixTxBuilderError> {
+                let mut orders = Vec::with_capacity(levels.len());
+                for (price, size) in levels {
+                    orders.push(CondensedOrderV2::new(
+                        calc.price_to_ticks(*price)?.as_inner(),
+                        *size,
+                        None,
+                        slide,
+                        reduce_only,
+                    ));
+                }
+                Ok(orders)
+            };
+
+        let params = MultiLimitOrderParamsV2::builder()
+            .trader(authority)
+            .trader_account(trader_pda)
+            .perp_asset_map(addrs.perp_asset_map)
+            .orderbook(addrs.orderbook)
+            .spline_collection(addrs.spline_collection)
+            .global_trader_index(addrs.global_trader_index)
+            .active_trader_buffer(addrs.active_trader_buffer)
+            .bids(to_orders(bids)?)
+            .asks(to_orders(asks)?)
+            .scale_set_id(scale_set_id)
+            .symbol(symbol)
+            .build()?;
+
+        self.build_multi_limit_order_v2_with_params(params)
+    }
+
     /// Build cancel orders instruction.
     ///
     /// # Arguments
@@ -872,7 +957,7 @@ impl<'a> PhoenixTxBuilder<'a> {
         let active_trader_buffer = parse_active_trader_buffer_pubkeys(&keys.active_trader_buffer)?;
 
         // Derive addresses
-        let trader_usdc_ata = get_associated_token_address(&authority, &USDC_MINT)?;
+        let trader_usdc_ata = get_associated_token_address(&authority, &usdc_mint())?;
         let trader_phoenix_ata = get_associated_token_address(&authority, &canonical_mint)?;
 
         // 1. Create ATA instruction (idempotent)
@@ -882,7 +967,7 @@ impl<'a> PhoenixTxBuilder<'a> {
         // 2. Ember deposit instruction (USDC -> Phoenix tokens)
         let ember_params = EmberDepositParams::builder()
             .trader(authority)
-            .usdc_mint(USDC_MINT)
+            .usdc_mint(usdc_mint())
             .canonical_mint(canonical_mint)
             .trader_usdc_account(trader_usdc_ata)
             .trader_phoenix_account(trader_phoenix_ata)
@@ -1018,7 +1103,7 @@ impl<'a> PhoenixTxBuilder<'a> {
         amount: u64,
     ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
         let canonical_mint = Pubkey::from_str(&self.metadata.keys().canonical_mint)?;
-        let trader_usdc_ata = get_associated_token_address(&authority, &USDC_MINT)?;
+        let trader_usdc_ata = get_associated_token_address(&authority, &usdc_mint())?;
         let trader_phoenix_ata = get_associated_token_address(&authority, &canonical_mint)?;
 
         let approve_params = SplApproveParams::builder()
@@ -1030,11 +1115,11 @@ impl<'a> PhoenixTxBuilder<'a> {
         let approve_ix = create_spl_approve_ix(approve_params)?;
 
         let create_usdc_ata_ix =
-            create_associated_token_account_idempotent_ix(authority, authority, USDC_MINT)?;
+            create_associated_token_account_idempotent_ix(authority, authority, usdc_mint())?;
 
         let ember_params = EmberWithdrawParams::builder()
             .trader(authority)
-            .usdc_mint(USDC_MINT)
+            .usdc_mint(usdc_mint())
             .canonical_mint(canonical_mint)
             .trader_usdc_account(trader_usdc_ata)
             .trader_phoenix_account(trader_phoenix_ata)
@@ -1074,7 +1159,7 @@ impl<'a> PhoenixTxBuilder<'a> {
         let active_trader_buffer = parse_active_trader_buffer_pubkeys(&keys.active_trader_buffer)?;
 
         // Derive addresses
-        let trader_usdc_ata = get_associated_token_address(&authority, &USDC_MINT)?;
+        let trader_usdc_ata = get_associated_token_address(&authority, &usdc_mint())?;
         let trader_phoenix_ata = get_associated_token_address(&authority, &canonical_mint)?;
 
         // 1. Create Phoenix token ATA instruction (idempotent)
@@ -1093,7 +1178,7 @@ impl<'a> PhoenixTxBuilder<'a> {
 
         // 3. Create USDC ATA instruction (idempotent)
         let create_usdc_ata_ix =
-            create_associated_token_account_idempotent_ix(authority, authority, USDC_MINT)?;
+            create_associated_token_account_idempotent_ix(authority, authority, usdc_mint())?;
 
         // 4. Withdraw funds instruction (Phoenix protocol -> Phoenix token ATA)
         let withdraw_params = WithdrawFundsParams::builder()
@@ -1112,7 +1197,7 @@ impl<'a> PhoenixTxBuilder<'a> {
         // 5. Ember withdraw instruction (Phoenix tokens -> USDC)
         let ember_params = EmberWithdrawParams::builder()
             .trader(authority)
-            .usdc_mint(USDC_MINT)
+            .usdc_mint(usdc_mint())
             .canonical_mint(canonical_mint)
             .trader_usdc_account(trader_usdc_ata)
             .trader_phoenix_account(trader_phoenix_ata)

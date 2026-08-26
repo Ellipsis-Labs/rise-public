@@ -4,12 +4,14 @@
 //! to fetch exchange configuration and market data.
 
 use std::future::Future;
-use std::sync::Arc;
-use std::time::Duration;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
+use std::time::{Duration, Instant};
 
 use phoenix_rise_ix::types::{IsolatedCollateralFlow, Side};
 use phoenix_rise_types::prelude::{
-    ApiCandle, CancelStopLossOrderRequest, CandlesQueryParams, CollateralHistoryQueryParams,
+    ApiCandle, CancelStopLossOrderRequest, CandlesQueryParams, CandlesV2QueryParams,
+    CandlesV2Response, CollateralAssetsResponse, CollateralHistoryQueryParams,
     CollateralHistoryResponse, CommodityMarketCalendarResponse, ExchangeKeysView,
     ExchangeMarketConfig, ExchangeResponse, ExchangeSnapshotView, FundingHistoryQueryParams,
     FundingHistoryResponse, FundingHourlyHistoryResponse, FundingHourlyQuery,
@@ -41,6 +43,9 @@ use crate::routes::{
 };
 use crate::trader_key::TraderKey;
 use crate::transport::{PhoenixApiClient, PhoenixApiError};
+
+const DEFAULT_RATE_LIMIT_COOLDOWN_MAX_DELAY: Duration = Duration::from_secs(30);
+const DEFAULT_RATE_LIMIT_JITTER_PERCENT_MAX: u32 = 15;
 
 /// Automatic retry behavior for HTTP 429 (rate-limited) responses.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -105,6 +110,7 @@ impl RateLimitRetryConfig {
     fn retry_delay(&self, retry_after_seconds: Option<u64>) -> Duration {
         retry_after_seconds
             .map(Duration::from_secs)
+            .map(rate_limit_delay_with_positive_jitter)
             .unwrap_or_else(|| fallback_delay_with_jitter(self.fallback_delay, self.max_delay))
     }
 }
@@ -115,12 +121,190 @@ struct RateLimitRetryPlan {
     next_total_wait: Duration,
 }
 
+/// Shared cross-request cooldown behavior for HTTP 429 responses.
+///
+/// This is separate from [`RateLimitRetryConfig`]. Retry config controls what
+/// happens to the request that received HTTP 429. Cooldown config controls what
+/// later independent retryable GET requests on the same [`PhoenixHttpClient`]
+/// do while a server `Retry-After` window is active.
+///
+/// By default, cooldown is enabled. A valid `Retry-After` header extends a
+/// client-local cooldown deadline, capped at 30 seconds by default. Later
+/// retryable GET requests from clones of the same client wait for that deadline
+/// plus a small positive release jitter before sending. POST requests are not
+/// delayed by this cooldown.
+///
+/// The cooldown is client-local, not process-global. Constructing a separate
+/// [`PhoenixHttpClient`] creates a separate cooldown state.
+///
+/// # Example
+///
+/// Tune the shared cooldown while leaving per-request 429 retry enabled:
+///
+/// ```no_run
+/// use std::time::Duration;
+///
+/// use phoenix_rise_api::{PhoenixHttpClient, RateLimitCooldownConfig, RateLimitRetryConfig};
+///
+/// # fn build_client() -> Result<PhoenixHttpClient, Box<dyn std::error::Error>> {
+/// let client = PhoenixHttpClient::builder("https://perp-api.phoenix.trade")
+///     .with_rate_limit_retry_config(RateLimitRetryConfig {
+///         max_retries: 2,
+///         max_total_wait: Duration::from_secs(15),
+///         ..RateLimitRetryConfig::default()
+///     })
+///     .with_rate_limit_cooldown_config(RateLimitCooldownConfig {
+///         enabled: true,
+///         fallback_delay: Duration::from_secs(1),
+///         max_delay: Duration::from_secs(30),
+///     })
+///     .build()?;
+///
+/// # Ok(client)
+/// # }
+/// ```
+///
+/// Disable only the cross-request cooldown when a caller intentionally wants
+/// independent GETs to keep their historical behavior:
+///
+/// ```no_run
+/// use phoenix_rise_api::{PhoenixHttpClient, RateLimitCooldownConfig};
+///
+/// # fn build_client() -> Result<PhoenixHttpClient, Box<dyn std::error::Error>> {
+/// let client = PhoenixHttpClient::builder("https://perp-api.phoenix.trade")
+///     .with_rate_limit_cooldown_config(RateLimitCooldownConfig::disabled())
+///     .build()?;
+///
+/// # Ok(client)
+/// # }
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RateLimitCooldownConfig {
+    /// Enable client-wide cooldown waits after retryable GET requests receive
+    /// HTTP 429.
+    pub enabled: bool,
+    /// Fallback cooldown if `Retry-After` is missing or invalid.
+    pub fallback_delay: Duration,
+    /// Maximum honored cooldown from `Retry-After` or fallback delay.
+    pub max_delay: Duration,
+}
+
+impl Default for RateLimitCooldownConfig {
+    fn default() -> Self {
+        let retry_defaults = RateLimitRetryConfig::default();
+        Self {
+            enabled: true,
+            fallback_delay: retry_defaults.fallback_delay,
+            max_delay: DEFAULT_RATE_LIMIT_COOLDOWN_MAX_DELAY,
+        }
+    }
+}
+
+impl RateLimitCooldownConfig {
+    fn from_retry_config(retry_config: &RateLimitRetryConfig) -> Self {
+        Self {
+            fallback_delay: retry_config.fallback_delay,
+            ..Self::default()
+        }
+    }
+
+    /// Returns a cooldown configuration with client-wide cooldown disabled.
+    #[must_use]
+    pub fn disabled() -> Self {
+        Self {
+            enabled: false,
+            ..Self::default()
+        }
+    }
+
+    fn cooldown_delay(&self, retry_after_seconds: Option<u64>) -> Option<Duration> {
+        if !self.enabled {
+            return None;
+        }
+
+        let delay = retry_after_seconds
+            .map(Duration::from_secs)
+            .unwrap_or(self.fallback_delay)
+            .min(self.max_delay);
+
+        (!delay.is_zero()).then_some(delay)
+    }
+}
+
+#[derive(Debug, Default)]
+struct RateLimitCooldown {
+    deadline_ms: AtomicU64,
+}
+
+impl RateLimitCooldown {
+    async fn wait_if_needed(&self, config: &RateLimitCooldownConfig) {
+        if !config.enabled {
+            return;
+        }
+
+        loop {
+            let deadline_ms = self.deadline_ms.load(Ordering::Acquire);
+            if deadline_ms == 0 {
+                return;
+            }
+
+            let now_ms = monotonic_ms();
+            if deadline_ms <= now_ms {
+                let _ = self.deadline_ms.compare_exchange(
+                    deadline_ms,
+                    0,
+                    Ordering::AcqRel,
+                    Ordering::Acquire,
+                );
+                continue;
+            }
+
+            let wait = Duration::from_millis(deadline_ms.saturating_sub(now_ms));
+            let jittered_wait = rate_limit_delay_with_positive_jitter(wait);
+            debug!(
+                cooldown_wait_ms = jittered_wait.as_millis() as u64,
+                release_jitter_ms = jittered_wait.saturating_sub(wait).as_millis() as u64,
+                "Rise HTTP rate limit cooldown active; waiting before retryable GET"
+            );
+            tokio::time::sleep(jittered_wait).await;
+        }
+    }
+
+    fn record_rate_limit(
+        &self,
+        config: &RateLimitCooldownConfig,
+        retry_after_seconds: Option<u64>,
+    ) {
+        let Some(delay) = config.cooldown_delay(retry_after_seconds) else {
+            return;
+        };
+
+        let delay_ms = u64::try_from(delay.as_millis()).unwrap_or(u64::MAX);
+        let deadline_ms = monotonic_ms().saturating_add(delay_ms);
+        self.deadline_ms.fetch_max(deadline_ms, Ordering::AcqRel);
+
+        debug!(
+            cooldown_ms = delay.as_millis() as u64,
+            retry_after_seconds, "Rise HTTP rate limit cooldown updated"
+        );
+    }
+}
+
+fn monotonic_ms() -> u64 {
+    static STARTED_AT: OnceLock<Instant> = OnceLock::new();
+
+    let millis = STARTED_AT.get_or_init(Instant::now).elapsed().as_millis();
+    u64::try_from(millis).unwrap_or(u64::MAX)
+}
+
 /// Shared HTTP transport used by all resource sub-clients.
 #[derive(Clone)]
 pub(crate) struct HttpClientInner {
     transport: PhoenixApiClient,
     auth: Option<Arc<PhoenixServiceAuthClient>>,
     pub rate_limit_retry: RateLimitRetryConfig,
+    pub rate_limit_cooldown_config: RateLimitCooldownConfig,
+    rate_limit_cooldown: Arc<RateLimitCooldown>,
 }
 
 impl HttpClientInner {
@@ -207,10 +391,18 @@ impl HttpClientInner {
         let mut total_wait = Duration::ZERO;
 
         loop {
+            if retryable {
+                self.rate_limit_cooldown
+                    .wait_if_needed(&self.rate_limit_cooldown_config)
+                    .await;
+            }
+
             match operation().await {
                 Ok(value) => return Ok(value),
                 Err(error) if retryable && error.is_rate_limited() => {
                     let retry_after_seconds = error.retry_after_seconds();
+                    self.rate_limit_cooldown
+                        .record_rate_limit(&self.rate_limit_cooldown_config, retry_after_seconds);
                     let attempts = retries.saturating_add(1);
                     let Some(plan) =
                         self.rate_limit_retry
@@ -250,6 +442,7 @@ pub struct PhoenixHttpClientBuilder {
     api_url: String,
     pub(crate) auth: Option<PhoenixHttpAuthConfig>,
     rate_limit_retry: RateLimitRetryConfig,
+    rate_limit_cooldown: Option<RateLimitCooldownConfig>,
     #[cfg(feature = "opentelemetry")]
     trace_context_provider: Option<crate::transport::TraceContextProvider>,
 }
@@ -260,6 +453,7 @@ impl PhoenixHttpClientBuilder {
             api_url: api_url.into(),
             auth: None,
             rate_limit_retry: RateLimitRetryConfig::default(),
+            rate_limit_cooldown: None,
             #[cfg(feature = "opentelemetry")]
             trace_context_provider: None,
         }
@@ -327,6 +521,36 @@ impl PhoenixHttpClientBuilder {
         self.with_rate_limit_retry_enabled(false)
     }
 
+    /// Sets client-wide cooldown behavior after retryable GET requests receive
+    /// HTTP 429.
+    ///
+    /// This does not replace [`Self::with_rate_limit_retry_config`]. The retry
+    /// config still controls whether the rate-limited request is retried. The
+    /// cooldown config controls whether later independent retryable GETs wait
+    /// for the shared client-local cooldown deadline.
+    pub fn with_rate_limit_cooldown_config(mut self, config: RateLimitCooldownConfig) -> Self {
+        self.rate_limit_cooldown = Some(config);
+        self
+    }
+
+    /// Enables or disables client-wide cooldown waits after rate limits.
+    ///
+    /// Disabling cooldown preserves per-request retry behavior but stops later
+    /// independent GETs from waiting on a shared `Retry-After` deadline.
+    pub fn with_rate_limit_cooldown_enabled(mut self, enabled: bool) -> Self {
+        let mut config = self
+            .rate_limit_cooldown
+            .unwrap_or_else(|| RateLimitCooldownConfig::from_retry_config(&self.rate_limit_retry));
+        config.enabled = enabled;
+        self.rate_limit_cooldown = Some(config);
+        self
+    }
+
+    /// Disables client-wide cooldown waits after rate limits.
+    pub fn disable_rate_limit_cooldown(self) -> Self {
+        self.with_rate_limit_cooldown_enabled(false)
+    }
+
     /// Sets the OpenTelemetry parent context provider used for outbound API
     /// request spans and trace header propagation.
     #[cfg(feature = "opentelemetry")]
@@ -383,11 +607,17 @@ impl PhoenixHttpClientBuilder {
             None
         };
 
+        let rate_limit_cooldown_config = self
+            .rate_limit_cooldown
+            .unwrap_or_else(|| RateLimitCooldownConfig::from_retry_config(&self.rate_limit_retry));
+
         Ok(PhoenixHttpClient {
             inner: HttpClientInner {
                 transport,
                 auth,
                 rate_limit_retry: self.rate_limit_retry,
+                rate_limit_cooldown_config,
+                rate_limit_cooldown: Arc::new(RateLimitCooldown::default()),
             },
         })
     }
@@ -501,6 +731,37 @@ impl PhoenixHttpClient {
     /// Returns the current automatic rate-limit retry configuration.
     pub fn rate_limit_retry_config(&self) -> &RateLimitRetryConfig {
         &self.inner.rate_limit_retry
+    }
+
+    /// Sets client-wide rate-limit cooldown behavior for this client.
+    ///
+    /// Existing cloned clients share the same cooldown deadline. Changing this
+    /// config changes how this client handle observes and updates that shared
+    /// deadline on future requests.
+    pub fn set_rate_limit_cooldown_config(&mut self, config: RateLimitCooldownConfig) {
+        self.inner.rate_limit_cooldown_config = config;
+    }
+
+    /// Builder-style variant of [`Self::set_rate_limit_cooldown_config`].
+    pub fn with_rate_limit_cooldown_config(mut self, config: RateLimitCooldownConfig) -> Self {
+        self.inner.rate_limit_cooldown_config = config;
+        self
+    }
+
+    /// Enables or disables client-wide cooldown waits after rate limits.
+    pub fn set_rate_limit_cooldown_enabled(&mut self, enabled: bool) {
+        self.inner.rate_limit_cooldown_config.enabled = enabled;
+    }
+
+    /// Builder-style variant of [`Self::set_rate_limit_cooldown_enabled`].
+    pub fn with_rate_limit_cooldown_enabled(mut self, enabled: bool) -> Self {
+        self.inner.rate_limit_cooldown_config.enabled = enabled;
+        self
+    }
+
+    /// Returns the current client-wide rate-limit cooldown configuration.
+    pub fn rate_limit_cooldown_config(&self) -> &RateLimitCooldownConfig {
+        &self.inner.rate_limit_cooldown_config
     }
 
     /// GET a typed JSON response using the client's configured rate-limit
@@ -665,6 +926,10 @@ impl PhoenixHttpClient {
             .await
     }
 
+    pub async fn get_spot_collaterals(&self) -> Result<CollateralAssetsResponse, PhoenixHttpError> {
+        self.collateral().get_assets().await
+    }
+
     pub async fn get_collateral_history_with_trader_key(
         &self,
         trader_key: &TraderKey,
@@ -740,6 +1005,13 @@ impl PhoenixHttpClient {
         params: CandlesQueryParams,
     ) -> Result<Vec<ApiCandle>, PhoenixHttpError> {
         self.candles().get_candles(params).await
+    }
+
+    pub async fn get_candles_v2<Q>(&self, params: Q) -> Result<CandlesV2Response, PhoenixHttpError>
+    where
+        Q: Into<CandlesV2QueryParams>,
+    {
+        self.candles().get_candles_v2(params).await
     }
 
     pub async fn get_trade_history(
@@ -1097,6 +1369,19 @@ fn fallback_delay_with_jitter(fallback_delay: Duration, max_delay: Duration) -> 
     Duration::from_millis(millis).min(max_delay)
 }
 
+fn rate_limit_delay_with_positive_jitter(delay: Duration) -> Duration {
+    if delay.is_zero() {
+        return Duration::ZERO;
+    }
+
+    let jitter_percent = u128::from(rand::random_range(
+        100..=100 + DEFAULT_RATE_LIMIT_JITTER_PERCENT_MAX,
+    ));
+    let jittered_millis = delay.as_millis().saturating_mul(jitter_percent) / 100;
+    let millis = u64::try_from(jittered_millis).unwrap_or(u64::MAX);
+    Duration::from_millis(millis)
+}
+
 fn fallback_jitter_percent() -> u32 {
     rand::random_range(85..=115)
 }
@@ -1236,6 +1521,44 @@ mod tests {
     }
 
     #[test]
+    fn default_rate_limit_cooldown_config_matches_retry_fallback() {
+        let config = RateLimitCooldownConfig::default();
+
+        assert!(config.enabled);
+        assert_eq!(
+            config.fallback_delay,
+            RateLimitRetryConfig::default().fallback_delay
+        );
+        assert_eq!(config.max_delay, Duration::from_secs(30));
+        assert_eq!(
+            config.cooldown_delay(Some(300)),
+            Some(Duration::from_secs(30))
+        );
+    }
+
+    #[test]
+    fn disabled_rate_limit_cooldown_config_turns_cooldown_off() {
+        assert_eq!(
+            RateLimitCooldownConfig::disabled(),
+            RateLimitCooldownConfig {
+                enabled: false,
+                ..RateLimitCooldownConfig::default()
+            }
+        );
+    }
+
+    #[test]
+    fn retry_after_jitter_never_shortens_server_delay() {
+        let delay = Duration::from_secs(2);
+
+        for _ in 0..100 {
+            let jittered = rate_limit_delay_with_positive_jitter(delay);
+            assert!(jittered >= delay);
+            assert!(jittered <= Duration::from_millis(2_300));
+        }
+    }
+
+    #[test]
     fn builder_can_disable_rate_limit_retry_at_creation() {
         let client = PhoenixHttpClient::builder("https://api.example.com")
             .disable_rate_limit_retry()
@@ -1243,5 +1566,71 @@ mod tests {
             .unwrap();
 
         assert!(!client.rate_limit_retry_config().enabled);
+    }
+
+    #[test]
+    fn builder_can_disable_rate_limit_cooldown_at_creation() {
+        let client = PhoenixHttpClient::builder("https://api.example.com")
+            .disable_rate_limit_cooldown()
+            .build()
+            .unwrap();
+
+        assert!(!client.rate_limit_cooldown_config().enabled);
+    }
+
+    #[test]
+    fn cloned_client_can_disable_cooldown_without_changing_the_source_config() {
+        let client = PhoenixHttpClient::builder("https://api.example.com")
+            .build()
+            .unwrap();
+        let cooldown_disabled_client = client.clone().with_rate_limit_cooldown_enabled(false);
+
+        assert!(client.rate_limit_cooldown_config().enabled);
+        assert!(
+            !cooldown_disabled_client
+                .rate_limit_cooldown_config()
+                .enabled
+        );
+    }
+
+    #[test]
+    fn builder_default_rate_limit_cooldown_inherits_custom_retry_fallback() {
+        let retry_config = RateLimitRetryConfig {
+            fallback_delay: Duration::from_secs(7),
+            ..RateLimitRetryConfig::default()
+        };
+
+        let client = PhoenixHttpClient::builder("https://api.example.com")
+            .with_rate_limit_retry_config(retry_config)
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            client.rate_limit_cooldown_config().fallback_delay,
+            Duration::from_secs(7)
+        );
+    }
+
+    #[test]
+    fn builder_explicit_rate_limit_cooldown_preserves_custom_fallback() {
+        let retry_config = RateLimitRetryConfig {
+            fallback_delay: Duration::from_secs(7),
+            ..RateLimitRetryConfig::default()
+        };
+        let cooldown_config = RateLimitCooldownConfig {
+            fallback_delay: Duration::from_secs(3),
+            ..RateLimitCooldownConfig::default()
+        };
+
+        let client = PhoenixHttpClient::builder("https://api.example.com")
+            .with_rate_limit_cooldown_config(cooldown_config)
+            .with_rate_limit_retry_config(retry_config)
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            client.rate_limit_cooldown_config().fallback_delay,
+            Duration::from_secs(3)
+        );
     }
 }

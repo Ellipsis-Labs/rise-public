@@ -19,13 +19,22 @@
 //! Environment:
 //!   KEYPAIR_PATH       Trader keypair (default: ~/.config/solana/id.json)
 //!   PHOENIX_API_URL    Phoenix API URL (default: https://perp-api.phoenix.trade)
+//!   PHOENIX_WS_URL     Phoenix websocket URL feeding the exchange snapshot
+//!                      store that the Flight client reads the root authority
+//!                      from (defaults derived from the API URL)
 //!   SOLANA_RPC_URL     Solana RPC URL (default: https://api.mainnet-beta.solana.com)
 //!   PHOENIX_DRY_RUN=1  Simulate the transaction instead of submitting it.
+//!   POSITION_AUTHORITY_OWNER
+//!                      Owner wallet pubkey of the trader account to trade.
+//!                      When set, the keypair at KEYPAIR_PATH signs as that
+//!                      trader's position authority (a delegate key) instead
+//!                      of as the owner, and the order is wrapped through the
+//!                      position-authority Flight path.
 
 use std::env;
 use std::str::FromStr;
 
-use phoenix_rise::api::{PhoenixFlightClient, PhoenixHttpClient};
+use phoenix_rise::api::{PhoenixFlightClient, PhoenixHttpClient, PhoenixWSClient};
 use phoenix_rise::core::{MarketOrderTicket, PhoenixMetadata, PhoenixTxBuilder, TraderKey};
 use phoenix_rise::ix::types::Side;
 use solana_commitment_config::CommitmentConfig;
@@ -65,6 +74,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let side = parse_side(&args[5])?;
     let num_base_lots: u64 = args[6].parse()?;
 
+    // Optional position-authority mode: sign as a delegate for another
+    // wallet's trader account instead of as the owner. Use this when the
+    // trading key is not the trader wallet owner (e.g. a delegated trading
+    // service); owner-signed orders must not use it.
+    let position_authority_owner = env::var("POSITION_AUTHORITY_OWNER")
+        .ok()
+        .map(|owner| Pubkey::from_str(&owner))
+        .transpose()?;
+
     let keypair_path = env::var("KEYPAIR_PATH").unwrap_or_else(|_| {
         let home = env::var("HOME").expect("HOME environment variable not set");
         format!("{}/.config/solana/id.json", home)
@@ -72,26 +90,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Loading trader keypair from: {}", keypair_path);
     let keypair = read_keypair_file(&keypair_path)
         .map_err(|err| format!("Failed to read keypair: {}", err))?;
-    let trader = TraderKey::new(keypair.pubkey());
-
-    let flight = PhoenixFlightClient::new(
-        builder_authority,
-        builder_pda_index,
-        builder_subaccount_index,
-    );
+    let signer_authority = keypair.pubkey();
+    // In position-authority mode the traded account belongs to the owner
+    // wallet, not to the signer.
+    let trader = TraderKey::new(position_authority_owner.unwrap_or(signer_authority));
 
     println!("Trader authority:       {}", trader.authority());
     println!("Trader account (PDA):   {}", trader.pda());
-    println!("Builder authority:      {}", flight.builder_authority);
-    println!(
-        "Builder trader account: {}",
-        flight.builder_trader_account()
-    );
+    if position_authority_owner.is_some() {
+        println!("Position authority:     {}", signer_authority);
+    }
 
     println!("\nFetching exchange metadata...");
     let http = PhoenixHttpClient::new_from_env()?;
     let exchange = http.get_exchange().await?.into();
     let metadata = PhoenixMetadata::new(exchange);
+    // The Flight client resolves the Phoenix root authority from an exchange
+    // snapshot store at wrap time. `exchange_store()` subscribes to the
+    // websocket exchange channel, waits for the first snapshot, and keeps
+    // the pump inside `ws`, so every snapshot/delta (including
+    // `exchangeKeysUpdated`) is applied and an on-chain root-authority
+    // rotation cannot leave the position-authority permission account
+    // derivation stale. Keep `ws` alive: dropping it stops updates and
+    // freezes the store at its last-applied state.
+    let ws = PhoenixWSClient::new_from_env()?;
+    let exchange_store = ws.exchange_store().await?;
+    let flight = PhoenixFlightClient::from_exchange_store(
+        builder_authority,
+        builder_pda_index,
+        builder_subaccount_index,
+        exchange_store,
+    );
+    println!("Builder authority:      {}", flight.builder_authority);
+    println!(
+        "Builder trader account: {}",
+        flight.builder_trader_account()
+    );
     if let Some(market) = metadata.get_market(symbol) {
         println!("\n=== {} Market ===", market.symbol);
         println!("  Market Key:      {}", market.market_pubkey);
@@ -100,7 +134,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let tx_builder = PhoenixTxBuilder::new(&metadata);
     let ticket = MarketOrderTicket::builder()
-        .authority(trader.authority())
+        // The signer of the order instruction: the owner wallet, or the
+        // delegate key in position-authority mode.
+        .authority(signer_authority)
         .trader_account(trader.pda())
         .symbol(symbol)
         .side(side)
@@ -115,8 +151,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut instructions = vec![ComputeBudgetInstruction::set_compute_unit_limit(
         COMPUTE_UNIT_LIMIT,
     )];
+    // In position-authority mode the signer is not the trader wallet owner,
+    // so the wrap appends the collateral-transfer accounts Flight needs to
+    // collect the builder fee via AuthorizedTransferCollateral (the owner's
+    // signature, required by the plain path, is absent here). Owner-signed
+    // orders carry no tail.
+    let use_position_authority = position_authority_owner.is_some();
     for ix in native_ixs {
-        instructions.push(flight.try_wrap_order_instruction(ix, trader.authority())?);
+        let wrapped =
+            flight.try_wrap_order_instruction(ix, signer_authority, use_position_authority)?;
+        instructions.push(wrapped);
     }
 
     let rpc = RpcClient::new_with_commitment(
