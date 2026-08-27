@@ -3,6 +3,30 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.16 - 2026-08-27
+
+Source Phoenix commit: `a4bf845528348e8f3966a50c066057820100a84b`
+
+### Summary
+
+- Added native SOL spot collateral support: new `NativeSol` instruction builders (sync, swap, withdraw, liquidate, transfer), `SpotCollateralMetadata` account decoding, and `margin/spotCollateral`/`spotCollateralCaps` helpers for valuing and capping SOL collateral.
+- Added TWAP order instructions (create/place/cancel/execute/close account) via the new Flicker program, plus `PlaceMultiLimitOrderV2` (`CondensedOrderV2`, scale-order sets, `cancelIdsForScaleSet`) for ladder/scale order management.
+- Added Candles V2 API (`getCandlesV2` with cursor pagination), a collateral-assets endpoint, a trader time-weighted-returns endpoint, and an exchange restart-interlock status helper (`isExchangeEffectivelyActive`).
+- Builder onboarding (`build-register-ixs` / `send-register-ixs`) now treats the trader authority as a public key only — the builder's fee payer is the sole local signer.
+- Flight instruction wrapping now requires callers to explicitly declare when the signer is a trader's position authority, so the collateral-transfer tail is appended correctly for delegate-signed orders.
+
+### Breaking Changes
+
+- `flight.wrapInstructionWithFlight` (and the underlying `ProxyInstructionParams` / ixs client wrap helpers) changed signer semantics: a position-authority signer must now be declared explicitly, or the required collateral-transfer accounts are not appended — delegate-signed order flows built against the previous signature need updating.
+- The builder-onboarding flow/example no longer signs the trader-authority slot locally; integrations that supplied a trader keypair to sign `build-register-ixs` output must switch to passing the trader authority as a public key only, with the fee payer as sole local signer.
+
+### Consumer Notes
+
+- Package bumped to `0.5.16` and now depends on `@solana/sysvars` (used by the new restart-interlock status check); run `bun install` after upgrading.
+- `overrides` tightened (`brace-expansion`, `postcss`) and gained new entries (`nanoid`, `undici`) — re-run `bun install` to pick these up.
+- New scale-order helpers (`cancelIdsForScaleSet`, `DEFAULT_MAX_ORDERS_PER_TX_V2`, `CondensedOrderFlags`) are designed to pair with `PlaceMultiLimitOrderV2` for building and cancelling scale-order sets.
+- `Trader` accounts now expose `disablePositionAuthoritySwap` and `nativeSolCollateral`; `GlobalConfiguration` gains `acknowledgedRestartSlot` and native-SOL spot metadata for use with `isExchangeEffectivelyActive`.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`

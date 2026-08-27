@@ -1,6 +1,10 @@
 import z from "zod";
 import { TokenAmountSchema, type TokenAmount } from "@/primitives/TokenAmount";
 import { numericBigint } from "@/ws/numericSchemas";
+import {
+  CollateralAssetMetadataSchema,
+  type CollateralAssetMetadata,
+} from "@/api/collateral/types";
 
 // ---------------------------------------------------------------------------
 // Authority Set
@@ -255,6 +259,7 @@ export const MarketCalendarSchema: z.ZodType<MarketCalendar> = z.object({
 export interface MarketPublicMetadata {
   name?: string | null;
   description?: string | null;
+  searchAliases?: string[] | null;
   logoUri?: string | null;
   coinGeckoId?: string | null;
   coinMarketCapId?: number | null;
@@ -267,6 +272,7 @@ export const MarketPublicMetadataSchema: z.ZodType<MarketPublicMetadata> =
   z.object({
     name: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
+    searchAliases: z.array(z.string()).nullable().optional(),
     logoUri: z.string().nullable().optional(),
     coinGeckoId: z.string().nullable().optional(),
     coinMarketCapId: z.number().nullable().optional(),
@@ -626,6 +632,7 @@ export interface ExchangeSnapshotView {
   slotIndex: number;
   exchange: ExchangeStateSnapshot;
   markets: ExchangeMarketSnapshot[];
+  spotCollaterals?: CollateralAssetMetadata[];
 }
 
 export const ExchangeSnapshotViewSchema: z.ZodType<ExchangeSnapshotView> =
@@ -636,4 +643,5 @@ export const ExchangeSnapshotViewSchema: z.ZodType<ExchangeSnapshotView> =
     slotIndex: z.number(),
     exchange: ExchangeStateSnapshotSchema,
     markets: z.array(ExchangeMarketSnapshotSchema),
+    spotCollaterals: z.array(CollateralAssetMetadataSchema).optional(),
   });

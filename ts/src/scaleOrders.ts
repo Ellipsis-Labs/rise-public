@@ -1,12 +1,16 @@
+import type { TraderStateMarketLimitOrderRow } from "@/api/traders/traderState";
 import {
   priceUsdToTicksWithMarketParams,
   ticksToUsdWithMarketParams,
   type OrderPacketMarketParams,
 } from "@/orderPackets";
+import type { CancelId } from "@/primitives/CancelId";
+import { ticks, u64 } from "@/primitives/_numberTypes";
 import { Side } from "@/primitives/Side";
-import type {
-  CondensedOrder,
-  MultipleOrderPacket,
+import {
+  CondensedOrderFlags,
+  type MultipleOrderPacket,
+  type MultipleOrderPacketV2,
 } from "@/primitives/OrderPacket";
 
 /**
@@ -34,6 +38,13 @@ export const DEFAULT_MIN_BASE_LOTS_PER_ORDER = 1;
  * Callers using v0 + ALT can raise this via {@link chunkScaleLevelsForTx}.
  */
 export const DEFAULT_MAX_ORDERS_PER_TX = 30;
+
+/**
+ * Same, for `place_multi_limit_order_v2`. A V2 leg is 25 wire bytes against
+ * the legacy no-expiry leg's 17, so 30 no longer fits a legacy transaction;
+ * 24 keeps the headroom the V1 default has.
+ */
+export const DEFAULT_MAX_ORDERS_PER_TX_V2 = 24;
 
 export interface ScaleOrderInput {
   /** Lower (min) price bound of the ladder, in USD. */
@@ -111,6 +122,12 @@ export interface ScaleLevelsToPacketOptions {
   clientOrderId?: bigint | null;
   slide?: boolean;
   lastValidSlot?: bigint | null;
+}
+
+export interface ScaleLevelsToPacketV2Options extends ScaleLevelsToPacketOptions {
+  reduceOnly?: boolean;
+  /** 1-255 = caller-assigned ladder id; 0 (default) = not part of a scale-order set. */
+  scaleSetId?: number;
 }
 
 export const clampScaleBias = (bias: number): number => {
@@ -417,14 +434,57 @@ export const scaleLevelsToMultipleOrderPacket = (
   levels: ScaleOrderLevel[],
   side: Side,
   options?: ScaleLevelsToPacketOptions
-): MultipleOrderPacket => {
-  const orders: CondensedOrder[] = levels
-    .filter((level) => level.sizeBaseLots > 0)
-    .map((level) => ({
+): MultipleOrderPacket => ({
+  ...levelsToSideOrders(levels, side, (level) => ({
+    priceInTicks: level.priceInTicks,
+    sizeInBaseLots: BigInt(level.sizeBaseLots),
+    lastValidSlot: options?.lastValidSlot ?? null,
+  })),
+  clientOrderId: options?.clientOrderId ?? null,
+  slide: options?.slide ?? false,
+});
+
+/**
+ * Map computed levels + a {@link Side} into a one-sided {@link MultipleOrderPacketV2}.
+ * `Side.Bid` populates `bids`; `Side.Ask` populates `asks`. Zero-size levels are
+ * skipped. Fans packet-level `slide`/`reduceOnly` into every leg's flags byte
+ * and maps `lastValidSlot: null` to the `0` wire sentinel. Throws if more than
+ * {@link MAX_SCALE_ORDERS} orders are supplied (the on-chain per-side cap) —
+ * split with {@link chunkScaleLevelsForTx} first.
+ */
+export const scaleLevelsToMultipleOrderPacketV2 = (
+  levels: ScaleOrderLevel[],
+  side: Side,
+  options?: ScaleLevelsToPacketV2Options
+): MultipleOrderPacketV2 => {
+  let flags = CondensedOrderFlags.None;
+  if (options?.slide) {
+    flags |= CondensedOrderFlags.Slide;
+  }
+  if (options?.reduceOnly) {
+    flags |= CondensedOrderFlags.ReduceOnly;
+  }
+
+  return {
+    ...levelsToSideOrders(levels, side, (level) => ({
       priceInTicks: level.priceInTicks,
       sizeInBaseLots: BigInt(level.sizeBaseLots),
       lastValidSlot: options?.lastValidSlot ?? null,
-    }));
+      flags,
+    })),
+    clientOrderId: options?.clientOrderId ?? null,
+    scaleSetId: options?.scaleSetId ?? 0,
+  };
+};
+
+const levelsToSideOrders = <TOrder>(
+  levels: ScaleOrderLevel[],
+  side: Side,
+  makeOrder: (level: ScaleOrderLevel) => TOrder
+): { bids: TOrder[]; asks: TOrder[] } => {
+  const orders = levels
+    .filter((level) => level.sizeBaseLots > 0)
+    .map(makeOrder);
 
   if (orders.length > MAX_SCALE_ORDERS) {
     throw new Error(
@@ -435,8 +495,6 @@ export const scaleLevelsToMultipleOrderPacket = (
   return {
     bids: side === Side.Bid ? orders : [],
     asks: side === Side.Ask ? orders : [],
-    clientOrderId: options?.clientOrderId ?? null,
-    slide: options?.slide ?? false,
   };
 };
 
@@ -445,19 +503,70 @@ export const scaleLevelsToMultipleOrderPacket = (
  * never above {@link MAX_SCALE_ORDERS}). Pure and deterministic; preserves the
  * input order. A large ladder cannot fit one transaction, so the caller turns
  * each chunk into its own `place_multi_limit_order` transaction.
+ *
+ * `usesV2Instruction` selects the smaller {@link DEFAULT_MAX_ORDERS_PER_TX_V2}
+ * default; an explicit `maxOrdersPerTx` always wins.
  */
 export const chunkScaleLevelsForTx = (
   levels: ScaleOrderLevel[],
-  options?: { maxOrdersPerTx?: number }
+  options?: { maxOrdersPerTx?: number; usesV2Instruction?: boolean }
 ): ScaleOrderLevel[][] => {
-  const requestedRaw = options?.maxOrdersPerTx ?? DEFAULT_MAX_ORDERS_PER_TX;
+  const fallback = options?.usesV2Instruction
+    ? DEFAULT_MAX_ORDERS_PER_TX_V2
+    : DEFAULT_MAX_ORDERS_PER_TX;
+  const requestedRaw = options?.maxOrdersPerTx ?? fallback;
   const requested = Number.isFinite(requestedRaw)
     ? Math.floor(requestedRaw)
-    : DEFAULT_MAX_ORDERS_PER_TX;
+    : fallback;
   const max = Math.max(1, Math.min(MAX_SCALE_ORDERS, requested));
   const chunks: ScaleOrderLevel[][] = [];
   for (let i = 0; i < levels.length; i += max) {
     chunks.push(levels.slice(i, i + max));
   }
   return chunks;
+};
+
+/**
+ * Row fields {@link cancelIdsForScaleSet} reads from a trader-state
+ * limit-order row. Pass the currently-open rows of a single market —
+ * `TraderStateManager#orders(subaccountIndex, symbol)` returns exactly that.
+ * When assembling rows by hand, drop `change: "closed"` rows yourself
+ * (`status` is `"active"` even on closed rows).
+ */
+export type ScaleSetCancelableOrderRow = Pick<
+  TraderStateMarketLimitOrderRow,
+  "priceTicks" | "orderSequenceNumber" | "scaleSetId"
+>;
+
+/**
+ * Pure filter: convert the rows tagged `scaleSetId` (1-255) into
+ * {@link CancelId}s for `buildCancelOrdersByIdIxResolved`, preserving input
+ * order. An empty result means the set already left the book — skip the
+ * cancel (the builder throws on an empty list). A two-sided set can reach
+ * 2 * {@link MAX_SCALE_ORDERS} = 128 ids, above the builder's 100-id cap:
+ * split larger results across instructions.
+ */
+export const cancelIdsForScaleSet = (
+  rows: readonly ScaleSetCancelableOrderRow[],
+  scaleSetId: number
+): CancelId[] => {
+  if (!Number.isInteger(scaleSetId) || scaleSetId < 1 || scaleSetId > 255) {
+    throw new Error(
+      `scaleSetId must be an integer in 1..=255; got ${scaleSetId}`
+    );
+  }
+  const cancelIds: CancelId[] = [];
+  for (const row of rows) {
+    if (row.scaleSetId !== scaleSetId) {
+      continue;
+    }
+    cancelIds.push({
+      nodePointer: null,
+      orderId: {
+        priceInTicks: ticks(u64(row.priceTicks)),
+        orderSequenceNumber: u64(row.orderSequenceNumber),
+      },
+    });
+  }
+  return cancelIds;
 };
