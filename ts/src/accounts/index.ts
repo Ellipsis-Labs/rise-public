@@ -11,8 +11,17 @@ export {
   fetchGlobalConfiguration,
   decodeGlobalConfiguration,
   getGlobalConfigurationDecoder,
+  isExchangeEffectivelyActive,
   type GlobalConfiguration,
 } from "./GlobalConfiguration";
+export {
+  getSpotCollateralMetadataDecoder,
+  getSpotCollateralAssetId,
+  SPOT_COLLATERAL_FLAG_DISABLE_POSITION_AUTHORITY_SWAP,
+  SPOT_COLLATERAL_FLAG_HAS_PERP_ASSET,
+  SPOT_COLLATERAL_FLAG_IS_ACTIVE,
+  type SpotCollateralMetadata,
+} from "./SpotCollateralMetadata";
 export {
   fetchMint,
   decodeMint,

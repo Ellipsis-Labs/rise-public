@@ -2,13 +2,16 @@
  * Example: register and onboard a trader without a referral code.
  *
  * This uses /v1/exchange/build-register-ixs to fetch the register/onboard
- * instructions, signs the user-controlled signer slots, then submits the
+ * instructions, signs with the transaction fee payer, then submits the
  * transaction to /v1/exchange/send-register-ixs. The API validates, signs with
- * the configured Phoenix onboarding keypair, simulates, and sends the tx.
+ * the configured Phoenix onboarding keypair, simulates, and sends the tx. The
+ * trader authority is only an address and does not sign.
  *
  * Run with:
  *   PHOENIX_API_URL=http://127.0.0.1:8080 PHOENIX_RPC_URL=<RPC_URL> \
- *   bun examples/10-builder-onboarding-tx.ts --trader-keypair-path ~/.config/solana/id.json
+ *   bun examples/10-builder-onboarding-tx.ts \
+ *     [--fee-payer-keypair-path <PATH>] \
+ *     [--trader-authority <TRADER_AUTHORITY_PUBKEY>]
  */
 
 import { readFileSync } from "node:fs";
@@ -41,14 +44,12 @@ import {
 type CliArgs = {
   apiUrl: string;
   rpcUrl: string;
-  traderKeypairPath: string;
-  feePayerKeypairPath?: string;
+  traderAuthority?: string;
+  feePayerKeypairPath: string;
   maxPositions: number;
   recentBlockhash?: string;
   lastValidBlockHeight?: bigint;
 };
-
-type KeyPairSigner = Awaited<ReturnType<typeof createKeyPairSignerFromBytes>>;
 
 const DEFAULT_API_URL = "https://perp-api.phoenix.trade";
 const DEFAULT_RPC_URL = "https://api.mainnet-beta.solana.com";
@@ -61,8 +62,8 @@ const usage = `Usage:
 Options:
   --api-url <url>                    Phoenix API URL
   --rpc-url <url>                    Solana RPC URL
-  --trader-keypair-path <path>       Trader authority keypair path
-  --fee-payer-keypair-path <path>    Fee-payer keypair path (default: trader keypair)
+  --fee-payer-keypair-path <path>    Fee-payer keypair path (default: ~/.config/solana/id.json)
+  --trader-authority <pubkey>         Trader authority public key (default: fee payer)
   --max-positions <n>                Max positions when registering (32-128, default: 128)
   --recent-blockhash <blockhash>     Optional blockhash to use for the transaction
   --last-valid-block-height <n>      Required with --recent-blockhash when submitting
@@ -71,8 +72,8 @@ Options:
 Environment:
   PHOENIX_API_URL
   PHOENIX_RPC_URL / SOLANA_RPC_URL
-  TRADER_KEYPAIR_PATH / KEYPAIR_PATH
-  FEE_PAYER_KEYPAIR_PATH`;
+  FEE_PAYER_KEYPAIR_PATH
+  TRADER_AUTHORITY`;
 
 const fail = (message: string): never => {
   console.error(message);
@@ -126,11 +127,9 @@ const parseArgs = (argv: string[]): CliArgs => {
     process.env.PHOENIX_RPC_URL ??
     process.env.SOLANA_RPC_URL ??
     DEFAULT_RPC_URL;
-  let traderKeypairPath =
-    process.env.TRADER_KEYPAIR_PATH ??
-    process.env.KEYPAIR_PATH ??
-    DEFAULT_KEYPAIR_PATH;
-  let feePayerKeypairPath = process.env.FEE_PAYER_KEYPAIR_PATH;
+  let traderAuthority = process.env.TRADER_AUTHORITY;
+  let feePayerKeypairPath =
+    process.env.FEE_PAYER_KEYPAIR_PATH ?? DEFAULT_KEYPAIR_PATH;
   let maxPositions = DEFAULT_MAX_POSITIONS;
   let recentBlockhash: string | undefined;
   let lastValidBlockHeight: bigint | undefined;
@@ -144,9 +143,9 @@ const parseArgs = (argv: string[]): CliArgs => {
       case "--rpc-url":
         rpcUrl = argv[++index] ?? fail("Missing value for --rpc-url");
         break;
-      case "--trader-keypair-path":
-        traderKeypairPath =
-          argv[++index] ?? fail("Missing value for --trader-keypair-path");
+      case "--trader-authority":
+        traderAuthority =
+          argv[++index] ?? fail("Missing value for --trader-authority");
         break;
       case "--fee-payer-keypair-path":
         feePayerKeypairPath =
@@ -178,11 +177,10 @@ const parseArgs = (argv: string[]): CliArgs => {
   if (recentBlockhash && lastValidBlockHeight === undefined) {
     fail("--last-valid-block-height is required with --recent-blockhash");
   }
-
   return {
     apiUrl,
     rpcUrl,
-    traderKeypairPath,
+    traderAuthority,
     feePayerKeypairPath,
     maxPositions,
     recentBlockhash,
@@ -236,20 +234,12 @@ const toInstruction = (
   data: Uint8Array.from(apiInstruction.data),
 });
 
-const uniqueSignerKeyPairs = (
-  traderSigner: KeyPairSigner,
-  feePayerSigner: KeyPairSigner
-): CryptoKeyPair[] =>
-  traderSigner.address === feePayerSigner.address
-    ? [traderSigner.keyPair]
-    : [traderSigner.keyPair, feePayerSigner.keyPair];
-
 async function main() {
   const argv = process.argv.slice(2);
   if (argv.length === 0) {
     console.log("This example submits a live builder onboarding transaction.");
     console.log(
-      "Pass --trader-keypair-path, or set TRADER_KEYPAIR_PATH, to register and onboard that trader without a referral code.\n"
+      "The fee payer is the only local signer. Its keypair path defaults to ~/.config/solana/id.json and can be overridden with --fee-payer-keypair-path or FEE_PAYER_KEYPAIR_PATH; --trader-authority is optional and defaults to the fee payer's public key.\n"
     );
     console.log(usage);
     return;
@@ -264,16 +254,11 @@ async function main() {
   });
 
   try {
-    const traderSigner = await createKeyPairSignerFromBytes(
-      readKeypairBytes(args.traderKeypairPath)
+    const feePayerSigner = await createKeyPairSignerFromBytes(
+      readKeypairBytes(args.feePayerKeypairPath)
     );
-    const feePayerSigner = args.feePayerKeypairPath
-      ? await createKeyPairSignerFromBytes(
-          readKeypairBytes(args.feePayerKeypairPath)
-        )
-      : traderSigner;
     const traderAuthority = parseAddress<Authority>(
-      traderSigner.address,
+      args.traderAuthority ?? feePayerSigner.address,
       "trader authority"
     );
     const txFeePayer = parseAddress<Authority>(
@@ -312,7 +297,7 @@ async function main() {
     );
     const partialTransaction = compileTransaction(transactionMessage);
     const signedTransaction = await partiallySignTransaction(
-      uniqueSignerKeyPairs(traderSigner, feePayerSigner),
+      [feePayerSigner.keyPair],
       partialTransaction
     );
     const signedTransactionBase64 =

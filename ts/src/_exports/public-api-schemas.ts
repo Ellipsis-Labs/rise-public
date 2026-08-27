@@ -15,17 +15,35 @@ export {
 export {
   type ApiCandle,
   ApiCandleSchema,
+  type ApiCandleV2,
+  ApiCandleV2Schema,
+  type CandlesV2Page,
+  CandlesV2PageSchema,
+  type CandlesV2Response,
+  CandlesV2ResponseSchema,
   type TradingCandlesQuery,
   TradingCandlesQuerySchema,
+  type TradingCandlesV2CursorQuery,
+  TradingCandlesV2CursorQuerySchema,
+  type TradingCandlesV2InitialQuery,
+  TradingCandlesV2InitialQuerySchema,
+  type TradingCandlesV2Query,
+  TradingCandlesV2QuerySchema,
 } from "../api/candles/types";
 
 export {
+  type CollateralAssetMetadata,
+  CollateralAssetMetadataSchema,
+  type CollateralAssetsResponse,
+  CollateralAssetsResponseSchema,
   type CollateralEvent,
   CollateralEventSchema,
   type CollateralEventType,
   type CollateralHistoryRequest,
   type CollateralHistoryResponse,
   CollateralHistoryResponseSchema,
+  type SpotAssetConfig,
+  SpotAssetConfigSchema,
 } from "../api/collateral/types";
 
 export {
@@ -190,6 +208,7 @@ export {
   GetNotificationsResponseSchema,
   type NotificationItem,
   NotificationItemSchema,
+  type UnknownEventNotification,
 } from "../api/notifications/types";
 
 export {
@@ -321,6 +340,8 @@ export {
   type HistoricalValuesRequest,
   type MarketPositionSnapshot,
   MarketPositionSnapshotSchema,
+  type SpotCollateralValue,
+  SpotCollateralValueSchema,
   type PortfolioValueDataPoint,
   PortfolioValueDataPointSchema,
   type TraderMarketPnLQueryParams,

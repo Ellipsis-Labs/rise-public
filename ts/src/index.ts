@@ -25,15 +25,18 @@ export {
   MAX_SCALE_BIAS,
   DEFAULT_MIN_BASE_LOTS_PER_ORDER,
   DEFAULT_MAX_ORDERS_PER_TX,
+  DEFAULT_MAX_ORDERS_PER_TX_V2,
   clampScaleBias,
   clampScaleOrderCount,
   computeScaleOrderLevels,
   previewScaleOrder,
   scaleLevelsToMultipleOrderPacket,
   chunkScaleLevelsForTx,
+  cancelIdsForScaleSet,
   type ScaleOrderInput,
   type ScaleOrderLevel,
   type ScaleOrderPreview,
+  type ScaleSetCancelableOrderRow,
   type ScaleOrderWarning,
   type ScaleOrderWarningCode,
   type ScaleLevelsToPacketOptions,
@@ -111,7 +114,11 @@ export {
   type ResolvedWithdrawFundsIxInput,
   type WithdrawIxsResult,
 } from "./ixs";
-export { createPhoenixRpcClient, type PhoenixRpcClient } from "./rpc";
+export {
+  createPhoenixRpcClient,
+  type LamportAccountState,
+  type PhoenixRpcClient,
+} from "./rpc";
 export * from "./trader-state";
 export * from "./orderbooks";
 export * from "./market-data";
@@ -126,7 +133,11 @@ export * from "./hawkeye";
 
 export type { HttpTransport, RequestOptions, QueryParams } from "./http";
 export { send, get, post, put, patch, del } from "./http";
-export type { ParamValue, RateLimitRetryConfig } from "./http";
+export type {
+  ParamValue,
+  RateLimitCooldownConfig,
+  RateLimitRetryConfig,
+} from "./http";
 
 export * as api from "./api";
 export {
