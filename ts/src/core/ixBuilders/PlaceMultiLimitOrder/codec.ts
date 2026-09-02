@@ -2,7 +2,10 @@ import { DISCRIMINANTS } from "@/core/discriminants";
 import {
   getMultipleOrderPacketDecoder,
   getMultipleOrderPacketEncoder,
+  getMultipleOrderPacketV2Decoder,
+  getMultipleOrderPacketV2Encoder,
   type MultipleOrderPacket,
+  type MultipleOrderPacketV2,
 } from "@/primitives/OrderPacket";
 import {
   combineCodec,
@@ -32,3 +35,22 @@ export const getPlaceMultiLimitOrderCodec = (): Codec<MultipleOrderPacket> =>
     getPlaceMultiLimitOrderEncoder(),
     getPlaceMultiLimitOrderDecoder()
   );
+
+export const getPlaceMultiLimitOrderV2Encoder =
+  (): Encoder<MultipleOrderPacketV2> =>
+    getHiddenPrefixEncoder(getMultipleOrderPacketV2Encoder(), [
+      getConstantEncoder(DISCRIMINANTS.PLACE_MULTI_LIMIT_ORDER_V2),
+    ]);
+
+export const getPlaceMultiLimitOrderV2Decoder =
+  (): Decoder<MultipleOrderPacketV2> =>
+    getHiddenPrefixDecoder(getMultipleOrderPacketV2Decoder(), [
+      getConstantDecoder(DISCRIMINANTS.PLACE_MULTI_LIMIT_ORDER_V2),
+    ]);
+
+export const getPlaceMultiLimitOrderV2Codec =
+  (): Codec<MultipleOrderPacketV2> =>
+    combineCodec(
+      getPlaceMultiLimitOrderV2Encoder(),
+      getPlaceMultiLimitOrderV2Decoder()
+    );

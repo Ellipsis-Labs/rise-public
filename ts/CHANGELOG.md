@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.17 - 2026-09-02
+
+Source Phoenix commit: `5e0a1182c2f04b0cc37ab635e7bef509d40cc1f4`
+
+### Summary
+
+- Adds native SOL spot collateral: new `NativeSol` instruction builders (deposit via lamport sync, swap, withdraw, liquidate), a `SpotCollateralMetadata` account, and margin valuation/cap helpers (`@/margin/spotCollateral`, `@/margin/spotCollateralCaps`).
+- Adds TWAP orders via the new Flicker program (`CreateTwapAccount`, `PlaceTwapOrder`, `CancelTwapOrder`, `ExecuteTwapOrder`, `CloseInactiveTwapAccount`) and a `PlaceMultiLimitOrderV2`/`CondensedOrderV2` order-packet format with per-order flags and scale-set cancel tracking (`cancelIdsForScaleSet`).
+- Adds a candles v2 pagination API (`getCandlesV2`), a collateral assets endpoint, a trader time-weighted-returns endpoint, and an exchange restart-interlock status helper (`isExchangeEffectivelyActive`).
+- Exposes spot collateral metadata on the exchange cache/WS snapshot stream, plus a new `spot_collateral_liquidation` notification type.
+
+### Breaking Changes
+
+- `flight.wrapInstructionWithFlight` (and Flight-aware order-placement helpers) replace the `authority` param with an explicit signer plus a `usePositionAuthority` flag; the collateral-transfer tail is no longer inferred, so callers signing as a position authority must declare it explicitly.
+- `PlaceStopLoss` now throws if `executionPrice <= 0n`, where it previously accepted the value unvalidated.
+
+### Consumer Notes
+
+- Builder onboarding (`build-register-ixs` / `send-register-ixs`) now treats the trader authority as a plain public key — only the builder's fee payer signs locally, per the updated README/examples.
+- New exports: `FLICKER_PROGRAM_ADDRESS`, `EMBER_STATE_ADDRESS`, `BETA_USDC_MINT_ADDRESS`, `resolvePhoenixBuilderAddresses`, and `RateLimitCooldownConfig` for shared client-side rate-limit cooldowns.
+- Adds a new runtime dependency on `@solana/sysvars`.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`

@@ -8,6 +8,7 @@ import type {
   TraderStateServerMessage,
   TraderStateSnapshotResponse,
   TraderStateSplineSnapshot,
+  TraderStateSpotCollateral,
   TraderStateSubaccountSnapshot,
   TraderStateTradeHistoryDelta,
   TraderStateTriggerSnapshot,
@@ -78,6 +79,7 @@ export interface TraderStateSubaccountState {
   subaccountIndex: number;
   sequence: number;
   collateral: string;
+  spotCollaterals: readonly TraderStateSpotCollateral[];
   capabilities?: TraderStateCapabilities;
   cooldownStatus?: CooldownStatus;
   positionSymbols: readonly string[];
