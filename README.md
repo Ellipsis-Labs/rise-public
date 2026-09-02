@@ -70,9 +70,12 @@ These onboarding routes are not interchangeable:
   must sign the transaction.
 - Use `POST /v1/exchange/build-register-ixs` followed by
   `POST /v1/exchange/send-register-ixs` when a builder wants to register and
-  onboard a trader without a referral code. The builder chooses the transaction
-  fee payer, and the API signs only after validating and simulating the
-  submitted transaction.
+  onboard a trader without a referral code. The trader authority is only a
+  public key, the builder's fee payer is the sole local signer, and the API
+  adds the onboarder signature only after validating and simulating the
+  submitted transaction. In both examples, `--fee-payer-keypair-path` defaults
+  to `~/.config/solana/id.json`, while `--trader-authority` is optional and
+  defaults to that fee payer's public key.
 
 For copyable Rust and TypeScript examples of both delegated onboarding paths,
 see [sdk/delegated-onboarding.mdx](../sdk/delegated-onboarding.mdx). Runnable
@@ -429,7 +432,8 @@ let routed_ixs = builder
     )
     .await?
     .into_iter()
-    .map(|ix| flight.try_wrap_order_instruction(ix, trader_authority))
+    // false = owner-signed (no position authority)
+    .map(|ix| flight.try_wrap_order_instruction(ix, trader_authority, false))
     .collect::<Result<Vec<_>, _>>()?;
 ```
 

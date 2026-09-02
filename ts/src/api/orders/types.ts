@@ -105,6 +105,11 @@ export interface OrderHistoryItem {
   filledBaseQty: string;
   placedAt: number | null;
   completedAt: number | null;
+  /**
+   * Scale-order set id (1-255) shared by every leg of a
+   * PlaceMultiLimitOrderV2 scale-order packet; absent for standalone orders.
+   */
+  scaleSetId?: number;
 }
 
 const RawOrderHistoryItemSchema = z
@@ -122,6 +127,7 @@ const RawOrderHistoryItemSchema = z
     isStopLossDirection: z.boolean().nullable().optional().default(false),
     placedAt: nullableTimestampSchema.optional(),
     completedAt: nullableTimestampSchema.optional(),
+    scaleSetId: z.number().int().min(1).max(255).nullable().optional(),
   })
   .loose();
 
@@ -152,6 +158,7 @@ export const OrderHistoryItemSchema: z.ZodType<OrderHistoryItem> =
     isStopLossDirection: raw.isStopLossDirection ?? false,
     placedAt: raw.placedAt ?? null,
     completedAt: raw.completedAt ?? null,
+    ...(raw.scaleSetId != null ? { scaleSetId: raw.scaleSetId } : {}),
   }));
 
 export interface OrderHistoryResponse {
@@ -240,32 +247,32 @@ export interface TpSlOrderConfig {
 }
 
 const TpSlOrderConfigObjectSchema = z.object({
-  takeProfitTriggerPrice: z.number().nullable().optional(),
+  takeProfitTriggerPrice: z.number().positive().nullable().optional(),
   takeProfitTriggerPriceInTicks: z
     .number()
     .int()
-    .nonnegative()
+    .positive()
     .nullable()
     .optional(),
-  takeProfitExecutionPrice: z.number().nullable().optional(),
+  takeProfitExecutionPrice: z.number().positive().nullable().optional(),
   takeProfitExecutionPriceInTicks: z
     .number()
     .int()
-    .nonnegative()
+    .positive()
     .nullable()
     .optional(),
-  stopLossTriggerPrice: z.number().nullable().optional(),
+  stopLossTriggerPrice: z.number().positive().nullable().optional(),
   stopLossTriggerPriceInTicks: z
     .number()
     .int()
-    .nonnegative()
+    .positive()
     .nullable()
     .optional(),
-  stopLossExecutionPrice: z.number().nullable().optional(),
+  stopLossExecutionPrice: z.number().positive().nullable().optional(),
   stopLossExecutionPriceInTicks: z
     .number()
     .int()
-    .nonnegative()
+    .positive()
     .nullable()
     .optional(),
   orderKind: z.string().nullable().optional(),
@@ -482,6 +489,7 @@ export interface PlaceIsolatedLimitOrderRequest {
   numBaseLots?: number;
   quantity?: number;
   transferAmount?: number;
+  transferSpotCollateralAmounts?: Record<string, number>;
   pdaIndex?: number;
   allowCrossAndIsolatedForAsset?: boolean;
   feePayer?: string;
@@ -505,6 +513,9 @@ export const PlaceIsolatedLimitOrderRequestSchema: z.ZodType<PlaceIsolatedLimitO
     numBaseLots: z.number().int().nonnegative().optional(),
     quantity: z.number().optional(),
     transferAmount: z.number().int().nonnegative().optional(),
+    transferSpotCollateralAmounts: z
+      .record(z.string(), z.number().int().nonnegative())
+      .optional(),
     pdaIndex: z.number().int().nonnegative().optional(),
     allowCrossAndIsolatedForAsset: z.boolean().optional(),
     feePayer: z.string().optional(),
@@ -527,6 +538,7 @@ export interface PlaceIsolatedLimitOrderWithConditionalsRequest {
   numBaseLots?: number | null;
   quantity?: number | null;
   transferAmount?: number;
+  transferSpotCollateralAmounts?: Record<string, number>;
   pdaIndex?: number | null;
   allowCrossAndIsolatedForAsset?: boolean | null;
   feePayer?: string | null;
@@ -551,6 +563,9 @@ export const PlaceIsolatedLimitOrderWithConditionalsRequestSchema: z.ZodType<Pla
       numBaseLots: z.number().int().nonnegative().nullable().optional(),
       quantity: z.number().nullable().optional(),
       transferAmount: z.number().int().nonnegative().optional(),
+      transferSpotCollateralAmounts: z
+        .record(z.string(), z.number().int().nonnegative())
+        .optional(),
       pdaIndex: z.number().int().nonnegative().nullable().optional(),
       allowCrossAndIsolatedForAsset: z.boolean().nullable().optional(),
       feePayer: z.string().nullable().optional(),
@@ -570,8 +585,11 @@ export interface PlaceIsolatedMarketOrderRequest {
   symbol: string;
   side: string;
   numBaseLots?: number;
+  minBaseLotsToFill?: number;
+  minQuoteLotsToFill?: number;
   quantity?: number;
   transferAmount?: number;
+  transferSpotCollateralAmounts?: Record<string, number>;
   maxPriceInTicks?: number;
   pdaIndex?: number;
   allowCrossAndIsolatedForAsset?: boolean;
@@ -590,8 +608,13 @@ export const PlaceIsolatedMarketOrderRequestSchema: z.ZodType<PlaceIsolatedMarke
     symbol: z.string(),
     side: z.string(),
     numBaseLots: z.number().int().nonnegative().optional(),
+    minBaseLotsToFill: z.number().int().nonnegative().optional(),
+    minQuoteLotsToFill: z.number().int().nonnegative().optional(),
     quantity: z.number().optional(),
     transferAmount: z.number().int().nonnegative().optional(),
+    transferSpotCollateralAmounts: z
+      .record(z.string(), z.number().int().nonnegative())
+      .optional(),
     maxPriceInTicks: z.number().int().nonnegative().optional(),
     pdaIndex: z.number().int().nonnegative().optional(),
     allowCrossAndIsolatedForAsset: z.boolean().optional(),
@@ -650,6 +673,11 @@ export interface PlacedOrder {
   initialSlot: number | null;
   orderFlags: number | null;
   clientOrderId?: string | null;
+  /**
+   * Scale-order set id (1-255) shared by every leg of a
+   * PlaceMultiLimitOrderV2 scale-order packet; absent for standalone orders.
+   */
+  scaleSetId?: number;
   transactionTimestamp: string;
 }
 
@@ -665,6 +693,11 @@ export interface CurrentOrderState {
   placedAt: string | null;
   cancelledAt: string | null;
   lastFillAt: string | null;
+  /**
+   * Scale-order set id (1-255) shared by every leg of a
+   * PlaceMultiLimitOrderV2 scale-order packet; absent for standalone orders.
+   */
+  scaleSetId?: number;
 }
 
 export interface AggregatedTrades {
@@ -739,6 +772,7 @@ const PlacedOrderSchema = z.object({
   initialSlot: z.number().nullable(),
   orderFlags: z.number().nullable(),
   clientOrderId: z.string().nullable().optional(),
+  scaleSetId: z.number().int().min(1).max(255).optional(),
   transactionTimestamp: z.string(),
 });
 
@@ -754,6 +788,7 @@ const CurrentOrderStateSchema = z.object({
   placedAt: z.string().nullable(),
   cancelledAt: z.string().nullable(),
   lastFillAt: z.string().nullable(),
+  scaleSetId: z.number().int().min(1).max(255).optional(),
 });
 
 const OrderHistoryV2ItemSchema = z.object({

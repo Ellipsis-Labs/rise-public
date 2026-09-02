@@ -26,6 +26,8 @@ export interface MarketParams {
   assetId: number;
   spotPrice?: SnapshotPrice;
   markPriceTicks: string;
+  /** Median-of-oracles index price, when supplied. */
+  indexPriceTicks?: string;
   l2Orderbook?: SnapshotL2Orderbook;
   tickSize: string;
   baseLotDecimals: number;
@@ -92,12 +94,68 @@ export type OrderLeverageLimitsBySymbol = Record<string, number>;
 
 export interface MarginCalculationOptions {
   orderLeverageLimitsBySymbol?: OrderLeverageLimitsBySymbol;
+  /** Optional exchange defaults used only for raw spot-balance inputs. */
+  spotCollateralParams?: SpotCollateralParams[];
+}
+
+/** Exchange configuration for one spot collateral asset. */
+export interface SpotCollateralParams {
+  assetIndex: number;
+  symbol: string;
+  perpSymbol: string;
+  decimals: number;
+  maxPerTraderBalance: bigint;
+  maxGlobalBalance: bigint;
+  currGlobalBalance: bigint;
+  minMarginDiscountBps: number;
+  maxMarginDiscountBps: number;
+}
+
+/**
+ * One spot collateral asset (native SOL today) with the context needed to
+ * value it the way the on-chain RiskView does: balance at the pricing perp
+ * market's index price, discounted along the linear margin-discount curve.
+ * The curve parameters come from `/v1/collateral/assets`.
+ */
+export interface SpotCollateralMarginInput {
+  assetIndex: number;
+  /** Spot asset symbol ("SOL"), not necessarily a perp market symbol. */
+  symbol: string;
+  /** Balance in the asset's native units (lamports for SOL). */
+  balance: string;
+  /** Native-unit decimals of the asset (9 for SOL). */
+  decimals: number;
+  /**
+   * Perp market whose price values the asset. Defaults to `symbol`.
+   */
+  pricingMarketSymbol?: string;
+  /**
+   * Valuation price in ticks of the pricing market. Defaults to the pricing
+   * market's mark price (on-chain uses the index price; supply it here when
+   * available).
+   */
+  indexPriceTicks?: string;
+  /** Global balance cap in native units — the discount curve's right endpoint. */
+  maxGlobalBalance: string;
+  /** Margin discount at zero balance, basis points. */
+  minMarginDiscountBps: number;
+  /** Margin discount at the global cap, basis points. */
+  maxMarginDiscountBps: number;
 }
 
 export interface SubaccountMarginInputs {
   subaccountIndex: number;
   collateralBalanceQuoteLots: string;
   markets: MarketMarginInputs[];
+  spotCollaterals?: SpotCollateralMarginInput[];
+  /**
+   * Compatibility input for callers that keep balances separate from exchange
+   * metadata. The master `spotCollaterals` input remains authoritative when
+   * both forms are supplied.
+   */
+  spotCollateralBalances?: Record<string, string>;
+  /** Native-SOL shorthand for `spotCollateralBalances[0xFFFF0000]`. */
+  nativeSolCollateralLamports?: string;
 }
 
 export interface TraderMarginInputs {
@@ -142,6 +200,18 @@ export interface MarginTotals {
   discountedPnlForWithdrawalsQuoteLots: string;
   unsettledFundingQuoteLots: string;
   accumulatedFundingQuoteLots: string;
+  /**
+   * Undiscounted spot collateral notional included in portfolioValue.
+   * Present only when the inputs carry spot collaterals.
+   */
+  spotCollateralNotionalQuoteLots?: string;
+  /**
+   * Discounted spot collateral value included in effectiveCollateral (but
+   * never in effectiveCollateralForWithdrawals, mirroring the on-chain
+   * WithdrawQuoteCollateral semantics). Present only when the inputs carry
+   * spot collaterals.
+   */
+  spotCollateralDiscountedQuoteLots?: string;
   riskState: MarginRiskState;
   riskTier: MarginRiskTier;
 }
@@ -184,11 +254,31 @@ export interface OrderMarginResult {
   marginFactorBps: string;
 }
 
+/** One spot collateral asset valued for margin. */
+export interface SpotCollateralMarginResult {
+  assetIndex: number;
+  symbol: string;
+  /** Perp market whose price values this collateral. */
+  pricingMarketSymbol: string;
+  /** Balance in the asset's native units. */
+  balance: string;
+  /** Native units represented by one base lot of the pricing market. */
+  nativeUnitsPerBaseLot: string;
+  /** Share of notional retained after the margin haircut. */
+  retainedBps: string;
+  /** Balance valued at the pricing market's price (undiscounted). */
+  notionalQuoteLots: string;
+  /** Notional with the margin discount applied. */
+  discountedQuoteLots: string;
+}
+
 export interface SubaccountMarginResult {
   subaccountIndex: number;
   margin: MarginTotals;
   marketMargins: MarketMarginResult[];
   limitOrders: OrderMarginResult[];
+  /** Present only when the inputs carry spot collaterals. */
+  spotCollaterals?: SpotCollateralMarginResult[];
 }
 
 export interface TraderMarginResult {
