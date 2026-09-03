@@ -5,6 +5,7 @@ import type {
   GlobalTraderIndexAddressArray,
   MarketAddress,
   MultipleOrderPacket,
+  MultipleOrderPacketV2,
   PerpAssetMapAddress,
   SplineCollectionAddress,
   TraderAddress,
@@ -21,6 +22,13 @@ export interface PlaceMultiLimitOrderParams extends PhoenixInstructionAddressOve
   activeTraderBuffer: ActiveTraderBufferAddressArray;
   globalTraderIndex: GlobalTraderIndexAddressArray;
   multipleOrderPacket: MultipleOrderPacket;
+}
+
+export interface PlaceMultiLimitOrderV2Params extends Omit<
+  PlaceMultiLimitOrderParams,
+  "multipleOrderPacket"
+> {
+  multipleOrderPacket: MultipleOrderPacketV2;
 }
 
 export type PlaceMultiLimitOrderIx = InstructionsWithAccountsAndData;

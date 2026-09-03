@@ -660,6 +660,50 @@ describe("public client route mapping", () => {
           ],
         ],
         [
+          "/v1/traders/trader-pubkey/time-weighted-returns",
+          {
+            method: "time_weighted",
+            scope: {
+              traderPubkey: "trader-pubkey",
+              userId: "9007199254740993",
+              traderPdaIndex: 0,
+            },
+            valuationIntervalSeconds: 300,
+            exactFlowBoundaryValuations: false,
+            totalReturn: 0.1,
+            returnStartTime: "1",
+            equityDefinition: "economic equity",
+            window: {
+              requestedStartTime: "1",
+              requestedEndTime: "2",
+              calculationEndTime: "2",
+              dataStartTime: "1",
+              dataEndTime: "2",
+              truncatedByLimit: false,
+            },
+            points: [
+              {
+                timestamp: "2",
+                startTime: "1",
+                endTime: "1",
+                periodReturn: 0.1,
+                cumulativeReturn: 0.1,
+                netExternalFlow: null,
+                qualityFlags: [],
+              },
+            ],
+            quality: {
+              coverageStart: "1",
+              coverageEnd: "2",
+              requestedStartCovered: true,
+              containsGaps: false,
+              resetCount: "18446744073709551615",
+              refreshedAt: "2",
+              completeness: "complete",
+            },
+          },
+        ],
+        [
           "/v1/traders/trader-pubkey/pnl",
           [
             {
@@ -677,7 +721,7 @@ describe("public client route mapping", () => {
           "/v1/candles/SOL",
           [
             {
-              time: 1,
+              time: 60_000,
               open: 1,
               high: 2,
               low: 1,
@@ -866,11 +910,22 @@ describe("public client route mapping", () => {
       resolution: "1h",
       limit: 10,
     });
+    await traders.getTraderTimeWeightedReturns("trader-pubkey", {
+      resolution: "5m",
+      startTime: 1_767_225_600_000,
+      endTime: 1_785_456_000_000,
+      limit: 400,
+    });
     await traders.getTraderPnlValues("trader-pubkey", {
       resolution: "1h",
       limit: 10,
     });
-    await candles.getCandles("SOL", { timeframe: "1m", limit: 100 });
+    await candles.getCandles("SOL", {
+      timeframe: "1m",
+      startTime: 0,
+      endTime: 60_000,
+      limit: 100,
+    });
     await invite.validateInvite({
       code: "invite-123",
       wallet_address: "wallet-abc",
@@ -1056,6 +1111,17 @@ describe("public client route mapping", () => {
       },
       {
         method: "GET",
+        endpoint: "/v1/traders/trader-pubkey/time-weighted-returns",
+        params: {
+          resolution: "5m",
+          startTime: 1_767_225_600_000,
+          endTime: 1_785_456_000_000,
+          limit: 400,
+        },
+        body: undefined,
+      },
+      {
+        method: "GET",
         endpoint: "/v1/traders/trader-pubkey/pnl",
         params: { resolution: "1h", limit: 10 },
         body: undefined,
@@ -1063,7 +1129,12 @@ describe("public client route mapping", () => {
       {
         method: "GET",
         endpoint: "/v1/candles/SOL",
-        params: { timeframe: "1m", limit: 100 },
+        params: {
+          timeframe: "1m",
+          startTime: 0,
+          endTime: 60_000,
+          limit: 100,
+        },
         body: undefined,
       },
       {

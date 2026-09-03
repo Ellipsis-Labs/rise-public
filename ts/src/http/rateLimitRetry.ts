@@ -7,9 +7,21 @@ export interface RateLimitRetryConfig {
   fallbackDelayMs?: number;
 }
 
+export interface RateLimitCooldownConfig {
+  /** Maximum Retry-After delay that can be applied as shared client cooldown. */
+  maxDelayMs?: number;
+  /** Fallback cooldown delay used when Retry-After is missing or invalid. */
+  fallbackDelayMs?: number;
+}
+
 export interface ResolvedRateLimitRetryConfig {
   readonly maxRetries: number;
   readonly maxTotalWaitMs: number;
+  readonly fallbackDelayMs: number;
+}
+
+export interface ResolvedRateLimitCooldownConfig {
+  readonly maxDelayMs: number;
   readonly fallbackDelayMs: number;
 }
 
@@ -43,7 +55,10 @@ export const DEFAULT_RATE_LIMIT_RETRY_CONFIG: Required<RateLimitRetryConfig> = {
   fallbackDelayMs: 1_000,
 };
 
+export const DEFAULT_RATE_LIMIT_COOLDOWN_MAX_DELAY_MS = 30_000;
+
 const DEFAULT_FALLBACK_JITTER_RATIO = 0.15;
+const DEFAULT_RATE_LIMIT_JITTER_RATIO = 0.15;
 
 const finiteNonNegative = (value: number | undefined): value is number =>
   value !== undefined && Number.isFinite(value) && value >= 0;
@@ -65,6 +80,25 @@ export const resolveRateLimitRetryConfig = (
     fallbackDelayMs: finiteNonNegative(config?.fallbackDelayMs)
       ? Math.ceil(config.fallbackDelayMs)
       : DEFAULT_RATE_LIMIT_RETRY_CONFIG.fallbackDelayMs,
+  };
+};
+
+export const resolveRateLimitCooldownConfig = (
+  config: RateLimitCooldownConfig | false | undefined,
+  retryConfig: ResolvedRateLimitRetryConfig | null
+): ResolvedRateLimitCooldownConfig | null => {
+  if (config === false) {
+    return null;
+  }
+
+  return {
+    maxDelayMs: finiteNonNegative(config?.maxDelayMs)
+      ? Math.ceil(config.maxDelayMs)
+      : DEFAULT_RATE_LIMIT_COOLDOWN_MAX_DELAY_MS,
+    fallbackDelayMs: finiteNonNegative(config?.fallbackDelayMs)
+      ? Math.ceil(config.fallbackDelayMs)
+      : (retryConfig?.fallbackDelayMs ??
+        DEFAULT_RATE_LIMIT_RETRY_CONFIG.fallbackDelayMs),
   };
 };
 
@@ -131,13 +165,36 @@ export const fallbackRateLimitDelayMs = (
   return Math.max(0, Math.round(config.fallbackDelayMs * jitter));
 };
 
+export const rateLimitDelayWithPositiveJitterMs = (delayMs: number): number =>
+  Math.max(
+    0,
+    Math.round(delayMs * (1 + Math.random() * DEFAULT_RATE_LIMIT_JITTER_RATIO))
+  );
+
+export const rateLimitCooldownDelayMs = (
+  response: Response,
+  config: ResolvedRateLimitCooldownConfig,
+  nowMs: number = Date.now()
+): number => {
+  const retryAfter = parseRetryAfter(
+    response.headers.get("retry-after"),
+    nowMs
+  );
+  return Math.min(
+    retryAfter?.retryAfterMs ?? config.fallbackDelayMs,
+    config.maxDelayMs
+  );
+};
+
 export const rateLimitRetryDecision = (
   response: Response,
   config: ResolvedRateLimitRetryConfig,
   totalWaitMs: number
 ): RateLimitRetryDecision => {
   const retryAfter = parseRetryAfter(response.headers.get("retry-after"));
-  const waitMs = retryAfter?.retryAfterMs ?? fallbackRateLimitDelayMs(config);
+  const waitMs = retryAfter
+    ? rateLimitDelayWithPositiveJitterMs(retryAfter.retryAfterMs)
+    : fallbackRateLimitDelayMs(config);
   const nextTotalWaitMs = totalWaitMs + waitMs;
   const retryAfterSeconds = retryAfter?.retryAfterSeconds;
   const baseDecision = {

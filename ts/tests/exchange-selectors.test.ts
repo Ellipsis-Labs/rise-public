@@ -185,6 +185,7 @@ describe("exchange selectors", () => {
   it("projects exchange markets and exposes canonical selectors", async () => {
     const solMetadata: MarketPublicMetadata = {
       name: "Solana",
+      searchAliases: ["SOL"],
       logoUri: "https://example.com/sol.png",
       coinGeckoId: "solana",
       displayColor: "#14f195",

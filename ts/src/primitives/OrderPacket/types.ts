@@ -176,3 +176,54 @@ export interface MultipleOrderPacket {
   /** Whether orders should slide to the top of the book if they would cross. If false, orders that would cross generate PostOnlyCross error */
   slide: boolean;
 }
+
+/**
+ * Per-order flags carried by {@link CondensedOrderV2}. One byte on the wire;
+ * bits outside the defined mask are rejected on-chain so they stay available
+ * for future flags.
+ */
+export enum CondensedOrderFlags {
+  /** No special flags */
+  None = 0,
+  /** Slide to the top of the book if the order would cross. If unset, an order that would cross generates a PostOnlyCross error */
+  Slide = 1 << 0,
+  /** Order can only reduce an existing position */
+  ReduceOnly = 1 << 1,
+}
+
+/**
+ * V2 of {@link CondensedOrder} used by {@link MultipleOrderPacketV2}: the
+ * expiry is a fixed-width `u64` (0 = no expiry) instead of a borsh `Option`,
+ * and a trailing flags byte carries per-order slide and reduce-only settings.
+ */
+export interface CondensedOrderV2 {
+  /** Price in ticks */
+  priceInTicks: bigint; // u64
+  /** Size in base lots */
+  sizeInBaseLots: bigint; // u64
+  /** If this is set, the order will be invalid after the specified slot. `null` (raw 0 on the wire) means no expiry */
+  lastValidSlot: bigint | null;
+  /** Per-order slide/reduce-only flags */
+  flags: CondensedOrderFlags; // u8
+}
+
+/**
+ * V2 of {@link MultipleOrderPacket} used by the `place_multi_limit_order_v2`
+ * instruction. Every order is still placed post-only, but the slide and
+ * reduce-only settings are carried per order via {@link CondensedOrderFlags}
+ * instead of packet-wide fields, and the packet carries a trailing
+ * `scaleSetId`.
+ */
+export interface MultipleOrderPacketV2 {
+  /** Bids and asks are in the format (price in ticks, size in base lots, per-order flags) */
+  bids: CondensedOrderV2[];
+  asks: CondensedOrderV2[];
+  /** Client order id for the batch */
+  clientOrderId: bigint | null;
+  /**
+   * 0 = not part of a scale-order set; 1-255 = caller-assigned ladder id
+   * stamped onto every leg's resting order. Must be unique among the
+   * trader's resting orders on the market; never affects matching.
+   */
+  scaleSetId: number; // u8
+}
