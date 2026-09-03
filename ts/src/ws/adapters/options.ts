@@ -8,6 +8,7 @@ import type { L2BookAdapterOptions } from "./l2-book/adapter";
 import type { MarkPriceAdapterOptions } from "./mark-price/adapter";
 import type { MarketAdapterOptions } from "./market/adapter";
 import type { MarketStatsAdapterOptions } from "./market-stats/adapter";
+import type { MarketStatsV2AdapterOptions } from "./market-stats-v2/adapter";
 import type { NotificationsAdapterOptions } from "./notifications/adapter";
 import type { OrderbookAdapterOptions } from "./orderbook/adapter";
 import type { TraderStateAdapterOptions } from "./trader-state/adapter";
@@ -23,6 +24,7 @@ export interface PublicAdapterOptions {
   markPrice?: MarkPriceAdapterOptions;
   market?: MarketAdapterOptions;
   marketStats?: MarketStatsAdapterOptions;
+  marketStatsV2?: MarketStatsV2AdapterOptions;
   notifications?: NotificationsAdapterOptions;
   orderbook?: L2BookAdapterOptions;
   orderbookSnapshot?: OrderbookAdapterOptions;

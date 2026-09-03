@@ -3,6 +3,32 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.18 - 2026-09-03
+
+Source Phoenix commit: `7fc763a0ec5ef143b123c0990ec836847056aba5`
+
+### Summary
+
+- Adds Native SOL as spot collateral: new instruction builders (`NativeSol` sync/withdraw/swap/liquidate/transfer), margin valuation (`margin/spotCollateral`, `margin/spotCollateralCaps`), and new `Trader`/`GlobalConfiguration`/`SpotCollateralMetadata` account fields.
+- Adds TWAP orders (new Flicker program) with a full set of instruction builders under `core/ixBuilders/Twap`.
+- Adds `PlaceMultiLimitOrderV2` / `MultipleOrderPacketV2` with per-order `CondensedOrderFlags` and optional `lastValidSlot`, plus a `cancelIdsForScaleSet` helper for cancelling scale-order legs.
+- Adds a `marketStatsV2` WS channel/adapter with `midPrice`, a `getCandlesV2` REST client/schema set, and a `getTraderTimeWeightedReturns` trader-returns endpoint.
+- Adds `isExchangeEffectivelyActive` to correctly gate exchange status on the on-chain restart interlock (new `@solana/sysvars` dependency).
+- Bumps package version `0.4.67` → `0.5.18`.
+
+### Breaking Changes
+
+- Flight builder-fee wraps (`wrapInstructionWithFlight` / `buildProxyInstructionIx`) no longer infer the collateral-transfer tail from the wrapped instruction. Signing as a trader's **position authority** (delegate) now requires explicitly declaring that in the wrap params; previously-working delegate-signed wraps that don't pass this will silently omit the required tail accounts and fail on-chain. Update all delegate-signed Flight wrap call sites.
+- The no-referral builder onboarding flow (`examples/10-builder-onboarding-tx.ts`, `/v1/exchange/build-register-ixs` + `/v1/exchange/send-register-ixs`) changed its signing model: the trader authority is now only a public key, and the transaction fee payer is the sole local signer (previously the user-controlled signer slot(s) were signed locally). Integrations relying on the old trader-signed flow must switch to fee-payer-only local signing.
+- New runtime dependency `@solana/sysvars` (`^4.0.0`) is required (used by `isExchangeEffectivelyActive`/exchange metadata refresh) — must be installed alongside the SDK.
+
+### Consumer Notes
+
+- New Native SOL instruction builders and margin helpers let consumers post/withdraw/value native SOL as collateral, including cap/headroom arithmetic for the permissionless `SyncNative` crank.
+- New `margin/draftOrders` helpers compute margin requirements and max sizes for draft (not-yet-placed) orders from a trader-state snapshot.
+- `Trader` gains `disablePositionAuthoritySwap` and `nativeSolCollateral`; `GlobalConfiguration` gains `acknowledgedRestartSlot` and spot collateral metadata — both are additive fields.
+- New `PhoenixHttpClient` rate-limit `RateLimitCooldownConfig` adds an optional shared cooldown on top of existing per-request retry config.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`
