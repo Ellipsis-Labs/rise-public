@@ -92,6 +92,22 @@ export interface HistoricalValuesRequest {
   includeLatest?: boolean;
 }
 
+export type TimeWeightedReturnsResolution =
+  | "5m"
+  | "15m"
+  | "1h"
+  | "4h"
+  | "1d"
+  | "1w"
+  | "1M";
+
+export interface TimeWeightedReturnsRequest extends Pick<
+  HistoricalValuesRequest,
+  "startTime" | "endTime" | "limit"
+> {
+  resolution: TimeWeightedReturnsResolution;
+}
+
 export interface MarketPositionSnapshot {
   baseLots: string;
   quoteLots: string;
@@ -107,12 +123,28 @@ export const MarketPositionSnapshotSchema: z.ZodType<MarketPositionSnapshot> =
     initialMargin: z.string(),
   });
 
+export interface SpotCollateralValue {
+  assetIndex: number;
+  balance: number;
+  notional: number;
+  discounted: number;
+}
+
+export const SpotCollateralValueSchema: z.ZodType<SpotCollateralValue> =
+  z.object({
+    assetIndex: z.number(),
+    balance: z.number(),
+    notional: z.number(),
+    discounted: z.number(),
+  });
+
 export interface PortfolioValueDataPoint {
   timestamp: number;
   startTime: number;
   endTime: number;
   value: number;
   positions?: Record<string, MarketPositionSnapshot> | null;
+  spotCollaterals?: Record<string, SpotCollateralValue> | null;
 }
 
 export const PortfolioValueDataPointSchema: z.ZodType<PortfolioValueDataPoint> =
@@ -125,6 +157,124 @@ export const PortfolioValueDataPointSchema: z.ZodType<PortfolioValueDataPoint> =
       .record(z.string(), MarketPositionSnapshotSchema)
       .nullable()
       .optional(),
+    spotCollaterals: z
+      .record(z.string(), SpotCollateralValueSchema)
+      .nullable()
+      .optional(),
+  });
+
+export interface TimeWeightedReturnPoint {
+  timestamp: string;
+  startTime: string;
+  endTime: string;
+  periodReturn: number | null;
+  cumulativeReturn: number | null;
+  netExternalFlow: number | null;
+  qualityFlags: string[];
+}
+
+const jsonSafeIntegerSchema = z
+  .union([z.string(), z.number().int()])
+  .transform(String);
+const unixTimestampSchema = jsonSafeIntegerSchema;
+
+export const TimeWeightedReturnPointSchema: z.ZodType<TimeWeightedReturnPoint> =
+  z.object({
+    timestamp: unixTimestampSchema,
+    startTime: unixTimestampSchema,
+    endTime: unixTimestampSchema,
+    periodReturn: z.number().nullable(),
+    cumulativeReturn: z.number().nullable(),
+    netExternalFlow: z.number().nullable(),
+    qualityFlags: z.array(z.string()),
+  });
+
+export interface TimeWeightedReturnScope {
+  traderPubkey: string;
+  userId: string;
+  traderPdaIndex: number;
+}
+
+export const TimeWeightedReturnScopeSchema: z.ZodType<TimeWeightedReturnScope> =
+  z.object({
+    traderPubkey: z.string(),
+    userId: jsonSafeIntegerSchema,
+    traderPdaIndex: z.number().int().nonnegative(),
+  });
+
+export type TimeWeightedReturnCompleteness =
+  | "complete"
+  | "partial"
+  | "unavailable";
+
+export const TimeWeightedReturnCompletenessSchema: z.ZodType<TimeWeightedReturnCompleteness> =
+  z.enum(["complete", "partial", "unavailable"]);
+
+export interface TimeWeightedReturnWindow {
+  requestedStartTime: string;
+  requestedEndTime: string;
+  calculationEndTime: string;
+  dataStartTime: string | null;
+  dataEndTime: string | null;
+  truncatedByLimit: boolean;
+}
+
+export const TimeWeightedReturnWindowSchema: z.ZodType<TimeWeightedReturnWindow> =
+  z.object({
+    requestedStartTime: unixTimestampSchema,
+    requestedEndTime: unixTimestampSchema,
+    calculationEndTime: unixTimestampSchema,
+    dataStartTime: unixTimestampSchema.nullable(),
+    dataEndTime: unixTimestampSchema.nullable(),
+    truncatedByLimit: z.boolean(),
+  });
+
+export interface TimeWeightedReturnQuality {
+  coverageStart: string | null;
+  coverageEnd: string | null;
+  requestedStartCovered: boolean;
+  containsGaps: boolean;
+  resetCount: string;
+  refreshedAt: string | null;
+  completeness: TimeWeightedReturnCompleteness;
+}
+
+export const TimeWeightedReturnQualitySchema: z.ZodType<TimeWeightedReturnQuality> =
+  z.object({
+    coverageStart: unixTimestampSchema.nullable(),
+    coverageEnd: unixTimestampSchema.nullable(),
+    requestedStartCovered: z.boolean(),
+    containsGaps: z.boolean(),
+    resetCount: jsonSafeIntegerSchema,
+    refreshedAt: unixTimestampSchema.nullable(),
+    completeness: TimeWeightedReturnCompletenessSchema,
+  });
+
+export interface TimeWeightedReturnsResponse {
+  method: "time_weighted";
+  scope: TimeWeightedReturnScope;
+  valuationIntervalSeconds: number;
+  exactFlowBoundaryValuations: boolean;
+  totalReturn: number | null;
+  returnStartTime: string | null;
+  equityDefinition: string;
+  window: TimeWeightedReturnWindow;
+  points: TimeWeightedReturnPoint[];
+  quality: TimeWeightedReturnQuality;
+}
+
+export const TimeWeightedReturnsResponseSchema: z.ZodType<TimeWeightedReturnsResponse> =
+  z.object({
+    method: z.literal("time_weighted"),
+    scope: TimeWeightedReturnScopeSchema,
+    valuationIntervalSeconds: z.number().int().positive(),
+    exactFlowBoundaryValuations: z.boolean(),
+    totalReturn: z.number().nullable(),
+    returnStartTime: unixTimestampSchema.nullable(),
+    equityDefinition: z.string(),
+    window: TimeWeightedReturnWindowSchema,
+    points: z.array(TimeWeightedReturnPointSchema),
+    quality: TimeWeightedReturnQualitySchema,
   });
 
 export interface PnlDataPoint {
@@ -135,6 +285,7 @@ export interface PnlDataPoint {
   unrealizedPnl: number;
   cumulativeFundingPayment: number;
   cumulativeTakerFee: number;
+  cumulativeMakerFee: number;
 }
 
 export const PnlDataPointSchema: z.ZodType<PnlDataPoint> = z.object({
@@ -145,6 +296,7 @@ export const PnlDataPointSchema: z.ZodType<PnlDataPoint> = z.object({
   unrealizedPnl: z.number(),
   cumulativeFundingPayment: z.number(),
   cumulativeTakerFee: z.number(),
+  cumulativeMakerFee: z.number(),
 });
 
 // ---------------------------------------------------------------------------

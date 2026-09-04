@@ -1,5 +1,6 @@
 import {
   EMBER_PROGRAM_ADDRESS,
+  FLICKER_PROGRAM_ADDRESS,
   SPL_ATA_PROGRAM_ADDRESS,
   SPL_TOKEN_PROGRAM_ADDRESS,
   getPhoenixProgramAddress,
@@ -8,15 +9,20 @@ import type {
   Authority,
   EmberStateAddress,
   EmberVaultAddress,
+  FlickerProgramAddress,
   GlobalConfigurationAddress,
   GlobalVaultAddress,
   LogAuthorityAddress,
   MarketAddress,
   MintAddress,
+  NativeSolAuthorityAddress,
   PhoenixProgramAddress,
   SplineCollectionAddress,
   TokenAccountAddress,
   TraderAddress,
+  TwapAccountAddress,
+  TwapGlobalStateAddress,
+  TwapLogAuthorityAddress,
 } from "@/primitives";
 import {
   getBase58Encoder,
@@ -27,6 +33,12 @@ import {
 const toLittleEndianU64Bytes = (value: bigint): Uint8Array => {
   const bytes = new Uint8Array(8);
   new DataView(bytes.buffer).setBigUint64(0, value, true);
+  return bytes;
+};
+
+const toLittleEndianU32Bytes = (value: number): Uint8Array => {
+  const bytes = new Uint8Array(4);
+  new DataView(bytes.buffer).setUint32(0, value, true);
   return bytes;
 };
 
@@ -46,6 +58,22 @@ export interface StopLossAddressParams {
 export interface ConditionalOrdersAddressParams {
   traderAccount: TraderAddress;
   phoenixProgramAddress?: PhoenixProgramAddress;
+}
+
+export interface TwapAddressParams {
+  phoenixProgramAddress?: PhoenixProgramAddress;
+  flickerProgramAddress?: FlickerProgramAddress;
+}
+
+export interface TwapAccountAddressParams extends TwapAddressParams {
+  traderAuthority: Authority;
+  traderPdaIndex: number;
+  traderSubaccountIndex: number;
+  marketId: number;
+}
+
+export interface TwapDelegatePermissionAddressParams extends TwapAddressParams {
+  traderAuthority: Authority;
 }
 
 export const getPhoenixLogAuthorityAddress = async (
@@ -145,6 +173,23 @@ export const getEmberVaultAddress = async (
   return pda as EmberVaultAddress;
 };
 
+/**
+ * Derives the native SOL authority PDA, which custodies native SOL spot
+ * collateral and signs the program's own withdrawals of it.
+ *
+ * Seeds: `["native_sol"]`.
+ */
+export const getPhoenixNativeSolAuthorityAddress = async (
+  phoenixProgramAddress: PhoenixProgramAddress = getPhoenixProgramAddress()
+): Promise<NativeSolAuthorityAddress> => {
+  const [pda] = await getProgramDerivedAddress({
+    programAddress: phoenixProgramAddress,
+    seeds: ["native_sol"],
+  });
+
+  return pda as NativeSolAuthorityAddress;
+};
+
 export const getPhoenixPermissionAddress = async (
   permissionAuthority: Address,
   delegatedKey: Address,
@@ -201,4 +246,67 @@ export const getPhoenixConditionalOrdersAddress = async (
   });
 
   return pda;
+};
+
+export const getTwapGlobalStateAddress = async (
+  params: TwapAddressParams = {}
+): Promise<TwapGlobalStateAddress> => {
+  const [pda] = await getProgramDerivedAddress({
+    programAddress: params.flickerProgramAddress ?? FLICKER_PROGRAM_ADDRESS,
+    seeds: [
+      getBase58Encoder().encode(
+        params.phoenixProgramAddress ?? getPhoenixProgramAddress()
+      ),
+      "global_state",
+    ],
+  });
+
+  return pda as TwapGlobalStateAddress;
+};
+
+/**
+ * Derives the Eternal permission PDA that enrolls a trader in Flicker TWAP
+ * execution. The delegated key is the Flicker global state PDA — the single
+ * program-wide delegate that signs Phoenix CPIs for every TWAP account — so
+ * one enrollment covers all of the trader's TWAP orders on every market.
+ */
+export const getTwapDelegatePermissionAddress = async (
+  params: TwapDelegatePermissionAddressParams
+): Promise<Address> => {
+  const twapGlobalState = await getTwapGlobalStateAddress(params);
+  return getPhoenixPermissionAddress(
+    params.traderAuthority,
+    twapGlobalState,
+    params.phoenixProgramAddress ?? getPhoenixProgramAddress()
+  );
+};
+
+export const getTwapLogAuthorityAddress = async (
+  params: Pick<TwapAddressParams, "flickerProgramAddress"> = {}
+): Promise<TwapLogAuthorityAddress> => {
+  const [pda] = await getProgramDerivedAddress({
+    programAddress: params.flickerProgramAddress ?? FLICKER_PROGRAM_ADDRESS,
+    seeds: ["log"],
+  });
+
+  return pda as TwapLogAuthorityAddress;
+};
+
+export const getTwapAccountAddress = async (
+  params: TwapAccountAddressParams
+): Promise<TwapAccountAddress> => {
+  const [pda] = await getProgramDerivedAddress({
+    programAddress: params.flickerProgramAddress ?? FLICKER_PROGRAM_ADDRESS,
+    seeds: [
+      "flicker",
+      getBase58Encoder().encode(
+        params.phoenixProgramAddress ?? getPhoenixProgramAddress()
+      ),
+      getBase58Encoder().encode(params.traderAuthority),
+      new Uint8Array([params.traderPdaIndex, params.traderSubaccountIndex]),
+      toLittleEndianU32Bytes(params.marketId),
+    ],
+  });
+
+  return pda as TwapAccountAddress;
 };
