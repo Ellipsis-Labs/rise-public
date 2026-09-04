@@ -101,7 +101,16 @@ Use the examples as the fastest reference for intended SDK usage:
   referral activation through `/v1/referral/activate-tx`
 - [examples/10-builder-onboarding-tx.ts](./examples/10-builder-onboarding-tx.ts):
   builder onboarding without a referral code through
-  `/v1/exchange/build-register-ixs` and `/v1/exchange/send-register-ixs`
+  `/v1/exchange/build-register-ixs` and `/v1/exchange/send-register-ixs`. The
+  fee-payer keypair path defaults to `~/.config/solana/id.json`; the optional
+  trader authority defaults to the fee payer's public key.
+
+  ```text
+  bun examples/10-builder-onboarding-tx.ts \
+    [--fee-payer-keypair-path <PATH>] \
+    [--trader-authority <TRADER_AUTHORITY_PUBKEY>]
+  ```
+
 - [examples/phoenix-client-example.ts](./examples/phoenix-client-example.ts):
   broader API walkthrough
 - [examples/phoenix-ws-example.ts](./examples/phoenix-ws-example.ts):
@@ -165,12 +174,35 @@ Recommended defaults:
 - Set `rpcUrl` when you use `client.rpc` or want RPC-backed exchange metadata
   fallback if the API snapshot is unavailable. If you omit it, rise will also
   read `NEXT_PUBLIC_SOLANA_RPC_URL` or `SOLANA_RPC_URL`.
+- Keep the default rate-limit cooldown enabled for long-lived clients. When a
+  retryable GET or HEAD receives `429` with `Retry-After`, later retryable
+  requests on the same client wait for that server window before sending. The
+  cooldown is client-local, not process-global, adds positive release jitter to
+  avoid synchronized retries, and does not delay non-idempotent methods such as
+  POST. Server-provided delays are capped at 30 seconds by default.
 - If you use Flight consistently, configure it once on the client with
   `builderAuthority`, plus optional `builderPdaIndex` and
   `builderSubaccountIndex`. rise derives the builder trader account from those
   values and defaults both indexes to `0`. Set `feeBpsOverride` only when the
   client should emit Flight's fee-override proxy instruction for supported
   local order builders.
+
+To tune or disable shared rate-limit cooldowns:
+
+```ts
+import { createPhoenixClient } from "@ellipsis-labs/rise";
+
+const client = createPhoenixClient({
+  rateLimitCooldown: {
+    maxDelayMs: 30_000,
+    fallbackDelayMs: 1_000,
+  },
+});
+
+const cooldownDisabledClient = createPhoenixClient({
+  rateLimitCooldown: false,
+});
+```
 
 For short runnable onboarding examples, see:
 
@@ -192,9 +224,24 @@ const client = createPhoenixClient();
 const exchange = await client.api.exchange().getExchange();
 const metadata = await client.exchange.ready();
 const markets = await client.api.markets().getMarkets();
-const candles = await client.api.candles().getCandles("SOL");
+const now = Date.now();
+const candlesPage = await client.api.candles().getCandlesV2("SOL", {
+  timeframe: "1m",
+  from: now - 60 * 60_000,
+  to: now,
+  limit: 10_000,
+  includePartial: false,
+});
 const trader = await client.api.traders().getTrader("TRADER_PUBKEY");
 ```
+
+`getCandlesV2` exposes millisecond timestamps, cursor pagination, partial-bar
+control, mark-price OHLC, external-source metadata, and `isFinal`. The existing
+`getCandles` method remains available with its original array response and
+millisecond timestamps. It remains on the legacy endpoint to preserve its
+exchange-only default, server-relative finalized window, and 2,500-bar server
+limit. Use `getCandlesV2` for canonical v2 data; it defaults to 1,000 bars per
+page and accepts explicit page sizes up to 10,000.
 
 ### Unified HTTP + auth + WebSocket client
 
@@ -325,6 +372,12 @@ The returned instructions create the user's Flame proxy USDC ATA and transfer
 USDC from the user's wallet ATA into that proxy ATA. They do not perform the
 Phoenix collateral deposit directly; the Flame crank/indexer completes that
 asynchronously after the proxy account is funded.
+
+For an atomic sponsored deposit, use `buildFlameAtomicDepositFlow`. It adds
+permission setup plus the Flame `DepositToPhoenix` instruction. The user signs
+the deposit permission; the sponsor fee payer cranks the deposit so wallets
+holding no SOL can deposit (the crank fronts rent for the transient proxy
+Phoenix ATA and the same instruction refunds it on close).
 
 `buildDepositFlow` remains the direct Ember + Phoenix deposit path.
 

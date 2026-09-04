@@ -9,6 +9,7 @@ import {
   createMarkPriceAdapter,
   createMarketAdapter,
   createMarketStatsAdapter,
+  createMarketStatsV2Adapter,
   createNotificationsAdapter,
   createOrderbookAdapter,
   createTraderStateAdapter,
@@ -69,6 +70,7 @@ export interface PhoenixWsClient {
   markPrice: ReturnType<typeof createMarkPriceAdapter>;
   market: ReturnType<typeof createMarketAdapter>;
   marketStats: ReturnType<typeof createMarketStatsAdapter>;
+  marketStatsV2: ReturnType<typeof createMarketStatsV2Adapter>;
   notifications: ReturnType<typeof createNotificationsAdapter>;
   orderbook: ReturnType<typeof createL2BookAdapter>;
   orderbookSnapshot: ReturnType<typeof createOrderbookAdapter>;
@@ -195,6 +197,11 @@ export const createPhoenixWsFacade = ({
     adapterOptions?.marketStats,
     strictMode
   );
+  const marketStatsV2 = createMarketStatsV2Adapter(
+    scopedWsClient,
+    adapterOptions?.marketStatsV2,
+    strictMode
+  );
   const notifications = createNotificationsAdapter(
     scopedWsClient,
     adapterOptions?.notifications,
@@ -228,6 +235,7 @@ export const createPhoenixWsFacade = ({
     markPrice,
     market,
     marketStats,
+    marketStatsV2,
     notifications,
     orderbook,
     orderbookSnapshot,

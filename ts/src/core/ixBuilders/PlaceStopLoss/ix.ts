@@ -93,6 +93,9 @@ const validate = (params: PlaceStopLossParams) => {
   if (params.executionPrice === undefined || params.executionPrice === null) {
     throw new Error("Execution price is required");
   }
+  if (params.executionPrice <= 0n) {
+    throw new Error("Execution price must be greater than 0 ticks");
+  }
   if (params.executionDirection === undefined) {
     throw new Error("Execution direction is required");
   }

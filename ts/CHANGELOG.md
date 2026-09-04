@@ -3,6 +3,31 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.19 - 2026-09-04
+
+Source Phoenix commit: `d20f17df1c201ce9eb1b31c3927d5bb73b51cb98`
+
+### Summary
+
+- Adds native SOL spot collateral support: new instruction builders (`buildSyncNativeIx`, `buildWithdrawNativeSolIx`, `buildSwapNativeIx`, `buildLiquidateNativeSolIx`, `buildTransferNativeSolIx`/`buildTransferNativeSolFromChildToParentIx`) plus margin/valuation helpers (`@/margin/spotCollateral`, `@/margin/spotCollateralCaps`) and a `buildNativeSolDepositFlow`.
+- Adds TWAP order support (`@/core/ixBuilders/Twap`: create/place/execute/cancel/close TWAP account) via the new Flicker program, plus `PlaceMultiLimitOrderV2`/`CondensedOrderV2` order packets with scale-order set ids now surfaced on order history and trader-state rows (`scaleSetId`).
+- Adds a `marketStatsV2` WebSocket channel (adds `midPrice`), a v2 candles HTTP API (`getCandlesV2`), a trader time-weighted-returns endpoint, and a collateral assets/spot-collateral-config endpoint.
+- Adds shared client-side rate-limit cooldown handling (`RateLimitCooldownConfig`) alongside the existing per-request retry config.
+- PnL data points now include `cumulativeMakerFee`.
+
+### Breaking Changes
+
+- `wrapInstructionWithFlight` (Flight) no longer takes a single `authority`; callers must pass the actual signer plus an explicit `usePositionAuthority` flag when the signer is a position authority rather than the trader owner, since Flight no longer infers the collateral-transfer tail accounts from the wrapped instruction.
+- The builder-onboarding flow (`build-register-ixs`/`send-register-ixs`) changed its signing model: the trader authority is now accepted as a plain public key and only the builder's fee payer signs locally. Code that previously constructed and signed a "user-controlled" trader signer for this flow must be updated (see the rewritten `examples/10-builder-onboarding-tx.ts`).
+- `PlaceStopLoss` now throws when `executionPrice` is `0` instead of accepting a zero execution tick.
+
+### Consumer Notes
+
+- New exports: `BETA_USDC_MINT_ADDRESS`, `EMBER_STATE_ADDRESS`, `FLICKER_PROGRAM_ADDRESS`, `isExchangeEffectivelyActive` (uses the new `GlobalConfiguration.acknowledgedRestartSlot` plus the runtime's last-restart sysvar), `cancelIdsForScaleSet`, `buildTransferSolIx` (plain System Program transfer), and `DEFAULT_MAX_ORDERS_PER_TX_V2`.
+- `Trader` gains `nativeSolCollateral` and `disablePositionAuthoritySwap`; trader-state and margin snapshot types gain `spotCollaterals`.
+- The package now depends on `@solana/sysvars` (`^4.0.0`), pulled in automatically for Bun/npm consumers of `@ellipsis-labs/rise`.
+- Notifications add a `spot_collateral_liquidation` type; if you consume raw notification payloads directly, review the updated shapes in `@/api/notifications/types`.
+
 ## v0.4.67 - 2026-07-09
 
 Source Phoenix commit: `39520ccb1d19d0f7610909dd2718dc7918d0ec22`

@@ -1,4 +1,9 @@
-import { getOptionToNullDecoder, getOptionToNullEncoder } from "@/core";
+import {
+  getOptionalNonZeroU64Decoder,
+  getOptionalNonZeroU64Encoder,
+  getOptionToNullDecoder,
+  getOptionToNullEncoder,
+} from "@/core/utils/optionCodec";
 import type { Decoder, Encoder } from "@solana/kit";
 import {
   getArrayDecoder,
@@ -15,6 +20,8 @@ import {
   getU64Encoder,
   getU8Decoder,
   getU8Encoder,
+  transformDecoder,
+  transformEncoder,
 } from "@solana/kit";
 import {
   getBaseLotsDecoder,
@@ -26,12 +33,15 @@ import {
 } from "../_numberTypes";
 import { getSideDecoder, getSideEncoder } from "../Side";
 import {
+  type CondensedOrderFlags,
   type OrderFlags,
   SelfTradeBehavior,
   type CondensedOrder,
+  type CondensedOrderV2,
   type ImmediateOrCancelOrderPacket,
   type LimitOrderPacket,
   type MultipleOrderPacket,
+  type MultipleOrderPacketV2,
   type PostOnlyOrderPacket,
 } from "./types";
 
@@ -170,3 +180,43 @@ export const getMultipleOrderPacketEncoder = (): Encoder<MultipleOrderPacket> =>
     ["clientOrderId", getOptionToNullEncoder(getU128Encoder())],
     ["slide", getBooleanEncoder()],
   ]);
+
+export const getCondensedOrderFlagsDecoder = (): Decoder<CondensedOrderFlags> =>
+  transformDecoder(getU8Decoder(), (value) => value as CondensedOrderFlags);
+
+export const getCondensedOrderFlagsEncoder = (): Encoder<CondensedOrderFlags> =>
+  transformEncoder(getU8Encoder(), (value: CondensedOrderFlags) => value);
+
+export const getCondensedOrderV2Decoder = (): Decoder<CondensedOrderV2> =>
+  getStructDecoder([
+    ["priceInTicks", getU64Decoder()],
+    ["sizeInBaseLots", getU64Decoder()],
+    ["lastValidSlot", getOptionalNonZeroU64Decoder()],
+    ["flags", getCondensedOrderFlagsDecoder()],
+  ]);
+
+export const getCondensedOrderV2Encoder = (): Encoder<CondensedOrderV2> =>
+  getStructEncoder([
+    ["priceInTicks", getU64Encoder()],
+    ["sizeInBaseLots", getU64Encoder()],
+    ["lastValidSlot", getOptionalNonZeroU64Encoder()],
+    ["flags", getCondensedOrderFlagsEncoder()],
+  ]);
+
+export const getMultipleOrderPacketV2Decoder =
+  (): Decoder<MultipleOrderPacketV2> =>
+    getStructDecoder([
+      ["bids", getArrayDecoder(getCondensedOrderV2Decoder())],
+      ["asks", getArrayDecoder(getCondensedOrderV2Decoder())],
+      ["clientOrderId", getOptionToNullDecoder(getU128Decoder())],
+      ["scaleSetId", getU8Decoder()],
+    ]);
+
+export const getMultipleOrderPacketV2Encoder =
+  (): Encoder<MultipleOrderPacketV2> =>
+    getStructEncoder([
+      ["bids", getArrayEncoder(getCondensedOrderV2Encoder())],
+      ["asks", getArrayEncoder(getCondensedOrderV2Encoder())],
+      ["clientOrderId", getOptionToNullEncoder(getU128Encoder())],
+      ["scaleSetId", getU8Encoder()],
+    ]);

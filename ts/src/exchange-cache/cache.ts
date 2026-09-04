@@ -65,6 +65,10 @@ class PhoenixExchangeCacheImpl implements PhoenixExchangeCache {
     return this.cacheStore.snapshot();
   }
 
+  spotCollaterals() {
+    return this.cacheStore.spotCollaterals();
+  }
+
   market(symbol: string) {
     return this.cacheStore.market(symbol);
   }

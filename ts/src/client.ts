@@ -2,10 +2,15 @@ import type { HttpTransport, RequestOptions } from "./http/transport";
 import { appendQueryParams } from "./http/transport";
 import {
   isRateLimitRetryableMethod,
+  rateLimitCooldownDelayMs,
+  rateLimitDelayWithPositiveJitterMs,
   rateLimitRetryDecision,
+  resolveRateLimitCooldownConfig,
   resolveRateLimitRetryConfig,
   setRateLimitRetryAttempts,
+  type RateLimitCooldownConfig,
   type RateLimitRetryConfig,
+  type ResolvedRateLimitCooldownConfig,
   type ResolvedRateLimitRetryConfig,
 } from "./http/rateLimitRetry";
 import { V1CandlesClient } from "./api/candles/client";
@@ -139,7 +144,7 @@ export interface PhoenixHttpClientConfig extends PhoenixApiUrlConfig {
    * PDA cache with LRU eviction.
    */
   pdaCache?: boolean | PhoenixPdaCacheConfig;
-  /** Request timeout in ms (default: 30000) */
+  /** Per-attempt network timeout in ms (default: 30000). */
   timeout?: number;
   /** Optional additional headers resolved per request. */
   extraHeaders?:
@@ -154,6 +159,11 @@ export interface PhoenixHttpClientConfig extends PhoenixApiUrlConfig {
   authConfig?: RiseAuthConfig;
   /** Automatic rate-limit retry behavior for idempotent HTTP requests. */
   rateLimitRetry?: RateLimitRetryConfig | false;
+  /**
+   * Shared client-local cooldown applied to later idempotent HTTP requests
+   * after a 429 Retry-After response.
+   */
+  rateLimitCooldown?: RateLimitCooldownConfig | false;
   /** Optional flight routing defaults applied to supported order-building paths. */
   flight?: PhoenixFlightClientConfig;
 }
@@ -174,6 +184,8 @@ export class PhoenixHttpClient implements HttpTransport {
   private readonly timeout: number;
   private readonly extraHeaders?: PhoenixHttpClientConfig["extraHeaders"];
   private readonly rateLimitRetry: ResolvedRateLimitRetryConfig | null;
+  private readonly rateLimitCooldown: ResolvedRateLimitCooldownConfig | null;
+  private rateLimitCooldownUntilMs = 0;
   private readonly authRuntime?: RiseAuthRuntime;
   readonly pda: PhoenixPdaClient;
   private readonly candlesClient: V1CandlesClient;
@@ -193,6 +205,10 @@ export class PhoenixHttpClient implements HttpTransport {
     this.timeout = config.timeout ?? DEFAULT_TIMEOUT;
     this.extraHeaders = config.extraHeaders;
     this.rateLimitRetry = resolveRateLimitRetryConfig(config.rateLimitRetry);
+    this.rateLimitCooldown = resolveRateLimitCooldownConfig(
+      config.rateLimitCooldown,
+      this.rateLimitRetry
+    );
     const pdaConfig: PhoenixPdaClientConfig = {
       phoenixEnv: config.phoenixEnv,
       addresses: config.addresses,
@@ -240,9 +256,11 @@ export class PhoenixHttpClient implements HttpTransport {
     url: URL,
     method: string,
     headers: Record<string, string>,
-    body: string | undefined,
-    controller: AbortController
+    body: string | undefined
   ): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeout);
+
     try {
       return await globalThis.fetch(url.toString(), {
         method,
@@ -257,6 +275,8 @@ export class PhoenixHttpClient implements HttpTransport {
         `Failed to connect to the Phoenix HTTP API (${method} ${url.toString()}): ${message}`,
         { cause: error }
       );
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -264,6 +284,68 @@ export class PhoenixHttpClient implements HttpTransport {
     if (!this.extraHeaders) return {};
     const headers = await this.extraHeaders();
     return headers ?? {};
+  }
+
+  private async waitForRateLimitCooldown(
+    method: string,
+    url: URL
+  ): Promise<void> {
+    if (
+      this.rateLimitCooldown === null ||
+      !isRateLimitRetryableMethod(method)
+    ) {
+      return;
+    }
+
+    while (true) {
+      const waitMs = Math.max(0, this.rateLimitCooldownUntilMs - Date.now());
+      if (waitMs === 0) {
+        return;
+      }
+
+      const jitteredWaitMs = rateLimitDelayWithPositiveJitterMs(waitMs);
+
+      debugRise("http", "request:rate-limit-cooldown-wait", {
+        method: method.toUpperCase(),
+        url: url.toString(),
+        waitMs: jitteredWaitMs,
+        releaseJitterMs: jitteredWaitMs - waitMs,
+      });
+      await new Promise((resolve) => setTimeout(resolve, jitteredWaitMs));
+    }
+  }
+
+  private recordRateLimitCooldown(
+    response: Response,
+    method: string,
+    url: URL
+  ): void {
+    if (
+      this.rateLimitCooldown === null ||
+      response.status !== 429 ||
+      !isRateLimitRetryableMethod(method)
+    ) {
+      return;
+    }
+
+    const nowMs = Date.now();
+    const waitMs = rateLimitCooldownDelayMs(
+      response,
+      this.rateLimitCooldown,
+      nowMs
+    );
+    const previousUntilMs = this.rateLimitCooldownUntilMs;
+    this.rateLimitCooldownUntilMs = Math.max(
+      this.rateLimitCooldownUntilMs,
+      nowMs + waitMs
+    );
+
+    debugRise("http", "request:rate-limit-cooldown-update", {
+      method: method.toUpperCase(),
+      url: url.toString(),
+      waitMs,
+      extended: this.rateLimitCooldownUntilMs > previousUntilMs,
+    });
   }
 
   async fetch(
@@ -289,9 +371,6 @@ export class PhoenixHttpClient implements HttpTransport {
       );
     }
     const requestBody = body !== undefined ? JSON.stringify(body) : undefined;
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeout);
 
     try {
       debugRise("http", "request:start", {
@@ -321,7 +400,15 @@ export class PhoenixHttpClient implements HttpTransport {
           ...baseHeaders,
         };
         if (authorization) headers.Authorization = authorization;
-        return this.performFetch(url, method, headers, requestBody, controller);
+        await this.waitForRateLimitCooldown(method, url);
+        const response = await this.performFetch(
+          url,
+          method,
+          headers,
+          requestBody
+        );
+        this.recordRateLimitCooldown(response, method, url);
+        return response;
       };
 
       let authorizedResponse = await execute(
@@ -421,8 +508,6 @@ export class PhoenixHttpClient implements HttpTransport {
         ...summarizeDebugError(error),
       });
       throw error;
-    } finally {
-      clearTimeout(timer);
     }
   }
 
