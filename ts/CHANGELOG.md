@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.76 - 2026-09-14
+
+Source Phoenix commit: `116538d2560135ebd0d7d11fbb8804d32db043d8`
+
+### Summary
+
+- Added spot collateral margin support: `SpotCollateralMarginInput`/`SpotCollateralMarginResult` types, a `spotCollaterals` field on `SubaccountMarginInputs`, and matching valuation logic in `computeSubaccountMarginFromInputs` that discounts spot balances (e.g. SOL) into effective collateral while including full notional in portfolio value.
+- `MarginTotals` and `SubaccountMarginResult` gained optional `spotCollateralNotionalQuoteLots`, `spotCollateralDiscountedQuoteLots`, and `spotCollaterals` fields, populated only when spot collateral inputs are supplied.
+- `buildSubaccountMarginInputsFromSnapshot` and `buildTraderMarginInputsFromSnapshot` accept a new optional `options.spotAssetParamsByIndex` argument to map raw traderState spot balances into valued margin inputs using per-asset pricing/discount curve parameters.
+- `PlaceIsolatedMarketOrderRequest` (and its Zod schema) gained an optional `minBaseLotsToFill` field for specifying a minimum fill quantity on isolated market orders.
+- Isolated-scope margin building now reuses `cloneSubaccountInput`, so scoped cross-margin requests also carry through `spotCollaterals` when present.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- All new fields and function parameters are optional and additive; existing calls to `buildSubaccountMarginInputsFromSnapshot`, `buildTraderMarginInputsFromSnapshot`, and `computeSubaccountMarginFromInputs` continue to work unchanged and omit the new spot-collateral output fields when no spot inputs are given.
+- To value spot collateral (e.g. SOL) in margin calculations, pass `spotCollaterals` on `SubaccountMarginInputs` directly, or supply `spotAssetParamsByIndex` (sourced from `/v1/collateral/assets`) when building inputs from a traderState snapshot.
+- Spot collateral backs cross margin only — isolated-scope margin inputs drop `spotCollaterals`, and spot value is excluded from `effectiveCollateralForWithdrawalsQuoteLots`.
+- `minBaseLotsToFill` on isolated market orders is optional; omitting it preserves prior fill-or-kill default behavior.
+
 ## v0.4.75 - 2026-09-14
 
 Source Phoenix commit: `8b82f4267044e45cd33050bf86138e845866e049`
