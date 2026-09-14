@@ -1,8 +1,11 @@
+import type { TraderStateMarketLimitOrderRow } from "@/api/traders/traderState";
 import {
   priceUsdToTicksWithMarketParams,
   ticksToUsdWithMarketParams,
   type OrderPacketMarketParams,
 } from "@/orderPackets";
+import type { CancelId } from "@/primitives/CancelId";
+import { ticks, u64 } from "@/primitives/_numberTypes";
 import { Side } from "@/primitives/Side";
 import {
   CondensedOrderFlags,
@@ -521,4 +524,49 @@ export const chunkScaleLevelsForTx = (
     chunks.push(levels.slice(i, i + max));
   }
   return chunks;
+};
+
+/**
+ * Row fields {@link cancelIdsForScaleSet} reads from a trader-state
+ * limit-order row. Pass the currently-open rows of a single market —
+ * `TraderStateManager#orders(subaccountIndex, symbol)` returns exactly that.
+ * When assembling rows by hand, drop `change: "closed"` rows yourself
+ * (`status` is `"active"` even on closed rows).
+ */
+export type ScaleSetCancelableOrderRow = Pick<
+  TraderStateMarketLimitOrderRow,
+  "priceTicks" | "orderSequenceNumber" | "scaleSetId"
+>;
+
+/**
+ * Pure filter: convert the rows tagged `scaleSetId` (1-255) into
+ * {@link CancelId}s for `buildCancelOrdersByIdIxResolved`, preserving input
+ * order. An empty result means the set already left the book — skip the
+ * cancel (the builder throws on an empty list). A two-sided set can reach
+ * 2 * {@link MAX_SCALE_ORDERS} = 128 ids, above the builder's 100-id cap:
+ * split larger results across instructions.
+ */
+export const cancelIdsForScaleSet = (
+  rows: readonly ScaleSetCancelableOrderRow[],
+  scaleSetId: number
+): CancelId[] => {
+  if (!Number.isInteger(scaleSetId) || scaleSetId < 1 || scaleSetId > 255) {
+    throw new Error(
+      `scaleSetId must be an integer in 1..=255; got ${scaleSetId}`
+    );
+  }
+  const cancelIds: CancelId[] = [];
+  for (const row of rows) {
+    if (row.scaleSetId !== scaleSetId) {
+      continue;
+    }
+    cancelIds.push({
+      nodePointer: null,
+      orderId: {
+        priceInTicks: ticks(u64(row.priceTicks)),
+        orderSequenceNumber: u64(row.orderSequenceNumber),
+      },
+    });
+  }
+  return cancelIds;
 };

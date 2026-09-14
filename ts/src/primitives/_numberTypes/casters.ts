@@ -76,6 +76,17 @@ export const ticks = (value: number | bigint | string): Ticks => {
   return v as Ticks;
 };
 
+export const u64 = (value: number | bigint | string): bigint => {
+  if (typeof value === "string" && !/^(0|[1-9]\d*)$/.test(value)) {
+    throw new Error(
+      `u64: string value ${JSON.stringify(value)} must be a canonical non-negative decimal integer`
+    );
+  }
+  const v = toBigInt(value, "u64");
+  validateU64(v, "u64");
+  return v;
+};
+
 export const baseLots = (value: number | bigint | string): BaseLots => {
   const v = toBigInt(value, "BaseLots");
   validateU64(v, "BaseLots");

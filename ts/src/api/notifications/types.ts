@@ -376,6 +376,17 @@ export type StopLossOrderPlacedNotification = EventNotificationBase & {
   details?: StopLossOrderPlacedDetails;
 };
 
+/**
+ * Event notification whose `notificationType` this SDK version does not know.
+ * The original wire type is preserved in `rawNotificationType`.
+ */
+export type UnknownEventNotification = EventNotificationBase & {
+  notificationType: "unknown";
+  rawNotificationType: string;
+  data: unknown;
+  details?: unknown;
+};
+
 export type EventNotificationItem =
   | OrderFilledNotification
   | LiquidationNotification
@@ -384,7 +395,8 @@ export type EventNotificationItem =
   | RiskEngineCancelOrderNotification
   | StopLossExecutedNotification
   | ConditionalOrderExecutedNotification
-  | StopLossOrderPlacedNotification;
+  | StopLossOrderPlacedNotification
+  | UnknownEventNotification;
 
 export interface AdminNotificationItem {
   source: "admin";
@@ -491,47 +503,77 @@ const BackstopLiquidationDetailsSchema = z.object({
   haircutRate: z.number(),
 });
 
-const EventNotificationItemSchema = z.discriminatedUnion("notificationType", [
+const KnownEventNotificationItemSchema = z.discriminatedUnion(
+  "notificationType",
+  [
+    EventNotificationBaseSchema.extend({
+      notificationType: z.literal("order_filled"),
+      data: OrderFillEventDataSchema,
+      details: OrderFilledDetailsSchema.optional(),
+    }),
+    EventNotificationBaseSchema.extend({
+      notificationType: z.literal("liquidation"),
+      data: TradeEventDataSchema,
+      details: LiquidationDetailsSchema.optional(),
+    }),
+    EventNotificationBaseSchema.extend({
+      notificationType: z.literal("backstop_liquidation"),
+      data: LiquidationTransferEventDataSchema,
+      details: BackstopLiquidationDetailsSchema.optional(),
+    }),
+    EventNotificationBaseSchema.extend({
+      notificationType: z.literal("adl"),
+      data: CloseMatchedPositionsEventDataSchema,
+      details: AdlDetailsSchema.optional(),
+    }),
+    EventNotificationBaseSchema.extend({
+      notificationType: z.literal("risk_engine_cancel_order"),
+      data: OrderModifiedEventDataSchema,
+      details: RiskEngineCancelOrderDetailsSchema.optional(),
+    }),
+    EventNotificationBaseSchema.extend({
+      notificationType: z.literal("stop_loss_executed"),
+      data: TradeEventDataSchema,
+      details: StopLossExecutedDetailsSchema.optional(),
+    }),
+    EventNotificationBaseSchema.extend({
+      notificationType: z.literal("conditional_order_executed"),
+      data: TradeEventDataSchema,
+      details: ConditionalOrderExecutedDetailsSchema.optional(),
+    }),
+    EventNotificationBaseSchema.extend({
+      notificationType: z.literal("stop_loss_order_placed"),
+      data: OrderPlacedEventDataSchema,
+      details: StopLossOrderPlacedDetailsSchema.optional(),
+    }),
+  ]
+);
+
+const KNOWN_EVENT_NOTIFICATION_TYPES: ReadonlySet<string> = new Set(
+  EVENT_NOTIFICATION_TYPES
+);
+
+// Forward-compat fallback: event items with a notificationType this SDK does
+// not know parse as "unknown" instead of failing the whole message/response.
+// Known types that fail their typed schema still fail loudly.
+const UnknownEventNotificationSchema: z.ZodType<UnknownEventNotification> =
   EventNotificationBaseSchema.extend({
-    notificationType: z.literal("order_filled"),
-    data: OrderFillEventDataSchema,
-    details: OrderFilledDetailsSchema.optional(),
-  }),
-  EventNotificationBaseSchema.extend({
-    notificationType: z.literal("liquidation"),
-    data: TradeEventDataSchema,
-    details: LiquidationDetailsSchema.optional(),
-  }),
-  EventNotificationBaseSchema.extend({
-    notificationType: z.literal("backstop_liquidation"),
-    data: LiquidationTransferEventDataSchema,
-    details: BackstopLiquidationDetailsSchema.optional(),
-  }),
-  EventNotificationBaseSchema.extend({
-    notificationType: z.literal("adl"),
-    data: CloseMatchedPositionsEventDataSchema,
-    details: AdlDetailsSchema.optional(),
-  }),
-  EventNotificationBaseSchema.extend({
-    notificationType: z.literal("risk_engine_cancel_order"),
-    data: OrderModifiedEventDataSchema,
-    details: RiskEngineCancelOrderDetailsSchema.optional(),
-  }),
-  EventNotificationBaseSchema.extend({
-    notificationType: z.literal("stop_loss_executed"),
-    data: TradeEventDataSchema,
-    details: StopLossExecutedDetailsSchema.optional(),
-  }),
-  EventNotificationBaseSchema.extend({
-    notificationType: z.literal("conditional_order_executed"),
-    data: TradeEventDataSchema,
-    details: ConditionalOrderExecutedDetailsSchema.optional(),
-  }),
-  EventNotificationBaseSchema.extend({
-    notificationType: z.literal("stop_loss_order_placed"),
-    data: OrderPlacedEventDataSchema,
-    details: StopLossOrderPlacedDetailsSchema.optional(),
-  }),
+    notificationType: z
+      .string()
+      .refine((value) => !KNOWN_EVENT_NOTIFICATION_TYPES.has(value), {
+        message: "known notificationType must match its typed schema",
+      }),
+    data: z.unknown(),
+    details: z.unknown().optional(),
+  }).transform(({ notificationType, ...rest }) => ({
+    ...rest,
+    notificationType: "unknown" as const,
+    rawNotificationType: notificationType,
+  }));
+
+const EventNotificationItemSchema = z.union([
+  KnownEventNotificationItemSchema,
+  UnknownEventNotificationSchema,
 ]);
 
 const AdminNotificationItemSchema = z.object({
@@ -556,12 +598,11 @@ const GeneralNotificationItemSchema = z.object({
   acked: z.boolean(),
 });
 
-export const NotificationItemSchema: z.ZodType<NotificationItem> =
-  z.discriminatedUnion("source", [
-    EventNotificationItemSchema,
-    AdminNotificationItemSchema,
-    GeneralNotificationItemSchema,
-  ]) as z.ZodType<NotificationItem>;
+export const NotificationItemSchema: z.ZodType<NotificationItem> = z.union([
+  EventNotificationItemSchema,
+  AdminNotificationItemSchema,
+  GeneralNotificationItemSchema,
+]) as z.ZodType<NotificationItem>;
 
 export interface GetNotificationsResponse {
   items: NotificationItem[];
