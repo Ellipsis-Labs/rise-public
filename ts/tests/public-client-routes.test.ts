@@ -668,7 +668,7 @@ describe("public client route mapping", () => {
               userId: "9007199254740993",
               traderPdaIndex: 0,
             },
-            valuationIntervalSeconds: 600,
+            valuationIntervalSeconds: 300,
             exactFlowBoundaryValuations: false,
             totalReturn: 0.1,
             returnStartTime: "1",
@@ -911,7 +911,7 @@ describe("public client route mapping", () => {
       limit: 10,
     });
     await traders.getTraderTimeWeightedReturns("trader-pubkey", {
-      resolution: "1d",
+      resolution: "5m",
       startTime: 1_767_225_600_000,
       endTime: 1_785_456_000_000,
       limit: 400,
@@ -1108,7 +1108,7 @@ describe("public client route mapping", () => {
         method: "GET",
         endpoint: "/v1/traders/trader-pubkey/time-weighted-returns",
         params: {
-          resolution: "1d",
+          resolution: "5m",
           startTime: 1_767_225_600_000,
           endTime: 1_785_456_000_000,
           limit: 400,
