@@ -528,6 +528,7 @@ fn trader_state_cache_preserves_triggers_and_conditional_order_metadata() {
                     initial_size_lots: "10".to_string(),
                     reduce_only: true,
                     is_stop_loss: false,
+                    scale_set_id: None,
                     status: "open".to_string(),
                 }],
             }],

@@ -234,26 +234,6 @@
     {
       "program": "phoenix-eternal",
       "enumName": "PhoenixInstruction",
-      "instructionName": "SetExchangeStatusBits",
-      "snakeCaseName": "set_exchange_status_bits",
-      "preimage": "global:set_exchange_status_bits",
-      "tag": "4023604848040019955",
-      "discriminatorHex": "f307f7934ab7d637",
-      "discriminatorBase64": "8wf3k0q31jc="
-    },
-    {
-      "program": "phoenix-eternal",
-      "enumName": "PhoenixInstruction",
-      "instructionName": "DisableExchangeCapabilities",
-      "snakeCaseName": "disable_exchange_capabilities",
-      "preimage": "global:disable_exchange_capabilities",
-      "tag": "11396094428520945987",
-      "discriminatorHex": "4399ccee800f279e",
-      "discriminatorBase64": "Q5nM7oAPJ54="
-    },
-    {
-      "program": "phoenix-eternal",
-      "enumName": "PhoenixInstruction",
       "instructionName": "SetTraderCapabilitiesDelegated",
       "snakeCaseName": "set_trader_capabilities_delegated",
       "preimage": "global:set_trader_capabilities_delegated",

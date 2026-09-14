@@ -225,6 +225,10 @@ pub struct TraderStateMarketLimitOrderEvent {
     pub reduce_only: bool,
     #[serde(default)]
     pub is_stop_loss: bool,
+    /// Client-assigned scale set id when the order was placed as part of a
+    /// scale (ladder) order batch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale_set_id: Option<u8>,
     pub status: String,
 }
 

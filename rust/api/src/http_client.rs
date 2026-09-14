@@ -9,17 +9,18 @@ use std::time::Duration;
 
 use phoenix_rise_ix::types::{IsolatedCollateralFlow, Side};
 use phoenix_rise_types::prelude::{
-    ApiCandle, CancelStopLossOrderRequest, CandlesQueryParams, CollateralAssetsResponse,
-    CollateralHistoryQueryParams, CollateralHistoryResponse, CommodityMarketCalendarResponse,
-    ExchangeKeysView, ExchangeMarketConfig, ExchangeResponse, ExchangeSnapshotView,
-    FundingHistoryQueryParams, FundingHistoryResponse, FundingHourlyHistoryResponse,
-    FundingHourlyQuery, FundingRateHistoryQuery, FundingRateHistoryResponse,
-    MarketCalendarResponse, NextCommodityMarketTransition, NextMarketCalendarTransition,
-    OrderHistoryQueryParams, OrderHistoryResponse, PlaceAttachedConditionalOrderRequest,
-    PlaceIsolatedLimitOrderRequest, PlaceIsolatedLimitOrderWithConditionalsRequest,
-    PlaceIsolatedMarketOrderRequest, PlacePositionConditionalOrderRequest,
-    PlaceStopLossOrderRequest, PnlPoint, PnlQueryParams, TpSlOrderConfig, TradeHistoryQueryParams,
-    TradeHistoryResponse, UserLiquidationHistoryQueryParams, UserLiquidationHistoryResponse,
+    ApiCandle, CancelStopLossOrderRequest, CandlesQueryParams, CandlesV2QueryParams,
+    CandlesV2Response, CollateralAssetsResponse, CollateralHistoryQueryParams,
+    CollateralHistoryResponse, CommodityMarketCalendarResponse, ExchangeKeysView,
+    ExchangeMarketConfig, ExchangeResponse, ExchangeSnapshotView, FundingHistoryQueryParams,
+    FundingHistoryResponse, FundingHourlyHistoryResponse, FundingHourlyQuery,
+    FundingRateHistoryQuery, FundingRateHistoryResponse, MarketCalendarResponse,
+    NextCommodityMarketTransition, NextMarketCalendarTransition, OrderHistoryQueryParams,
+    OrderHistoryResponse, PlaceAttachedConditionalOrderRequest, PlaceIsolatedLimitOrderRequest,
+    PlaceIsolatedLimitOrderWithConditionalsRequest, PlaceIsolatedMarketOrderRequest,
+    PlacePositionConditionalOrderRequest, PlaceStopLossOrderRequest, PnlPoint, PnlQueryParams,
+    TpSlOrderConfig, TradeHistoryQueryParams, TradeHistoryResponse,
+    UserLiquidationHistoryQueryParams, UserLiquidationHistoryResponse,
 };
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -744,6 +745,13 @@ impl PhoenixHttpClient {
         params: CandlesQueryParams,
     ) -> Result<Vec<ApiCandle>, PhoenixHttpError> {
         self.candles().get_candles(params).await
+    }
+
+    pub async fn get_candles_v2<Q>(&self, params: Q) -> Result<CandlesV2Response, PhoenixHttpError>
+    where
+        Q: Into<CandlesV2QueryParams>,
+    {
+        self.candles().get_candles_v2(params).await
     }
 
     pub async fn get_trade_history(

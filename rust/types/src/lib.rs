@@ -53,7 +53,11 @@ pub mod prelude {
         WalletNonceQuery, WalletNonceResponse, WalletTransactionChallengeRequest,
         WalletTransactionChallengeResponse, WalletTransactionLoginRequest,
     };
-    pub use super::candles::{ApiCandle, CandleData, CandlesQueryParams, Timeframe};
+    pub use super::candles::{
+        ApiCandle, ApiCandleV2, CandleData, CandlesQueryParams, CandlesV2CursorQueryParams,
+        CandlesV2InitialQueryParams, CandlesV2Page, CandlesV2QueryParams, CandlesV2Response,
+        Timeframe,
+    };
     pub use super::core::{Decimal, PaginatedResponse, Price, Side};
     pub use super::exchange::{
         AuthoritySetView, CollateralAssetMetadata, CollateralAssetsResponse, ExchangeKeysView,

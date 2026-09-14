@@ -119,6 +119,8 @@ pub struct MarketPublicMetadata {
     pub name: Option<String>,
     #[serde(default)]
     pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub search_aliases: Vec<String>,
     #[serde(default)]
     pub logo_uri: Option<String>,
     #[serde(default)]
@@ -330,6 +332,27 @@ mod tests {
         .unwrap();
 
         assert!(view.withdrawals_available);
+    }
+
+    #[test]
+    fn market_public_metadata_defaults_missing_search_aliases() {
+        let metadata: MarketPublicMetadata =
+            serde_json::from_value(serde_json::json!({ "name": "Gold" })).unwrap();
+        assert!(metadata.search_aliases.is_empty());
+
+        let json = serde_json::to_value(MarketPublicMetadata {
+            name: Some("Gold".to_string()),
+            description: None,
+            search_aliases: vec!["XAU".to_string()],
+            logo_uri: None,
+            coin_gecko_id: None,
+            coin_market_cap_id: None,
+            tokens_xyz_asset_id: None,
+            calendar: None,
+            display_color: None,
+        })
+        .unwrap();
+        assert_eq!(json["searchAliases"], serde_json::json!(["XAU"]));
     }
 
     #[test]

@@ -391,11 +391,6 @@ mod tests {
             ("NameSuccessor", "name_successor"),
             ("ChangeMarketStatus", "change_market_status"),
             ("ChangeExchangeStatus", "change_exchange_status"),
-            ("SetExchangeStatusBits", "set_exchange_status_bits"),
-            (
-                "DisableExchangeCapabilities",
-                "disable_exchange_capabilities",
-            ),
             (
                 "SetTraderCapabilitiesDelegated",
                 "set_trader_capabilities_delegated",
@@ -512,7 +507,7 @@ mod tests {
             ("EnableFeature", "enable_feature"),
         ];
 
-        assert_eq!(ETERNAL_INSTRUCTIONS.len(), 94);
+        assert_eq!(ETERNAL_INSTRUCTIONS.len(), 92);
         for (instruction_name, snake_case_name) in ETERNAL_INSTRUCTIONS {
             let by_instruction_name = PhoenixInstruction::from_instruction_name(instruction_name)
                 .unwrap_or_else(|| panic!("missing {instruction_name}"));

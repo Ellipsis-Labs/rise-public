@@ -3,6 +3,25 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.0 - 2026-09-14
+
+Source Phoenix commit: `7e656050cf75743be140e7fb1ab849056f002e62`
+
+### Summary
+
+- Combined Rust release across `api`, `ix`, `types`, and `sdk` components (`0.4.1` → `0.5.0`): adds a canonical `candles_v2` client/type surface, propagates scale-order ids through order/event/history types, adds market search aliases, and removes two exchange-status instruction variants.
+
+### Breaking Changes
+
+- `ix`: removed the `PhoenixInstruction::SetExchangeStatusBits` and `DisableExchangeCapabilities` enum variants and their discriminants. Any downstream `match`/`from_instruction_name`/fixture code referencing these variants will no longer compile or will fail lookups.
+- `types`/`api`: added public fields — `MarketPublicMetadata.search_aliases: Vec<String>`, and `scale_set_id: Option<u8>` on `trader::TraderStateMarketLimitOrderEvent`, `trader_http::LimitOrder`, `trader_http::OrderHistoryItem`, and `api::trader_state::LimitOrder`. Deserialization is unaffected (fields default), but code that constructs these structs with exhaustive struct literals must add the new field.
+- `sdk` example `builder_onboarding_tx`: signer model changed. `--trader-keypair-path`/`TRADER_KEYPAIR_PATH` was removed; the example now only signs locally with `--fee-payer-keypair-path`/`FEE_PAYER_KEYPAIR_PATH` (default `~/.config/solana/id.json`), and takes an optional `--trader-authority`/`TRADER_AUTHORITY` public key (defaulting to the fee payer) instead of a trader keypair.
+
+### Consumer Notes
+
+- New `candles_v2` surface: `PhoenixHttpClient::get_candles_v2` / `CandlesClient::get_candles_v2`, with `CandlesV2InitialQueryParams` (explicit millisecond `from`/`to` window) or `CandlesV2CursorQueryParams` (opaque cursor), returning `CandlesV2Response` with `ApiCandleV2` bars (mark-price OHLC, external-source metadata, `is_final`) and `CandlesV2Page` pagination. Defaults to 1,000 bars per page, up to 10,000; the legacy `get_candles`/`ApiCandle` endpoint and shape are unchanged, with only doc clarification (timestamps are milliseconds) and an added `PartialEq` derive.
+- `scale_set_id` lets consumers identify orders placed together as legs of a scale (ladder) order batch via `PlaceMultiLimitOrderV2`.
+
 ## v0.4.1 - 2026-09-14
 
 Source Phoenix commit: `cd96962f181a2e28c87ec592db4f20460c6b510e`
