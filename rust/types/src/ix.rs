@@ -283,6 +283,8 @@ pub struct PlaceIsolatedMarketOrderRequest {
     #[serde(default)]
     pub min_base_lots_to_fill: Option<u64>,
     #[serde(default)]
+    pub min_quote_lots_to_fill: Option<u64>,
+    #[serde(default)]
     pub quantity: Option<f64>,
     #[serde(default)]
     pub transfer_amount: u64,
@@ -394,13 +396,15 @@ mod tests {
             symbol: "SOL-PERP".to_string(),
             side: "buy".to_string(),
             num_base_lots: Some(25),
-            min_base_lots_to_fill: Some(1),
+            min_base_lots_to_fill: Some(0),
+            min_quote_lots_to_fill: Some(0),
             ..Default::default()
         };
 
         let json = serde_json::to_value(request).unwrap();
         assert_eq!(json["numBaseLots"], 25);
-        assert_eq!(json["minBaseLotsToFill"], 1);
+        assert_eq!(json["minBaseLotsToFill"], 0);
+        assert_eq!(json["minQuoteLotsToFill"], 0);
     }
 
     #[test]

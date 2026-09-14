@@ -67,6 +67,8 @@ pub struct TraderStateSpotCollateralSnapshot {
     /// Balance in the asset's native units (lamports for SOL), as a decimal
     /// integer string.
     pub balance: String,
+    /// Native-unit decimals of the asset (9 for native SOL).
+    pub decimals: u8,
 }
 
 /// Complete subaccount view contained in a snapshot.

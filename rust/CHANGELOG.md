@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.1 - 2026-09-14
+
+Source Phoenix commit: `cd96962f181a2e28c87ec592db4f20460c6b510e`
+
+### Summary
+
+- Added Flicker/TWAP instruction support in `ix`: PDA derivation helpers and builders for creating, placing, executing, cancelling, and closing TWAP orders, plus the `FlickerInstruction` discriminant enum and `FLICKER_PROGRAM_ID` export.
+- `api`'s `SpotCollateral` and `types`' `TraderStateSpotCollateralSnapshot` now carry a `decimals` field for the asset's native-unit decimals.
+- `types`' `PlaceIsolatedMarketOrderRequest` gained an optional `min_quote_lots_to_fill` field.
+- Added `PhoenixIxError::InvalidTwapOptionalU64` in `ix`, returned when a TWAP optional u64 field is explicitly set to `0`.
+- Workspace crates bumped to `0.4.1`.
+
+### Breaking Changes
+
+- `SpotCollateral` (`api`) and `TraderStateSpotCollateralSnapshot` (`types`) gained a required `decimals: u8` field with no default — struct literals and deserialized payloads that don't supply it will fail to compile or deserialize.
+
+### Consumer Notes
+
+- The new `ix::twap` builders (`CreateTwapAccountParams`, `PlaceTwapOrderParams`, `ExecuteTwapOrderParams`, `CancelTwapOrderParams`, `CloseInactiveTwapAccountParams`, `TwapIocOrderPacket`) follow the existing builder pattern and auto-derive PDA/program-id fields when left unset.
+- TWAP optional u64 fields (`price_in_ticks`, `num_quote_lots`, `match_limit`, `last_valid_slot`, min/max price-in-ticks, collateral quote-lots) must be `None` or strictly greater than zero; passing `Some(0)` returns `PhoenixIxError::InvalidTwapOptionalU64`.
+- `min_quote_lots_to_fill` on `PlaceIsolatedMarketOrderRequest` is optional and serializes with `#[serde(default)]`, so existing callers that omit it are unaffected.
+
 ## v0.4.0 - 2026-09-14
 
 Source Phoenix commit: `72cb240e31283f3518f5f5f9ee4f2a64bfd89be2`

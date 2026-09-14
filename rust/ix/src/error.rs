@@ -110,4 +110,7 @@ pub enum PhoenixIxError {
 
     #[error("PDA derivation failed")]
     PdaDerivationUnavailable,
+
+    #[error("Invalid TWAP optional field {field} (must be greater than 0 when set)")]
+    InvalidTwapOptionalU64 { field: &'static str },
 }
