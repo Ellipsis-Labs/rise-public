@@ -5,6 +5,17 @@ export * from "./inputs";
 export * from "./snapshot";
 export * from "./liquidation";
 export {
+  computeDraftOrderMarginRequirementFromInputs,
+  computeDraftOrderMarginRequirementFromSnapshot,
+  computeMaxDraftOrderSizeForAvailableMarginFromInputs,
+  computeMaxDraftOrderSizeForAvailableMarginFromSnapshot,
+} from "./draftOrders";
+export type {
+  DraftOrderMarginInput,
+  DraftOrderMarginRequirementResult,
+  MarginMarketsInput,
+} from "./draftOrders";
+export {
   buildMarketParamsBySymbol as buildMarketParamsBySymbolFromParams,
   computeSubaccountLiquidationPricesFromInputs,
   computeSubaccountMargin,
