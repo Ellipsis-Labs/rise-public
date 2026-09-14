@@ -20,12 +20,18 @@ export {
 } from "../api/candles/types";
 
 export {
+  type CollateralAssetMetadata,
+  CollateralAssetMetadataSchema,
+  type CollateralAssetsResponse,
+  CollateralAssetsResponseSchema,
   type CollateralEvent,
   CollateralEventSchema,
   type CollateralEventType,
   type CollateralHistoryRequest,
   type CollateralHistoryResponse,
   CollateralHistoryResponseSchema,
+  type SpotAssetConfig,
+  SpotAssetConfigSchema,
 } from "../api/collateral/types";
 
 export {

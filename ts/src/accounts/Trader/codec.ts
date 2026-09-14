@@ -16,7 +16,7 @@ import {
   getOccupiedConditionalOrderIndices,
   getSequenceNumberDecoder,
   getTraderAddressDecoder,
-  getTraderPositionEntriesDecoder,
+  getTraderEntriesDecoder,
   getTraderStateDecoder,
   getAuthorityDecoder,
   getOptionalNonZeroU32Decoder,
@@ -47,7 +47,7 @@ export const getTraderDecoder = (): Decoder<Trader> =>
           "conditionalOrderBits",
           getFixedArrayDecoder(getU8Decoder, CONDITIONAL_ORDER_BITS_LEN),
         ],
-        ["positions", getTraderPositionEntriesDecoder()],
+        ["entries", getTraderEntriesDecoder()],
       ]),
       [getConstantDecoder(ACCOUNT_DISCRIMINANTS.TRADER)]
     ),
@@ -56,6 +56,7 @@ export const getTraderDecoder = (): Decoder<Trader> =>
       _padding1,
       conditionalOrderBits,
       traderPreferenceBits,
+      entries,
       ...trader
     }) => {
       const traderPreferenceFlags =
@@ -67,6 +68,10 @@ export const getTraderDecoder = (): Decoder<Trader> =>
         preferences: traderPreferenceFlags.preferences,
         disableCollateralSweep:
           traderPreferenceFlags.preferences.disableCollateralSweep,
+        disablePositionAuthoritySwap:
+          traderPreferenceFlags.preferences.disablePositionAuthoritySwap,
+        positions: entries.positions,
+        nativeSolCollateral: entries.nativeSolCollateral,
         conditionalOrderBits,
         occupiedConditionalOrderIndices:
           getOccupiedConditionalOrderIndices(conditionalOrderBits),

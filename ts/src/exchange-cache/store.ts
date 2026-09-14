@@ -9,6 +9,7 @@ import type {
   ExchangeWsMarkPriceParameters,
   MarketPublicMetadata,
 } from "@/api/exchange/types";
+import type { CollateralAssetMetadata } from "@/api/collateral/types";
 import type {
   ExchangeDeltaMsg,
   ExchangeMarketParameterUpdate,
@@ -132,7 +133,9 @@ const cloneMarket = (
   fundingConfig: { ...market.fundingConfig },
   markPriceParameters: cloneMarkPriceParameters(market.markPriceParameters),
   commodityMetadata: cloneCommodityMetadata(market.commodityMetadata),
-  metadata: market.metadata ? { ...market.metadata } : market.metadata,
+  ...(market.metadata !== undefined
+    ? { metadata: market.metadata ? { ...market.metadata } : market.metadata }
+    : {}),
 });
 
 const cloneExchange = (
@@ -143,6 +146,13 @@ const cloneExchange = (
   globalTraderIndex: [...exchange.globalTraderIndex],
   activeTraderBuffer: [...exchange.activeTraderBuffer],
   exchangeStatusFeatures: [...exchange.exchangeStatusFeatures],
+});
+
+const cloneCollateralAsset = (
+  asset: CollateralAssetMetadata
+): CollateralAssetMetadata => ({
+  ...asset,
+  spot: asset.spot ? { ...asset.spot } : asset.spot,
 });
 
 const riskFactorPercentToBps = (value: number): number => {
@@ -174,11 +184,16 @@ const normalizeSnapshot = (
 ): ExchangeSnapshotView => {
   const normalized: ExchangeSnapshotView = {
     version: snapshot.version,
-    sequenceNumber: snapshot.sequenceNumber,
+    ...(snapshot.sequenceNumber !== undefined
+      ? { sequenceNumber: snapshot.sequenceNumber }
+      : {}),
     slot: BigInt(snapshot.slot),
     slotIndex: snapshot.slotIndex,
     exchange: cloneExchange(snapshot.exchange),
     markets: snapshot.markets.map(cloneMarket),
+    ...(snapshot.spotCollaterals !== undefined
+      ? { spotCollaterals: snapshot.spotCollaterals.map(cloneCollateralAsset) }
+      : {}),
   };
   sortMarkets(normalized.markets);
   return normalized;
@@ -443,6 +458,10 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
     return snapshot;
   }
 
+  spotCollaterals(): readonly CollateralAssetMetadata[] {
+    return this.snapshot().spotCollaterals ?? [];
+  }
+
   market(symbol: string): ExchangeMarketSnapshot | undefined {
     return this.store.getState().marketsBySymbol[normalizeSymbol(symbol)];
   }
@@ -506,6 +525,9 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
         slotIndex: message.slotIndex,
         exchange: message.exchange,
         markets: message.markets,
+        ...(message.spotCollaterals !== undefined
+          ? { spotCollaterals: message.spotCollaterals }
+          : {}),
       },
       "websocket"
     );
@@ -527,6 +549,7 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
 
     let nextExchange = current.exchange;
     let nextMarkets = current.markets;
+    let nextSpotCollaterals = current.spotCollaterals;
     const events: ExchangeCacheEvent[] = [];
 
     const replaceMarket = (
@@ -568,6 +591,15 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
           events.push({
             type: "exchangeUpdated",
             change: "status",
+            slot: message.slot,
+            slotIndex: message.slotIndex,
+          });
+          break;
+        case "spotCollateralsUpdated":
+          nextSpotCollaterals = op.assets.map(cloneCollateralAsset);
+          events.push({
+            type: "exchangeUpdated",
+            change: "spotCollaterals",
             slot: message.slot,
             slotIndex: message.slotIndex,
           });
@@ -685,6 +717,9 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
         slotIndex: message.slotIndex,
         exchange: nextExchange,
         markets: nextMarkets,
+        ...(nextSpotCollaterals !== undefined
+          ? { spotCollaterals: nextSpotCollaterals }
+          : {}),
       },
       "websocket"
     );

@@ -26,6 +26,8 @@ export interface MarketParams {
   assetId: number;
   spotPrice?: SnapshotPrice;
   markPriceTicks: string;
+  /** Median-of-oracles index price, when supplied. */
+  indexPriceTicks?: string;
   l2Orderbook?: SnapshotL2Orderbook;
   tickSize: string;
   baseLotDecimals: number;
@@ -92,6 +94,21 @@ export type OrderLeverageLimitsBySymbol = Record<string, number>;
 
 export interface MarginCalculationOptions {
   orderLeverageLimitsBySymbol?: OrderLeverageLimitsBySymbol;
+  /** Optional exchange defaults used only for raw spot-balance inputs. */
+  spotCollateralParams?: SpotCollateralParams[];
+}
+
+/** Exchange configuration for one spot collateral asset. */
+export interface SpotCollateralParams {
+  assetIndex: number;
+  symbol: string;
+  perpSymbol: string;
+  decimals: number;
+  maxPerTraderBalance: bigint;
+  maxGlobalBalance: bigint;
+  currGlobalBalance: bigint;
+  minMarginDiscountBps: number;
+  maxMarginDiscountBps: number;
 }
 
 /**
@@ -131,6 +148,14 @@ export interface SubaccountMarginInputs {
   collateralBalanceQuoteLots: string;
   markets: MarketMarginInputs[];
   spotCollaterals?: SpotCollateralMarginInput[];
+  /**
+   * Compatibility input for callers that keep balances separate from exchange
+   * metadata. The master `spotCollaterals` input remains authoritative when
+   * both forms are supplied.
+   */
+  spotCollateralBalances?: Record<string, string>;
+  /** Native-SOL shorthand for `spotCollateralBalances[0xFFFF0000]`. */
+  nativeSolCollateralLamports?: string;
 }
 
 export interface TraderMarginInputs {
@@ -233,8 +258,14 @@ export interface OrderMarginResult {
 export interface SpotCollateralMarginResult {
   assetIndex: number;
   symbol: string;
+  /** Perp market whose price values this collateral. */
+  pricingMarketSymbol: string;
   /** Balance in the asset's native units. */
   balance: string;
+  /** Native units represented by one base lot of the pricing market. */
+  nativeUnitsPerBaseLot: string;
+  /** Share of notional retained after the margin haircut. */
+  retainedBps: string;
   /** Balance valued at the pricing market's price (undiscounted). */
   notionalQuoteLots: string;
   /** Notional with the margin discount applied. */

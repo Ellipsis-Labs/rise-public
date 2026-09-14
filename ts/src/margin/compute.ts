@@ -17,6 +17,12 @@ import {
   type TraderLiquidationPricesResult,
 } from "./liquidation";
 import { buildNormalizedMarketParamsBySymbol } from "./normalize";
+import {
+  NATIVE_SOL_ASSET_INDEX,
+  marginRetainedBps,
+  notionalSpotCollateral,
+  spotCollateralPrice,
+} from "./spotCollateral";
 import type {
   NormalizedMarketParams,
   NormalizedMarketParamsBySymbol,
@@ -36,6 +42,7 @@ import type {
   OrderMarginResult,
   SpotCollateralMarginInput,
   SpotCollateralMarginResult,
+  SpotCollateralParams,
   SubaccountMarginInputs,
   SubaccountMarginResult,
   TraderMarginInputs,
@@ -103,23 +110,50 @@ export interface MarginCalculator {
 }
 
 export const createMarginCalculator = (
-  markets: MarketParams[]
+  markets: MarketParams[],
+  spotCollaterals?: SpotCollateralParams[]
 ): MarginCalculator => {
   const normalized = buildNormalizedMarketParamsBySymbol(markets);
+  const withSpotCollaterals = (
+    options?: MarginCalculationOptions
+  ): MarginCalculationOptions | undefined =>
+    spotCollaterals === undefined
+      ? options
+      : { spotCollateralParams: spotCollaterals, ...options };
   return {
     markets: normalized,
     computeTraderMargin: (inputs, callOptions) =>
-      computeTraderMargin(inputs, normalized, callOptions),
+      computeTraderMargin(inputs, normalized, withSpotCollaterals(callOptions)),
     computeSubaccountMargin: (inputs, callOptions) =>
-      computeSubaccountMargin(inputs, normalized, callOptions),
+      computeSubaccountMargin(
+        inputs,
+        normalized,
+        withSpotCollaterals(callOptions)
+      ),
     computeTraderMarginFromInputs: (inputs, callOptions) =>
-      computeTraderMarginFromInputs(inputs, normalized, callOptions),
+      computeTraderMarginFromInputs(
+        inputs,
+        normalized,
+        withSpotCollaterals(callOptions)
+      ),
     computeSubaccountMarginFromInputs: (inputs, callOptions) =>
-      computeSubaccountMarginFromInputs(inputs, normalized, callOptions),
+      computeSubaccountMarginFromInputs(
+        inputs,
+        normalized,
+        withSpotCollaterals(callOptions)
+      ),
     computeTraderLiquidationPricesFromInputs: (inputs) =>
-      computeTraderLiquidationPricesFromInputs(inputs, normalized),
+      computeTraderLiquidationPricesFromInputs(
+        inputs,
+        normalized,
+        withSpotCollaterals()
+      ),
     computeSubaccountLiquidationPricesFromInputs: (inputs) =>
-      computeSubaccountLiquidationPricesFromInputs(inputs, normalized),
+      computeSubaccountLiquidationPricesFromInputs(
+        inputs,
+        normalized,
+        withSpotCollaterals()
+      ),
     simulateMargin: (inputs) => simulateMarginFromInputs(inputs, normalized),
     simulateMarginScenarios: (inputs) =>
       simulateMarginScenariosFromInputs(inputs, normalized),
@@ -234,7 +268,14 @@ export const computeSubaccountMarginFromInputs = (
     return a.orderSequenceNumber.localeCompare(b.orderSequenceNumber);
   });
 
-  const spotCollaterals = (inputs.spotCollaterals ?? []).map((spot) =>
+  const spotInputs =
+    inputs.spotCollaterals ??
+    spotCollateralInputsFromBalances(
+      inputs,
+      marketsBySymbol,
+      options?.spotCollateralParams
+    );
+  const spotCollaterals = spotInputs.map((spot) =>
     valueSpotCollateral(spot, marketsBySymbol)
   );
   spotCollaterals.sort((a, b) => a.assetIndex - b.assetIndex);
@@ -318,7 +359,47 @@ export const computeSubaccountMarginFromInputs = (
   return result;
 };
 
-const BPS_UPPER_BOUND = 10_000n;
+export const spotCollateralBalancesFromInputs = (
+  inputs: SubaccountMarginInputs
+): Record<string, string> => {
+  const balances = { ...(inputs.spotCollateralBalances ?? {}) };
+  const nativeSolKey = String(NATIVE_SOL_ASSET_INDEX);
+  if (
+    balances[nativeSolKey] === undefined &&
+    inputs.nativeSolCollateralLamports !== undefined
+  ) {
+    balances[nativeSolKey] = inputs.nativeSolCollateralLamports;
+  }
+  return balances;
+};
+
+const spotCollateralInputsFromBalances = (
+  inputs: SubaccountMarginInputs,
+  marketsBySymbol: NormalizedMarketParamsBySymbol,
+  params: readonly SpotCollateralParams[] | undefined
+): SpotCollateralMarginInput[] => {
+  const balances = spotCollateralBalancesFromInputs(inputs);
+  return (params ?? []).flatMap((spot) => {
+    const balance = balances[String(spot.assetIndex)];
+    if (balance === undefined || toBigInt(balance) === 0n) {
+      return [];
+    }
+    const market = marketsBySymbol[spot.perpSymbol];
+    return [
+      {
+        assetIndex: spot.assetIndex,
+        symbol: spot.symbol,
+        balance,
+        decimals: spot.decimals,
+        pricingMarketSymbol: spot.perpSymbol,
+        indexPriceTicks: market?.indexPriceTicks?.toString(),
+        maxGlobalBalance: spot.maxGlobalBalance.toString(),
+        minMarginDiscountBps: spot.minMarginDiscountBps,
+        maxMarginDiscountBps: spot.maxMarginDiscountBps,
+      },
+    ];
+  });
+};
 
 /**
  * Values one spot collateral asset the way the on-chain RiskView does
@@ -351,45 +432,35 @@ const valueSpotCollateral = (
         )
       : marketParams.markPriceTicks;
 
-  const decimalsDifference = spot.decimals - marketParams.baseLotDecimals;
-  if (decimalsDifference < 0) {
-    throw new Error(
-      `Spot collateral decimals for ${spot.symbol} are below the pricing market's base lot decimals`
-    );
-  }
-  const nativePerBaseLot = 10n ** BigInt(decimalsDifference);
-  const priceQuoteLotsPerBaseLot = priceTicks * marketParams.tickSize;
-  const baseLots = balance / nativePerBaseLot;
-  const dust = balance - baseLots * nativePerBaseLot;
-  const notional =
-    priceQuoteLotsPerBaseLot * baseLots +
-    (dust * priceQuoteLotsPerBaseLot) / nativePerBaseLot;
+  const price = spotCollateralPrice(
+    { decimals: spot.decimals },
+    priceTicks,
+    marketParams.tickSize,
+    marketParams.baseLotDecimals
+  );
+  const notional = notionalSpotCollateral(price, balance);
 
   const maxGlobalBalance = requirePositiveBigInt(
     spot.maxGlobalBalance,
     `Spot collateral maxGlobalBalance for ${spot.symbol} must be positive`
   );
-  const retentionUpper = BPS_UPPER_BOUND - BigInt(spot.minMarginDiscountBps);
-  const retentionLower = BPS_UPPER_BOUND - BigInt(spot.maxMarginDiscountBps);
-  if (retentionUpper < retentionLower) {
-    throw new Error(
-      `Spot collateral margin discount curve for ${spot.symbol} is inverted`
-    );
-  }
-  const target = balance > maxGlobalBalance ? maxGlobalBalance : balance;
-  const retention =
-    target === 0n
-      ? retentionUpper
-      : target === maxGlobalBalance
-        ? retentionLower
-        : retentionUpper -
-          ((retentionUpper - retentionLower) * target) / maxGlobalBalance;
-  const discounted = (notional * retention) / BPS_UPPER_BOUND;
+  const retention = marginRetainedBps(
+    {
+      maxGlobalBalance,
+      minMarginDiscountBps: spot.minMarginDiscountBps,
+      maxMarginDiscountBps: spot.maxMarginDiscountBps,
+    },
+    balance
+  );
+  const discounted = applyBps(notional, retention);
 
   return {
     assetIndex: spot.assetIndex,
     symbol: spot.symbol,
+    pricingMarketSymbol: pricingSymbol,
     balance: balance.toString(),
+    nativeUnitsPerBaseLot: price.nativeUnitsPerBaseLot.toString(),
+    retainedBps: retention.toString(),
     notionalQuoteLots: notional.toString(),
     discountedQuoteLots: discounted.toString(),
   };
@@ -397,20 +468,24 @@ const valueSpotCollateral = (
 
 export const computeTraderLiquidationPricesFromInputs = (
   inputs: TraderMarginInputs,
-  marketsBySymbol: NormalizedMarketParamsBySymbol
+  marketsBySymbol: NormalizedMarketParamsBySymbol,
+  options?: MarginCalculationOptions
 ): TraderLiquidationPricesResult =>
   computeTraderLiquidationPricesFromMargin(
-    computeTraderMarginFromInputs(inputs, marketsBySymbol),
-    marketsBySymbol
+    computeTraderMarginFromInputs(inputs, marketsBySymbol, options),
+    marketsBySymbol,
+    inputs
   );
 
 export const computeSubaccountLiquidationPricesFromInputs = (
   inputs: SubaccountMarginInputs,
-  marketsBySymbol: NormalizedMarketParamsBySymbol
+  marketsBySymbol: NormalizedMarketParamsBySymbol,
+  options?: MarginCalculationOptions
 ): SubaccountLiquidationPricesResult =>
   computeSubaccountLiquidationPricesFromMargin(
-    computeSubaccountMarginFromInputs(inputs, marketsBySymbol),
-    marketsBySymbol
+    computeSubaccountMarginFromInputs(inputs, marketsBySymbol, options),
+    marketsBySymbol,
+    inputs
   );
 
 export type MarginSimulationMode = "cross" | "isolated";
@@ -776,7 +851,8 @@ export const simulateMarginFromInputs = (
     projectedSubaccountInput,
     liquidationPrices: computeSubaccountLiquidationPricesFromMargin(
       after,
-      scenarioMarketsBySymbol
+      scenarioMarketsBySymbol,
+      projectedSubaccountInput
     ),
     actionReports,
   };
@@ -864,7 +940,8 @@ export const simulateMarginScenariosFromInputs = (
         projectedSubaccountInput: scenarioSubaccountInput,
         liquidationPrices: computeSubaccountLiquidationPricesFromMargin(
           after,
-          scenarioMarketsBySymbol
+          scenarioMarketsBySymbol,
+          scenarioSubaccountInput
         ),
         actionReports,
       },
@@ -1687,6 +1764,12 @@ export const cloneSubaccountInput = (
         })),
       }
     : {}),
+  ...(subaccount.spotCollateralBalances
+    ? { spotCollateralBalances: { ...subaccount.spotCollateralBalances } }
+    : {}),
+  ...(subaccount.nativeSolCollateralLamports === undefined
+    ? {}
+    : { nativeSolCollateralLamports: subaccount.nativeSolCollateralLamports }),
 });
 
 const cloneMarketInput = (

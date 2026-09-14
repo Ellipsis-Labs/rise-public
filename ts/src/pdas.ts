@@ -13,6 +13,7 @@ import type {
   LogAuthorityAddress,
   MarketAddress,
   MintAddress,
+  NativeSolAuthorityAddress,
   PhoenixProgramAddress,
   SplineCollectionAddress,
   TokenAccountAddress,
@@ -143,6 +144,23 @@ export const getEmberVaultAddress = async (
   });
 
   return pda as EmberVaultAddress;
+};
+
+/**
+ * Derives the native SOL authority PDA, which custodies native SOL spot
+ * collateral and signs the program's own withdrawals of it.
+ *
+ * Seeds: `["native_sol"]`.
+ */
+export const getPhoenixNativeSolAuthorityAddress = async (
+  phoenixProgramAddress: PhoenixProgramAddress = getPhoenixProgramAddress()
+): Promise<NativeSolAuthorityAddress> => {
+  const [pda] = await getProgramDerivedAddress({
+    programAddress: phoenixProgramAddress,
+    seeds: ["native_sol"],
+  });
+
+  return pda as NativeSolAuthorityAddress;
 };
 
 export const getPhoenixPermissionAddress = async (

@@ -1,8 +1,4 @@
-import {
-  fetchPermission,
-  fetchPerpAssetMap,
-  type GlobalConfiguration,
-} from "@/accounts";
+import { fetchPermission, fetchPerpAssetMap } from "@/accounts";
 import {
   type PhoenixAccountExistenceClient,
   type PhoenixInstructionClient,
@@ -40,6 +36,7 @@ import {
   type Authority,
   MarginType,
   type MarketAddress,
+  type PerpAssetMapAddress,
   quoteLots,
   Side,
   type Symbol,
@@ -372,8 +369,8 @@ export const buildDepositFlow = async (
   client: PhoenixInstructionClient
 ): Promise<DepositFlowResult> => {
   const { authority, amount, traderPdaIndex = 0 } = params;
-  const { globalConfiguration } = await fetchRequiredAccounts(client);
-  const phoenixMint = globalConfiguration.canonicalTokenMintKey;
+  const { canonicalTokenMintKey: phoenixMint } =
+    await fetchRequiredAccounts(client);
 
   const payer = resolveFlowPayer(params);
 
@@ -464,7 +461,7 @@ export const buildFlameAtomicDepositFlow = async (
   // refunded by the same instruction's close, so net sponsor spend is zero.
   const crank = payer;
   const [
-    { globalConfiguration, arenaAddresses, globalTraderIndexAddresses },
+    { canonicalTokenMintKey, arenaAddresses, globalTraderIndexAddresses },
     funding,
   ] = await Promise.all([
     fetchRequiredAccounts(client),
@@ -496,7 +493,7 @@ export const buildFlameAtomicDepositFlow = async (
     crank,
     userAuthority: authority,
     inputMint: client.addresses.usdcMintAddress,
-    outputMint: globalConfiguration.canonicalTokenMintKey,
+    outputMint: canonicalTokenMintKey,
     globalTraderIndex: globalTraderIndexAddresses,
     activeTraderBuffer: arenaAddresses,
     traderPdaIndex,
@@ -534,8 +531,8 @@ export const buildWithdrawFlow = async (
   client: PhoenixInstructionClient
 ): Promise<WithdrawFlowResult> => {
   const { authority, amount } = params;
-  const { globalConfiguration } = await fetchRequiredAccounts(client);
-  const phoenixMint = globalConfiguration.canonicalTokenMintKey;
+  const { canonicalTokenMintKey: phoenixMint } =
+    await fetchRequiredAccounts(client);
 
   const payer = resolveFlowPayer(params);
 
@@ -588,7 +585,7 @@ export const buildWithdrawFlow = async (
 
 const resolveMarketMetadata = async (
   marketSymbol: Symbol,
-  globalConfiguration: GlobalConfiguration,
+  perpAssetMapKey: PerpAssetMapAddress,
   client: PhoenixInstructionClient
 ): Promise<{
   assetId: number;
@@ -609,7 +606,7 @@ const resolveMarketMetadata = async (
 
   const perpAssetMap = await fetchPerpAssetMap({
     client,
-    address: globalConfiguration.perpAssetMapKey,
+    address: perpAssetMapKey,
   });
 
   let assetId: number | undefined;
@@ -645,7 +642,7 @@ const resolveMarketMetadata = async (
 
 const resolveSubaccount = async (
   client: PhoenixInstructionClient,
-  globalConfiguration: GlobalConfiguration,
+  perpAssetMapKey: PerpAssetMapAddress,
   authority: Authority,
   marketSymbol: Symbol,
   marginType: MarginType,
@@ -674,7 +671,7 @@ const resolveSubaccount = async (
 
   const { assetId, marketAccount } = await resolveMarketMetadata(
     marketSymbol,
-    globalConfiguration,
+    perpAssetMapKey,
     client
   );
 
@@ -729,12 +726,12 @@ export const buildPlaceLimitOrderFlow = async (
     skipTransferToParent = false,
   } = params;
 
-  const { globalConfiguration, arenaAddresses, globalTraderIndexAddresses } =
+  const { perpAssetMapKey, arenaAddresses, globalTraderIndexAddresses } =
     await fetchRequiredAccounts(client);
   const { subaccountIndex, subaccountAddress, marketAccount } =
     await resolveSubaccount(
       client,
-      globalConfiguration,
+      perpAssetMapKey,
       authority,
       marketSymbol,
       marginType,
@@ -779,7 +776,7 @@ export const buildPlaceLimitOrderFlow = async (
         ...clientPhoenixInstructionAddresses(client),
         trader: signer,
         traderAccount: subaccountAddress,
-        perpAssetMap: globalConfiguration.perpAssetMapKey,
+        perpAssetMap: perpAssetMapKey,
         orderbook: marketAccount,
         splineCollection,
         activeTraderBuffer: arenaAddresses,
@@ -799,7 +796,7 @@ export const buildPlaceLimitOrderFlow = async (
         ...clientPhoenixInstructionAddresses(client),
         trader: signer,
         traderAccount: subaccountAddress,
-        perpAssetMap: globalConfiguration.perpAssetMapKey,
+        perpAssetMap: perpAssetMapKey,
         orderbook: marketAccount,
         splineCollection,
         activeTraderBuffer: arenaAddresses,
@@ -876,12 +873,12 @@ export const buildPlaceMarketOrderFlow = async (
     minQuoteLotsToFill,
   });
 
-  const { globalConfiguration, arenaAddresses, globalTraderIndexAddresses } =
+  const { perpAssetMapKey, arenaAddresses, globalTraderIndexAddresses } =
     await fetchRequiredAccounts(client);
   const { subaccountIndex, subaccountAddress, marketAccount } =
     await resolveSubaccount(
       client,
-      globalConfiguration,
+      perpAssetMapKey,
       authority,
       marketSymbol,
       marginType,
@@ -947,7 +944,7 @@ export const buildPlaceMarketOrderFlow = async (
     ...clientPhoenixInstructionAddresses(client),
     trader: signer,
     traderAccount: subaccountAddress,
-    perpAssetMap: globalConfiguration.perpAssetMapKey,
+    perpAssetMap: perpAssetMapKey,
     orderbook: marketAccount,
     splineCollection,
     activeTraderBuffer: arenaAddresses,
@@ -1052,7 +1049,7 @@ export const buildPlaceMultiLimitOrderFlow = async (
     );
   }
 
-  const { globalConfiguration, arenaAddresses, globalTraderIndexAddresses } =
+  const { perpAssetMapKey, arenaAddresses, globalTraderIndexAddresses } =
     await fetchRequiredAccounts(client);
 
   const isIsolated = marginType === MarginType.Isolated;
@@ -1071,7 +1068,7 @@ export const buildPlaceMultiLimitOrderFlow = async (
     }
     const metadata = await resolveMarketMetadata(
       marketSymbol,
-      globalConfiguration,
+      perpAssetMapKey,
       client
     );
     marketAccount = metadata.marketAccount;
@@ -1087,7 +1084,7 @@ export const buildPlaceMultiLimitOrderFlow = async (
   } else {
     const resolved = await resolveSubaccount(
       client,
-      globalConfiguration,
+      perpAssetMapKey,
       authority,
       marketSymbol,
       marginType,
@@ -1182,7 +1179,7 @@ export const buildPlaceMultiLimitOrderFlow = async (
       ...clientPhoenixInstructionAddresses(client),
       trader: signer,
       traderAccount: subaccountAddress,
-      perpAssetMap: globalConfiguration.perpAssetMapKey,
+      perpAssetMap: perpAssetMapKey,
       orderbook: marketAccount,
       splineCollection,
       activeTraderBuffer: arenaAddresses,

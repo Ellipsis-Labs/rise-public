@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.0 - 2026-09-14
+
+Source Phoenix commit: `72cb240e31283f3518f5f5f9ee4f2a64bfd89be2`
+
+### Summary
+
+- Added native SOL spot collateral support: new instruction builders (`buildSyncNativeIx`, `buildWithdrawNativeSolIx`, `buildTransferNativeSolIx`, `buildTransferNativeSolFromChildToParentIx`, `buildLiquidateNativeSolIx`, `buildSwapNativeIx`) and related encoders/types exported from `../core/ixBuilders/NativeSol`.
+- Added a new `/v1/collateral/assets` REST endpoint (`V1CollateralClient.getAssets`) and `CollateralAssetMetadata`/`SpotAssetConfig` schemas describing per-asset spot collateral configuration.
+- `GlobalConfiguration` now decodes a `nativeSolSpotMetadata` field, and `Trader` accounts now decode `nativeSolCollateral` and a `disablePositionAuthoritySwap` preference bit.
+- Exchange snapshots/WebSocket deltas gained an optional `spotCollaterals` field and a new `spotCollateralsUpdated` delta op; the exchange cache exposes a `spotCollaterals()` selector.
+- `createMarginCalculator` now accepts an optional second `spotCollaterals` argument, and margin inputs/results gained fields (`nativeSolCollateralLamports`, `spotCollateralBalances`, `pricingMarketSymbol`, `nativeUnitsPerBaseLot`, `retainedBps`) to value spot collateral against a market's index price.
+- Added `getPhoenixNativeSolAuthorityAddress` PDA helper and a `NativeSolAuthorityAddress` branded address type.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- Spot collateral valuation requires an index price (`indexPriceTicks`); it is never derived from mark price, so callers must supply it explicitly to value native SOL collateral or margin/liquidation calculations for it will fail or omit spot collateral.
+- These instructions and account fields require the corresponding on-chain program upgrade (Rise program bumped `0.3.6` → `0.4.0`); calling the new builders against an older deployed program will fail.
+- `MarginMarketParamsStore` can now discover active spot collateral automatically via an optional `collateral` client (`getAssets`); if the server doesn't yet expose `/v1/collateral/assets`, the store degrades gracefully to zero spot collateral rather than failing the whole refresh.
+
 ## v0.4.78 - 2026-09-14
 
 Source Phoenix commit: `c9987c1e77e75c7ded83bcd29446f9255fbb600c`

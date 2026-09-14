@@ -1,6 +1,10 @@
 import z from "zod";
 import { TokenAmountSchema, type TokenAmount } from "@/primitives/TokenAmount";
 import { numericBigint } from "@/ws/numericSchemas";
+import {
+  CollateralAssetMetadataSchema,
+  type CollateralAssetMetadata,
+} from "@/api/collateral/types";
 
 // ---------------------------------------------------------------------------
 // Authority Set
@@ -626,6 +630,7 @@ export interface ExchangeSnapshotView {
   slotIndex: number;
   exchange: ExchangeStateSnapshot;
   markets: ExchangeMarketSnapshot[];
+  spotCollaterals?: CollateralAssetMetadata[];
 }
 
 export const ExchangeSnapshotViewSchema: z.ZodType<ExchangeSnapshotView> =
@@ -636,4 +641,5 @@ export const ExchangeSnapshotViewSchema: z.ZodType<ExchangeSnapshotView> =
     slotIndex: z.number(),
     exchange: ExchangeStateSnapshotSchema,
     markets: z.array(ExchangeMarketSnapshotSchema),
+    spotCollaterals: z.array(CollateralAssetMetadataSchema).optional(),
   });

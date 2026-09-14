@@ -1,4 +1,53 @@
 import z from "zod";
+import { numericBigint } from "@/ws/numericSchemas";
+
+export interface SpotAssetConfig {
+  isActive: boolean;
+  perpAssetIndex?: number | null;
+  maxPerTraderBalance: bigint;
+  maxGlobalBalance: bigint;
+  currGlobalBalance: bigint;
+  minMarginDiscountBps: number;
+  maxMarginDiscountBps: number;
+  maxLiquidationDiscountBps: number;
+  minLiquidationSlippageBps: number;
+  maxLiquidationSize: bigint;
+}
+
+export interface CollateralAssetMetadata {
+  assetIndex: number;
+  symbol: string;
+  decimals: number;
+  spot?: SpotAssetConfig | null;
+}
+
+export interface CollateralAssetsResponse {
+  assets: CollateralAssetMetadata[];
+}
+
+export const SpotAssetConfigSchema: z.ZodType<SpotAssetConfig> = z.object({
+  isActive: z.boolean(),
+  perpAssetIndex: z.number().int().nonnegative().nullable().optional(),
+  maxPerTraderBalance: numericBigint("maxPerTraderBalance"),
+  maxGlobalBalance: numericBigint("maxGlobalBalance"),
+  currGlobalBalance: numericBigint("currGlobalBalance"),
+  minMarginDiscountBps: z.number().int().nonnegative(),
+  maxMarginDiscountBps: z.number().int().nonnegative(),
+  maxLiquidationDiscountBps: z.number().int().nonnegative(),
+  minLiquidationSlippageBps: z.number().int().nonnegative(),
+  maxLiquidationSize: numericBigint("maxLiquidationSize"),
+});
+
+export const CollateralAssetMetadataSchema: z.ZodType<CollateralAssetMetadata> =
+  z.object({
+    assetIndex: z.number().int().nonnegative(),
+    symbol: z.string(),
+    decimals: z.number().int().nonnegative(),
+    spot: SpotAssetConfigSchema.nullable().optional(),
+  });
+
+export const CollateralAssetsResponseSchema: z.ZodType<CollateralAssetsResponse> =
+  z.object({ assets: z.array(CollateralAssetMetadataSchema) });
 
 // ---------------------------------------------------------------------------
 // Collateral History Types

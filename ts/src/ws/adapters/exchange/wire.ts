@@ -15,6 +15,10 @@ import type {
   ExchangeSnapshotEncoding,
   MarketPublicMetadata,
 } from "@/api/exchange/types";
+import {
+  CollateralAssetMetadataSchema,
+  type CollateralAssetMetadata,
+} from "@/api/collateral/types";
 
 export type ExchangeSnapshotReason = "snapshot";
 
@@ -34,6 +38,11 @@ export interface ExchangeStatusChangedOp {
   active: boolean;
   gated: boolean;
   withdrawalsAvailable: boolean;
+}
+
+export interface SpotCollateralsUpdatedOp {
+  kind: "spotCollateralsUpdated";
+  assets: CollateralAssetMetadata[];
 }
 
 export interface MarketAddedOp {
@@ -183,6 +192,7 @@ export interface MarketParameterUpdatedOp {
 export type ExchangeDeltaOp =
   | ExchangeKeysUpdatedOp
   | ExchangeStatusChangedOp
+  | SpotCollateralsUpdatedOp
   | MarketAddedOp
   | MarketStatusChangedOp
   | MarketClosedOp
@@ -202,6 +212,7 @@ export interface ExchangeSnapshotMsg {
   reason: ExchangeSnapshotReason;
   exchange: z.infer<typeof ExchangeStateSnapshotSchema>;
   markets: z.infer<typeof ExchangeMarketSnapshotSchema>[];
+  spotCollaterals?: CollateralAssetMetadata[];
 }
 
 export interface ExchangeDeltaMsg {
@@ -233,6 +244,7 @@ export type ExchangeWireMsg = ExchangeMsg | ExchangeEncodedSnapshotMsg;
 const KNOWN_EXCHANGE_DELTA_KINDS = new Set([
   "exchangeKeysUpdated",
   "exchangeStatusChanged",
+  "spotCollateralsUpdated",
   "marketAdded",
   "marketStatusChanged",
   "marketClosed",
@@ -410,6 +422,11 @@ const ExchangeKeysUpdatedOpSchema = z.object({
   exchange: ExchangeStateSnapshotSchema,
 });
 
+const SpotCollateralsUpdatedOpSchema = z.object({
+  kind: z.literal("spotCollateralsUpdated"),
+  assets: z.array(CollateralAssetMetadataSchema),
+});
+
 const MarketAddedOpSchema = z.object({
   kind: z.literal("marketAdded"),
   market: ExchangeMarketSnapshotSchema,
@@ -539,6 +556,7 @@ const exchangeDeltaOpSchema = z.preprocess(
   z.discriminatedUnion("kind", [
     ExchangeKeysUpdatedOpSchema,
     ExchangeStatusChangedOpSchema,
+    SpotCollateralsUpdatedOpSchema,
     MarketAddedOpSchema,
     MarketStatusChangedOpSchema,
     MarketClosedOpSchema,
@@ -563,6 +581,7 @@ const exchangeSnapshotMsgSchema = z.object({
   reason: z.literal("snapshot"),
   exchange: ExchangeStateSnapshotSchema,
   markets: z.array(ExchangeMarketSnapshotSchema),
+  spotCollaterals: z.array(CollateralAssetMetadataSchema).optional(),
 });
 
 export const ExchangeSnapshotMsgSchema: z.ZodType<ExchangeSnapshotMsg> =

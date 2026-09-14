@@ -25,6 +25,7 @@ export * from "./RegisterTrader";
 export * from "./OnboardTraderDelegated";
 export * from "./Spline";
 export * from "./SyncParentToChild";
+export * from "./NativeSol";
 export * from "./TransferCollateral";
 export * from "./TransferCollateralChildToParent";
 export * from "./UncrossCrank";

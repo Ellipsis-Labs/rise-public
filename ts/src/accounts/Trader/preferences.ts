@@ -1,19 +1,26 @@
 export enum TraderPreferenceKind {
   DisableCollateralSweep = 0,
+  DisablePositionAuthoritySwap = 1,
 }
 
 export const TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP: number =
   1 << TraderPreferenceKind.DisableCollateralSweep;
 
+export const TRADER_PREFERENCE_DISABLE_POSITION_AUTHORITY_SWAP: number =
+  1 << TraderPreferenceKind.DisablePositionAuthoritySwap;
+
 export const TRADER_PREFERENCE_VALID_MASK: number =
-  TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP;
+  TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP |
+  TRADER_PREFERENCE_DISABLE_POSITION_AUTHORITY_SWAP;
 
 export const ALL_TRADER_PREFERENCE_KINDS: readonly TraderPreferenceKind[] = [
   TraderPreferenceKind.DisableCollateralSweep,
+  TraderPreferenceKind.DisablePositionAuthoritySwap,
 ] as const;
 
 export interface TraderPreferences {
   disableCollateralSweep: boolean;
+  disablePositionAuthoritySwap: boolean;
 }
 
 export interface TraderPreferenceFlags {
@@ -30,6 +37,8 @@ export const traderPreferenceBit = (
   switch (preference) {
     case TraderPreferenceKind.DisableCollateralSweep:
       return TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP;
+    case TraderPreferenceKind.DisablePositionAuthoritySwap:
+      return TRADER_PREFERENCE_DISABLE_POSITION_AUTHORITY_SWAP;
   }
 };
 
@@ -39,6 +48,8 @@ export const traderPreferenceKey = (
   switch (preference) {
     case TraderPreferenceKind.DisableCollateralSweep:
       return "disableCollateralSweep";
+    case TraderPreferenceKind.DisablePositionAuthoritySwap:
+      return "disablePositionAuthoritySwap";
   }
 };
 
@@ -48,6 +59,8 @@ export const decodeTraderPreferenceFlags = (
   const preferences: TraderPreferences = {
     disableCollateralSweep:
       (bits & TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP) !== 0,
+    disablePositionAuthoritySwap:
+      (bits & TRADER_PREFERENCE_DISABLE_POSITION_AUTHORITY_SWAP) !== 0,
   };
   const enabled = ALL_TRADER_PREFERENCE_KINDS.filter(
     (preference) => (bits & traderPreferenceBit(preference)) !== 0
