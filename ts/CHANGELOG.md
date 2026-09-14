@@ -3,6 +3,22 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.6 - 2026-09-14
+
+Source Phoenix commit: `cac9d3de728d31bf20f2a9499f03866c305e2958`
+
+### Summary
+
+- Fixed `computeSubaccountMarginFromInputs` in the margin module to include unsettled funding when computing portfolio value, correcting the `portfolioValueQuoteLots` output for accounts with outstanding funding payments.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- Accounts with nonzero unsettled funding will now receive a different (corrected) `portfolioValueQuoteLots` value from margin computations. No code changes are required, but any downstream logic or UI relying on the previous figure should expect the new, more accurate value.
+
 ## v0.5.5 - 2026-09-14
 
 Source Phoenix commit: `ed72a550627c627071186971830394234127b4ce`

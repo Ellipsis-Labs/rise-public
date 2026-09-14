@@ -300,7 +300,10 @@ export const computeSubaccountMarginFromInputs = (
     totalDiscountedPnlForWithdrawals +
     totalUnsettledFunding;
   const portfolioValue =
-    collateralBalance + totalUnrealizedPnl + totalSpotNotional;
+    collateralBalance +
+    totalUnrealizedPnl +
+    totalUnsettledFunding +
+    totalSpotNotional;
 
   const riskState = computeRiskState(totalInitialMargin, effectiveCollateral);
   const riskTier = computeRiskTier(

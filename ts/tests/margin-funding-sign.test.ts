@@ -57,5 +57,6 @@ describe("margin funding sign handling", () => {
     expect(margin.margin.unsettledFundingQuoteLots).toBe("25");
     expect(margin.margin.accumulatedFundingQuoteLots).toBe("5");
     expect(margin.margin.effectiveCollateralQuoteLots).toBe("1025");
+    expect(margin.margin.portfolioValueQuoteLots).toBe("1025");
   });
 });
