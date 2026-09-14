@@ -101,7 +101,16 @@ Use the examples as the fastest reference for intended SDK usage:
   referral activation through `/v1/referral/activate-tx`
 - [examples/10-builder-onboarding-tx.ts](./examples/10-builder-onboarding-tx.ts):
   builder onboarding without a referral code through
-  `/v1/exchange/build-register-ixs` and `/v1/exchange/send-register-ixs`
+  `/v1/exchange/build-register-ixs` and `/v1/exchange/send-register-ixs`. The
+  fee-payer keypair path defaults to `~/.config/solana/id.json`; the optional
+  trader authority defaults to the fee payer's public key.
+
+  ```text
+  bun examples/10-builder-onboarding-tx.ts \
+    [--fee-payer-keypair-path <PATH>] \
+    [--trader-authority <TRADER_AUTHORITY_PUBKEY>]
+  ```
+
 - [examples/phoenix-client-example.ts](./examples/phoenix-client-example.ts):
   broader API walkthrough
 - [examples/phoenix-ws-example.ts](./examples/phoenix-ws-example.ts):

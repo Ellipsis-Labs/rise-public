@@ -196,6 +196,7 @@ export {
   GetNotificationsResponseSchema,
   type NotificationItem,
   NotificationItemSchema,
+  type UnknownEventNotification,
 } from "../api/notifications/types";
 
 export {

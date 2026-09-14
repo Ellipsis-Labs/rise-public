@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.13 - 2026-09-14
+
+Source Phoenix commit: `a5e6fdf08f31c275a2d366f136834a6d29501833`
+
+### Summary
+
+- Added forward-compatible handling for event notifications: unknown/future `notificationType` values now parse as a new `UnknownEventNotification` (with `rawNotificationType` preserving the original wire value) instead of failing to parse.
+- Added `cancelIdsForScaleSet` (with a new `ScaleSetCancelableOrderRow` row type) to convert a market's scale-set order rows into `CancelId`s for `buildCancelOrdersByIdIxResolved`.
+- Bumped package version to `0.5.13`.
+
+### Breaking Changes
+
+- `EventNotificationItem` gained a new `UnknownEventNotification` member; code that exhaustively switches on `notificationType` (e.g. a `never`-typed default case) will need to add an `"unknown"` branch to keep compiling.
+- `examples/10-builder-onboarding-tx.ts` replaced `--trader-keypair-path` / `TRADER_KEYPAIR_PATH` / `KEYPAIR_PATH` with `--fee-payer-keypair-path` / `FEE_PAYER_KEYPAIR_PATH` (default `~/.config/solana/id.json`) plus an optional `--trader-authority` / `TRADER_AUTHORITY` public key; the fee payer is now the only local signer, so existing invocations passing a trader keypair path must switch to these new flags.
+
+### Consumer Notes
+
+- `cancelIdsForScaleSet` throws if `scaleSetId` is outside `1..=255`, or if a row's `priceTicks`/`orderSequenceNumber` isn't a canonical non-negative decimal string within u64 range; a two-sided scale set can return up to 128 ids, above the 100-id cap for `buildCancelOrdersByIdIxResolved`, so callers must chunk larger results themselves.
+- README docs (`README.md`, `ts/README.md`, `ts/examples/README.md`) were updated to describe the builder-onboarding example's new signer model and default keypair path.
+
 ## v0.5.12 - 2026-09-14
 
 Source Phoenix commit: `444e5fcc741719021c13a92e16e573f385357c60`
