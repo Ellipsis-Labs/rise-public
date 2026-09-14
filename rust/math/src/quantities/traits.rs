@@ -59,6 +59,7 @@ pub trait WrapperNum<T> {
 pub trait ScalarBounds<Inner>: WrapperNum<Inner>
 where
     Inner: PartialOrd,
+    Self: Sized,
 {
     const LOWER_BOUND: Inner;
     const UPPER_BOUND: Inner;
@@ -75,11 +76,11 @@ where
         Self::LOWER_BOUND..=Self::UPPER_BOUND
     }
 
-    fn lower_bound() -> Inner {
-        Self::LOWER_BOUND
+    fn lower_bound() -> Self {
+        Self::new(Self::LOWER_BOUND)
     }
 
-    fn upper_bound() -> Inner {
-        Self::UPPER_BOUND
+    fn upper_bound() -> Self {
+        Self::new(Self::UPPER_BOUND)
     }
 }

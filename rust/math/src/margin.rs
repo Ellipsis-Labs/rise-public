@@ -484,9 +484,7 @@ pub(crate) fn compute_market_margin(
             .as_inner() as u128;
         let numerator = (unrealized_pnl.as_inner() as u128).saturating_mul(upnl_risk_factor);
         let denom = UPnlRiskFactor::UPPER_BOUND as u128;
-        let discounted_u128 = numerator
-            .saturating_add(denom.saturating_sub(1))
-            .saturating_div(denom);
+        let discounted_u128 = numerator.div_ceil(denom);
         let discounted_u64 = discounted_u128.min(u64::MAX as u128) as u64;
         QuoteLots::new(discounted_u64)
             .checked_as_signed()

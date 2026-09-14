@@ -21,7 +21,7 @@
 
 use std::fmt::{Debug, Display};
 use std::iter::Sum;
-use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Rem, Sub, SubAssign};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use bytemuck::{Pod, Zeroable};
@@ -172,7 +172,7 @@ impl BasisPoints {
             .as_inner()
             .checked_mul(self.as_inner())?
             .checked_div(Self::DENOMINATOR)?;
-        Some(QuoteLots::new(result))
+        QuoteLots::new_checked(result).ok()
     }
 
     /// Apply basis points to a QuoteLots value with ceiling division
@@ -182,7 +182,7 @@ impl BasisPoints {
         // Try checked arithmetic first
         if let Some(numerator) = value.as_inner().checked_mul(self.as_inner()) {
             if let Some(result) = numerator.checked_add(Self::DENOMINATOR - 1) {
-                return Some(QuoteLots::new(result / Self::DENOMINATOR));
+                return QuoteLots::new_checked(result / Self::DENOMINATOR).ok();
             }
         }
 
@@ -191,7 +191,9 @@ impl BasisPoints {
         let result = numerator.div_ceil(Self::DENOMINATOR as u128);
 
         // Try to downcast back to u64
-        u64::try_from(result).ok().map(QuoteLots::new)
+        u64::try_from(result)
+            .ok()
+            .and_then(|result| QuoteLots::new_checked(result).ok())
     }
 
     /// Apply basis points to a Ticks value
@@ -200,20 +202,20 @@ impl BasisPoints {
             .as_inner()
             .checked_mul(self.as_inner())?
             .checked_div(Self::DENOMINATOR)
-            .map(Ticks::new)
+            .and_then(|ticks| Ticks::new_checked(ticks).ok())
     }
 
     /// Create from a u16 value (common for risk factors stored as u16)
     pub fn from_u16(value: u16) -> Option<Self> {
         if value <= Self::UPPER_BOUND as u16 {
-            Some(Self::new(value as u64))
+            Self::new_checked(value as u64).ok()
         } else {
             None
         }
     }
 
     pub fn to_u16(&self) -> u16 {
-        if self.as_inner() > Self::UPPER_BOUND {
+        if self.as_inner() > Self::UPPER_BOUND as u64 {
             Self::UPPER_BOUND as u16
         } else {
             self.as_inner() as u16
@@ -250,7 +252,7 @@ impl FeeRateMicro {
             .as_inner()
             .checked_mul(self.as_u64())?
             .div_ceil(MicroDivisor::MICRO.as_inner());
-        Some(QuoteLots::new(fee))
+        QuoteLots::new_checked(fee).ok()
     }
 
     /// Apply fee rate using saturating arithmetic
@@ -259,7 +261,7 @@ impl FeeRateMicro {
             .as_inner()
             .saturating_mul(self.as_u64())
             .div_ceil(MicroDivisor::MICRO.as_inner());
-        QuoteLots::new(fee)
+        QuoteLots::new_saturating(fee)
     }
 
     /// Adjust quote budget for fees (for buy orders)
@@ -269,7 +271,7 @@ impl FeeRateMicro {
             .as_inner()
             .saturating_mul(divisor.as_inner())
             .saturating_div(divisor.as_inner().saturating_add(self.as_u64()));
-        QuoteLots::new(fee_adjusted_budget)
+        QuoteLots::new_saturating(fee_adjusted_budget)
     }
 }
 
@@ -279,7 +281,8 @@ impl SignedFeeRateMicro {
     }
 
     pub fn to_unsigned_fee_rate_micro(self) -> FeeRateMicro {
-        FeeRateMicro::new(self.as_inner() as u32)
+        FeeRateMicro::new_checked(self.as_inner() as u32)
+            .expect("non-negative signed fee rate must fit in FeeRateMicro")
     }
 
     /// Apply signed fee rate to quote lots

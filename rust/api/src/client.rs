@@ -736,6 +736,16 @@ impl PhoenixClient {
                         .boxed(),
                 );
             }
+            SubscriptionKey::Exchange => {
+                let (rx, handle) = ws_client.subscribe_to_exchange()?;
+                ws_handles.insert(key.clone(), handle);
+                ws_streams.insert(
+                    key.clone(),
+                    UnboundedReceiverStream::new(rx)
+                        .map(ServerMessage::Exchange)
+                        .boxed(),
+                );
+            }
         }
 
         Ok(())
@@ -956,6 +966,7 @@ impl PhoenixClient {
             }
             ServerMessage::Error(_)
             | ServerMessage::SubscriptionStatus(_)
+            | ServerMessage::Exchange(_)
             | ServerMessage::Other => {}
         }
 
