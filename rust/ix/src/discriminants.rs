@@ -284,8 +284,6 @@ define_instruction_discriminants! {
         NameSuccessor => "name_successor",
         ChangeMarketStatus => "change_market_status",
         ChangeExchangeStatus => "change_exchange_status",
-        SetExchangeStatusBits => "set_exchange_status_bits",
-        DisableExchangeCapabilities => "disable_exchange_capabilities",
         SetTraderCapabilitiesDelegated => "set_trader_capabilities_delegated",
         ConsumeWithdrawQueue => "consume_withdraw_queue",
         RegisterTrader => "register_trader",

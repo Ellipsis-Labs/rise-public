@@ -86,6 +86,7 @@ pub struct LimitOrder {
     pub initial_size_lots: u64,
     pub reduce_only: bool,
     pub is_stop_loss: bool,
+    pub scale_set_id: Option<u8>,
     pub status: String,
 }
 
@@ -103,6 +104,7 @@ impl LimitOrder {
             initial_size_lots: event.initial_size_lots.parse().unwrap_or(0),
             reduce_only: event.reduce_only,
             is_stop_loss: event.is_stop_loss,
+            scale_set_id: event.scale_set_id,
             status: event.status.clone(),
         }
     }

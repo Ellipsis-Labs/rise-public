@@ -59,6 +59,11 @@ pub struct OrderHistoryItem {
     pub placed_at: Option<chrono::DateTime<chrono::Utc>>,
     /// Timestamp when the order was completed (ISO 8601).
     pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// Scale-order set id (1-255) shared by every leg of a
+    /// `PlaceMultiLimitOrderV2` scale-order packet; absent for standalone
+    /// orders.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale_set_id: Option<u8>,
 }
 
 /// Response from the order history endpoint.
@@ -745,6 +750,10 @@ pub struct LimitOrder {
     pub is_reduce_only: bool,
     #[serde(default)]
     pub is_stop_loss: bool,
+    /// Client-assigned scale set id when the order was placed as part of a
+    /// scale (ladder) order batch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale_set_id: Option<u8>,
 }
 
 /// A trader's balance in one spot collateral asset, valued for margin.

@@ -301,7 +301,8 @@ cargo run -p phoenix-rise --example subscribe_trader_state --features ws
 cargo run -p phoenix-rise --example referral_activation_tx --features api,tx-builder -- \
     REFERRAL_CODE --trader-keypair-path ~/.config/solana/id.json
 cargo run -p phoenix-rise --example builder_onboarding_tx --features api -- \
-    --trader-keypair-path ~/.config/solana/id.json
+    --fee-payer-keypair-path ~/.config/solana/id.json \
+    [--trader-authority <TRADER_AUTHORITY_PUBKEY>]
 cargo run -p phoenix-rise --example send_market_order --features api,tx-builder -- SOL
 cargo run -p phoenix-rise --example send_flight_market_order --features api,tx-builder -- \
     Builder1111111111111111111111111111111111 0 0 SOL bid 67
@@ -316,4 +317,9 @@ cargo run -p phoenix-rise-cli -- --rpc-url http://localhost:8899 --json rpc perp
 `referral_activation_tx` uses `/v1/referral/activate-tx` when the user has a
 referral code. `builder_onboarding_tx` uses
 `/v1/exchange/build-register-ixs` and `/v1/exchange/send-register-ixs` to
-register a trader without a referral code.
+register a trader authority public key without a referral code. Only the fee
+payer signs the transaction locally before the API adds the onboarder
+signature. The fee-payer keypair path defaults to
+`~/.config/solana/id.json` and can be overridden with
+`--fee-payer-keypair-path`. The `--trader-authority` argument is optional and
+defaults to the fee payer's public key when omitted.

@@ -277,7 +277,7 @@ fn generated_instruction_fixtures_match_rise_discriminants() {
     // missed regeneration fails loudly instead.
     assert_eq!(
         instruction_fixtures().instructions.len(),
-        118,
+        116,
         "regenerate with `cargo run -p eternal-cli -- sdk-fixtures export`"
     );
 

@@ -887,6 +887,7 @@ mod tests {
         MarketPublicMetadata {
             name: Some(name.to_string()),
             description: Some("Solana perpetual market".to_string()),
+            search_aliases: vec!["SOL".to_string()],
             logo_uri: Some("https://example.com/sol.png".to_string()),
             coin_gecko_id: Some("solana".to_string()),
             coin_market_cap_id: Some(5426),
