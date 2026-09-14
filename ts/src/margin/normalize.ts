@@ -27,7 +27,9 @@ export type NormalizedMarketParamsBySymbol = Record<
   NormalizedMarketParams
 >;
 
-const parseLeverageTiers = (tiers: LeverageTierParams[]): LeverageTier[] =>
+const parseLeverageTiers = (
+  tiers: readonly LeverageTierParams[]
+): LeverageTier[] =>
   tiers.map((tier) => ({
     upperBoundSize: toBigInt(tier.upperBoundSize),
     maxLeverage: toBigInt(tier.maxLeverage),
@@ -61,7 +63,7 @@ export const normalizeMarketParams = (
 });
 
 export const buildNormalizedMarketParamsBySymbol = (
-  markets: MarketParams[]
+  markets: readonly MarketParams[]
 ): NormalizedMarketParamsBySymbol => {
   const map: NormalizedMarketParamsBySymbol = {};
   for (const market of markets) {

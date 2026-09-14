@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.70 - 2026-09-14
+
+Source Phoenix commit: `aae588cdd4469d444096f6a1db17803c687ec72a`
+
+### Summary
+
+- Added a new draft order margin API: `computeDraftOrderMarginRequirementFromInputs` / `computeDraftOrderMarginRequirementFromSnapshot`, which return the incremental initial margin a draft limit or market order would require, including an order-leverage-adjusted value when `orderLeverageLimitsBySymbol` applies.
+- Added `computeMaxDraftOrderSizeForAvailableMarginFromInputs` / `computeMaxDraftOrderSizeForAvailableMarginFromSnapshot` to binary-search the largest draft order size that fits a given available margin budget, with reduce-only market orders automatically capped to the closable position size.
+- Exported new supporting types: `DraftOrderMarginInput`, `DraftOrderMarginRequirementResult`, `MarginMarketsInput`.
+- `getOrCreateMarketInput`, `ensureOrderListCanBeMutated`, and `cloneSubaccountInput` are now exported from `margin/compute.ts` for use by the new draft order helpers.
+- `buildNormalizedMarketParamsBySymbol` (and its internal tier parser) now accept `readonly MarketParams[]` instead of `MarketParams[]`, a strictly more permissive input type.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- Use the new `computeDraftOrderMarginRequirement*` functions to price a draft order's margin impact before submission, and `computeMaxDraftOrderSizeForAvailableMargin*` to size an order against available margin — both come in `FromInputs` (already-built `SubaccountMarginInputs`) and `FromSnapshot` (raw snapshot) variants, matching the existing pattern used by other margin calculators in the package.
+- `marginRequirementQuoteLots` already reflects any order-leverage adjustment; use `protocolMarginRequirementQuoteLots` if you need the unadjusted protocol value.
+- The `readonly MarketParams[]` widening is source-compatible — existing calls passing a mutable array continue to work unchanged.
+
 ## v0.4.69 - 2026-09-14
 
 Source Phoenix commit: `68ec7e66b25a869e95ba56ac5bca31fbdef2209d`
