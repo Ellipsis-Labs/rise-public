@@ -15,6 +15,7 @@ export const DISCRIMINANTS: DiscriminantMap = {
   ),
   PLACE_LIMIT_ORDER: sha2_const("global:place_limit_order"),
   PLACE_MULTI_LIMIT_ORDER: sha2_const("global:place_multi_limit_order"),
+  PLACE_MULTI_LIMIT_ORDER_V2: sha2_const("global:place_multi_limit_order_v2"),
   CANCEL_ORDERS_BY_ID: sha2_const("global:cancel_orders_by_id"),
   CANCEL_ALL: sha2_const("global:cancel_all"),
   CANCEL_UP_TO: sha2_const("global:cancel_up_to"),
