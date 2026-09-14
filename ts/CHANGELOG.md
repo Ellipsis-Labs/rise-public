@@ -3,6 +3,24 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.72 - 2026-09-14
+
+Source Phoenix commit: `6e87cca0c94f2daf3f64938b475bb0dc43564ecc`
+
+### Summary
+
+- Bumped `@ellipsis-labs/rise` to `0.4.72`.
+- Raised the minimum supported `postcss` version from `>=8.5.10` to `>=8.5.12` (bundled/lockfile `postcss` updated to `8.5.19`, `nanoid` to `3.3.16`).
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- If you pin or override `postcss` in your project, ensure it satisfies `>=8.5.12` to remain compatible with this release.
+- No public API, export, or runtime behavior changes in this release.
+
 ## v0.4.71 - 2026-09-14
 
 Source Phoenix commit: `ff2af96c827a5f84b2d87c1b5e986cf86cd10988`
