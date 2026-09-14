@@ -140,6 +140,8 @@ pub struct SpotCollateral {
     pub symbol: String,
     /// Balance in the asset's native units (lamports for SOL).
     pub balance: u64,
+    /// Native-unit decimals of the asset (9 for native SOL).
+    pub decimals: u8,
 }
 
 impl SpotCollateral {
@@ -148,6 +150,7 @@ impl SpotCollateral {
             asset_index: snapshot.asset_index,
             symbol: snapshot.symbol.clone(),
             balance: snapshot.balance.parse().unwrap_or(0),
+            decimals: snapshot.decimals,
         }
     }
 }
