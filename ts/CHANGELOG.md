@@ -3,6 +3,24 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.14 - 2026-09-14
+
+Source Phoenix commit: `be93e77bc13e301ace3c9cd7132e867d258ce17e`
+
+### Summary
+
+- Added a new `spot_collateral_liquidation` WebSocket event notification type, including `SpotCollateralLiquidatedEventData`/`SpotCollateralLiquidationDetails` types and their Zod schemas, exposed via `EventNotificationItem` and `NotificationItemSchema`.
+- Removed two Phoenix program instructions (`SetExchangeStatusBits`, `DisableExchangeCapabilities`) from the generated instruction fixture set, reducing the tracked instruction count from 118 to 116.
+
+### Breaking Changes
+
+- The `SetExchangeStatusBits` and `DisableExchangeCapabilities` instructions are no longer part of the generated instruction set. Any consumer code building or decoding these instructions against the Phoenix program should remove that usage, as the on-chain instructions they targeted are no longer present.
+
+### Consumer Notes
+
+- New `spot_collateral_liquidation` notifications are additive: `EVENT_NOTIFICATION_TYPES`, `EventNotificationItem`, and `NotificationItemSchema` now include this variant, so exhaustive `switch`/discriminated-union handling over notification types should add a case for it.
+- `SpotCollateralLiquidatedEventData` mirrors the shape of existing liquidation event data (bigint-like numeric fields, string pubkeys for `liquidator`/`liquidatedTrader`), so existing bigint/pubkey parsing helpers can be reused.
+
 ## v0.5.13 - 2026-09-14
 
 Source Phoenix commit: `a5e6fdf08f31c275a2d366f136834a6d29501833`

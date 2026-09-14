@@ -148,6 +148,35 @@ export const LiquidationTransferEventDataSchema: z.ZodType<LiquidationTransferEv
     liquidatorCollateralChange: bigintLikeSchema,
   });
 
+export interface SpotCollateralLiquidatedEventData {
+  slot: bigint;
+  slotIndex: number;
+  timestamp: bigint;
+  liquidator: string;
+  liquidatedTrader: string;
+  assetIndex: number;
+  liquidationSize: bigint;
+  overCapExcess: bigint;
+  quoteLotsDeposited: bigint;
+  oracleNotional: bigint;
+  liquidationDiscountBps: bigint;
+}
+
+export const SpotCollateralLiquidatedEventDataSchema: z.ZodType<SpotCollateralLiquidatedEventData> =
+  z.object({
+    slot: bigintLikeSchema,
+    slotIndex: safeIntegerSchema,
+    timestamp: bigintLikeSchema,
+    liquidator: z.string(),
+    liquidatedTrader: z.string(),
+    assetIndex: safeIntegerSchema,
+    liquidationSize: bigintLikeSchema,
+    overCapExcess: bigintLikeSchema,
+    quoteLotsDeposited: bigintLikeSchema,
+    oracleNotional: bigintLikeSchema,
+    liquidationDiscountBps: bigintLikeSchema,
+  });
+
 export interface CloseMatchedPositionsEventData {
   slot: bigint;
   slotIndex: number;
@@ -237,6 +266,7 @@ export const EVENT_NOTIFICATION_TYPES = [
   "order_filled",
   "liquidation",
   "backstop_liquidation",
+  "spot_collateral_liquidation",
   "adl",
   "risk_engine_cancel_order",
   "stop_loss_executed",
@@ -328,6 +358,15 @@ export interface BackstopLiquidationDetails {
   haircutRate: number;
 }
 
+export interface SpotCollateralLiquidationDetails {
+  type: "spotCollateralLiquidation";
+  assetIndex: number;
+  liquidationSize: number;
+  quoteLotsDeposited: number;
+  oracleNotional: number;
+  liquidationDiscountBps: number;
+}
+
 export type OrderFilledNotification = EventNotificationBase & {
   notificationType: "order_filled";
   data: OrderFillEventData;
@@ -344,6 +383,12 @@ export type BackstopLiquidationNotification = EventNotificationBase & {
   notificationType: "backstop_liquidation";
   data: LiquidationTransferEventData;
   details?: BackstopLiquidationDetails;
+};
+
+export type SpotCollateralLiquidationNotification = EventNotificationBase & {
+  notificationType: "spot_collateral_liquidation";
+  data: SpotCollateralLiquidatedEventData;
+  details?: SpotCollateralLiquidationDetails;
 };
 
 export type AdlNotification = EventNotificationBase & {
@@ -391,6 +436,7 @@ export type EventNotificationItem =
   | OrderFilledNotification
   | LiquidationNotification
   | BackstopLiquidationNotification
+  | SpotCollateralLiquidationNotification
   | AdlNotification
   | RiskEngineCancelOrderNotification
   | StopLossExecutedNotification
@@ -503,6 +549,15 @@ const BackstopLiquidationDetailsSchema = z.object({
   haircutRate: z.number(),
 });
 
+const SpotCollateralLiquidationDetailsSchema = z.object({
+  type: z.literal("spotCollateralLiquidation"),
+  assetIndex: z.number(),
+  liquidationSize: z.number(),
+  quoteLotsDeposited: z.number(),
+  oracleNotional: z.number(),
+  liquidationDiscountBps: z.number(),
+});
+
 const KnownEventNotificationItemSchema = z.discriminatedUnion(
   "notificationType",
   [
@@ -520,6 +575,11 @@ const KnownEventNotificationItemSchema = z.discriminatedUnion(
       notificationType: z.literal("backstop_liquidation"),
       data: LiquidationTransferEventDataSchema,
       details: BackstopLiquidationDetailsSchema.optional(),
+    }),
+    EventNotificationBaseSchema.extend({
+      notificationType: z.literal("spot_collateral_liquidation"),
+      data: SpotCollateralLiquidatedEventDataSchema,
+      details: SpotCollateralLiquidationDetailsSchema.optional(),
     }),
     EventNotificationBaseSchema.extend({
       notificationType: z.literal("adl"),
