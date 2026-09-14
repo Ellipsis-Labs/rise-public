@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   PlaceAttachedConditionalOrderRequestSchema,
+  PlaceIsolatedLimitOrderRequestSchema,
   PlaceIsolatedLimitOrderWithConditionalsRequestSchema,
   PlaceIsolatedMarketOrderRequestSchema,
   PlacePositionConditionalOrderRequestSchema,
@@ -318,5 +319,63 @@ describe("isolated market order request schema", () => {
 
     expect(parsed.minBaseLotsToFill).toBe(0);
     expect(parsed.minQuoteLotsToFill).toBe(0);
+  });
+});
+
+describe("isolated order spot collateral transfer schemas", () => {
+  const baseRequest = {
+    authority: "authority",
+    symbol: "SOL-PERP",
+    side: "buy",
+  };
+
+  it("accepts optional whole native-unit amounts on every isolated order request", () => {
+    for (const [schema, routeFields] of [
+      [PlaceIsolatedLimitOrderRequestSchema, {}],
+      [
+        PlaceIsolatedLimitOrderWithConditionalsRequestSchema,
+        {
+          greaterTrigger: {
+            side: "sell",
+            triggerPrice: 120,
+          },
+        },
+      ],
+      [PlaceIsolatedMarketOrderRequestSchema, {}],
+    ]) {
+      const request = {
+        ...baseRequest,
+        ...routeFields,
+        transferAmount: 2_000_000,
+        transferSpotCollateralAmounts: {
+          SOL: 1_000_000_000,
+          BTC: 25_000,
+        },
+      };
+
+      const parsed = schema.parse(request);
+      expect(parsed.transferAmount).toBe(2_000_000);
+      expect(parsed.transferSpotCollateralAmounts).toEqual({
+        SOL: 1_000_000_000,
+        BTC: 25_000,
+      });
+      expect(
+        schema.safeParse({
+          ...request,
+          transferSpotCollateralAmounts: { SOL: 0.5 },
+        }).success
+      ).toBe(false);
+      expect(
+        schema.safeParse({
+          ...request,
+          transferSpotCollateralAmounts: { SOL: -1 },
+        }).success
+      ).toBe(false);
+    }
+  });
+
+  it("preserves omission so the API can apply its empty default", () => {
+    const parsed = PlaceIsolatedLimitOrderRequestSchema.parse(baseRequest);
+    expect(parsed.transferSpotCollateralAmounts).toBeUndefined();
   });
 });

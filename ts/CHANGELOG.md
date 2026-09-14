@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.7 - 2026-09-14
+
+Source Phoenix commit: `6826b06a0d967b9b926b6328302508546b62f573`
+
+### Summary
+
+- Added optional `transferSpotCollateralAmounts` to `PlaceIsolatedLimitOrderRequest`, `PlaceIsolatedLimitOrderWithConditionalsRequest`, and `PlaceIsolatedMarketOrderRequest`, letting callers fund isolated positions by transferring specific whole native-unit amounts of one or more spot assets (keyed by symbol) alongside the existing `transferAmount`.
+- Corresponding Zod schemas validate each amount as a non-negative integer; the field stays optional so existing requests are unaffected and the API applies its own empty default when omitted.
+- Relaxed the `nanoid` dependency constraint from an exact pin (`3.3.17`) to a caret range (`^3.3.17`).
+- Version bump to `0.5.7`.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `transferSpotCollateralAmounts` values must be non-negative integers in native units (e.g. lamports/base units), not decimal quantities — fractional or negative values will fail schema validation.
+- No action needed to adopt this release; the new field is additive and optional across all three isolated order request types.
+
 ## v0.5.6 - 2026-09-14
 
 Source Phoenix commit: `cac9d3de728d31bf20f2a9499f03866c305e2958`
