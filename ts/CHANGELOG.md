@@ -3,6 +3,24 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.71 - 2026-09-14
+
+Source Phoenix commit: `ff2af96c827a5f84b2d87c1b5e986cf86cd10988`
+
+### Summary
+
+- Bumped the `brace-expansion` dependency override from `5.0.6` to `5.0.7`.
+- Released as `@ellipsis-labs/rise` v0.4.71.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- No public API, type, or runtime behavior changes; this release only updates a transitive dependency override.
+- No consumer action required beyond picking up the new package version.
+
 ## v0.4.70 - 2026-09-14
 
 Source Phoenix commit: `aae588cdd4469d444096f6a1db17803c687ec72a`
