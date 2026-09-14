@@ -294,24 +294,29 @@ describe("isolated market order request schema", () => {
     numBaseLots: 25,
   };
 
-  it("accepts a positive minimum fill and preserves omission for FOK defaults", () => {
-    expect(
-      PlaceIsolatedMarketOrderRequestSchema.parse({
-        ...baseRequest,
-        minBaseLotsToFill: 1,
-      }).minBaseLotsToFill
-    ).toBe(1);
-    expect(
-      PlaceIsolatedMarketOrderRequestSchema.parse(baseRequest).minBaseLotsToFill
-    ).toBeUndefined();
+  it("accepts positive minimum fills and preserves omission for FOK defaults", () => {
+    const parsed = PlaceIsolatedMarketOrderRequestSchema.parse({
+      ...baseRequest,
+      minBaseLotsToFill: 1,
+      minQuoteLotsToFill: 1,
+    });
+
+    expect(parsed.minBaseLotsToFill).toBe(1);
+    expect(parsed.minQuoteLotsToFill).toBe(1);
+
+    const defaulted = PlaceIsolatedMarketOrderRequestSchema.parse(baseRequest);
+    expect(defaulted.minBaseLotsToFill).toBeUndefined();
+    expect(defaulted.minQuoteLotsToFill).toBeUndefined();
   });
 
-  it("accepts a zero minimum fill", () => {
-    expect(
-      PlaceIsolatedMarketOrderRequestSchema.parse({
-        ...baseRequest,
-        minBaseLotsToFill: 0,
-      }).minBaseLotsToFill
-    ).toBe(0);
+  it("accepts zero base and quote minimums for true IOC orders", () => {
+    const parsed = PlaceIsolatedMarketOrderRequestSchema.parse({
+      ...baseRequest,
+      minBaseLotsToFill: 0,
+      minQuoteLotsToFill: 0,
+    });
+
+    expect(parsed.minBaseLotsToFill).toBe(0);
+    expect(parsed.minQuoteLotsToFill).toBe(0);
   });
 });
