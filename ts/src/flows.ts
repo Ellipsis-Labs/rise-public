@@ -61,12 +61,16 @@ import {
 import { address, type Address } from "@solana/kit";
 import { buildPlaceLimitOrderIx } from "./core/ixBuilders/PlaceLimitOrder";
 import { buildPlaceMarketOrderIx } from "./core/ixBuilders/PlaceMarketOrder";
-import { buildPlaceMultiLimitOrderIx } from "./core/ixBuilders/PlaceMultiLimitOrder";
+import {
+  buildPlaceMultiLimitOrderIx,
+  buildPlaceMultiLimitOrderV2Ix,
+} from "./core/ixBuilders/PlaceMultiLimitOrder";
 import { buildPlacePostOnlyOrderIx } from "./core/ixBuilders/PlacePostOnlyOrder";
 import {
   chunkScaleLevelsForTx,
   MAX_SCALE_ORDERS,
   scaleLevelsToMultipleOrderPacket,
+  scaleLevelsToMultipleOrderPacketV2,
   type ScaleOrderLevel,
 } from "./scaleOrders";
 import { isFlightClient } from "./flight/client.js";
@@ -271,9 +275,23 @@ export interface PlaceMultiLimitOrderFlowParams {
   pdaIndex?: number;
   slide?: boolean;
   clientOrderId?: bigint | null;
-  /** Max sub-orders per transaction; defaults to `DEFAULT_MAX_ORDERS_PER_TX`. */
+  /**
+   * Max sub-orders per transaction; defaults to `DEFAULT_MAX_ORDERS_PER_TX`,
+   * or `DEFAULT_MAX_ORDERS_PER_TX_V2` on the V2 instruction path.
+   */
   maxOrdersPerTx?: number;
   skipTransferToParent?: boolean;
+  /**
+   * Caller-assigned ladder id in `1..=255`, stamped onto every resting leg.
+   * Setting this (non-zero) or `reduceOnly` routes the batch through
+   * `place_multi_limit_order_v2`. The caller owns uniqueness — a duplicate id
+   * among the trader's resting orders on this market fails the whole batch
+   * on-chain. A tagged ladder must fit one transaction; the flow throws if
+   * `levels` chunk into more than one.
+   */
+  scaleSetId?: number;
+  /** Marks every leg of the ladder reduce-only. Also routes through `place_multi_limit_order_v2`. */
+  reduceOnly?: boolean;
 }
 
 export interface PlaceMultiLimitOrderFlowBatchInstructions {
@@ -1037,7 +1055,22 @@ export const buildPlaceMultiLimitOrderFlow = async (
     clientOrderId = null,
     maxOrdersPerTx,
     skipTransferToParent = false,
+    scaleSetId,
+    reduceOnly = false,
   } = params;
+
+  if (
+    scaleSetId !== undefined &&
+    (!Number.isInteger(scaleSetId) || scaleSetId < 0 || scaleSetId > 255)
+  ) {
+    throw new Error(
+      `scaleSetId must be an integer in 0..=255; got ${scaleSetId}`
+    );
+  }
+
+  const hasScaleSetId = (scaleSetId ?? 0) !== 0;
+  // Must match the Rust SDK's `uses_v2_instruction()` dispatch rule.
+  const usesV2Instruction = hasScaleSetId || reduceOnly;
 
   const placeableLevels = levels.filter((level) => level.sizeBaseLots > 0);
   if (placeableLevels.length === 0) {
@@ -1160,7 +1193,19 @@ export const buildPlaceMultiLimitOrderFlow = async (
         )
       : undefined;
 
-  const chunks = chunkScaleLevelsForTx(placeableLevels, { maxOrdersPerTx });
+  const chunks = chunkScaleLevelsForTx(placeableLevels, {
+    maxOrdersPerTx,
+    usesV2Instruction,
+  });
+
+  // A scale_set_id cannot span transactions: the on-chain duplicate-id check
+  // (`reject_duplicate_scale_set_id`) would reject every batch after the first.
+  if (hasScaleSetId && chunks.length > 1) {
+    throw new Error(
+      `A scaleSetId cannot span transactions; got ${chunks.length} chunks for ${placeableLevels.length} orders. Raise maxOrdersPerTx (capped at ${MAX_SCALE_ORDERS}) or reduce the order count so the ladder fits one transaction.`
+    );
+  }
+
   const batches: PlaceMultiLimitOrderFlowBatch[] = [];
 
   // Effective signer of the placement instructions. Multi-limit orders are
@@ -1168,24 +1213,35 @@ export const buildPlaceMultiLimitOrderFlow = async (
   // signer is still named for uniformity with the other flows.
   const signer = positionAuthority ?? authority;
 
-  for (let i = 0; i < chunks.length; i++) {
-    const multipleOrderPacket = scaleLevelsToMultipleOrderPacket(
-      chunks[i],
-      side,
-      { slide, clientOrderId }
-    );
+  const commonPlaceIxParams = {
+    ...clientPhoenixInstructionAddresses(client),
+    trader: signer,
+    traderAccount: subaccountAddress,
+    perpAssetMap: perpAssetMapKey,
+    orderbook: marketAccount,
+    splineCollection,
+    activeTraderBuffer: arenaAddresses,
+    globalTraderIndex: globalTraderIndexAddresses,
+  };
 
-    const placeIx = buildPlaceMultiLimitOrderIx({
-      ...clientPhoenixInstructionAddresses(client),
-      trader: signer,
-      traderAccount: subaccountAddress,
-      perpAssetMap: perpAssetMapKey,
-      orderbook: marketAccount,
-      splineCollection,
-      activeTraderBuffer: arenaAddresses,
-      globalTraderIndex: globalTraderIndexAddresses,
-      multipleOrderPacket,
-    });
+  for (let i = 0; i < chunks.length; i++) {
+    const placeIx = usesV2Instruction
+      ? buildPlaceMultiLimitOrderV2Ix({
+          ...commonPlaceIxParams,
+          multipleOrderPacket: scaleLevelsToMultipleOrderPacketV2(
+            chunks[i],
+            side,
+            { slide, reduceOnly, clientOrderId, scaleSetId }
+          ),
+        })
+      : buildPlaceMultiLimitOrderIx({
+          ...commonPlaceIxParams,
+          multipleOrderPacket: scaleLevelsToMultipleOrderPacket(
+            chunks[i],
+            side,
+            { slide, clientOrderId }
+          ),
+        });
 
     const placeMultiLimitOrder = isFlightClient(client)
       ? await client.tryWrapOrderInstruction(

@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.11 - 2026-09-14
+
+Source Phoenix commit: `41d501ac9b4b1f84fe680987d4e491cac0d55338`
+
+### Summary
+
+- Added a `place_multi_limit_order_v2` instruction path: new `buildPlaceMultiLimitOrderV2Ix`, `getPlaceMultiLimitOrderV2Codec`/`Encoder`/`Decoder`, `PlaceMultiLimitOrderV2Params`, `MultipleOrderPacketV2`, `CondensedOrderV2`, and `CondensedOrderFlags` (`Slide`, `ReduceOnly`) exports.
+- `buildPlaceMultiLimitOrderFlow` gains `scaleSetId` and `reduceOnly` params. Setting either now automatically routes the batch through the V2 instruction instead of the legacy one.
+- Added `DEFAULT_MAX_ORDERS_PER_TX_V2` (24) — the smaller per-transaction default used for V2 batches, since each V2 leg is wider on the wire than a legacy no-expiry leg.
+- `chunkScaleLevelsForTx` accepts a new `usesV2Instruction` option to pick the right default chunk size.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- V2 dispatch is automatic and based on params, not a separate flow function: pass `scaleSetId` (`1..=255`) and/or `reduceOnly: true` to `buildPlaceMultiLimitOrderFlow` to opt into `place_multi_limit_order_v2`; omitting both keeps the legacy `place_multi_limit_order` path and discriminant unchanged.
+- A non-zero `scaleSetId` tags every resting leg with a caller-assigned ladder id (must be unique among the trader's resting orders on the market); the flow throws if the ladder needs more than one transaction, since a `scaleSetId` can't span transactions.
+- In `CondensedOrderV2`, `lastValidSlot` is now a raw `u64` with `0` reserved as the "no expiry" sentinel (encoders/decoders reject an explicit `0n`) rather than a borsh `Option`, and per-order `slide`/`reduceOnly` now live in a `flags` byte instead of packet-wide fields — relevant if you build `MultipleOrderPacketV2` values directly instead of via `scaleLevelsToMultipleOrderPacketV2`.
+- If you call `chunkScaleLevelsForTx` directly for a V2 batch, pass `usesV2Instruction: true` (or your own `maxOrdersPerTx`) to get correctly sized chunks.
+
 ## v0.5.10 - 2026-09-14
 
 Source Phoenix commit: `29c2f9e5571ff898b32cf6a2e3a310bde2016ae9`

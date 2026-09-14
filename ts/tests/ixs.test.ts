@@ -48,7 +48,15 @@ import {
 } from "@/ixs/operations";
 import type { ResolvedPlaceOrderContext } from "@/ixs/types";
 import { getCancelOrdersByIdDecoder } from "@/core/ixBuilders/CancelOrdersById";
-import type { Authority } from "@/primitives";
+import {
+  buildPlaceMultiLimitOrderV2Ix,
+  getPlaceMultiLimitOrderV2Decoder,
+} from "@/core/ixBuilders/PlaceMultiLimitOrder";
+import {
+  getOptionalNonZeroU64Decoder,
+  getOptionalNonZeroU64Encoder,
+} from "@/core/utils/optionCodec";
+import { CondensedOrderFlags, type Authority } from "@/primitives";
 import type { InstructionsWithAccountsAndData } from "@/primitives/_utilityTypes";
 import { AccountRole } from "@solana/kit";
 import { describe, expect, it } from "vitest";
@@ -1252,5 +1260,185 @@ describe("buildPlaceMultiLimitOrderIx", () => {
     const ix = buildIx();
     expect(ix.accounts[3]?.address).toBe("trader");
     expect(ix.accounts[3]?.role).toBe(AccountRole.READONLY_SIGNER);
+  });
+});
+
+describe("buildPlaceMultiLimitOrderV2Ix", () => {
+  const buildIx = (
+    overrides?: Partial<
+      Parameters<typeof buildPlaceMultiLimitOrderV2Ix>[0]["multipleOrderPacket"]
+    >
+  ) =>
+    buildPlaceMultiLimitOrderV2Ix({
+      programAddress: "phoenix-program" as never,
+      logAuthorityAddress: "log-authority" as never,
+      globalConfigurationAddress: "global-config" as never,
+      trader: "trader" as never,
+      traderAccount: "trader-account" as never,
+      perpAssetMap: "perp-asset-map" as never,
+      orderbook: "orderbook" as never,
+      splineCollection: "spline-collection" as never,
+      globalTraderIndex: ["gti-0"] as never,
+      activeTraderBuffer: ["atb-0"] as never,
+      multipleOrderPacket: {
+        bids: [
+          {
+            priceInTicks: 95n,
+            sizeInBaseLots: 100n,
+            lastValidSlot: null,
+            flags: CondensedOrderFlags.Slide | CondensedOrderFlags.ReduceOnly,
+          },
+        ],
+        asks: [],
+        clientOrderId: null,
+        scaleSetId: 7,
+        ...overrides,
+      },
+    });
+
+  // Byte-locked against the Rust `v2_wire_format_is_locked` test
+  // (program-core/exchange/src/matching_engine/matching_engine_types/order_packet.rs).
+  it("matches the Rust-locked wire format", () => {
+    const ix = buildIx();
+
+    const expected: number[] = [];
+    // Discriminant for `global:place_multi_limit_order_v2`.
+    expected.push(0x40, 0x6f, 0x28, 0xd2, 0x02, 0xb1, 0x26, 0xb2);
+    expected.push(1, 0, 0, 0); // bids len (u32 LE)
+    expected.push(95, 0, 0, 0, 0, 0, 0, 0); // price_in_ticks (u64 LE)
+    expected.push(100, 0, 0, 0, 0, 0, 0, 0); // size_in_base_lots (u64 LE)
+    expected.push(0, 0, 0, 0, 0, 0, 0, 0); // last_valid_slot: 0 = no expiry
+    expected.push(0b11); // flags: slide | reduce_only
+    expected.push(0, 0, 0, 0); // asks len (u32 LE)
+    expected.push(0); // client_order_id: None
+    expected.push(7); // scale_set_id
+
+    expect(Array.from(ix.data)).toEqual(expected);
+  });
+
+  it("encodes the PLACE_MULTI_LIMIT_ORDER_V2 discriminant", () => {
+    const ix = buildIx();
+    expect(Array.from(ix.data.slice(0, 8))).toEqual(
+      Array.from(DISCRIMINANTS.PLACE_MULTI_LIMIT_ORDER_V2)
+    );
+  });
+
+  it("marks the global configuration account writable", () => {
+    const ix = buildIx();
+    expect(ix.accounts[2]?.address).toBe("global-config");
+    expect(ix.accounts[2]?.role).toBe(AccountRole.WRITABLE);
+  });
+
+  it("keeps the trader at index 3 as a readonly signer", () => {
+    const ix = buildIx();
+    expect(ix.accounts[3]?.address).toBe("trader");
+    expect(ix.accounts[3]?.role).toBe(AccountRole.READONLY_SIGNER);
+  });
+
+  it("rejects a scaleSetId outside 0..=255", () => {
+    expect(() => buildIx({ scaleSetId: 256 } as never)).toThrow();
+    expect(() => buildIx({ scaleSetId: -1 } as never)).toThrow();
+  });
+
+  it("rejects unknown CondensedOrderV2 flag bits", () => {
+    expect(() =>
+      buildIx({
+        bids: [
+          {
+            priceInTicks: 1n,
+            sizeInBaseLots: 1n,
+            lastValidSlot: null,
+            flags: 0b100 as never,
+          },
+        ],
+      })
+    ).toThrow();
+  });
+
+  it("encodes a nonzero lastValidSlot as its raw u64 value", () => {
+    const ix = buildIx({
+      bids: [
+        {
+          priceInTicks: 95n,
+          sizeInBaseLots: 100n,
+          lastValidSlot: 123n,
+          flags: CondensedOrderFlags.None,
+        },
+      ],
+    });
+    // last_valid_slot occupies bytes 28..36: 8 discriminant + 4 bids len +
+    // 8 price_in_ticks + 8 size_in_base_lots.
+    expect(Array.from(ix.data.slice(28, 36))).toEqual([
+      123, 0, 0, 0, 0, 0, 0, 0,
+    ]);
+  });
+
+  it("round-trips a packet through getPlaceMultiLimitOrderV2Decoder", () => {
+    const packet = {
+      bids: [
+        {
+          priceInTicks: 95n,
+          sizeInBaseLots: 100n,
+          lastValidSlot: 123n,
+          flags: CondensedOrderFlags.Slide,
+        },
+      ],
+      asks: [],
+      clientOrderId: null,
+      scaleSetId: 7,
+    };
+    const ix = buildIx(packet);
+    expect(getPlaceMultiLimitOrderV2Decoder().decode(ix.data)).toEqual(packet);
+  });
+
+  it("rejects an explicit lastValidSlot of 0n, which would silently mean no expiry", () => {
+    expect(() =>
+      buildIx({
+        bids: [
+          {
+            priceInTicks: 1n,
+            sizeInBaseLots: 1n,
+            lastValidSlot: 0n,
+            flags: 0,
+          },
+        ],
+      })
+    ).toThrow();
+  });
+});
+
+describe("getOptionalNonZeroU64Encoder", () => {
+  it("throws when encoding an explicit 0n", () => {
+    expect(() => getOptionalNonZeroU64Encoder().encode(0n)).toThrow();
+  });
+
+  it("throws when encoding a numeric 0 from an untyped caller", () => {
+    expect(() => getOptionalNonZeroU64Encoder().encode(0 as never)).toThrow();
+  });
+
+  it("encodes null as the 8-byte zero sentinel", () => {
+    expect(Array.from(getOptionalNonZeroU64Encoder().encode(null))).toEqual([
+      0, 0, 0, 0, 0, 0, 0, 0,
+    ]);
+  });
+
+  it("encodes a nonzero value as its raw u64 bytes", () => {
+    expect(Array.from(getOptionalNonZeroU64Encoder().encode(123n))).toEqual([
+      123, 0, 0, 0, 0, 0, 0, 0,
+    ]);
+  });
+});
+
+describe("getOptionalNonZeroU64Decoder", () => {
+  it("decodes the zero sentinel as null", () => {
+    expect(getOptionalNonZeroU64Decoder().decode(new Uint8Array(8))).toBeNull();
+  });
+
+  it("decodes a nonzero value as the value itself", () => {
+    expect(
+      getOptionalNonZeroU64Decoder().decode(
+        new Uint8Array([123, 0, 0, 0, 0, 0, 0, 0])
+      )
+    ).toBe(123n);
   });
 });

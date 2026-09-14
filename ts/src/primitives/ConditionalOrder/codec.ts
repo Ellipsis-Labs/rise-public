@@ -1,4 +1,7 @@
-import { getOptionToNullDecoder, getOptionToNullEncoder } from "@/core";
+import {
+  getOptionToNullDecoder,
+  getOptionToNullEncoder,
+} from "@/core/utils/optionCodec";
 import {
   getFIFOOrderIdDecoder,
   getFIFOOrderIdEncoder,
