@@ -205,10 +205,18 @@ export interface TraderStateOrderHistoryDelta {
   filledSize: string;
 }
 
+export interface TraderStateSpotCollateral {
+  assetIndex: number;
+  symbol: string;
+  /** Balance in the asset's native units (lamports for SOL), decimal integer string. */
+  balance: string;
+}
+
 export interface TraderStateSubaccountSnapshot {
   subaccountIndex: number;
   sequence: number;
   collateral: string;
+  spotCollaterals?: TraderStateSpotCollateral[];
   capabilities?: TraderStateCapabilities;
   cooldownStatus?: CooldownStatus;
   positions: TraderStatePositionSnapshot[];
@@ -221,6 +229,7 @@ export interface TraderStateSubaccountDelta {
   subaccountIndex: number;
   sequence: number;
   collateral: string;
+  spotCollaterals?: TraderStateSpotCollateral[];
   capabilities?: TraderStateCapabilities;
   cooldownStatus?: CooldownStatus;
   positions: TraderStatePositionDelta[];
@@ -500,11 +509,19 @@ const TraderStateOrderHistoryDeltaSchema: z.ZodType<TraderStateOrderHistoryDelta
     filledSize: z.string(),
   });
 
+const TraderStateSpotCollateralSchema: z.ZodType<TraderStateSpotCollateral> =
+  z.object({
+    assetIndex: z.number(),
+    symbol: z.string(),
+    balance: z.string(),
+  });
+
 const TraderStateSubaccountSnapshotSchema: z.ZodType<TraderStateSubaccountSnapshot> =
   z.object({
     subaccountIndex: z.number(),
     sequence: z.number(),
     collateral: z.string(),
+    spotCollaterals: z.array(TraderStateSpotCollateralSchema).default([]),
     capabilities: TraderStateCapabilitiesSchema.optional(),
     cooldownStatus: CooldownStatusSchema.optional(),
     positions: z.array(TraderStatePositionSnapshotSchema).default([]),
@@ -518,6 +535,7 @@ const TraderStateSubaccountDeltaSchema: z.ZodType<TraderStateSubaccountDelta> =
     subaccountIndex: z.number(),
     sequence: z.number(),
     collateral: z.string(),
+    spotCollaterals: z.array(TraderStateSpotCollateralSchema).default([]),
     capabilities: TraderStateCapabilitiesSchema.optional(),
     cooldownStatus: CooldownStatusSchema.optional(),
     positions: z.array(TraderStatePositionDeltaSchema).default([]),
