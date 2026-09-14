@@ -176,7 +176,7 @@ pub enum ExchangeSnapshotReason {
     Snapshot,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum ExchangeSnapshotEncoding {
     #[serde(rename = "json")]
     Json,
@@ -184,10 +184,24 @@ pub enum ExchangeSnapshotEncoding {
     Base64Zstd,
 }
 
+/// Exchange-channel websocket payload, discriminated by `messageType`.
+///
+/// The server wraps these in the `channel: "exchange"` envelope
+/// ([`crate::ws::ServerMessage::Exchange`]).
+///
+/// The snapshot payload is boxed to keep the enum (and every message enum
+/// embedding it) small.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "messageType", rename_all = "camelCase")]
+pub enum ExchangeMessage {
+    Snapshot(Box<ExchangeSnapshotMessage>),
+    EncodedSnapshot(ExchangeEncodedSnapshotMessage),
+    Delta(ExchangeDeltaMessage),
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeSnapshotMessage {
-    pub channel: String,
     pub version: u16,
     pub sequence_number: JsSafeU64,
     pub slot: u64,
@@ -213,7 +227,6 @@ impl From<&ExchangeSnapshotMessage> for ExchangeSnapshotView {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeEncodedSnapshotMessage {
-    pub channel: String,
     pub version: u16,
     pub sequence_number: JsSafeU64,
     pub slot: u64,
@@ -226,7 +239,6 @@ pub struct ExchangeEncodedSnapshotMessage {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeDeltaMessage {
-    pub channel: String,
     pub version: u16,
     pub sequence_number: JsSafeU64,
     pub slot: u64,

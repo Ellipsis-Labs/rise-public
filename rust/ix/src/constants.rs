@@ -395,6 +395,10 @@ mod tests {
             ("ConsumeWithdrawQueue", "consume_withdraw_queue"),
             ("RegisterTrader", "register_trader"),
             ("TransferCollateral", "transfer_collateral"),
+            (
+                "AuthorizedTransferCollateral",
+                "authorized_transfer_collateral",
+            ),
             ("CreateEscrowAccount", "create_escrow_account"),
             ("CreateEscrowRequest", "create_escrow_request"),
             ("AcceptEscrowRequest", "accept_escrow_request"),
@@ -500,7 +504,7 @@ mod tests {
             ("EnableFeature", "enable_feature"),
         ];
 
-        assert_eq!(ETERNAL_INSTRUCTIONS.len(), 93);
+        assert_eq!(ETERNAL_INSTRUCTIONS.len(), 94);
         for (instruction_name, snake_case_name) in ETERNAL_INSTRUCTIONS {
             let by_instruction_name = PhoenixInstruction::from_instruction_name(instruction_name)
                 .unwrap_or_else(|| panic!("missing {instruction_name}"));

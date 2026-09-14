@@ -26,6 +26,22 @@ macro_rules! basic_u64_struct {
             inner: u64,
         }
 
+        basic_u64_impl!($type_name);
+    };
+
+    (no_borsh, $type_name:ident) => {
+        #[derive(Clone, Copy, PartialOrd, Ord, Zeroable, Pod)]
+        #[repr(transparent)]
+        pub struct $type_name {
+            inner: u64,
+        }
+
+        basic_u64_impl!($type_name);
+    };
+}
+
+macro_rules! basic_u64_impl {
+    ($type_name:ident) => {
         impl $type_name {
             pub fn div_ceil<Divisor: WrapperNum<u64>>(self, other: Divisor) -> Self {
                 match self.checked_div_ceil(other) {
@@ -78,7 +94,7 @@ macro_rules! basic_u64_struct {
 #[macro_export]
 macro_rules! basic_u64_struct_with_bounds {
     ($type_name:ident, $lower_bound:expr, $upper_bound:expr) => {
-        basic_u64_struct!($type_name);
+        basic_u64_struct!(no_borsh, $type_name);
         impl ScalarBounds<u64> for $type_name {
             const LOWER_BOUND: u64 = $lower_bound;
             const UPPER_BOUND: u64 = $upper_bound;
@@ -94,6 +110,7 @@ macro_rules! basic_u64_struct_with_bounds {
             /// let invalid = BaseLots::new_checked(u64::MAX); // Returns Err
             /// ```
             pub fn new_checked(value: u64) -> Result<Self, $crate::quantities::MathError> {
+                use $crate::quantities::ScalarBounds;
                 if !(Self::LOWER_BOUND..=Self::UPPER_BOUND).contains(&value) {
                     Err($crate::quantities::MathError::out_of_bounds_u64(
                         value,
@@ -158,6 +175,25 @@ macro_rules! basic_u64_struct_with_bounds {
 
             fn try_from(value: usize) -> Result<Self, Self::Error> {
                 Self::new_checked(value as u64)
+            }
+        }
+
+        impl BorshDeserialize for $type_name {
+            fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
+                let value = u64::deserialize_reader(reader)?;
+                if !(Self::LOWER_BOUND..=Self::UPPER_BOUND).contains(&value) {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!("Value out of bounds: {value}"),
+                    ));
+                }
+                Ok(Self::new(value))
+            }
+        }
+
+        impl BorshSerialize for $type_name {
+            fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+                self.inner.serialize(writer)
             }
         }
     };
@@ -715,6 +751,14 @@ macro_rules! basic_num {
         impl SubAssign for $type_name {
             fn sub_assign(&mut self, other: Self) {
                 *self = *self - other;
+            }
+        }
+
+        impl Rem for $type_name {
+            type Output = Self;
+
+            fn rem(self, other: Self) -> Self {
+                $type_name::new(self.inner % other.inner)
             }
         }
 

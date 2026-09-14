@@ -3,6 +3,32 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.3.6 - 2026-09-14
+
+Source Phoenix commit: `8b82f4267044e45cd33050bf86138e845866e049`
+
+### Summary
+
+- Rust Rise packages (`api`, `ix`, `math`, `sdk`, `types`, `workspace`) bump `0.3.5` → `0.3.6`.
+- Adds a new exchange snapshot/delta WebSocket channel (`api`) and a `SharedExchangeCacheStore`, letting `PhoenixFlightClient` resolve the live Phoenix root authority and wrap orders signed by a trader's position authority (delegate key), with a new `AuthorizedTransferCollateral` instruction to move the builder fee in that path.
+- Fixes bounded quantity types (`math`) to validate range on Borsh deserialization and to return typed values from `lower_bound()`/`upper_bound()` instead of raw primitives.
+- Adds raw per-asset spot collateral balances to trader-state snapshots/deltas (`types`, `api`).
+
+### Breaking Changes
+
+- `PhoenixFlightClient::try_wrap_order_instruction` gained a required `use_position_authority: bool` parameter; existing call sites must be updated to pass `false` for owner-signed orders or `true` for position-authority-signed orders.
+- `ScalarBounds::lower_bound()` / `upper_bound()` now return `Self` instead of the inner primitive type.
+- New variants were added to public enums that downstream code may match exhaustively: `PhoenixInstruction::AuthorizedTransferCollateral`, `PhoenixIxError::MissingRootAuthority`, and `ServerMessage`/`SubscriptionRequest::Exchange`.
+- `ExchangeSnapshotMessage`, `ExchangeEncodedSnapshotMessage`, and `ExchangeDeltaMessage` dropped their `channel: String` field (the channel is now carried by the outer message envelope); code reading that field directly will fail to compile.
+- Bounded quantity types built via `basic_u64_struct_with_bounds!` (e.g. margin/risk-factor types) now enforce their bounds when Borsh-deserialized and return a `std::io::Error` for out-of-range values instead of silently accepting them.
+
+### Consumer Notes
+
+- To use position-authority Flight wraps, obtain a populated store via `PhoenixWSClient::exchange_store()` and construct the client with `PhoenixFlightClient::from_exchange_store(...)`; clients built with `PhoenixFlightClient::new(...)` have no store and such wraps fail with `MissingRootAuthority`.
+- A new client-level `PhoenixFlightClient::with_fee_bps_override(...)` sets a default builder fee override applied by `try_wrap_order_instruction`; the existing per-call `try_wrap_order_instruction_with_fee_bps_override(...)` argument still takes precedence.
+- `TraderStateSubaccountSnapshot`/`TraderStateSubaccountDelta` gained a `spot_collaterals: Vec<TraderStateSpotCollateralSnapshot>` field; it defaults to empty via serde so existing payloads and consumers remain compatible.
+- Exchange-channel subscriptions should request `ExchangeSnapshotEncoding::Json` explicitly (via `ExchangeSubscriptionRequest`); the server otherwise defaults to a `base64+zstd` encoding this SDK does not decode.
+
 ## v0.3.5 - 2026-07-10
 
 Source Phoenix commit: `3343d458b9162061b4f810408bee2b14bcdf6af0`

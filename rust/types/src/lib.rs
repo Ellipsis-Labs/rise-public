@@ -63,7 +63,7 @@ pub mod prelude {
     pub use super::exchange_ws::{
         AuthoritySet, CommodityMarketState, ExchangeDeltaMessage, ExchangeDeltaOp,
         ExchangeEncodedSnapshotMessage, ExchangeMarketParameterUpdate, ExchangeMarketSnapshot,
-        ExchangeSnapshotEncoding, ExchangeSnapshotMessage, ExchangeSnapshotReason,
+        ExchangeMessage, ExchangeSnapshotEncoding, ExchangeSnapshotMessage, ExchangeSnapshotReason,
         ExchangeSnapshotView, ExchangeStateSnapshot, ExchangeWsCommodityMetadata,
         ExchangeWsFeeConfig, ExchangeWsFundingConfig, ExchangeWsLeverageTier,
         ExchangeWsMarkPriceParameters, ExchangeWsMarketPriceBand,
@@ -111,8 +111,9 @@ pub mod prelude {
         TraderStatePositionDelta, TraderStatePositionRow, TraderStatePositionSnapshot,
         TraderStateRowChangeKind, TraderStateServerMessage, TraderStateSnapshot,
         TraderStateSplineDelta, TraderStateSplineRow, TraderStateSplineSnapshot,
-        TraderStateStopLossTrigger, TraderStateSubaccountDelta, TraderStateSubaccountSnapshot,
-        TraderStateTakeProfitTrigger, TraderStateTickRegion, TraderStateTrigger,
+        TraderStateSpotCollateralSnapshot, TraderStateStopLossTrigger, TraderStateSubaccountDelta,
+        TraderStateSubaccountSnapshot, TraderStateTakeProfitTrigger, TraderStateTickRegion,
+        TraderStateTrigger,
     };
     pub use super::trader_http::{
         CollateralEvent, CollateralHistoryQueryParams, CollateralHistoryRequest,
@@ -128,9 +129,10 @@ pub mod prelude {
         TradeType, TradesMessage, TradesSubscriptionRequest,
     };
     pub use super::ws::{
-        AllMidsData, CandlesSubscriptionRequest, ClientMessage, ErrorMessage, FundingRateMessage,
-        FundingRateSubscriptionRequest, MarketSubscriptionRequest, OrderbookSubscriptionRequest,
-        ServerMessage, SubscriptionConfirmedMessage, SubscriptionErrorMessage, SubscriptionRequest,
+        AllMidsData, CandlesSubscriptionRequest, ClientMessage, ErrorMessage,
+        ExchangeSubscriptionRequest, FundingRateMessage, FundingRateSubscriptionRequest,
+        MarketSubscriptionRequest, OrderbookSubscriptionRequest, ServerMessage,
+        SubscriptionConfirmedMessage, SubscriptionErrorMessage, SubscriptionRequest,
         SubscriptionStatusMessage, TraderStateSubscriptionRequest,
     };
 }
