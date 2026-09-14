@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.1 - 2026-09-14
+
+Source Phoenix commit: `5100f32502e7cc3217008f7b99e7038661c32777`
+
+### Summary
+
+- Added a new `SpotCollateralValue` type/schema (`assetIndex`, `balance`, `notional`, `discounted`) and exported it from `public-api-schemas`.
+- `PortfolioValueDataPoint` gained an optional `spotCollaterals` map (`Record<string, SpotCollateralValue>`, nullable/optional) alongside the existing `positions` map.
+- `TraderStateSpotCollateral` gained a new `decimals: number` field describing native-unit decimals for the asset (e.g. 9 for SOL).
+- Bumped package version to `0.5.1` and added `undici` as a runtime dependency.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `TraderStateSpotCollateral` responses now always include `decimals`; if you construct or mock this type manually (e.g. in tests), add the field to stay compatible with the schema.
+- The new `spotCollaterals` field on `PortfolioValueDataPoint` is optional/nullable, so existing consumers don't need changes unless they want to read per-asset collateral valuation data.
+
 ## v0.5.0 - 2026-09-14
 
 Source Phoenix commit: `72cb240e31283f3518f5f5f9ee4f2a64bfd89be2`

@@ -122,12 +122,28 @@ export const MarketPositionSnapshotSchema: z.ZodType<MarketPositionSnapshot> =
     initialMargin: z.string(),
   });
 
+export interface SpotCollateralValue {
+  assetIndex: number;
+  balance: number;
+  notional: number;
+  discounted: number;
+}
+
+export const SpotCollateralValueSchema: z.ZodType<SpotCollateralValue> =
+  z.object({
+    assetIndex: z.number(),
+    balance: z.number(),
+    notional: z.number(),
+    discounted: z.number(),
+  });
+
 export interface PortfolioValueDataPoint {
   timestamp: number;
   startTime: number;
   endTime: number;
   value: number;
   positions?: Record<string, MarketPositionSnapshot> | null;
+  spotCollaterals?: Record<string, SpotCollateralValue> | null;
 }
 
 export const PortfolioValueDataPointSchema: z.ZodType<PortfolioValueDataPoint> =
@@ -138,6 +154,10 @@ export const PortfolioValueDataPointSchema: z.ZodType<PortfolioValueDataPoint> =
     value: z.number(),
     positions: z
       .record(z.string(), MarketPositionSnapshotSchema)
+      .nullable()
+      .optional(),
+    spotCollaterals: z
+      .record(z.string(), SpotCollateralValueSchema)
       .nullable()
       .optional(),
   });
