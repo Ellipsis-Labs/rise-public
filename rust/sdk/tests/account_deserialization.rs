@@ -51,6 +51,14 @@ fn decodes_global_configuration_fixture() {
         config.perp_asset_map_key.to_string(),
         "2nHGAaEw3D5dd4hVueaUNoygkQFmoeKqRQWnSPqSMFUC"
     );
+
+    // This mock predates spot collateral, so the repurposed reserved bytes are
+    // still all zero. The TypeScript golden fixture asserts the same values
+    // against the same account bytes.
+    assert!(!config.native_sol_spot_metadata.is_active);
+    assert!(!config.native_sol_spot_metadata.has_perp_asset);
+    assert_eq!(config.native_sol_spot_metadata.max_global_balance, 0);
+    assert_eq!(config.native_sol_spot_metadata.flags, 0);
 }
 
 #[test]
@@ -103,6 +111,16 @@ fn decodes_trader_preference_bits_separately_from_max_positions() {
             .is_enabled(TraderPreferenceKind::DisableCollateralSweep)
     );
     assert!(trader.disable_collateral_sweep);
+    // Bit 1 is independent of the sweep bit.
+    assert!(!trader.disable_position_authority_swap);
+    assert!(
+        !trader
+            .trader_preference_flags
+            .disable_position_authority_swap()
+    );
+    // The mock holds no spot collateral, matching the TypeScript golden
+    // fixture for the same account bytes.
+    assert_eq!(trader.native_sol_collateral, 0);
 }
 
 #[test]

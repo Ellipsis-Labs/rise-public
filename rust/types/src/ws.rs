@@ -283,6 +283,7 @@ mod tests {
                 reason: ExchangeSnapshotReason::Snapshot,
                 exchange: sample_exchange_state_snapshot(),
                 markets: Vec::new(),
+                spot_collaterals: Vec::new(),
             },
         )));
 

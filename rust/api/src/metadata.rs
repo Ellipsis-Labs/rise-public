@@ -4,11 +4,13 @@ use std::collections::{HashMap, HashSet};
 
 use phoenix_rise_math::{
     BaseLots, BasisPoints, Constant, LeverageTier, LeverageTiers, MarketCalculator,
-    PerpAssetMetadata, QuoteLotsPerBaseLotPerTick,
+    PerpAssetMetadata, PerpMetadataProvider, QuoteLotsPerBaseLotPerTick, SpotCollateralParams,
+    Ticks,
 };
 
 use crate::types::prelude::{
-    ExchangeKeysView, ExchangeLeverageTier, ExchangeMarketConfig, ExchangeView, MarketStatsUpdate,
+    CollateralAssetsResponse, ExchangeDeltaOp, ExchangeKeysView, ExchangeLeverageTier,
+    ExchangeMarketConfig, ExchangeMessage, ExchangeView, MarketStatsUpdate,
 };
 
 /// Consolidated exchange metadata for Phoenix SDK.
@@ -17,7 +19,9 @@ pub struct PhoenixMetadata {
     exchange: ExchangeView,
     market_calculators: HashMap<String, MarketCalculator>,
     perp_asset_metadata: HashMap<String, PerpAssetMetadata>,
+    index_prices: HashMap<String, Ticks>,
     isolated_only_markets: HashSet<String>,
+    spot_collateral_params: Vec<SpotCollateralParams>,
 }
 
 impl PhoenixMetadata {
@@ -40,7 +44,55 @@ impl PhoenixMetadata {
             exchange,
             market_calculators,
             perp_asset_metadata: HashMap::new(),
+            index_prices: HashMap::new(),
             isolated_only_markets,
+            spot_collateral_params: Vec::new(),
+        }
+    }
+
+    pub fn apply_spot_collaterals(
+        &mut self,
+        response: CollateralAssetsResponse,
+    ) -> Result<bool, String> {
+        let mut params = Vec::new();
+        for asset in &response.assets {
+            // The DTO owns the canonical conversion; this crate only supplies
+            // the perp-index → symbol join from its market map.
+            if let Some(entry) = asset.margin_params(|perp_asset_index| {
+                self.exchange
+                    .markets
+                    .values()
+                    .find(|market| market.asset_id == perp_asset_index)
+                    .map(|market| market.symbol.clone())
+            })? {
+                params.push(entry);
+            }
+        }
+        let changed = self.spot_collateral_params != params;
+        self.spot_collateral_params = params;
+        Ok(changed)
+    }
+
+    pub(crate) fn apply_exchange_message(
+        &mut self,
+        message: ExchangeMessage,
+    ) -> Result<bool, String> {
+        let assets = match message {
+            ExchangeMessage::Snapshot(snapshot) => {
+                // Older websocket servers omit this field and deserialize it
+                // as empty; keep the HTTP bootstrap metadata in that case.
+                (!snapshot.spot_collaterals.is_empty()).then_some(snapshot.spot_collaterals)
+            }
+            ExchangeMessage::Delta(delta) => delta.ops.into_iter().rev().find_map(|op| match op {
+                ExchangeDeltaOp::SpotCollateralsUpdated { assets } => Some(assets),
+                _ => None,
+            }),
+            ExchangeMessage::EncodedSnapshot(_) => None,
+        };
+
+        match assets {
+            Some(assets) => self.apply_spot_collaterals(CollateralAssetsResponse { assets }),
+            None => Ok(false),
         }
     }
 
@@ -74,6 +126,10 @@ impl PhoenixMetadata {
             .get_mut(&symbol.to_ascii_uppercase())
     }
 
+    pub fn get_index_price(&self, symbol: &str) -> Option<Ticks> {
+        self.index_prices.get(&symbol.to_ascii_uppercase()).copied()
+    }
+
     pub fn all_perp_asset_metadata(&self) -> &HashMap<String, PerpAssetMetadata> {
         &self.perp_asset_metadata
     }
@@ -84,6 +140,16 @@ impl PhoenixMetadata {
 
     pub fn symbols(&self) -> impl Iterator<Item = &String> {
         self.exchange.markets.keys()
+    }
+
+    pub fn spot_collateral_params(&self) -> &[SpotCollateralParams] {
+        &self.spot_collateral_params
+    }
+
+    pub fn collateral_pricing_symbols(&self) -> impl Iterator<Item = &str> {
+        self.spot_collateral_params
+            .iter()
+            .map(|params| params.perp_symbol.as_str())
     }
 
     pub fn apply_market_stats(&mut self, stats: &MarketStatsUpdate) -> Result<(), String> {
@@ -97,6 +163,9 @@ impl PhoenixMetadata {
             .market_calculators
             .get(&symbol)
             .ok_or_else(|| format!("Missing calculator for: {}", symbol))?;
+        let index_price_ticks = calc
+            .price_to_ticks(stats.oracle_price)
+            .map_err(|e| format!("Failed to convert index price: {:?}", e))?;
 
         if let Some(metadata) = self.perp_asset_metadata.get_mut(&symbol) {
             let mark_price_ticks = calc
@@ -105,8 +174,9 @@ impl PhoenixMetadata {
             metadata.set_mark_price(mark_price_ticks);
         } else {
             let metadata = perp_asset_metadata_from_exchange_config(config, stats, calc)?;
-            self.perp_asset_metadata.insert(symbol, metadata);
+            self.perp_asset_metadata.insert(symbol.clone(), metadata);
         }
+        self.index_prices.insert(symbol, index_price_ticks);
 
         Ok(())
     }
@@ -121,6 +191,16 @@ impl PhoenixMetadata {
     }
 }
 
+impl PerpMetadataProvider for PhoenixMetadata {
+    fn get_perp_metadata(&self, symbol: &str) -> Option<&PerpAssetMetadata> {
+        self.get_perp_asset_metadata(symbol)
+    }
+
+    fn get_all_markets(&self) -> Vec<String> {
+        self.perp_asset_metadata.keys().cloned().collect()
+    }
+}
+
 /// Build PerpAssetMetadata from exchange config and market stats.
 fn perp_asset_metadata_from_exchange_config(
     config: &ExchangeMarketConfig,
@@ -130,7 +210,6 @@ fn perp_asset_metadata_from_exchange_config(
     let mark_price_ticks = calc
         .price_to_ticks(stats.mark_price)
         .map_err(|e| format!("Failed to convert mark price: {:?}", e))?;
-
     let leverage_tiers = convert_leverage_tiers(&config.leverage_tiers)?;
 
     let risk_factors = [
@@ -255,7 +334,11 @@ fn risk_factor_percent_to_bps(value: f64, field: &str) -> Result<u16, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::prelude::{ExchangeRiskFactors, MarketStatus};
+    use crate::types::prelude::{
+        AuthoritySetView, CollateralAssetMetadata, CollateralAssetsResponse, ExchangeDeltaMessage,
+        ExchangeKeysView, ExchangeRiskFactors, ExchangeView, JsSafeU64, MarketStatus,
+        SpotAssetConfig,
+    };
 
     fn market_config() -> ExchangeMarketConfig {
         ExchangeMarketConfig {
@@ -332,6 +415,32 @@ mod tests {
         }
     }
 
+    fn exchange_view() -> ExchangeView {
+        let authorities = AuthoritySetView {
+            root_authority: "root".to_string(),
+            risk_authority: "risk".to_string(),
+            market_authority: "market-authority".to_string(),
+            oracle_authority: "oracle".to_string(),
+        };
+        ExchangeView {
+            keys: ExchangeKeysView {
+                program_id: None,
+                global_config: "global-config".to_string(),
+                current_authorities: authorities.clone(),
+                pending_authorities: authorities,
+                canonical_mint: "mint".to_string(),
+                global_vault: "vault".to_string(),
+                perp_asset_map: "perp-map".to_string(),
+                global_trader_index: vec!["gti".to_string()],
+                active_trader_buffer: vec!["atb".to_string()],
+                withdraw_queue: "withdraw-queue".to_string(),
+            },
+            markets: [("SOL-PERP".to_string(), market_config())]
+                .into_iter()
+                .collect(),
+        }
+    }
+
     #[test]
     fn exchange_config_risk_factors_convert_percentages_to_basis_points() {
         let config = market_config();
@@ -351,6 +460,70 @@ mod tests {
                 .leverage_tiers()
                 .get_limit_order_risk_factor(BaseLots::new(1)),
             BasisPoints::new(6_000)
+        );
+    }
+
+    #[test]
+    fn collateral_registry_builds_the_spot_margin_context() {
+        let mut metadata = PhoenixMetadata::new(exchange_view());
+        let mut response = CollateralAssetsResponse {
+            assets: vec![CollateralAssetMetadata {
+                asset_index: 0xffff_0000,
+                symbol: "SOL".to_string(),
+                decimals: 9,
+                spot: Some(SpotAssetConfig {
+                    is_active: false,
+                    perp_asset_index: Some(1),
+                    max_per_trader_balance: JsSafeU64::from(10),
+                    max_global_balance: JsSafeU64::from(20),
+                    curr_global_balance: JsSafeU64::from(3),
+                    min_margin_discount_bps: 500,
+                    max_margin_discount_bps: 1_000,
+                    max_liquidation_discount_bps: 0,
+                    min_liquidation_slippage_bps: 0,
+                    max_liquidation_size: JsSafeU64::from(5),
+                }),
+            }],
+        };
+
+        assert!(!metadata.apply_spot_collaterals(response.clone()).unwrap());
+        assert!(metadata.spot_collateral_params().is_empty());
+
+        response.assets[0].spot.as_mut().unwrap().is_active = true;
+        assert!(metadata.apply_spot_collaterals(response.clone()).unwrap());
+
+        let spot = metadata.spot_collateral_params();
+        assert_eq!(spot.len(), 1);
+        assert_eq!(spot[0].asset_index, 0xffff_0000);
+        assert_eq!(spot[0].perp_symbol, "SOL-PERP");
+        assert_eq!(spot[0].min_margin_discount, BasisPoints::new(500));
+        assert_eq!(
+            metadata.collateral_pricing_symbols().collect::<Vec<_>>(),
+            vec!["SOL-PERP"]
+        );
+
+        assert!(!metadata.apply_spot_collaterals(response.clone()).unwrap());
+        response.assets[0]
+            .spot
+            .as_mut()
+            .unwrap()
+            .min_margin_discount_bps = 600;
+        assert!(
+            metadata
+                .apply_exchange_message(ExchangeMessage::Delta(ExchangeDeltaMessage {
+                    version: 1,
+                    sequence_number: JsSafeU64::from(1),
+                    slot: 1,
+                    slot_index: 0,
+                    ops: vec![ExchangeDeltaOp::SpotCollateralsUpdated {
+                        assets: response.assets,
+                    }],
+                }))
+                .unwrap()
+        );
+        assert_eq!(
+            metadata.spot_collateral_params()[0].min_margin_discount,
+            BasisPoints::new(600)
         );
     }
 

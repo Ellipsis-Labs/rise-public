@@ -108,6 +108,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         MarginTrigger::Market(msg) => {
                             println!("Margin trigger: market {} mark={:.4}", msg.symbol, msg.mark_price);
                         }
+                        MarginTrigger::SpotCollateralsUpdated => {
+                            println!("Margin trigger: spot collaterals updated");
+                        }
                     }
 
                     if let Some(margin) = margin {

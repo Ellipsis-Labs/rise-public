@@ -11,19 +11,24 @@ const_assert_eq!(core::mem::size_of::<TraderPreferenceFlags>(), 4);
 
 /// Disables permissionless isolated child-to-parent collateral sweeps.
 pub const TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP: u32 = 1 << 0;
+/// Disables `SwapNative` signed by this trader's position authority. The
+/// trader wallet itself is never gated.
+pub const TRADER_PREFERENCE_DISABLE_POSITION_AUTHORITY_SWAP: u32 = 1 << 1;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, BorshDeserialize, BorshSerialize)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[borsh(use_discriminant = true)]
 #[repr(u8)]
 pub enum TraderPreferenceKind {
-    DisableCollateralSweep = 0,
+    DisableCollateralSweep       = 0,
+    DisablePositionAuthoritySwap = 1,
 }
 
 impl TraderPreferenceKind {
     pub const fn key(self) -> &'static str {
         match self {
             Self::DisableCollateralSweep => "disable_collateral_sweep",
+            Self::DisablePositionAuthoritySwap => "disable_position_authority_swap",
         }
     }
 
@@ -31,6 +36,10 @@ impl TraderPreferenceKind {
         match self {
             Self::DisableCollateralSweep => {
                 "Disable permissionless isolated child-to-parent collateral sweeps."
+            }
+            Self::DisablePositionAuthoritySwap => {
+                "Disable SwapNative signed by the position authority. The trader wallet is never \
+                 gated."
             }
         }
     }
@@ -46,30 +55,44 @@ impl Display for TraderPreferenceKind {
     }
 }
 
-pub const ALL_TRADER_PREFERENCE_KINDS: [TraderPreferenceKind; 1] =
-    [TraderPreferenceKind::DisableCollateralSweep];
+pub const ALL_TRADER_PREFERENCE_KINDS: [TraderPreferenceKind; 2] = [
+    TraderPreferenceKind::DisableCollateralSweep,
+    TraderPreferenceKind::DisablePositionAuthoritySwap,
+];
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, BorshDeserialize, BorshSerialize)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TraderPreferences {
     disable_collateral_sweep: bool,
+    disable_position_authority_swap: bool,
 }
 
 impl TraderPreferences {
-    pub const fn new(disable_collateral_sweep: bool) -> Self {
+    pub const fn new(
+        disable_collateral_sweep: bool,
+        disable_position_authority_swap: bool,
+    ) -> Self {
         Self {
             disable_collateral_sweep,
+            disable_position_authority_swap,
         }
     }
 
     pub const fn is_enabled(self, preference: TraderPreferenceKind) -> bool {
         match preference {
             TraderPreferenceKind::DisableCollateralSweep => self.disable_collateral_sweep,
+            TraderPreferenceKind::DisablePositionAuthoritySwap => {
+                self.disable_position_authority_swap
+            }
         }
     }
 
     pub const fn disable_collateral_sweep(self) -> bool {
         self.disable_collateral_sweep
+    }
+
+    pub const fn disable_position_authority_swap(self) -> bool {
+        self.disable_position_authority_swap
     }
 }
 
@@ -99,8 +122,11 @@ pub struct TraderPreferenceFlags {
 
 impl TraderPreferenceFlags {
     pub const DISABLE_COLLATERAL_SWEEP: u32 = TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP;
+    pub const DISABLE_POSITION_AUTHORITY_SWAP: u32 =
+        TRADER_PREFERENCE_DISABLE_POSITION_AUTHORITY_SWAP;
     pub const RESERVED_MASK: u32 = !Self::VALID_MASK;
-    pub const VALID_MASK: u32 = Self::DISABLE_COLLATERAL_SWEEP;
+    pub const VALID_MASK: u32 =
+        Self::DISABLE_COLLATERAL_SWEEP | Self::DISABLE_POSITION_AUTHORITY_SWAP;
 
     pub const fn new(flags: u32) -> Self {
         Self { flags }
@@ -143,8 +169,15 @@ impl TraderPreferenceFlags {
         self.is_enabled(TraderPreferenceKind::DisableCollateralSweep)
     }
 
+    pub const fn disable_position_authority_swap(self) -> bool {
+        self.is_enabled(TraderPreferenceKind::DisablePositionAuthoritySwap)
+    }
+
     pub const fn preferences(self) -> TraderPreferences {
-        TraderPreferences::new(self.disable_collateral_sweep())
+        TraderPreferences::new(
+            self.disable_collateral_sweep(),
+            self.disable_position_authority_swap(),
+        )
     }
 
     pub fn enable_preference(&mut self, preference: TraderPreferenceKind) {
@@ -162,6 +195,14 @@ impl TraderPreferenceFlags {
             self.disable_preference(TraderPreferenceKind::DisableCollateralSweep);
         }
     }
+
+    pub fn set_disable_position_authority_swap(&mut self, disable_position_authority_swap: bool) {
+        if disable_position_authority_swap {
+            self.enable_preference(TraderPreferenceKind::DisablePositionAuthoritySwap);
+        } else {
+            self.disable_preference(TraderPreferenceKind::DisablePositionAuthoritySwap);
+        }
+    }
 }
 
 impl Debug for TraderPreferenceFlags {
@@ -175,10 +216,16 @@ impl Debug for TraderPreferenceFlags {
 
 impl Display for TraderPreferenceFlags {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        const PREFERENCES: [(&str, u32); 1] = [(
-            "DISABLE_COLLATERAL_SWEEP",
-            TraderPreferenceFlags::DISABLE_COLLATERAL_SWEEP,
-        )];
+        const PREFERENCES: [(&str, u32); 2] = [
+            (
+                "DISABLE_COLLATERAL_SWEEP",
+                TraderPreferenceFlags::DISABLE_COLLATERAL_SWEEP,
+            ),
+            (
+                "DISABLE_POSITION_AUTHORITY_SWAP",
+                TraderPreferenceFlags::DISABLE_POSITION_AUTHORITY_SWAP,
+            ),
+        ];
 
         let mut wrote_any = false;
         for (name, mask) in PREFERENCES {
@@ -228,12 +275,16 @@ impl serde::Serialize for TraderPreferenceFlags {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_struct("TraderPreferenceFlags", 5)?;
+        let mut state = serializer.serialize_struct("TraderPreferenceFlags", 6)?;
         state.serialize_field("bits", &self.bits())?;
         state.serialize_field("reserved_bits", &self.reserved_bits())?;
         state.serialize_field("has_reserved_bits", &self.has_reserved_bits())?;
         state.serialize_field("preferences", &self.preferences())?;
         state.serialize_field("disable_collateral_sweep", &self.disable_collateral_sweep())?;
+        state.serialize_field(
+            "disable_position_authority_swap",
+            &self.disable_position_authority_swap(),
+        )?;
         state.end()
     }
 }
@@ -259,5 +310,33 @@ mod tests {
             flags.to_string(),
             "DISABLE_COLLATERAL_SWEEP | UNKNOWN(0x00000080)"
         );
+    }
+
+    #[test]
+    fn position_authority_swap_preference_is_independent_of_the_sweep_bit() {
+        let flags =
+            TraderPreferenceFlags::new(TraderPreferenceFlags::DISABLE_POSITION_AUTHORITY_SWAP);
+
+        assert!(flags.disable_position_authority_swap());
+        assert!(!flags.disable_collateral_sweep());
+        assert!(!flags.has_reserved_bits());
+        assert_eq!(flags.to_string(), "DISABLE_POSITION_AUTHORITY_SWAP");
+    }
+
+    #[test]
+    fn all_preference_kinds_round_trip_through_the_flag_bits() {
+        for kind in ALL_TRADER_PREFERENCE_KINDS {
+            let mut flags = TraderPreferenceFlags::default();
+            assert!(!flags.is_enabled(kind));
+
+            flags.enable_preference(kind);
+            assert!(flags.is_enabled(kind));
+            assert!(flags.preferences().is_enabled(kind));
+            assert!(!flags.has_reserved_bits());
+
+            flags.disable_preference(kind);
+            assert!(!flags.is_enabled(kind));
+            assert_eq!(flags.bits(), 0);
+        }
     }
 }

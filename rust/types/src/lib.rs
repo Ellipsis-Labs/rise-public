@@ -56,9 +56,10 @@ pub mod prelude {
     pub use super::candles::{ApiCandle, CandleData, CandlesQueryParams, Timeframe};
     pub use super::core::{Decimal, PaginatedResponse, Price, Side};
     pub use super::exchange::{
-        AuthoritySetView, ExchangeKeysView, ExchangeLeverageTier, ExchangeMarketConfig,
-        ExchangeResponse, ExchangeRiskFactors, ExchangeStatusView, ExchangeView, MarketCalendar,
-        MarketPublicMetadata, MarketStatsSnapshot,
+        AuthoritySetView, CollateralAssetMetadata, CollateralAssetsResponse, ExchangeKeysView,
+        ExchangeLeverageTier, ExchangeMarketConfig, ExchangeResponse, ExchangeRiskFactors,
+        ExchangeStatusView, ExchangeView, MarketCalendar, MarketPublicMetadata,
+        MarketStatsSnapshot, SpotAssetConfig,
     };
     pub use super::exchange_ws::{
         AuthoritySet, CommodityMarketState, ExchangeDeltaMessage, ExchangeDeltaOp,
@@ -120,9 +121,10 @@ pub mod prelude {
         CollateralHistoryResponse, FundingHistoryEvent, FundingHistoryQueryParams,
         FundingHistoryResponse, LimitOrder, OrderHistoryItem, OrderHistoryQueryParams,
         OrderHistoryResponse, OrderStatus, PnlPoint, PnlQueryParams, PnlResolution, PnlResponse,
-        TraderActivityState, TraderPositionView, TraderStateResponse, TraderView,
-        UserLiquidationHistoryKind, UserLiquidationHistoryPoint, UserLiquidationHistoryQueryParams,
-        UserLiquidationHistoryResponse, UserLiquidationHistoryRole, UserLiquidationHistoryType,
+        SpotCollateralBalanceView, TraderActivityState, TraderPositionView, TraderStateResponse,
+        TraderView, UserLiquidationHistoryKind, UserLiquidationHistoryPoint,
+        UserLiquidationHistoryQueryParams, UserLiquidationHistoryResponse,
+        UserLiquidationHistoryRole, UserLiquidationHistoryType,
     };
     pub use super::trades::{
         LiquidityRole, TradeEvent, TradeHistoryItem, TradeHistoryQueryParams, TradeHistoryResponse,

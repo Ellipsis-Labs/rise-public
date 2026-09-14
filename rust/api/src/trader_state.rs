@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use phoenix_rise_math::portfolio::SpotCollateralInput;
 use phoenix_rise_math::{
     BaseLots, LimitOrder as MarginLimitOrder, SequenceNumberU8, Side as MarginSide, SignedBaseLots,
     SignedQuoteLots, SignedQuoteLotsI56, SignedQuoteLotsPerBaseLot, Ticks, TraderPortfolio,
@@ -10,6 +11,7 @@ use phoenix_rise_math::{
 use rust_decimal::Decimal;
 use tracing::{debug, warn};
 
+use crate::metadata::PhoenixMetadata;
 use crate::trader_key::TraderKey;
 use crate::types::prelude::{
     CooldownStatus, TraderStateCapabilities, TraderStateMarketLimitOrderEvent, TraderStatePayload,
@@ -218,6 +220,46 @@ impl SubaccountState {
         }
 
         builder.build()
+    }
+
+    /// Build a portfolio with spot collateral valued through the supplied
+    /// exchange metadata while preserving the master `TraderPortfolio` input
+    /// model.
+    pub fn to_trader_portfolio_with_metadata(&self, metadata: &PhoenixMetadata) -> TraderPortfolio {
+        let mut portfolio = self.to_trader_portfolio();
+        for spot in self.spot_collaterals.values() {
+            let Some(params) = metadata
+                .spot_collateral_params()
+                .iter()
+                .find(|params| params.asset_index == spot.asset_index)
+            else {
+                continue;
+            };
+            let (Ok(decimals), Ok(min_margin_discount_bps), Ok(max_margin_discount_bps)) = (
+                u8::try_from(params.decimals),
+                u16::try_from(params.min_margin_discount.as_inner()),
+                u16::try_from(params.max_margin_discount.as_inner()),
+            ) else {
+                warn!(
+                    asset_index = spot.asset_index,
+                    "skipping invalid spot collateral metadata"
+                );
+                continue;
+            };
+            let index_price = metadata.get_index_price(&params.perp_symbol);
+            portfolio.spot_collaterals.push(SpotCollateralInput {
+                asset_index: spot.asset_index,
+                symbol: spot.symbol.clone(),
+                pricing_market_symbol: params.perp_symbol.clone(),
+                balance: spot.balance,
+                decimals,
+                index_price,
+                max_global_balance: params.max_global_balance,
+                min_margin_discount_bps,
+                max_margin_discount_bps,
+            });
+        }
+        portfolio
     }
 
     fn apply_snapshot(&mut self, snapshot: &TraderStateSubaccountSnapshot) {

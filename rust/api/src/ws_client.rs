@@ -1756,6 +1756,7 @@ mod tests {
                 reason: phoenix_rise_types::exchange_ws::ExchangeSnapshotReason::Snapshot,
                 exchange: test_exchange_state_snapshot(root_authority),
                 markets: Vec::new(),
+                spot_collaterals: Vec::new(),
             },
         )));
         serde_json::to_string(&message).expect("snapshot message should serialize")

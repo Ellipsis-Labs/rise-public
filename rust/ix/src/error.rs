@@ -54,6 +54,18 @@ pub enum PhoenixIxError {
     #[error("Invalid transfer amount (must be greater than 0)")]
     InvalidTransferAmount,
 
+    #[error("Invalid swap amount (must be greater than 0)")]
+    InvalidSwapAmount,
+
+    #[error("Withdraw destination must be a system account other than the trader account")]
+    InvalidWithdrawDestination,
+
+    #[error("Only the swap signer may sign a venue instruction")]
+    UnexpectedVenueSigner,
+
+    #[error("Venue instructions reference more accounts than the packed encoding can address")]
+    TooManyVenueAccounts,
+
     #[error("Inner instruction must target the Phoenix program")]
     InvalidInnerProgram,
 

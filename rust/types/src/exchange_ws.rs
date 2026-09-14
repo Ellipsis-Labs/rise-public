@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::core::Decimal;
 use crate::exchange::{
-    AuthoritySetView, ExchangeKeysView, ExchangeLeverageTier, ExchangeMarketConfig,
-    ExchangeResponse, ExchangeRiskFactors, MarketPublicMetadata,
+    AuthoritySetView, CollateralAssetMetadata, ExchangeKeysView, ExchangeLeverageTier,
+    ExchangeMarketConfig, ExchangeResponse, ExchangeRiskFactors, MarketPublicMetadata,
 };
 use crate::js_safe_ints::JsSafeU64;
 use crate::market::MarketStatus;
@@ -168,6 +168,8 @@ pub struct ExchangeSnapshotView {
     pub slot_index: u32,
     pub exchange: ExchangeStateSnapshot,
     pub markets: Vec<ExchangeMarketSnapshot>,
+    #[serde(default)]
+    pub spot_collaterals: Vec<CollateralAssetMetadata>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -209,6 +211,8 @@ pub struct ExchangeSnapshotMessage {
     pub reason: ExchangeSnapshotReason,
     pub exchange: ExchangeStateSnapshot,
     pub markets: Vec<ExchangeMarketSnapshot>,
+    #[serde(default)]
+    pub spot_collaterals: Vec<CollateralAssetMetadata>,
 }
 
 impl From<&ExchangeSnapshotMessage> for ExchangeSnapshotView {
@@ -220,6 +224,7 @@ impl From<&ExchangeSnapshotMessage> for ExchangeSnapshotView {
             slot_index: message.slot_index,
             exchange: message.exchange.clone(),
             markets: message.markets.clone(),
+            spot_collaterals: message.spot_collaterals.clone(),
         }
     }
 }
@@ -326,6 +331,9 @@ pub enum ExchangeDeltaOp {
         gated: bool,
         #[serde(default = "default_withdrawals_available")]
         withdrawals_available: bool,
+    },
+    SpotCollateralsUpdated {
+        assets: Vec<CollateralAssetMetadata>,
     },
     MarketAdded {
         market: ExchangeMarketSnapshot,
@@ -584,6 +592,7 @@ mod tests {
                 mark_price_parameters: mark_price_parameters(),
                 commodity_metadata: None,
             }],
+            spot_collaterals: Vec::new(),
         }
     }
 

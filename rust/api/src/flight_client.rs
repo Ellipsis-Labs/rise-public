@@ -310,6 +310,7 @@ mod tests {
             slot_index: 0,
             exchange: exchange_state_snapshot(root_authority),
             markets: Vec::new(),
+            spot_collaterals: Vec::new(),
         })
     }
 

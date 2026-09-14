@@ -97,10 +97,15 @@ pub enum RiskAction {
     PlacingOrder { current_slot: Slot },
     /// Funding payment
     Funding { current_slot: Slot },
-    /// Withdrawal attempt
-    Withdrawal { current_slot: Slot },
+    /// Withdrawing quote (USDC) collateral. Native SOL collateral is valued at
+    /// 0 for this action because it cannot back a quote withdrawal.
+    WithdrawQuoteCollateral { current_slot: Slot },
+    #[deprecated(note = "use View instead for ADL")]
     /// Auto-deleveraging
     ADL { current_slot: Slot },
+    /// Withdrawing native SOL spot collateral. Values SOL like a normal
+    /// order-placement check, but debits the SOL balance.
+    WithdrawSpotCollateral { current_slot: Slot },
 }
 
 impl RiskAction {
@@ -112,12 +117,16 @@ impl RiskAction {
             Self::Liquidation { current_slot } => *current_slot,
             Self::PlacingOrder { current_slot } => *current_slot,
             Self::Funding { current_slot } => *current_slot,
-            Self::Withdrawal { current_slot } => *current_slot,
+            Self::WithdrawQuoteCollateral { current_slot } => *current_slot,
             Self::ADL { current_slot } => *current_slot,
+            Self::WithdrawSpotCollateral { current_slot } => *current_slot,
         }
     }
 
-    /// Get the index for this risk action type
+    /// Get the index for this risk action type.
+    ///
+    /// These indices address the on-chain per-action price-validity rules, so
+    /// they must match the on-chain enum ordering exactly.
     #[inline]
     pub const fn as_index(&self) -> usize {
         match self {
@@ -125,8 +134,21 @@ impl RiskAction {
             Self::Liquidation { .. } => 1,
             Self::PlacingOrder { .. } => 2,
             Self::Funding { .. } => 3,
-            Self::Withdrawal { .. } => 4,
+            Self::WithdrawQuoteCollateral { .. } => 4,
             Self::ADL { .. } => 5,
+            Self::WithdrawSpotCollateral { .. } => 6,
+        }
+    }
+
+    #[inline]
+    pub const fn is_withdraw_action(&self) -> bool {
+        match self {
+            Self::WithdrawQuoteCollateral { .. } | Self::WithdrawSpotCollateral { .. } => true,
+            Self::View
+            | Self::Liquidation { .. }
+            | Self::PlacingOrder { .. }
+            | Self::Funding { .. }
+            | Self::ADL { .. } => false,
         }
     }
 }
@@ -201,5 +223,35 @@ impl MarginState {
         } else {
             Ok(RiskState::Unhealthy)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[allow(deprecated)]
+    fn risk_action_indices_match_on_chain() {
+        let slot = Slot::new(42);
+        let actions = [
+            (RiskAction::View, 0),
+            (RiskAction::Liquidation { current_slot: slot }, 1),
+            (RiskAction::PlacingOrder { current_slot: slot }, 2),
+            (RiskAction::Funding { current_slot: slot }, 3),
+            (
+                RiskAction::WithdrawQuoteCollateral { current_slot: slot },
+                4,
+            ),
+            (RiskAction::ADL { current_slot: slot }, 5),
+            (RiskAction::WithdrawSpotCollateral { current_slot: slot }, 6),
+        ];
+
+        for (action, expected_index) in actions {
+            assert_eq!(action.as_index(), expected_index);
+        }
+        assert!(RiskAction::WithdrawQuoteCollateral { current_slot: slot }.is_withdraw_action());
+        assert!(RiskAction::WithdrawSpotCollateral { current_slot: slot }.is_withdraw_action());
+        assert!(!RiskAction::View.is_withdraw_action());
     }
 }

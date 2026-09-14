@@ -287,6 +287,14 @@ pub fn get_global_vault_address(mint: &Pubkey) -> Result<Pubkey, PhoenixIxError>
     derive_program_address(&[b"vault", mint.as_ref()], &phoenix_program_id())
 }
 
+/// Derives the native SOL authority PDA, which custodies native SOL spot
+/// collateral and signs the program's own withdrawals of it.
+///
+/// Seeds: ["native_sol"] against Phoenix program
+pub fn get_native_sol_authority_address() -> Result<Pubkey, PhoenixIxError> {
+    derive_program_address(&[b"native_sol"], &phoenix_program_id())
+}
+
 /// Derives the associated token address for an owner and mint.
 ///
 /// This follows the standard SPL ATA derivation.

@@ -53,7 +53,7 @@ pub(crate) fn discounted_unrealized_pnl_for_position_for_withdrawals(
     if raw_pnl > SignedQuoteLots::ZERO {
         let raw_pnl_unsigned = raw_pnl.checked_as_unsigned()?;
         let discounted = perp_asset_metadata
-            .upnl_risk_factor(RiskAction::Withdrawal {
+            .upnl_risk_factor(RiskAction::WithdrawQuoteCollateral {
                 current_slot: crate::quantities::Slot::ZERO,
             })
             .apply_to_quote_lots_ceil(raw_pnl_unsigned)

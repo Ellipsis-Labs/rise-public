@@ -20,6 +20,7 @@ pub struct Trader {
     pub trader_preference_flags: borrowed::TraderPreferenceFlags,
     pub preferences: borrowed::TraderPreferences,
     pub disable_collateral_sweep: bool,
+    pub disable_position_authority_swap: bool,
     pub position_authority: Pubkey,
     pub num_markets_with_splines: u16,
     pub trader_pda_index: u8,
@@ -28,6 +29,7 @@ pub struct Trader {
     pub last_deposit_slot: u64,
     pub conditional_order_bits: Vec<u8>,
     pub occupied_conditional_order_indices: Vec<u8>,
+    pub native_sol_collateral: u64,
     pub positions: ShortEntries<u64, TraderPosition>,
 }
 
@@ -56,6 +58,7 @@ impl From<borrowed::Trader<'_>> for Trader {
             trader_preference_flags: header.trader_preference_flags(),
             preferences: header.preferences(),
             disable_collateral_sweep: header.disable_collateral_sweep(),
+            disable_position_authority_swap: header.disable_position_authority_swap(),
             position_authority: Pubkey::new_from_array(*header.position_authority()),
             num_markets_with_splines: header.num_markets_with_splines(),
             trader_pda_index: header.trader_pda_index(),
@@ -66,6 +69,7 @@ impl From<borrowed::Trader<'_>> for Trader {
                 &conditional_order_bits,
             ),
             conditional_order_bits,
+            native_sol_collateral: trader.native_sol_collateral(),
             positions: ShortEntries {
                 len: entries.len() as u64,
                 capacity: trader.capacity(),

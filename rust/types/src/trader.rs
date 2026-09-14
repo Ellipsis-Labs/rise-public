@@ -75,6 +75,7 @@ pub struct TraderStateSpotCollateralSnapshot {
 pub struct TraderStateSubaccountSnapshot {
     pub subaccount_index: u8,
     pub sequence: u64,
+    /// Quote collateral balance.
     pub collateral: String,
     #[serde(default)]
     pub spot_collaterals: Vec<TraderStateSpotCollateralSnapshot>,
@@ -96,6 +97,7 @@ pub struct TraderStateSubaccountSnapshot {
 pub struct TraderStateSubaccountDelta {
     pub subaccount_index: u8,
     pub sequence: u64,
+    /// Quote collateral balance. Carries the full current value, not a diff.
     pub collateral: String,
     #[serde(default)]
     pub spot_collaterals: Vec<TraderStateSpotCollateralSnapshot>,

@@ -171,9 +171,10 @@ impl PerpAssetMetadata {
     /// Get UPnL risk factor based on risk action
     #[inline]
     pub fn upnl_risk_factor(&self, risk_action: RiskAction) -> BasisPoints {
-        let factor = match risk_action {
-            RiskAction::Withdrawal { .. } => self.upnl_risk_factor_for_withdrawals,
-            _ => self.upnl_risk_factor,
+        let factor = if risk_action.is_withdraw_action() {
+            self.upnl_risk_factor_for_withdrawals
+        } else {
+            self.upnl_risk_factor
         };
         BasisPoints::from_u16(factor).unwrap_or_else(|| BasisPoints::new(10_000))
     }
@@ -262,9 +263,15 @@ mod tests {
             BasisPoints::new(5_000)
         );
 
-        // Withdrawals use stricter factor
+        // Both withdrawal actions use the stricter factor.
         assert_eq!(
-            metadata.upnl_risk_factor(RiskAction::Withdrawal {
+            metadata.upnl_risk_factor(RiskAction::WithdrawQuoteCollateral {
+                current_slot: crate::quantities::Slot::new(1000)
+            }),
+            BasisPoints::new(7_500)
+        );
+        assert_eq!(
+            metadata.upnl_risk_factor(RiskAction::WithdrawSpotCollateral {
                 current_slot: crate::quantities::Slot::new(1000)
             }),
             BasisPoints::new(7_500)

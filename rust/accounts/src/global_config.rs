@@ -6,6 +6,7 @@ use serde::ser::SerializeStruct;
 
 use super::common::{PhoenixAccountDecodeError, read_prefix, require_len, verify_discriminant};
 use super::discriminants::PhoenixAccount;
+use super::spot_collateral::SpotCollateralMetadata;
 #[cfg(feature = "serde")]
 use crate::serde_helpers::pubkey_string;
 
@@ -13,7 +14,18 @@ const GLOBAL_CONFIG_ACCOUNT: &str = "GlobalConfig";
 const GLOBAL_CONFIG_PREFIX_LEN: usize = core::mem::size_of::<GlobalConfigPrefixRaw>();
 
 const_assert_eq!(core::mem::size_of::<AuthoritySetRaw>(), 256);
-const_assert_eq!(core::mem::size_of::<GlobalConfigPrefixRaw>(), 776);
+const_assert_eq!(core::mem::size_of::<GlobalConfigPrefixRaw>(), 1096);
+
+// `native_sol_spot_metadata` was carved out of reserved bytes, so a drifting
+// prefix silently decodes garbage rather than failing a length check.
+const_assert_eq!(
+    core::mem::offset_of!(GlobalConfigPrefixRaw, pending_authorities),
+    520
+);
+const_assert_eq!(
+    core::mem::offset_of!(GlobalConfigPrefixRaw, native_sol_spot_metadata),
+    776
+);
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -48,6 +60,7 @@ struct GlobalConfigPrefixRaw {
     _padding0: [u8; 4],
     deposit_cooldown_period_in_slots: u64,
     pending_authorities: AuthoritySetRaw,
+    native_sol_spot_metadata: SpotCollateralMetadata,
 }
 
 /// View over the GlobalConfig fields most CPI callers need.
@@ -174,6 +187,13 @@ impl GlobalConfig {
         self.raw.deposit_cooldown_period_in_slots
     }
 
+    /// Spot collateral configuration for native SOL. All-zero (and therefore
+    /// inactive) on exchanges that never configured it.
+    #[inline(always)]
+    pub const fn native_sol_spot_metadata(&self) -> &SpotCollateralMetadata {
+        &self.raw.native_sol_spot_metadata
+    }
+
     #[inline(always)]
     pub const fn pending_root_authority(&self) -> [u8; 32] {
         self.raw.pending_authorities.root_authority
@@ -221,7 +241,7 @@ impl serde::Serialize for GlobalConfig {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_struct("GlobalConfig", 29)?;
+        let mut state = serializer.serialize_struct("GlobalConfig", 30)?;
         state.serialize_field("account_key", &pubkey_string(&self.account_key()))?;
         state.serialize_field("root_authority", &pubkey_string(&self.root_authority()))?;
         state.serialize_field("risk_authority", &pubkey_string(&self.risk_authority()))?;
@@ -302,6 +322,57 @@ impl serde::Serialize for GlobalConfig {
             "pending_backstop_authority",
             &pubkey_string(&self.pending_backstop_authority()),
         )?;
+        state.serialize_field("native_sol_spot_metadata", self.native_sol_spot_metadata())?;
         state.end()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::spot_collateral::{
+        SPOT_COLLATERAL_FLAG_HAS_PERP_ASSET, SPOT_COLLATERAL_FLAG_IS_ACTIVE,
+    };
+
+    /// On-chain `GlobalConfiguration` is 2560 bytes; the prefix this crate
+    /// decodes is only the leading 1096.
+    const GLOBAL_CONFIG_ACCOUNT_LEN: usize = 2560;
+    const SPOT_METADATA_OFFSET: usize = 776;
+    const SPOT_FLAGS_OFFSET: usize = SPOT_METADATA_OFFSET + 104;
+    const SPOT_MAX_GLOBAL_BALANCE_OFFSET: usize = SPOT_METADATA_OFFSET + 48;
+
+    fn global_config_bytes(spot_flags: u8) -> Vec<u8> {
+        let mut data = vec![0u8; GLOBAL_CONFIG_ACCOUNT_LEN];
+        data[..8].copy_from_slice(&PhoenixAccount::GlobalConfiguration.discriminant());
+        data[SPOT_FLAGS_OFFSET] = spot_flags;
+        data
+    }
+
+    #[test]
+    fn native_sol_spot_metadata_decodes_at_offset_776() {
+        let mut data = global_config_bytes(
+            SPOT_COLLATERAL_FLAG_IS_ACTIVE | SPOT_COLLATERAL_FLAG_HAS_PERP_ASSET,
+        );
+        data[SPOT_MAX_GLOBAL_BALANCE_OFFSET..SPOT_MAX_GLOBAL_BALANCE_OFFSET + 8]
+            .copy_from_slice(&100_000_000_000_000u64.to_le_bytes());
+        // perp_asset_index lives 36 bytes into the metadata.
+        data[SPOT_METADATA_OFFSET + 36..SPOT_METADATA_OFFSET + 40]
+            .copy_from_slice(&3u32.to_le_bytes());
+
+        let config = GlobalConfig::try_from_account_bytes(&data).unwrap();
+        let metadata = config.native_sol_spot_metadata();
+
+        assert_eq!(metadata.max_global_balance(), 100_000_000_000_000);
+        assert_eq!(metadata.get_asset_id(), Some(3));
+        assert!(!metadata.is_zeroed());
+    }
+
+    #[test]
+    fn exchanges_without_spot_collateral_decode_as_zeroed_and_inactive() {
+        let data = global_config_bytes(0);
+        let config = GlobalConfig::try_from_account_bytes(&data).unwrap();
+
+        assert!(config.native_sol_spot_metadata().is_zeroed());
+        assert!(!config.native_sol_spot_metadata().is_active());
     }
 }
