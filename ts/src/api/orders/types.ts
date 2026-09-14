@@ -571,6 +571,7 @@ export interface PlaceIsolatedMarketOrderRequest {
   side: string;
   numBaseLots?: number;
   minBaseLotsToFill?: number;
+  minQuoteLotsToFill?: number;
   quantity?: number;
   transferAmount?: number;
   maxPriceInTicks?: number;
@@ -592,6 +593,7 @@ export const PlaceIsolatedMarketOrderRequestSchema: z.ZodType<PlaceIsolatedMarke
     side: z.string(),
     numBaseLots: z.number().int().nonnegative().optional(),
     minBaseLotsToFill: z.number().int().nonnegative().optional(),
+    minQuoteLotsToFill: z.number().int().nonnegative().optional(),
     quantity: z.number().optional(),
     transferAmount: z.number().int().nonnegative().optional(),
     maxPriceInTicks: z.number().int().nonnegative().optional(),

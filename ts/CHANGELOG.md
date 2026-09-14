@@ -3,6 +3,25 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.2 - 2026-09-14
+
+Source Phoenix commit: `1a0ff4c19848f92d519f3cb8db7e597a952f165f`
+
+### Summary
+
+- `PlaceIsolatedMarketOrderRequest` (and its Zod schema) now accepts an optional `minQuoteLotsToFill` field, alongside the existing `minBaseLotsToFill`, letting callers set a minimum quote-lot fill threshold for isolated market orders.
+- Both `minBaseLotsToFill` and `minQuoteLotsToFill` continue to accept `0` explicitly (for true IOC orders) while remaining optional and defaulting to `undefined` when omitted.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `minQuoteLotsToFill` is optional and additive — existing integrations that don't set it are unaffected.
+- If you need a minimum quote-lot fill guarantee on isolated market orders (in addition to or instead of a base-lot minimum), pass `minQuoteLotsToFill` in your request.
+- Package version bumped to `0.5.2`.
+
 ## v0.5.1 - 2026-09-14
 
 Source Phoenix commit: `5100f32502e7cc3217008f7b99e7038661c32777`
