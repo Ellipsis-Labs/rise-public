@@ -6,5 +6,6 @@ minimumReleaseAgeExcludes = [
   "typescript",
   "brace-expansion",
   "flatted",
+  "nanoid",
   "vite",
 ]

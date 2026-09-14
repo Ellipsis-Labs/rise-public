@@ -3,6 +3,23 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.5 - 2026-09-14
+
+Source Phoenix commit: `ed72a550627c627071186971830394234127b4ce`
+
+### Summary
+
+- Bumped the `nanoid` dependency to `3.3.17` (from `3.3.16`).
+- No changes to public TypeScript exports, types, or runtime behavior in this release.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- No consumer action required; the `nanoid` bump is a transitive dependency patch update with no known API impact.
+
 ## v0.5.4 - 2026-09-14
 
 Source Phoenix commit: `0d813c3c049a7056761c6f8edf744cadc35d1807`
