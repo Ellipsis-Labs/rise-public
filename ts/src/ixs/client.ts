@@ -199,6 +199,8 @@ export const createPhoenixIxClient = (config: {
       await Promise.all([
         getInstructionContextOrThrow(config.exchange, params.symbol),
         logAuthorityAddressPromise,
+        // The trader PDA always derives from the owner (`authority`), even
+        // when a delegate `positionAuthority` signs the instruction.
         config.pda.getTraderAddress({
           authority: params.authority,
           traderPdaIndex: params.traderPdaIndex ?? 0,
@@ -325,18 +327,21 @@ export const createPhoenixIxClient = (config: {
 
   const maybeWrapOrderIx = async <TIx extends InstructionsWithAccountsAndData>(
     instruction: TIx,
-    authority: Authority
+    signer: Authority,
+    usePositionAuthority = false
   ): Promise<TIx> => {
     if (!config.flight) {
       return instruction;
     }
 
     debugRise("ix", "flight.wrap:start", {
-      authority,
+      signer,
+      usePositionAuthority,
     });
     return (await wrapInstructionWithFlight({
       phoenixInstruction: instruction,
-      authority,
+      signer,
+      usePositionAuthority,
       phoenixProgramAddress,
       flight: config.flight,
       resolveFeeCollectorTraderAddress: (traderPdaIndex, subaccountIndex) =>
@@ -345,8 +350,27 @@ export const createPhoenixIxClient = (config: {
           traderPdaIndex,
           subaccountIndex
         ),
+      // Only invoked for position-authority wraps, and always resolved from
+      // the exchange snapshot at wrap time (never cached): the root authority
+      // can rotate on-chain and the snapshot store tracks
+      // `exchangeKeysUpdated` deltas.
+      resolveRootAuthority: async () => {
+        const exchangeSnapshot = await getExchangeSnapshot(config.exchange);
+        return exchangeSnapshot.currentAuthorities.rootAuthority as Authority;
+      },
     })) as TIx;
   };
+
+  // Conditional placements never collect a builder fee and Flight forwards
+  // their full account list into the inner CPI — never append the tail; wrap
+  // as owner-signed regardless of positionAuthority. Mirrors the API
+  // server's `maybe_wrap_conditional_order_instruction_with_flight`.
+  const maybeWrapConditionalOrderIx = async <
+    TIx extends InstructionsWithAccountsAndData,
+  >(
+    instruction: TIx,
+    authority: Authority
+  ): Promise<TIx> => maybeWrapOrderIx(instruction, authority);
 
   const resolveTraderTokenAccounts = async (
     authority: Authority,
@@ -424,6 +448,7 @@ export const createPhoenixIxClient = (config: {
         phoenixProgramAddress,
       }),
     maybeWrapOrderIx,
+    maybeWrapConditionalOrderIx,
     accountExists,
   });
 

@@ -68,3 +68,5 @@ export const clientFlightInstructionAddresses = (
 
 export const GLOBAL_STATE_SEED = "global_state";
 export const BUILDER_STATE_SEED = "builder_state";
+export const COLLATERAL_TRANSFER_AUTHORITY_SEED =
+  "collateral_transfer_authority";

@@ -43,6 +43,7 @@ import {
   Direction,
   StopLossOrderKind,
   flight,
+  getPhoenixTraderSubaccountAddress,
   PHOENIX_PROGRAM_ADDRESS,
   PHOENIX_LOG_AUTHORITY_ADDRESS,
   PHOENIX_GLOBAL_CONFIGURATION_ADDRESS,
@@ -635,7 +636,7 @@ try {
       executionDirection: Direction.LessThan,
       orderKind: StopLossOrderKind.IOC,
     });
-    const wrappedStopLossIx = await flightClient.tryWrapFlightInstruction(
+    const wrappedStopLossIx = await flightClient.tryWrapOrderInstruction(
       stopLossIx,
       p(0)
     );
@@ -664,7 +665,7 @@ try {
       sizePercent: null,
     });
     const wrappedPositionConditionalIx =
-      await flightClient.tryWrapFlightInstruction(positionConditionalIx, p(0));
+      await flightClient.tryWrapOrderInstruction(positionConditionalIx, p(0));
     results["FlightPlacePositionConditionalOrder"] = hexEncode(
       wrappedPositionConditionalIx.data
     );
@@ -692,7 +693,7 @@ try {
       },
     });
     const wrappedAttachedConditionalIx =
-      await flightClient.tryWrapFlightInstruction(attachedConditionalIx, p(0));
+      await flightClient.tryWrapOrderInstruction(attachedConditionalIx, p(0));
     results["FlightPlaceAttachedConditionalOrder"] = hexEncode(
       wrappedAttachedConditionalIx.data
     );
@@ -736,10 +737,7 @@ try {
       },
     });
     const wrappedLimitWithConditionalsIx =
-      await flightClient.tryWrapFlightInstruction(
-        limitWithConditionalsIx,
-        p(0)
-      );
+      await flightClient.tryWrapOrderInstruction(limitWithConditionalsIx, p(0));
     results["FlightPlaceLimitOrderWithConditionals"] = hexEncode(
       wrappedLimitWithConditionalsIx.data
     );
@@ -914,6 +912,94 @@ try {
       newPositionAuthority: p(2),
     });
     results["DelegateTrader"] = hexEncode(ix.data);
+  }
+
+  // 33. Flight ProxyInstruction wrapping PlaceMarketOrderDelegated signed by
+  // a secondary position authority (distinct delegate wallet plus a fixed
+  // permission account), with the collateral-transfer tail appended via
+  // `rootAuthority`.
+  {
+    console.error("Building FlightProxyPlaceMarketOrderDelegated...");
+    const inner = buildPlaceMarketOrderDelegatedIx({
+      traderWallet: p(9),
+      permissionAccount: p(10),
+      traderAccount: p(1),
+      perpAssetMap: p(2),
+      orderbook: p(3),
+      splineCollection: p(4),
+      globalTraderIndex: vec2(5, 6),
+      activeTraderBuffer: vec2(7, 8),
+      orderPacket: {
+        side: Side.Ask,
+        priceInTicks: null,
+        numBaseLots: baseLots(100n),
+        numQuoteLots: null,
+        minBaseLotsToFill: baseLots(0n),
+        minQuoteLotsToFill: quoteLots(0n),
+        selfTradeBehavior: SelfTradeBehavior.Abort,
+        matchLimit: null,
+        clientOrderId: 0n,
+        lastValidSlot: null,
+        orderFlags: OrderFlags.None,
+        cancelExisting: false,
+      },
+    });
+
+    const ix = await flight.buildProxyInstructionIx({
+      builderAuthority: p(11),
+      builderTraderAccount: p(12),
+      traderWallet: p(9),
+      rootAuthority: p(0),
+      innerInstruction: inner,
+    });
+    results["FlightProxyPlaceMarketOrderDelegated"] = hexEncode(ix.data);
+  }
+
+  // 34. Flight ProxyInstruction wrapping a plain PlaceMarketOrder whose
+  // trader wallet is the trader's position authority (the delegate signs;
+  // the trader account is derived from the owner), with the
+  // collateral-transfer tail appended via `rootAuthority`.
+  {
+    console.error("Building FlightProxyPlaceMarketOrderPositionAuthority...");
+    const ownerTraderAccount = await getPhoenixTraderSubaccountAddress({
+      authority: p(0),
+      traderPdaIndex: 0,
+      subaccountIndex: 0,
+    });
+    const inner = buildPlaceMarketOrderIx({
+      trader: p(9),
+      traderAccount: ownerTraderAccount,
+      perpAssetMap: p(2),
+      orderbook: p(3),
+      splineCollection: p(4),
+      globalTraderIndex: vec2(5, 6),
+      activeTraderBuffer: vec2(7, 8),
+      orderPacket: {
+        side: Side.Ask,
+        priceInTicks: null,
+        numBaseLots: baseLots(100n),
+        numQuoteLots: null,
+        minBaseLotsToFill: baseLots(0n),
+        minQuoteLotsToFill: quoteLots(0n),
+        selfTradeBehavior: SelfTradeBehavior.Abort,
+        matchLimit: null,
+        clientOrderId: 0n,
+        lastValidSlot: null,
+        orderFlags: OrderFlags.None,
+        cancelExisting: false,
+      },
+    });
+
+    const ix = await flight.buildProxyInstructionIx({
+      builderAuthority: p(11),
+      builderTraderAccount: p(12),
+      traderWallet: p(9),
+      rootAuthority: p(0),
+      innerInstruction: inner,
+    });
+    results["FlightProxyPlaceMarketOrderPositionAuthority"] = hexEncode(
+      ix.data
+    );
   }
 
   // Output JSON in sorted order

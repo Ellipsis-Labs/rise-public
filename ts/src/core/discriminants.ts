@@ -27,6 +27,9 @@ export const DISCRIMINANTS: DiscriminantMap = {
     "global:set_trader_capabilities_delegated"
   ),
   TRANSFER_COLLATERAL: sha2_const("global:transfer_collateral"),
+  AUTHORIZED_TRANSFER_COLLATERAL: sha2_const(
+    "global:authorized_transfer_collateral"
+  ),
   TRANSFER_COLLATERAL_CHILD_TO_PARENT: sha2_const(
     "global:transfer_collateral_child_to_parent"
   ),
