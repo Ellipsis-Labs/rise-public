@@ -142,8 +142,44 @@ pub const EMBER_PROGRAM_ID: Pubkey =
     solana_pubkey::pubkey!("EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy");
 
 /// USDC mint address (mainnet).
+///
+/// Prefer [`usdc_mint`] when the process may target the beta deployment.
 pub const USDC_MINT: Pubkey =
     solana_pubkey::pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+/// USDC mint address (beta).
+pub const BETA_USDC_MINT: Pubkey =
+    solana_pubkey::pubkey!("DPTSTVhvfzQhY8pAJL5EeqfZxf9aNKTmHErfG4R3Z1SE");
+
+/// Active USDC mint for the current process.
+///
+/// This is resolved once from `PHOENIX_ENV`. Set `PHOENIX_ENV=beta` before
+/// first use to target the beta deployment.
+#[cfg(not(target_os = "solana"))]
+static ACTIVE_USDC_MINT: LazyLock<Pubkey> =
+    LazyLock::new(|| resolve_usdc_mint_for_env(std::env::var("PHOENIX_ENV").ok().as_deref()));
+
+#[cfg(target_os = "solana")]
+static ACTIVE_USDC_MINT: &Pubkey = &USDC_MINT;
+
+/// Resolve the USDC mint for an explicit environment value.
+///
+/// `beta` selects the beta deployment. Everything else defaults to production.
+pub fn resolve_usdc_mint_for_env(phoenix_env: Option<&str>) -> Pubkey {
+    match phoenix_env
+        .map(str::trim)
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("beta") => BETA_USDC_MINT,
+        _ => USDC_MINT,
+    }
+}
+
+/// The active USDC mint for the current process.
+pub fn usdc_mint() -> Pubkey {
+    *ACTIVE_USDC_MINT
+}
 
 /// SPL Token program ID.
 pub const SPL_TOKEN_PROGRAM_ID: Pubkey =
@@ -303,6 +339,19 @@ mod tests {
             resolve_phoenix_instruction_addresses_for_env(Some("unexpected")),
             addresses
         );
+    }
+
+    #[test]
+    fn test_resolves_beta_usdc_mint() {
+        assert_eq!(resolve_usdc_mint_for_env(Some(" beta ")), BETA_USDC_MINT);
+        assert_ne!(BETA_USDC_MINT, USDC_MINT);
+    }
+
+    #[test]
+    fn test_resolves_prod_usdc_mint_by_default() {
+        assert_eq!(resolve_usdc_mint_for_env(None), USDC_MINT);
+        assert_eq!(resolve_usdc_mint_for_env(Some("prod")), USDC_MINT);
+        assert_eq!(resolve_usdc_mint_for_env(Some("unexpected")), USDC_MINT);
     }
 
     #[test]

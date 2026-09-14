@@ -15,7 +15,7 @@ use phoenix_rise_ix::prelude::{
     PHOENIX_PROGRAM_ID, PlaceLimitOrderWithConditionalsParams, PlacePositionConditionalOrderParams,
     PlaceStopLossParams, RegisterTraderParams, SelfTradeBehavior, Side, SplApproveParams,
     StopLossOrderKind, SyncParentToChildParams, TraderPreferenceKind,
-    TransferCollateralChildToParentParams, TransferCollateralParams, TriggerOrderParams, USDC_MINT,
+    TransferCollateralChildToParentParams, TransferCollateralParams, TriggerOrderParams,
     UncrossCrankParams, WithdrawFundsParams, client_order_id_to_bytes,
     create_associated_token_account_idempotent_ix, create_cancel_all_ix,
     create_cancel_orders_by_id_ix, create_cancel_stop_loss_ix, create_cancel_up_to_ix,
@@ -29,7 +29,7 @@ use phoenix_rise_ix::prelude::{
     create_register_trader_ix, create_spl_approve_ix, create_sync_parent_to_child_ix,
     create_transfer_collateral_child_to_parent_ix, create_transfer_collateral_ix,
     create_uncross_crank_ix, create_withdraw_funds_ix, get_associated_token_address,
-    get_conditional_orders_address, get_ember_state_address, get_stop_loss_address,
+    get_conditional_orders_address, get_ember_state_address, get_stop_loss_address, usdc_mint,
 };
 use phoenix_rise_math::MathError;
 use solana_instruction::Instruction;
@@ -872,7 +872,7 @@ impl<'a> PhoenixTxBuilder<'a> {
         let active_trader_buffer = parse_active_trader_buffer_pubkeys(&keys.active_trader_buffer)?;
 
         // Derive addresses
-        let trader_usdc_ata = get_associated_token_address(&authority, &USDC_MINT)?;
+        let trader_usdc_ata = get_associated_token_address(&authority, &usdc_mint())?;
         let trader_phoenix_ata = get_associated_token_address(&authority, &canonical_mint)?;
 
         // 1. Create ATA instruction (idempotent)
@@ -882,7 +882,7 @@ impl<'a> PhoenixTxBuilder<'a> {
         // 2. Ember deposit instruction (USDC -> Phoenix tokens)
         let ember_params = EmberDepositParams::builder()
             .trader(authority)
-            .usdc_mint(USDC_MINT)
+            .usdc_mint(usdc_mint())
             .canonical_mint(canonical_mint)
             .trader_usdc_account(trader_usdc_ata)
             .trader_phoenix_account(trader_phoenix_ata)
@@ -1018,7 +1018,7 @@ impl<'a> PhoenixTxBuilder<'a> {
         amount: u64,
     ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
         let canonical_mint = Pubkey::from_str(&self.metadata.keys().canonical_mint)?;
-        let trader_usdc_ata = get_associated_token_address(&authority, &USDC_MINT)?;
+        let trader_usdc_ata = get_associated_token_address(&authority, &usdc_mint())?;
         let trader_phoenix_ata = get_associated_token_address(&authority, &canonical_mint)?;
 
         let approve_params = SplApproveParams::builder()
@@ -1030,11 +1030,11 @@ impl<'a> PhoenixTxBuilder<'a> {
         let approve_ix = create_spl_approve_ix(approve_params)?;
 
         let create_usdc_ata_ix =
-            create_associated_token_account_idempotent_ix(authority, authority, USDC_MINT)?;
+            create_associated_token_account_idempotent_ix(authority, authority, usdc_mint())?;
 
         let ember_params = EmberWithdrawParams::builder()
             .trader(authority)
-            .usdc_mint(USDC_MINT)
+            .usdc_mint(usdc_mint())
             .canonical_mint(canonical_mint)
             .trader_usdc_account(trader_usdc_ata)
             .trader_phoenix_account(trader_phoenix_ata)
@@ -1074,7 +1074,7 @@ impl<'a> PhoenixTxBuilder<'a> {
         let active_trader_buffer = parse_active_trader_buffer_pubkeys(&keys.active_trader_buffer)?;
 
         // Derive addresses
-        let trader_usdc_ata = get_associated_token_address(&authority, &USDC_MINT)?;
+        let trader_usdc_ata = get_associated_token_address(&authority, &usdc_mint())?;
         let trader_phoenix_ata = get_associated_token_address(&authority, &canonical_mint)?;
 
         // 1. Create Phoenix token ATA instruction (idempotent)
@@ -1093,7 +1093,7 @@ impl<'a> PhoenixTxBuilder<'a> {
 
         // 3. Create USDC ATA instruction (idempotent)
         let create_usdc_ata_ix =
-            create_associated_token_account_idempotent_ix(authority, authority, USDC_MINT)?;
+            create_associated_token_account_idempotent_ix(authority, authority, usdc_mint())?;
 
         // 4. Withdraw funds instruction (Phoenix protocol -> Phoenix token ATA)
         let withdraw_params = WithdrawFundsParams::builder()
@@ -1112,7 +1112,7 @@ impl<'a> PhoenixTxBuilder<'a> {
         // 5. Ember withdraw instruction (Phoenix tokens -> USDC)
         let ember_params = EmberWithdrawParams::builder()
             .trader(authority)
-            .usdc_mint(USDC_MINT)
+            .usdc_mint(usdc_mint())
             .canonical_mint(canonical_mint)
             .trader_usdc_account(trader_usdc_ata)
             .trader_phoenix_account(trader_phoenix_ata)
