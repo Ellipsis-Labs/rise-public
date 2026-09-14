@@ -1,4 +1,5 @@
 import {
+  BETA_USDC_MINT_ADDRESS,
   PHOENIX_GLOBAL_CONFIGURATION_ADDRESS,
   PHOENIX_LOG_AUTHORITY_ADDRESS,
   PHOENIX_PROGRAM_ADDRESS,
@@ -7,11 +8,13 @@ import {
   type PlaceMarketOrderParams,
   baseLots,
   quoteLots,
+  resolvePhoenixBuilderAddresses,
   resolvePhoenixInstructionAddresses,
   ticks,
   SelfTradeBehavior,
   Side,
 } from "@/index";
+import { getEmberStateAddress } from "@/pdas";
 import type {
   ActiveTraderBufferAddressArray,
   Authority,
@@ -19,6 +22,7 @@ import type {
   GlobalTraderIndexAddressArray,
   LogAuthorityAddress,
   MarketAddress,
+  MintAddress,
   PerpAssetMapAddress,
   PhoenixProgramAddress,
   SplineCollectionAddress,
@@ -191,5 +195,57 @@ describe("phoenix instruction address overrides", () => {
     expect(addresses.globalConfigurationAddress).toBe(
       BETA_GLOBAL_CONFIGURATION_ADDRESS
     );
+  });
+});
+
+describe("phoenix builder address resolution", () => {
+  it("resolves prod builder addresses by default, including the USDC mint", async () => {
+    const addresses = resolvePhoenixBuilderAddresses();
+
+    expect(addresses.phoenixProgramAddress).toBe(PHOENIX_PROGRAM_ADDRESS);
+    expect(addresses.usdcMintAddress).toBe(
+      "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    );
+    expect(addresses.emberStateAddress).toBe(
+      await getEmberStateAddress(PHOENIX_PROGRAM_ADDRESS)
+    );
+  });
+
+  it("resolves the beta USDC mint and ember state under PHOENIX_ENV=beta", async () => {
+    process.env.PHOENIX_ENV = "beta";
+
+    const addresses = resolvePhoenixBuilderAddresses();
+
+    expect(addresses.phoenixProgramAddress).toBe(BETA_PROGRAM_ADDRESS);
+    expect(addresses.logAuthorityAddress).toBe(BETA_LOG_AUTHORITY_ADDRESS);
+    expect(addresses.globalConfigurationAddress).toBe(
+      BETA_GLOBAL_CONFIGURATION_ADDRESS
+    );
+    expect(addresses.usdcMintAddress).toBe(
+      "DPTSTVhvfzQhY8pAJL5EeqfZxf9aNKTmHErfG4R3Z1SE"
+    );
+    expect(addresses.emberStateAddress).toBe(
+      await getEmberStateAddress(BETA_PROGRAM_ADDRESS)
+    );
+  });
+
+  it("infers the beta mint from the known beta program id without env vars", () => {
+    const addresses = resolvePhoenixBuilderAddresses({
+      phoenixProgramAddress: BETA_PROGRAM_ADDRESS,
+    });
+
+    expect(addresses.usdcMintAddress).toBe(BETA_USDC_MINT_ADDRESS);
+  });
+
+  it("keeps explicit mint overrides ahead of env defaults", () => {
+    process.env.PHOENIX_ENV = "beta";
+
+    const usdcMintAddress = address(
+      "So11111111111111111111111111111111111111112"
+    ) as MintAddress;
+    const addresses = resolvePhoenixBuilderAddresses({ usdcMintAddress });
+
+    expect(addresses.usdcMintAddress).toBe(usdcMintAddress);
+    expect(addresses.phoenixProgramAddress).toBe(BETA_PROGRAM_ADDRESS);
   });
 });
