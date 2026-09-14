@@ -76,6 +76,11 @@ export interface LimitOrder {
   isReduceOnly: boolean;
   isStopLoss?: boolean;
   isStopLossDirection?: boolean;
+  /**
+   * Client-assigned scale set id (1-255) when the order was placed as part
+   * of a scale (ladder) order batch; absent for standalone orders.
+   */
+  scaleSetId?: number;
 }
 
 export const LimitOrderSchema: z.ZodType<LimitOrder> = z.object({
@@ -100,6 +105,7 @@ export const LimitOrderSchema: z.ZodType<LimitOrder> = z.object({
   isReduceOnly: z.boolean(),
   isStopLoss: z.boolean().optional().default(false),
   isStopLossDirection: z.boolean().optional().default(false),
+  scaleSetId: z.number().int().min(1).max(255).optional(),
 });
 
 export interface CapabilityAccess {

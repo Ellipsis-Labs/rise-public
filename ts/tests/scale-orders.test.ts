@@ -8,6 +8,7 @@ import {
   clampScaleBias,
   clampScaleOrderCount,
   computeScaleOrderLevels,
+  CondensedOrderFlags,
   previewScaleOrder,
   priceUsdToTicksWithMarketParams,
   scaleLevelsToMultipleOrderPacket,
@@ -16,7 +17,6 @@ import {
   type ScaleOrderLevel,
 } from "@/index";
 import { scaleLevelsToMultipleOrderPacketV2 } from "@/scaleOrders";
-import { CondensedOrderFlags } from "@/primitives";
 import type { ResolvedPlaceOrderContext } from "@/ixs/types";
 import { Side } from "@/primitives/Side";
 import { DISCRIMINANTS } from "@/core/discriminants";

@@ -105,6 +105,11 @@ export interface OrderHistoryItem {
   filledBaseQty: string;
   placedAt: number | null;
   completedAt: number | null;
+  /**
+   * Scale-order set id (1-255) shared by every leg of a
+   * PlaceMultiLimitOrderV2 scale-order packet; absent for standalone orders.
+   */
+  scaleSetId?: number;
 }
 
 const RawOrderHistoryItemSchema = z
@@ -122,6 +127,7 @@ const RawOrderHistoryItemSchema = z
     isStopLossDirection: z.boolean().nullable().optional().default(false),
     placedAt: nullableTimestampSchema.optional(),
     completedAt: nullableTimestampSchema.optional(),
+    scaleSetId: z.number().int().min(1).max(255).nullable().optional(),
   })
   .loose();
 
@@ -152,6 +158,7 @@ export const OrderHistoryItemSchema: z.ZodType<OrderHistoryItem> =
     isStopLossDirection: raw.isStopLossDirection ?? false,
     placedAt: raw.placedAt ?? null,
     completedAt: raw.completedAt ?? null,
+    ...(raw.scaleSetId != null ? { scaleSetId: raw.scaleSetId } : {}),
   }));
 
 export interface OrderHistoryResponse {
@@ -666,6 +673,11 @@ export interface PlacedOrder {
   initialSlot: number | null;
   orderFlags: number | null;
   clientOrderId?: string | null;
+  /**
+   * Scale-order set id (1-255) shared by every leg of a
+   * PlaceMultiLimitOrderV2 scale-order packet; absent for standalone orders.
+   */
+  scaleSetId?: number;
   transactionTimestamp: string;
 }
 
@@ -681,6 +693,11 @@ export interface CurrentOrderState {
   placedAt: string | null;
   cancelledAt: string | null;
   lastFillAt: string | null;
+  /**
+   * Scale-order set id (1-255) shared by every leg of a
+   * PlaceMultiLimitOrderV2 scale-order packet; absent for standalone orders.
+   */
+  scaleSetId?: number;
 }
 
 export interface AggregatedTrades {
@@ -755,6 +772,7 @@ const PlacedOrderSchema = z.object({
   initialSlot: z.number().nullable(),
   orderFlags: z.number().nullable(),
   clientOrderId: z.string().nullable().optional(),
+  scaleSetId: z.number().int().min(1).max(255).optional(),
   transactionTimestamp: z.string(),
 });
 
@@ -770,6 +788,7 @@ const CurrentOrderStateSchema = z.object({
   placedAt: z.string().nullable(),
   cancelledAt: z.string().nullable(),
   lastFillAt: z.string().nullable(),
+  scaleSetId: z.number().int().min(1).max(255).optional(),
 });
 
 const OrderHistoryV2ItemSchema = z.object({

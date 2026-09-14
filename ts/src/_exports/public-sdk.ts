@@ -171,15 +171,20 @@ export {
 export {
   OrderFlags,
   SelfTradeBehavior,
+  CondensedOrderFlags,
   type PostOnlyOrderPacket,
   type LimitOrderPacket,
   type ImmediateOrCancelOrderPacket,
   type CondensedOrder,
+  type CondensedOrderV2,
   type MultipleOrderPacket,
+  type MultipleOrderPacketV2,
   getOrderFlagsDecoder,
   getOrderFlagsEncoder,
   getSelfTradeBehaviorDecoder,
   getSelfTradeBehaviorEncoder,
+  getCondensedOrderFlagsDecoder,
+  getCondensedOrderFlagsEncoder,
   getPostOnlyOrderPacketDecoder,
   getPostOnlyOrderPacketEncoder,
   getLimitOrderPacketDecoder,
@@ -188,8 +193,12 @@ export {
   getImmediateOrCancelOrderPacketEncoder,
   getCondensedOrderDecoder,
   getCondensedOrderEncoder,
+  getCondensedOrderV2Decoder,
+  getCondensedOrderV2Encoder,
   getMultipleOrderPacketDecoder,
   getMultipleOrderPacketEncoder,
+  getMultipleOrderPacketV2Decoder,
+  getMultipleOrderPacketV2Encoder,
 } from "../primitives/OrderPacket";
 
 export { MarginType, toMaxPositions } from "../primitives/MarginType";

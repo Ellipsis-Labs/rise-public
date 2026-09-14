@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.12 - 2026-09-14
+
+Source Phoenix commit: `444e5fcc741719021c13a92e16e573f385357c60`
+
+### Summary
+
+- Added a V2 multi-limit order instruction builder (`buildPlaceMultiLimitOrderV2Ix`, `PlaceMultiLimitOrderV2Params`) with matching codecs (`getPlaceMultiLimitOrderV2Codec/Decoder/Encoder`) for placing scale/ladder order batches.
+- Added new order-packet primitives supporting V2 orders: `CondensedOrderFlags`, `CondensedOrderV2`, `MultipleOrderPacketV2`, and their encoder/decoder pairs.
+- `OrderHistoryItem`, `PlacedOrder`, `CurrentOrderState`, `TraderStateMarketLimitOrderRow`, and `LimitOrder` now expose an optional `scaleSetId` (1-255) that groups legs placed together via a `PlaceMultiLimitOrderV2` scale-order batch.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- Import the new V2 builder and primitives from the package's public export paths (e.g. `@/ixs/operations`, `@/primitives`) rather than internal module paths — internal-path imports for these symbols are no longer guaranteed stable.
+- `scaleSetId` is optional and only populated for orders placed as part of a V2 scale-order batch; existing standalone-order handling needs no changes.
+- The ladder-math helper `scaleLevelsToMultipleOrderPacketV2` remains internal (not exported); use `buildPlaceMultiLimitOrderV2Ix` for scale-order placement.
+
 ## v0.5.11 - 2026-09-14
 
 Source Phoenix commit: `41d501ac9b4b1f84fe680987d4e491cac0d55338`
