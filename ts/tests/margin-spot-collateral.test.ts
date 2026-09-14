@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSubaccountMarginInputsFromSnapshot,
+  computeSubaccountProjectedLiquidationFromMargin,
   createMarginCalculator,
   type MarketParams,
 } from "@/margin";
@@ -69,7 +70,10 @@ describe("margin spot collateral valuation", () => {
       {
         assetIndex: 4294901760,
         symbol: "SOL",
+        pricingMarketSymbol: "SOL",
         balance: "2000000000",
+        nativeUnitsPerBaseLot: "1000000",
+        retainedBps: "9200",
         notionalQuoteLots: "100000000",
         discountedQuoteLots: "92000000",
       },
@@ -160,5 +164,73 @@ describe("margin spot collateral valuation", () => {
     expect(inputs.spotCollaterals).toHaveLength(1);
     const margin = calculator.computeSubaccountMarginFromInputs(inputs);
     expect(margin.margin.effectiveCollateralQuoteLots).toBe("93000000");
+  });
+
+  it("reprices spot collateral along the liquidation price path", () => {
+    const liquidationCalculator = createMarginCalculator(
+      [
+        {
+          ...solMarketParams,
+          riskFactors: {
+            ...solMarketParams.riskFactors,
+            maintenanceMarginFactorBps: "5000",
+          },
+        },
+      ],
+      [
+        {
+          assetIndex: 4294901760,
+          symbol: "SOL",
+          perpSymbol: "SOL",
+          decimals: 9,
+          maxPerTraderBalance: 10_000_000_000n,
+          maxGlobalBalance: 10_000_000_000n,
+          currGlobalBalance: 2_000_000_000n,
+          minMarginDiscountBps: 500,
+          maxMarginDiscountBps: 2000,
+        },
+      ]
+    );
+    const inputs = {
+      subaccountIndex: 0,
+      collateralBalanceQuoteLots: "-20000000",
+      nativeSolCollateralLamports: "2000000000",
+      markets: [
+        {
+          symbol: "SOL",
+          position: {
+            basePositionLots: "1000",
+            virtualQuotePositionLots: "-50000000",
+            entryPriceTicks: "5000",
+            unsettledFundingQuoteLots: "0",
+            accumulatedFundingQuoteLots: "0",
+          },
+        },
+      ],
+    };
+    const result =
+      liquidationCalculator.computeSubaccountLiquidationPricesFromInputs(
+        inputs
+      );
+
+    const liquidationTicks = Number(result.positions[0]?.liquidationPriceTicks);
+    // Revaluing the two SOL of collateral at each candidate price produces a
+    // lower boundary near $25 rather than treating its current $92 value as
+    // fixed throughout the search.
+    expect(liquidationTicks).toBeGreaterThan(2500);
+    expect(liquidationTicks).toBeLessThan(2600);
+
+    const margin =
+      liquidationCalculator.computeSubaccountMarginFromInputs(inputs);
+    const projected = computeSubaccountProjectedLiquidationFromMargin(
+      margin,
+      liquidationCalculator.markets
+    );
+    expect(projected.positions[0]?.staticLiquidationPriceTicks).toBe(
+      result.positions[0]?.liquidationPriceTicks
+    );
+    expect(projected.positions[0]?.liquidationPriceTicks).toBe(
+      result.positions[0]?.liquidationPriceTicks
+    );
   });
 });

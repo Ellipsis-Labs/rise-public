@@ -12,6 +12,9 @@ export interface NormalizedMarketParams {
   symbol: string;
   assetId: number;
   markPriceTicks: bigint;
+  /** Median-of-oracles index price, when supplied. Values spot collateral;
+   * never falls back to the mark price. */
+  indexPriceTicks?: bigint;
   tickSize: bigint;
   baseLotDecimals: number;
   leverageTiers: LeverageTier[];
@@ -42,6 +45,10 @@ export const normalizeMarketParams = (
   symbol: market.symbol,
   assetId: market.assetId,
   markPriceTicks: toBigInt(market.markPriceTicks),
+  indexPriceTicks:
+    market.indexPriceTicks === undefined
+      ? undefined
+      : toBigInt(market.indexPriceTicks),
   tickSize: toBigInt(market.tickSize),
   baseLotDecimals: market.baseLotDecimals,
   leverageTiers: parseLeverageTiers(market.leverageTiers),

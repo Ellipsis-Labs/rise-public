@@ -4,6 +4,7 @@ import type {
   ExchangeStateSnapshot,
   MarketPublicMetadata,
 } from "@/api/exchange/types";
+import type { CollateralAssetMetadata } from "@/api/collateral/types";
 import type { StoreApi } from "zustand/vanilla";
 import type {
   ExchangeDeltaMsg,
@@ -41,7 +42,10 @@ export type ExchangeMetadataSource = "api" | "rpc" | "none";
 
 export type ExchangeMarketLifecycle = "active" | "gated" | "closed";
 
-export type ExchangeCacheExchangeChangeKind = "keys" | "status";
+export type ExchangeCacheExchangeChangeKind =
+  | "keys"
+  | "status"
+  | "spotCollaterals";
 
 export type ExchangeCacheMarketChangeKind =
   | "status"
@@ -198,6 +202,7 @@ export interface PhoenixExchangeCacheConfig {
 export interface PhoenixExchangeCacheStore {
   readonly store: PhoenixExchangeStore;
   snapshot(): Readonly<ExchangeSnapshotView>;
+  spotCollaterals(): readonly CollateralAssetMetadata[];
   market(symbol: string): ExchangeMarketSnapshot | undefined;
   marketByAssetId(assetId: number): ExchangeMarketSnapshot | undefined;
   marketByPubkey(pubkey: string): ExchangeMarketSnapshot | undefined;
@@ -225,6 +230,7 @@ export interface PhoenixExchangeCache {
   ready(): Promise<Readonly<ExchangeSnapshotView>>;
   health(): ExchangeCacheHealth;
   snapshot(): Readonly<ExchangeSnapshotView>;
+  spotCollaterals(): readonly CollateralAssetMetadata[];
   market(symbol: string): ExchangeMarketSnapshot | undefined;
   marketByAssetId(assetId: number): ExchangeMarketSnapshot | undefined;
   marketByPubkey(pubkey: string): ExchangeMarketSnapshot | undefined;

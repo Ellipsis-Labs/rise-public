@@ -2,10 +2,14 @@ import type { HttpTransport } from "@/http/transport";
 import { get } from "@/http/transport";
 import type { ParamValue } from "@/http/transport";
 import type {
+  CollateralAssetsResponse,
   CollateralHistoryRequest,
   CollateralHistoryResponse,
 } from "./types";
-import { CollateralHistoryResponseSchema } from "./types";
+import {
+  CollateralAssetsResponseSchema,
+  CollateralHistoryResponseSchema,
+} from "./types";
 
 const buildCollateralHistoryQuery = (
   request?: CollateralHistoryRequest
@@ -25,6 +29,14 @@ const buildCollateralHistoryQuery = (
 
 export class V1CollateralClient {
   constructor(private readonly http: HttpTransport) {}
+
+  async getAssets(): Promise<CollateralAssetsResponse> {
+    return get(
+      this.http,
+      "/v1/collateral/assets",
+      CollateralAssetsResponseSchema
+    );
+  }
 
   async getUserCollateralHistory(
     userPubkey: string,

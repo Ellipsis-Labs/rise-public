@@ -215,6 +215,7 @@ export interface TraderStateSpotCollateral {
 export interface TraderStateSubaccountSnapshot {
   subaccountIndex: number;
   sequence: number;
+  /** Quote collateral balance. */
   collateral: string;
   spotCollaterals?: TraderStateSpotCollateral[];
   capabilities?: TraderStateCapabilities;
@@ -228,6 +229,7 @@ export interface TraderStateSubaccountSnapshot {
 export interface TraderStateSubaccountDelta {
   subaccountIndex: number;
   sequence: number;
+  /** Quote collateral balance. Carries the full current value, not a diff. */
   collateral: string;
   spotCollaterals?: TraderStateSpotCollateral[];
   capabilities?: TraderStateCapabilities;

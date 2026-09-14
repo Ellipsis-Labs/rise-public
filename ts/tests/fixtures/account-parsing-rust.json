@@ -32,7 +32,26 @@
     "totalQuoteLotFees": "9009939069",
     "unclaimedQuoteLotFees": "9009939069",
     "withdrawQueueKey": "3c3NTwpg7yW91FxijkHBXwVH1xUifun3Z8TC5eW5Si3K",
-    "withdrawalMarginFactorBps": 0
+    "withdrawalMarginFactorBps": 0,
+    "nativeSolSpotMetadata": {
+      "mintAddress": "11111111111111111111111111111111",
+      "decimals": 0,
+      "perpAssetIndex": 0,
+      "maxPerTraderBalance": "0",
+      "maxGlobalBalance": "0",
+      "currGlobalBalance": "0",
+      "minMarginDiscountBps": 0,
+      "maxMarginDiscountBps": 0,
+      "maxLiquidationDiscountBps": 0,
+      "minLiquidationSlippageBps": 0,
+      "maxLiquidationSize": "0",
+      "postLiquidationBuffer": "0",
+      "quoteLotCollateralShortfallBuffer": "0",
+      "flags": 0,
+      "isActive": false,
+      "hasPerpAsset": false,
+      "positionAuthoritySwapDisabled": false
+    }
   },
   "orderbook": {
     "asks": [],
@@ -3049,11 +3068,13 @@
       "hasReservedBits": false,
       "enabled": [],
       "preferences": {
-        "disableCollateralSweep": false
+        "disableCollateralSweep": false,
+        "disablePositionAuthoritySwap": false
       }
     },
     "preferences": {
-      "disableCollateralSweep": false
+      "disableCollateralSweep": false,
+      "disablePositionAuthoritySwap": false
     },
     "disableCollateralSweep": false,
     "numMarketsWithSplines": 0,
@@ -3088,6 +3109,8 @@
     },
     "traderPdaIndex": 0,
     "traderSubaccountIndex": 0,
-    "withdrawQueueNode": null
+    "withdrawQueueNode": null,
+    "disablePositionAuthoritySwap": false,
+    "nativeSolCollateral": "0"
   }
 }

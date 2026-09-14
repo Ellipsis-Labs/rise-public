@@ -3,6 +3,7 @@ import {
   decodeTrader,
   fetchPerpAssetMap,
   fetchTrader,
+  type GlobalConfiguration,
 } from "@/accounts";
 import type { ExchangeInstructionContext } from "@/exchange-cache/types";
 import {
@@ -26,8 +27,6 @@ import {
   type ActiveTraderBufferAddressArray,
   type ActiveTraderBufferArenaAddress,
   type Authority,
-  type GlobalConfigurationAddress,
-  type GlobalVaultAddress,
   type EmberStateAddress,
   type GlobalTraderIndexAddressArray,
   type GlobalTraderIndexArenaAddress,
@@ -35,19 +34,13 @@ import {
   type MintAddress,
   type PerpAssetMapAddress,
   type PhoenixProgramAddress,
-  type QuoteLots,
   type SPLTokenProgramAddress,
   type SplineCollectionAddress,
   type TokenAccountAddress,
   type TraderAddress,
   type WithdrawQueueAddress,
 } from "@/primitives";
-import {
-  MarginType,
-  quoteLots,
-  type Symbol,
-  toMaxPositions,
-} from "@/primitives";
+import { MarginType, type Symbol, toMaxPositions } from "@/primitives";
 import {
   getPhoenixTraderSubaccountAddress,
   getPhoenixTraderTokenAccountAddress,
@@ -72,10 +65,18 @@ import {
   type Decoder,
 } from "@solana/kit";
 
+/**
+ * The addresses instruction flows need, and nothing more.
+ *
+ * Deliberately *not* a `GlobalConfiguration`: one construction path (the
+ * exchange metadata snapshot) cannot read the full account, and impersonating
+ * it would mean fabricating values for every field the snapshot lacks. When a
+ * flow needs actual configuration contents, it must decode the account.
+ */
 export interface RequiredAccounts {
-  globalConfiguration: Awaited<
-    ReturnType<typeof AccountFetchers.GlobalConfiguration>
-  >;
+  canonicalTokenMintKey: MintAddress;
+  perpAssetMapKey: PerpAssetMapAddress;
+  withdrawQueueKey: WithdrawQueueAddress;
   arenaAddresses: ActiveTraderBufferAddressArray;
   globalTraderIndexAddresses: GlobalTraderIndexAddressArray;
 }
@@ -121,30 +122,6 @@ type ExchangeLookupClient = Pick<PhoenixInstructionClient, "fetchAccount"> & {
 };
 
 const brandAddress = <T extends Address>(value: string): T => value as T;
-
-const toQuoteLots = (value: bigint): QuoteLots => quoteLots(value);
-
-const toAuthority = (value: string): Authority =>
-  brandAddress<Authority>(value);
-
-const toAuthoritySet = (value: {
-  rootAuthority: string;
-  riskAuthority: string;
-  marketAuthority: string;
-  oracleAuthority: string;
-  adlAuthority: string;
-  cancelAuthority: string;
-  backstopAuthority: string;
-}) => ({
-  rootAuthority: toAuthority(value.rootAuthority),
-  riskAuthority: toAuthority(value.riskAuthority),
-  marketAuthority: toAuthority(value.marketAuthority),
-  oracleAuthority: toAuthority(value.oracleAuthority),
-  reservedAuthority: toAuthority(value.rootAuthority),
-  adlAuthority: toAuthority(value.adlAuthority),
-  cancelAuthority: toAuthority(value.cancelAuthority),
-  backstopAuthority: toAuthority(value.backstopAuthority),
-});
 
 const getSuperblockDecoder = (): Decoder<Superblock> =>
   transformDecoder(
@@ -222,14 +199,17 @@ const decodeArenaHeader = async (
 };
 
 export const getActiveTraderBufferAddresses = async (
-  client: ExchangeLookupClient
+  client: ExchangeLookupClient,
+  globalConfiguration?: GlobalConfiguration
 ): Promise<ActiveTraderBufferAddressArray> => {
-  const globalConfiguration = await AccountFetchers.GlobalConfiguration({
-    client,
-    address: client.addresses.globalConfigurationAddress,
-  });
+  const configuration =
+    globalConfiguration ??
+    (await AccountFetchers.GlobalConfiguration({
+      client,
+      address: client.addresses.globalConfigurationAddress,
+    }));
 
-  const headerAddress = globalConfiguration.activeTraderBufferHeaderKey;
+  const headerAddress = configuration.activeTraderBufferHeaderKey;
   const header = await decodeArenaHeader(
     client,
     headerAddress,
@@ -247,14 +227,17 @@ export const getActiveTraderBufferAddresses = async (
 };
 
 export const getGlobalTraderIndexAddresses = async (
-  client: ExchangeLookupClient
+  client: ExchangeLookupClient,
+  globalConfiguration?: GlobalConfiguration
 ): Promise<GlobalTraderIndexAddressArray> => {
-  const globalConfiguration = await AccountFetchers.GlobalConfiguration({
-    client,
-    address: client.addresses.globalConfigurationAddress,
-  });
+  const configuration =
+    globalConfiguration ??
+    (await AccountFetchers.GlobalConfiguration({
+      client,
+      address: client.addresses.globalConfigurationAddress,
+    }));
 
-  const headerAddress = globalConfiguration.globalTraderIndexHeaderKey;
+  const headerAddress = configuration.globalTraderIndexHeaderKey;
   const header = await decodeArenaHeader(
     client,
     headerAddress,
@@ -272,7 +255,8 @@ export const getGlobalTraderIndexAddresses = async (
 };
 
 export const fetchRequiredAccounts = async (
-  client: PhoenixInstructionClient
+  client: PhoenixInstructionClient,
+  globalConfiguration?: GlobalConfiguration
 ): Promise<RequiredAccounts> => {
   if (client.exchange) {
     const snapshot = await client.exchange.ready();
@@ -284,37 +268,15 @@ export const fetchRequiredAccounts = async (
       );
     }
     return {
-      globalConfiguration: {
-        accountKey: brandAddress<GlobalConfigurationAddress>(
-          snapshot.exchange.globalConfig
-        ),
-        currentAuthorities: toAuthoritySet(
-          snapshot.exchange.currentAuthorities
-        ),
-        canonicalTokenMintKey: brandAddress<MintAddress>(
-          snapshot.exchange.canonicalMint
-        ),
-        globalVaultKey: brandAddress<GlobalVaultAddress>(
-          snapshot.exchange.globalVault
-        ),
-        perpAssetMapKey: brandAddress<PerpAssetMapAddress>(
-          snapshot.exchange.perpAssetMap
-        ),
-        globalTraderIndexHeaderKey: globalTraderIndexHeader as never,
-        activeTraderBufferHeaderKey: activeTraderBufferHeader as never,
-        totalQuoteLotFees: toQuoteLots(0n),
-        unclaimedQuoteLotFees: toQuoteLots(0n),
-        withdrawQueueKey: brandAddress<WithdrawQueueAddress>(
-          snapshot.exchange.withdrawQueue
-        ),
-        exchangeStatus: snapshot.exchange.exchangeStatusBits,
-        quoteDecimals: 6,
-        withdrawalMarginFactorBps: 0,
-        depositCooldownPeriodInSlots: 0n,
-        pendingAuthorities: toAuthoritySet(
-          snapshot.exchange.currentAuthorities
-        ),
-      },
+      canonicalTokenMintKey: brandAddress<MintAddress>(
+        snapshot.exchange.canonicalMint
+      ),
+      perpAssetMapKey: brandAddress<PerpAssetMapAddress>(
+        snapshot.exchange.perpAssetMap
+      ),
+      withdrawQueueKey: brandAddress<WithdrawQueueAddress>(
+        snapshot.exchange.withdrawQueue
+      ),
       arenaAddresses: snapshot.exchange
         .activeTraderBuffer as ActiveTraderBufferAddressArray,
       globalTraderIndexAddresses: snapshot.exchange
@@ -322,18 +284,21 @@ export const fetchRequiredAccounts = async (
     };
   }
 
-  const [globalConfiguration, arenaAddresses, globalTraderIndexAddresses] =
-    await Promise.all([
-      AccountFetchers.GlobalConfiguration({
-        client,
-        address: client.addresses.globalConfigurationAddress,
-      }),
-      getActiveTraderBufferAddresses(client),
-      getGlobalTraderIndexAddresses(client),
-    ]);
+  const configuration =
+    globalConfiguration ??
+    (await AccountFetchers.GlobalConfiguration({
+      client,
+      address: client.addresses.globalConfigurationAddress,
+    }));
+  const [arenaAddresses, globalTraderIndexAddresses] = await Promise.all([
+    getActiveTraderBufferAddresses(client, configuration),
+    getGlobalTraderIndexAddresses(client, configuration),
+  ]);
 
   return {
-    globalConfiguration,
+    canonicalTokenMintKey: configuration.canonicalTokenMintKey,
+    perpAssetMapKey: configuration.perpAssetMapKey,
+    withdrawQueueKey: configuration.withdrawQueueKey,
     arenaAddresses,
     globalTraderIndexAddresses,
   };

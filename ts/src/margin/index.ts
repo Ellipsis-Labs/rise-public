@@ -5,6 +5,19 @@ export * from "./inputs";
 export * from "./snapshot";
 export * from "./liquidation";
 export {
+  NATIVE_SOL_ASSET_INDEX,
+  SpotCollateralValuationError,
+  discountedSpotCollateral,
+  marginRetainedBps,
+  maxWithdrawableSpotCollateral,
+  notionalSpotCollateral,
+  spotCollateralPrice,
+} from "./spotCollateral";
+export type {
+  SpotCollateralPrice,
+  SpotCollateralValuationFailure,
+} from "./spotCollateral";
+export {
   computeDraftOrderMarginRequirementFromInputs,
   computeDraftOrderMarginRequirementFromSnapshot,
   computeMaxDraftOrderSizeForAvailableMarginFromInputs,
@@ -27,6 +40,7 @@ export {
   simulateMarginFromInputs,
   simulateMarginScenariosFromInputs,
   simulatePositionFillFromInputs,
+  spotCollateralBalancesFromInputs,
 } from "./compute";
 export type {
   MarginCalculator,

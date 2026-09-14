@@ -133,10 +133,15 @@ const createLegacyPhoenixIxOperationContext = (
   const requiredAccountsPromise = fetchRequiredAccounts(client);
 
   const resolveExchangeInstructionAccounts = async () => {
-    const { globalConfiguration, arenaAddresses, globalTraderIndexAddresses } =
-      await requiredAccountsPromise;
+    const {
+      canonicalTokenMintKey,
+      perpAssetMapKey,
+      withdrawQueueKey,
+      arenaAddresses,
+      globalTraderIndexAddresses,
+    } = await requiredAccountsPromise;
     const globalVault = await getPhoenixGlobalVaultAddress(
-      globalConfiguration.canonicalTokenMintKey,
+      canonicalTokenMintKey,
       phoenixProgramAddress
     );
 
@@ -144,11 +149,11 @@ const createLegacyPhoenixIxOperationContext = (
       phoenixProgramAddress,
       logAuthorityAddress: client.addresses.logAuthorityAddress,
       globalConfigurationAddress: client.addresses.globalConfigurationAddress,
-      canonicalMint: globalConfiguration.canonicalTokenMintKey,
+      canonicalMint: canonicalTokenMintKey,
       usdcMint: client.addresses.usdcMintAddress,
-      perpAssetMap: globalConfiguration.perpAssetMapKey,
+      perpAssetMap: perpAssetMapKey,
       globalVault,
-      withdrawQueue: globalConfiguration.withdrawQueueKey,
+      withdrawQueue: withdrawQueueKey,
       globalTraderIndex: globalTraderIndexAddresses,
       activeTraderBuffer: arenaAddresses,
     };
@@ -815,11 +820,11 @@ export const buildCreateConditionalOrdersAccount = async (
   traderPdaIndex = 0,
   traderSubaccountIndex = 0
 ): Promise<CreateConditionalOrdersAccountIx> => {
-  const { globalConfiguration } = await fetchRequiredAccounts(client);
+  const { canonicalTokenMintKey } = await fetchRequiredAccounts(client);
   const { traderAccount } = await getClientTraderAddresses(
     client,
     params.authority,
-    globalConfiguration.canonicalTokenMintKey,
+    canonicalTokenMintKey,
     traderPdaIndex,
     traderSubaccountIndex
   );
@@ -913,11 +918,11 @@ export const buildCancelConditionalOrder = async (
   traderPdaIndex = 0,
   traderSubaccountIndex = 0
 ): Promise<CancelConditionalOrderIx> => {
-  const { globalConfiguration } = await fetchRequiredAccounts(client);
+  const { canonicalTokenMintKey } = await fetchRequiredAccounts(client);
   const { traderAccount } = await getClientTraderAddresses(
     client,
     params.authority,
-    globalConfiguration.canonicalTokenMintKey,
+    canonicalTokenMintKey,
     traderPdaIndex,
     traderSubaccountIndex
   );

@@ -60,6 +60,25 @@ const buildSnapshot = (
     gated: false,
     withdrawalsAvailable: true,
   },
+  spotCollaterals: [
+    {
+      assetIndex: 0xffff0000,
+      symbol: "SOL",
+      decimals: 9,
+      spot: {
+        isActive: true,
+        perpAssetIndex: 1,
+        maxPerTraderBalance: 1_000_000_000n,
+        maxGlobalBalance: 10_000_000_000n,
+        currGlobalBalance: 500_000_000n,
+        minMarginDiscountBps: 100,
+        maxMarginDiscountBps: 1_000,
+        maxLiquidationDiscountBps: 500,
+        minLiquidationSlippageBps: 50,
+        maxLiquidationSize: 1_000_000_000n,
+      },
+    },
+  ],
   markets: [
     {
       symbol: "SOL-PERP",
@@ -175,8 +194,41 @@ const buildSnapshotMsg = (
   slotIndex: snapshot.slotIndex,
   reason: "snapshot",
   exchange: snapshot.exchange,
+  spotCollaterals: snapshot.spotCollaterals ?? [],
   markets: snapshot.markets,
 });
+
+const buildSpotCollateralsDelta = (
+  sequenceNumber: bigint,
+  currGlobalBalance: bigint
+): ExchangeDeltaMsg => {
+  const asset = buildSnapshot(1n, 0).spotCollaterals?.[0];
+  if (asset?.spot === undefined) {
+    throw new Error("test snapshot is missing spot collateral metadata");
+  }
+  return {
+    channel: "exchange",
+    messageType: "delta",
+    version: 1,
+    sequenceNumber,
+    slot: 3n,
+    slotIndex: 2,
+    ops: [
+      {
+        kind: "spotCollateralsUpdated",
+        assets: [
+          {
+            ...asset,
+            spot: {
+              ...asset.spot,
+              currGlobalBalance,
+            },
+          },
+        ],
+      },
+    ],
+  };
+};
 
 const buildOpenInterestCapDelta = (
   sequenceNumber: bigint,
@@ -608,6 +660,34 @@ describe("exchange cache", () => {
           event.symbol === "SOL-PERP"
       )
     ).toBe(true);
+  });
+
+  it("keeps the collateral registry live through exchange deltas", () => {
+    const store = createPhoenixExchangeCacheStore(buildSnapshot(1n, 0));
+    const events: ExchangeCacheEvent[] = [];
+    store.onEvent((event) => {
+      events.push(event);
+    });
+    store.applySnapshotMessage(buildSnapshotMsg(10n, buildSnapshot(2n, 1)));
+
+    const parsed = ExchangeWireMsgSchema.parse(
+      buildSpotCollateralsDelta(11n, 750_000_000n)
+    );
+    if (parsed.messageType !== "delta") {
+      throw new Error("expected parsed collateral delta");
+    }
+    store.applyDelta(parsed);
+
+    expect(store.spotCollaterals()[0]?.spot?.currGlobalBalance).toBe(
+      750_000_000n
+    );
+    expect(store.snapshot().sequenceNumber).toBe(11n);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "exchangeUpdated",
+        change: "spotCollaterals",
+      })
+    );
   });
 
   it("ignores unknown exchange delta ops while advancing sequence", () => {
