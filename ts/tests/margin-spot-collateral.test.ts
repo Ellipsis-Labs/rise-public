@@ -145,7 +145,7 @@ describe("margin spot collateral valuation", () => {
         ],
       },
       {
-        spotAssetParamsByIndex: {
+        spotCollateralParamsByIndex: {
           4294901760: {
             assetIndex: 4294901760,
             decimals: 9,

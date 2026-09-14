@@ -66,7 +66,7 @@ export interface SpotCollateralAssetParams {
 }
 
 export interface MarginSnapshotOptions {
-  spotAssetParamsByIndex?: Record<number, SpotCollateralAssetParams>;
+  spotCollateralParamsByIndex?: Record<number, SpotCollateralAssetParams>;
 }
 
 export interface MarginTraderSnapshotMessage {
@@ -159,11 +159,11 @@ export const buildSubaccountMarginInputsFromSnapshot = (
     );
   }
 
-  const spotAssetParamsByIndex = options?.spotAssetParamsByIndex;
+  const spotCollateralParamsByIndex = options?.spotCollateralParamsByIndex;
   const spotCollaterals: SpotCollateralMarginInput[] = [];
-  if (spotAssetParamsByIndex) {
+  if (spotCollateralParamsByIndex) {
     for (const spot of subaccount.spotCollaterals ?? []) {
-      const assetParams = spotAssetParamsByIndex[spot.assetIndex];
+      const assetParams = spotCollateralParamsByIndex[spot.assetIndex];
       if (!assetParams) {
         continue;
       }

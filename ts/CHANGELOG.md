@@ -3,6 +3,23 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.77 - 2026-09-14
+
+Source Phoenix commit: `5ea2e8690ca50cdeca209b0e3a92c01e27badfbd`
+
+### Summary
+
+- Renamed the `spotAssetParamsByIndex` option to `spotCollateralParamsByIndex` on `MarginSnapshotOptions`, used by `buildSubaccountMarginInputsFromSnapshot`.
+- Bumped transitive dependency overrides (`brace-expansion` to `>=5.0.9`, `postcss` to `>=8.5.23`).
+
+### Breaking Changes
+
+- `MarginSnapshotOptions.spotAssetParamsByIndex` has been renamed to `spotCollateralParamsByIndex`. Any caller passing this option to `buildSubaccountMarginInputsFromSnapshot` must update the field name; the old name is no longer recognized and spot collateral params passed under it will be silently ignored.
+
+### Consumer Notes
+
+- No action needed for the `brace-expansion`/`postcss` override bumps unless you pin these transitive versions yourself.
+
 ## v0.4.76 - 2026-09-14
 
 Source Phoenix commit: `116538d2560135ebd0d7d11fbb8804d32db043d8`
