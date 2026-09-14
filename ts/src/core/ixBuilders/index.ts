@@ -28,6 +28,7 @@ export * from "./SyncParentToChild";
 export * from "./NativeSol";
 export * from "./TransferCollateral";
 export * from "./TransferCollateralChildToParent";
+export * from "./Twap";
 export * from "./UncrossCrank";
 export * from "./UpdateTraderState";
 export * from "./WithdrawFunds";

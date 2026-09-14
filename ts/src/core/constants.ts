@@ -1,6 +1,7 @@
 import type {
   EmberProgramAddress,
   EmberStateAddress,
+  FlickerProgramAddress,
   GlobalConfigurationAddress,
   LogAuthorityAddress,
   MintAddress,
@@ -42,6 +43,10 @@ export const SYSTEM_PROGRAM_ADDRESS = address(
 export const EMBER_PROGRAM_ADDRESS = address(
   "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy"
 ) as EmberProgramAddress;
+
+export const FLICKER_PROGRAM_ADDRESS = address(
+  "FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU"
+) as FlickerProgramAddress;
 
 export const EMBER_STATE_ADDRESS = address(
   "6ur7v6AXNpnHeEb6xuk7PyezvZ1i5GrgYyWZkNCpzbRz"

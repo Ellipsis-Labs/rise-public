@@ -10,12 +10,16 @@ export type SPLATAProgramAddress = Branded<Address, "SPLATAProgram">;
 export type SystemProgramAddress = Branded<Address, "SystemProgram">;
 export type EmberProgramAddress = Branded<Address, "EmberProgram">;
 export type FlameProgramAddress = Branded<Address, "FlameProgram">;
+export type FlickerProgramAddress = Branded<Address, "FlickerProgram">;
 
 export type Authority = Branded<Address, "Authority">;
 export type PerpAssetMapAddress = Branded<Address, "PerpAssetMap">;
 export type TraderAddress = Branded<Address, "Trader">;
 export type MarketAddress = Branded<Address, "Market">;
 export type SplineCollectionAddress = Branded<Address, "SplineCollection">;
+export type TwapGlobalStateAddress = Branded<Address, "TwapGlobalState">;
+export type TwapAccountAddress = Branded<Address, "TwapAccount">;
+export type TwapLogAuthorityAddress = Branded<Address, "TwapLogAuthority">;
 
 export type ActiveTraderBufferHeaderAddress = Branded<
   Address,

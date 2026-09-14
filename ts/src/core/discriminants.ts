@@ -79,6 +79,19 @@ export const EMBER_DISCRIMINANTS: DiscriminantMap = {
   WITHDRAW: sha2_const("global:withdraw"),
 };
 
+export const FLICKER_DISCRIMINANTS: DiscriminantMap = {
+  INIT: sha2_const("global:init"),
+  NAME_SUCCESSOR: sha2_const("global:name_successor"),
+  CLAIM_SUCCESSOR: sha2_const("global:claim_successor"),
+  CREATE_TWAP_ACCOUNT: sha2_const("global:create_twap_account"),
+  PLACE_TWAP_ORDER: sha2_const("global:place_twap_order"),
+  EXECUTE_TWAP_ORDER: sha2_const("global:execute_twap_order"),
+  CANCEL_TWAP_ORDER: sha2_const("global:cancel_twap_order"),
+  CLOSE_INACTIVE_TWAP_ACCOUNT: sha2_const("global:close_inactive_twap_account"),
+  LOG: sha2_const("global:log"),
+  LOG_EVENT_LENGTHS: sha2_const("global:log_event_lengths"),
+};
+
 export const ACCOUNT_DISCRIMINANTS: DiscriminantMap = {
   CONDITIONAL_ORDER_COLLECTION: sha2_const("account:conditional_order"),
   GLOBAL_CONFIGURATION: sha2_const("account:global_configuration"),
