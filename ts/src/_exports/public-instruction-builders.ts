@@ -79,12 +79,17 @@ export {
 
 export {
   buildPlaceMultiLimitOrderIx,
+  buildPlaceMultiLimitOrderV2Ix,
   getPlaceMultiLimitOrderCodec,
   getPlaceMultiLimitOrderDecoder,
   getPlaceMultiLimitOrderEncoder,
+  getPlaceMultiLimitOrderV2Codec,
+  getPlaceMultiLimitOrderV2Decoder,
+  getPlaceMultiLimitOrderV2Encoder,
   type PlaceMultiLimitOrderAccounts,
   type PlaceMultiLimitOrderIx,
   type PlaceMultiLimitOrderParams,
+  type PlaceMultiLimitOrderV2Params,
 } from "../core/ixBuilders/PlaceMultiLimitOrder";
 
 export {

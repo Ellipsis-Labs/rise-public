@@ -112,6 +112,11 @@ export interface TraderStateMarketLimitOrderRow {
   isStopLoss?: boolean;
   isStopLossDirection?: boolean;
   isConditionalOrder?: boolean;
+  /**
+   * Scale-order set id (1-255) shared by every leg of a scale-order packet;
+   * absent for standalone orders.
+   */
+  scaleSetId?: number;
   status: string;
 }
 
@@ -394,6 +399,7 @@ const TraderStateMarketLimitOrderRowSchema: z.ZodType<TraderStateMarketLimitOrde
     isStopLoss: z.boolean().optional().default(false),
     isStopLossDirection: z.boolean().optional().default(false),
     isConditionalOrder: z.boolean().optional().default(false),
+    scaleSetId: z.number().int().min(1).max(255).optional(),
     status: z.string(),
   });
 

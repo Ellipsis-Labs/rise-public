@@ -115,6 +115,9 @@ export const ROOT_ABSENT_PROPERTIES = [
   "buildSetTraderCapabilitiesDelegatedIx",
   "buildSetTraderCapabilitiesDelegatedIxResolved",
   "TraderCapabilityToggleTarget",
+  // scaleLevelsToMultipleOrderPacketV2 is internal ladder-math; its sibling
+  // ScaleLevelsToPacketV2Options is type-only and cannot be runtime-pinned here.
+  "scaleLevelsToMultipleOrderPacketV2",
 ] as const;
 
 export const ROOT_PRESENT_PROPERTIES = [
@@ -268,12 +271,23 @@ export const ROOT_PRESENT_PROPERTIES = [
   "selectPhoenixMarketDataRow",
   "selectPhoenixMarkPrice",
   "selectPhoenixMidPrice",
+  "getPlaceMultiLimitOrderV2Codec",
+  "getPlaceMultiLimitOrderV2Decoder",
+  "getPlaceMultiLimitOrderV2Encoder",
+  "CondensedOrderFlags",
+  "getCondensedOrderFlagsDecoder",
+  "getCondensedOrderFlagsEncoder",
+  "getCondensedOrderV2Decoder",
+  "getCondensedOrderV2Encoder",
+  "getMultipleOrderPacketV2Decoder",
+  "getMultipleOrderPacketV2Encoder",
 ] as const;
 
 export const MIGRATED_INSTRUCTION_BUILDERS = [
   "buildCancelUpToIx",
   "buildUncrossCrankIx",
   "buildPlaceMultiLimitOrderIx",
+  "buildPlaceMultiLimitOrderV2Ix",
   "buildOnboardTraderDelegatedIx",
   "buildPlaceStopLossIx",
   "buildUpdateTraderStateIx",

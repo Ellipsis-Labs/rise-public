@@ -26,6 +26,7 @@ import {
   buildPlaceMarketOrderDelegatedIxResolved,
   buildPlaceMarketOrderIxResolved,
   buildPlaceMultiLimitOrderIx,
+  buildPlaceMultiLimitOrderV2Ix,
   buildPlacePostOnlyOrderIxResolved,
   buildPlaceStopLossIxResolved,
   buildPlaceTwapOrderIx,
@@ -36,8 +37,10 @@ import {
   buildTransferCollateralIxResolved,
   buildWithdrawFundsIxResolved,
   buildWithdrawIxsResolved,
+  CondensedOrderFlags,
   decodeTwapIocOrderPacket,
   getExecuteTwapOrderDecoder,
+  getPlaceMultiLimitOrderV2Decoder,
   getPlaceTwapOrderDecoder,
   quoteLots,
   ticks,
@@ -49,14 +52,10 @@ import {
 import type { ResolvedPlaceOrderContext } from "@/ixs/types";
 import { getCancelOrdersByIdDecoder } from "@/core/ixBuilders/CancelOrdersById";
 import {
-  buildPlaceMultiLimitOrderV2Ix,
-  getPlaceMultiLimitOrderV2Decoder,
-} from "@/core/ixBuilders/PlaceMultiLimitOrder";
-import {
   getOptionalNonZeroU64Decoder,
   getOptionalNonZeroU64Encoder,
 } from "@/core/utils/optionCodec";
-import { CondensedOrderFlags, type Authority } from "@/primitives";
+import type { Authority } from "@/primitives";
 import type { InstructionsWithAccountsAndData } from "@/primitives/_utilityTypes";
 import { AccountRole } from "@solana/kit";
 import { describe, expect, it } from "vitest";
