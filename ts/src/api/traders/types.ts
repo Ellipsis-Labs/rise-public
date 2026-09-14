@@ -92,13 +92,7 @@ export interface HistoricalValuesRequest {
   includeLatest?: boolean;
 }
 
-export type TimeWeightedReturnsResolution =
-  | "15m"
-  | "1h"
-  | "4h"
-  | "1d"
-  | "1w"
-  | "1M";
+export type TimeWeightedReturnsResolution = "1h" | "4h" | "1d" | "1w" | "1M";
 
 export interface TimeWeightedReturnsRequest extends Pick<
   HistoricalValuesRequest,
@@ -255,6 +249,7 @@ export interface TimeWeightedReturnsResponse {
   valuationIntervalSeconds: number;
   exactFlowBoundaryValuations: boolean;
   totalReturn: number | null;
+  returnStartTime: string | null;
   equityDefinition: string;
   window: TimeWeightedReturnWindow;
   points: TimeWeightedReturnPoint[];
@@ -268,6 +263,7 @@ export const TimeWeightedReturnsResponseSchema: z.ZodType<TimeWeightedReturnsRes
     valuationIntervalSeconds: z.number().int().positive(),
     exactFlowBoundaryValuations: z.boolean(),
     totalReturn: z.number().nullable(),
+    returnStartTime: unixTimestampSchema.nullable(),
     equityDefinition: z.string(),
     window: TimeWeightedReturnWindowSchema,
     points: z.array(TimeWeightedReturnPointSchema),
