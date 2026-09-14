@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.9 - 2026-09-14
+
+Source Phoenix commit: `cd96962f181a2e28c87ec592db4f20460c6b510e`
+
+### Summary
+
+- Added TWAP (time-weighted average price) order support: new instruction builders `buildCreateTwapAccountIx`, `buildPlaceTwapOrderIx`, `buildExecuteTwapOrderIx`, `buildCancelTwapOrderIx`, and `buildCloseInactiveTwapAccountIx`, plus matching encoders/decoders and PDA helpers (`getTwapGlobalStateAddress`, `getTwapLogAuthorityAddress`, `getTwapAccountAddress`).
+- Added `FLICKER_PROGRAM_ADDRESS` and `FLICKER_DISCRIMINANTS` exports for the new Flicker (TWAP) program, plus new branded address types `TwapGlobalStateAddress`, `TwapAccountAddress`, `TwapLogAuthorityAddress`, and `FlickerProgramAddress`.
+- Added `TWAP_IOC_ORDER_PACKET_BYTE_LENGTH` / `TWAP_IOC_ORDER_PACKET_DISCRIMINANT` constants and `encodeTwapIocOrderPacket` / `decodeTwapIocOrderPacket` helpers for building TWAP child-order IOC packets.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- All TWAP builders require `twapGlobalStateAddress` and `twapLogAuthorityAddress`, resolvable via the new PDA helpers; `flickerProgramAddress` and `hawkeyeProgramAddress` are optional overrides that default to the published program addresses.
+- `buildPlaceTwapOrderIx` / `buildExecuteTwapOrderIx` take a `transferAccounts` + `orderAccounts` CPI account tail (`TwapChildOrderCpiTail`); optional numeric fields (e.g. `childOrderMinPriceInTicks`, `priceInTicks`) reject an explicit `0` — pass `null`/omit instead.
+- This release is additive only for existing consumers; no previously published exports, instruction formats, or PDA derivations changed.
+
 ## v0.5.8 - 2026-09-14
 
 Source Phoenix commit: `cca7cbac0ce315d181325cda81d711386d98b7a9`

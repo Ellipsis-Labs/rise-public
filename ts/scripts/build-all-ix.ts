@@ -10,9 +10,14 @@ import {
   buildCancelAllIx,
   buildCancelOrdersByIdIx,
   buildCancelStopLossIx,
+  buildCancelTwapOrderIx,
+  buildCloseInactiveTwapAccountIx,
   buildCancelUpToIx,
+  buildCreateTwapAccountIx,
+  buildExecuteTwapOrderIx,
   buildUncrossCrankIx,
   buildPlaceStopLossIx,
+  buildPlaceTwapOrderIx,
   buildCancelConditionalOrderIx,
   buildCreateConditionalOrdersAccountIx,
   buildPlaceAttachedConditionalOrderIx,
@@ -49,7 +54,7 @@ import {
   PHOENIX_GLOBAL_CONFIGURATION_ADDRESS,
   USDC_MINT_ADDRESS,
 } from "@/index";
-import { address } from "@solana/kit";
+import { AccountRole, address, type AccountMeta } from "@solana/kit";
 
 // 20 dummy Solana addresses (matches Rust: bytes [0..31] with bytes[31] = i)
 const pubkeys: string[] = [
@@ -77,6 +82,10 @@ const pubkeys: string[] = [
 
 const p = (i: number) => address(pubkeys[i]) as any;
 const vec2 = (a: number, b: number) => [p(a), p(b)] as any;
+const accountMeta = (i: number, role: AccountRole): AccountMeta => ({
+  address: p(i),
+  role,
+});
 
 console.error("Building all shared instruction builders...");
 
@@ -914,7 +923,92 @@ try {
     results["DelegateTrader"] = hexEncode(ix.data);
   }
 
-  // 33. Flight ProxyInstruction wrapping PlaceMarketOrderDelegated signed by
+  // 33. TWAP instruction constructors.
+  {
+    console.error("Building TWAP instructions...");
+    const twapGlobalStateAddress = p(13);
+    const twapLogAuthorityAddress = p(14);
+    const twapAccount = p(15);
+    const transferAccounts = [
+      accountMeta(16, AccountRole.READONLY),
+      accountMeta(17, AccountRole.WRITABLE),
+    ] as const;
+    const orderAccounts = [
+      accountMeta(18, AccountRole.READONLY),
+      accountMeta(19, AccountRole.WRITABLE),
+      accountMeta(0, AccountRole.READONLY_SIGNER),
+    ] as const;
+    const childOrderPacket = {
+      side: Side.Bid,
+      priceInTicks: ticks(1000n),
+      numBaseLots: baseLots(10n),
+      numQuoteLots: quoteLots(12_500n),
+      minBaseLotsToFill: baseLots(1n),
+      minQuoteLotsToFill: quoteLots(1_000n),
+      selfTradeBehavior: SelfTradeBehavior.CancelProvide,
+      matchLimit: 3n,
+      clientOrderId: 123_456_789n,
+      lastValidSlot: 99_999n,
+      orderFlags: OrderFlags.ReduceOnly,
+      cancelExisting: true,
+    };
+
+    const sharedTwapAccounts = {
+      twapGlobalStateAddress,
+      twapLogAuthorityAddress,
+    };
+
+    results["CreateTwapAccount"] = hexEncode(
+      buildCreateTwapAccountIx({
+        ...sharedTwapAccounts,
+        twapAccount,
+        traderAccount: p(1),
+        payer: p(0),
+        marketId: 7,
+      }).data
+    );
+    results["PlaceTwapOrder"] = hexEncode(
+      buildPlaceTwapOrderIx({
+        ...sharedTwapAccounts,
+        twapAccount,
+        authority: p(0),
+        cooldownSlots: 75n,
+        nChildOrders: 10n,
+        childOrderMaxSlippageBps: 25n,
+        childOrderMinPriceInTicks: ticks(900n),
+        childOrderMaxPriceInTicks: ticks(1100n),
+        childOrderPacket,
+        childOrderCollateralQuoteLotsToTransfer: quoteLots(5_000n),
+        lastValidSlot: 123_456n,
+        transferAccounts,
+        orderAccounts,
+      }).data
+    );
+    results["ExecuteTwapOrder"] = hexEncode(
+      buildExecuteTwapOrderIx({
+        ...sharedTwapAccounts,
+        twapAccount,
+        transferAccounts,
+        orderAccounts,
+      }).data
+    );
+    results["CancelTwapOrder"] = hexEncode(
+      buildCancelTwapOrderIx({
+        ...sharedTwapAccounts,
+        twapAccount,
+        authority: p(0),
+      }).data
+    );
+    results["CloseInactiveTwapAccount"] = hexEncode(
+      buildCloseInactiveTwapAccountIx({
+        ...sharedTwapAccounts,
+        twapAccount,
+        recipient: p(0),
+      }).data
+    );
+  }
+
+  // 34. Flight ProxyInstruction wrapping PlaceMarketOrderDelegated signed by
   // a secondary position authority (distinct delegate wallet plus a fixed
   // permission account), with the collateral-transfer tail appended via
   // `rootAuthority`.
@@ -955,7 +1049,7 @@ try {
     results["FlightProxyPlaceMarketOrderDelegated"] = hexEncode(ix.data);
   }
 
-  // 34. Flight ProxyInstruction wrapping a plain PlaceMarketOrder whose
+  // 35. Flight ProxyInstruction wrapping a plain PlaceMarketOrder whose
   // trader wallet is the trader's position authority (the delegate signs;
   // the trader account is derived from the owner), with the
   // collateral-transfer tail appended via `rootAuthority`.
