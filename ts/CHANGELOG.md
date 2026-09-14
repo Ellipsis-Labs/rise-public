@@ -3,6 +3,24 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.4 - 2026-09-14
+
+Source Phoenix commit: `0d813c3c049a7056761c6f8edf744cadc35d1807`
+
+### Summary
+
+- `TimeWeightedReturnsResolution` now supports two additional finer-grained values, `"5m"` and `"15m"`, alongside the existing `"1h"`, `"4h"`, `"1d"`, `"1w"`, and `"1M"`.
+- Consumers calling `getTraderTimeWeightedReturns` can now request 5-minute and 15-minute resolution buckets for time-weighted returns data.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- This is an additive, backward-compatible change — existing `TimeWeightedReturnsResolution` values continue to work unchanged.
+- No consumer code changes are required to adopt this release; update if you want to take advantage of the new `"5m"` / `"15m"` resolutions.
+
 ## v0.5.3 - 2026-09-14
 
 Source Phoenix commit: `19f87e1e6e19bf4ad42ce4e9489a8cad4fde0bcc`
