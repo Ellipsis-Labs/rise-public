@@ -182,12 +182,52 @@ export interface PhoenixIxOperationContext {
     traderAccount: TraderAddress;
     assetId: bigint;
   }) => Promise<Address>;
+  /**
+   * Optionally wrap a fee-collecting placement instruction with Flight.
+   * `signer` is the wallet that signs the instruction; `usePositionAuthority`
+   * declares that `signer` is the trader's position authority rather than
+   * the trader account's owner, which makes the wrap append the
+   * collateral-transfer tail accounts so Flight can collect the builder fee.
+   * Conditional placements go through {@link maybeWrapConditionalOrderIx}
+   * instead.
+   */
   maybeWrapOrderIx: <TIx extends InstructionsWithAccountsAndData>(
+    instruction: TIx,
+    signer: Authority,
+    usePositionAuthority?: boolean
+  ) => Promise<TIx>;
+  /**
+   * Optionally wrap a conditional placement (stop-loss, position/attached
+   * conditional orders) with Flight. Conditional placements never collect a
+   * builder fee and Flight forwards their full account list into the inner
+   * CPI — never append the tail; wrap as owner-signed regardless of
+   * `positionAuthority`. Mirrors the API server's
+   * `maybe_wrap_conditional_order_instruction_with_flight`.
+   */
+  maybeWrapConditionalOrderIx: <TIx extends InstructionsWithAccountsAndData>(
     instruction: TIx,
     authority: Authority
   ) => Promise<TIx>;
   accountExists: (address: Address) => Promise<boolean>;
 }
+
+/**
+ * Effective wallet that signs a placement instruction, mirroring the API
+ * server DTOs: `position_authority.unwrap_or(authority)` is the signer
+ * (`traderWallet` is the delegated market order's spelling of the same
+ * concept). The trader PDA always derives from `authority` (the owner), and
+ * `usePositionAuthority` — the single derivation of "the signer is not the
+ * owner" — routes the Flight wrap through the position-authority path.
+ */
+const resolveOrderSigner = (params: {
+  authority: Authority;
+  positionAuthority?: Authority;
+  traderWallet?: Authority;
+}): { signer: Authority; usePositionAuthority: boolean } => {
+  const signer =
+    params.traderWallet ?? params.positionAuthority ?? params.authority;
+  return { signer, usePositionAuthority: signer !== params.authority };
+};
 
 const priceToTicks = (
   priceUsd: bigint | number,
@@ -242,7 +282,12 @@ export const createPhoenixIxOperations = (
       ...(await context.resolvePlaceOrderContext(params)),
       ...params,
     };
-    return context.maybeWrapOrderIx(buildInstruction(input), params.authority);
+    const { signer, usePositionAuthority } = resolveOrderSigner(params);
+    return context.maybeWrapOrderIx(
+      buildInstruction(input),
+      signer,
+      usePositionAuthority
+    );
   };
 
   const buildWrappedLimitOrder = (
@@ -358,7 +403,7 @@ export const createPhoenixIxOperations = (
       }),
     ]);
 
-    return context.maybeWrapOrderIx(
+    return context.maybeWrapConditionalOrderIx(
       buildPlacePositionConditionalOrderIx({
         programAddress: exchangeAccounts.phoenixProgramAddress,
         logAuthorityAddress: exchangeAccounts.logAuthorityAddress,
@@ -398,7 +443,7 @@ export const createPhoenixIxOperations = (
       }),
     ]);
 
-    return context.maybeWrapOrderIx(
+    return context.maybeWrapConditionalOrderIx(
       buildPlaceAttachedConditionalOrderIx({
         programAddress: exchangeAccounts.phoenixProgramAddress,
         logAuthorityAddress: exchangeAccounts.logAuthorityAddress,
@@ -425,6 +470,7 @@ export const createPhoenixIxOperations = (
   const buildWrappedLimitOrderWithConditionals = async (
     params: ClientPlaceLimitOrderWithConditionalsInput
   ): Promise<PlaceLimitOrderWithConditionalsIx> => {
+    const { signer, usePositionAuthority } = resolveOrderSigner(params);
     const [exchangeAccounts, market, traderAccount] = await Promise.all([
       context.resolveExchangeInstructionAccounts(),
       context.resolveMarketContext(params.symbol),
@@ -440,7 +486,7 @@ export const createPhoenixIxOperations = (
         programAddress: exchangeAccounts.phoenixProgramAddress,
         logAuthorityAddress: exchangeAccounts.logAuthorityAddress,
         globalConfigurationAddress: exchangeAccounts.globalConfigurationAddress,
-        traderWallet: params.positionAuthority ?? params.authority,
+        traderWallet: signer,
         traderAccount,
         perpAssetMap: exchangeAccounts.perpAssetMap,
         globalTraderIndex: exchangeAccounts.globalTraderIndex,
@@ -457,7 +503,8 @@ export const createPhoenixIxOperations = (
         ),
         lessTriggerOrder: normalizeTriggerOrderParams(params.lessTriggerOrder),
       }),
-      params.authority
+      signer,
+      usePositionAuthority
     );
   };
 
@@ -906,7 +953,7 @@ export const createPhoenixIxOperations = (
         slippageBps: params.slippageBps,
       });
 
-      return context.maybeWrapOrderIx(
+      return context.maybeWrapConditionalOrderIx(
         buildPlaceStopLossIxResolved({
           exchange: {
             phoenixProgramAddress: exchangeAccounts.phoenixProgramAddress,

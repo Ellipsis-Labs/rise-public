@@ -429,7 +429,8 @@ let routed_ixs = builder
     )
     .await?
     .into_iter()
-    .map(|ix| flight.try_wrap_order_instruction(ix, trader_authority))
+    // false = owner-signed (no position authority)
+    .map(|ix| flight.try_wrap_order_instruction(ix, trader_authority, false))
     .collect::<Result<Vec<_>, _>>()?;
 ```
 

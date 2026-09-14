@@ -1,7 +1,7 @@
 import { DISCRIMINANTS } from "@/core/discriminants.js";
 import type { Instruction } from "@solana/kit";
 
-const hasDiscriminant = (
+export const hasDiscriminant = (
   data: Instruction["data"],
   discriminant: Uint8Array
 ): boolean => {
@@ -18,10 +18,16 @@ const hasDiscriminant = (
   return true;
 };
 
+const isPlaceMarketOrderDelegatedInstruction = (
+  instruction: Instruction
+): boolean =>
+  hasDiscriminant(instruction.data, DISCRIMINANTS.PLACE_MARKET_ORDER_DELEGATED);
+
 export const isFlightRoutableInstruction = (
   instruction: Instruction
 ): boolean =>
   hasDiscriminant(instruction.data, DISCRIMINANTS.PLACE_MARKET_ORDER) ||
+  isPlaceMarketOrderDelegatedInstruction(instruction) ||
   hasDiscriminant(instruction.data, DISCRIMINANTS.PLACE_LIMIT_ORDER) ||
   hasDiscriminant(instruction.data, DISCRIMINANTS.PLACE_STOP_LOSS) ||
   hasDiscriminant(

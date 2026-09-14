@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.73 - 2026-09-14
+
+Source Phoenix commit: `78c281b8371c6653c52b1dfe4e57873beabde5d9`
+
+### Summary
+
+- Added Flight support for **position-authority (delegate-signed) orders**: when a trader's delegate key signs instead of the owner, `client.ixs` order methods now automatically route the wrap through a new collateral-transfer path (`AuthorizedTransferCollateral`) so builder fees can still be collected. Pass the delegate as `positionAuthority` — the effective signer (`positionAuthority ?? authority`) determines the routing automatically.
+- The Phoenix root authority needed for this path is resolved live from the exchange metadata snapshot at wrap time (never cached), so on-chain authority rotations are picked up automatically.
+- Added new public PDA helpers `flight.getFlightCollateralTransferAuthorityAddress` and `flight.getFlightAuthorizedCollateralTransferPermissionAddress`, and a new `AUTHORIZED_TRANSFER_COLLATERAL` discriminant.
+
+### Breaking Changes
+
+- `PhoenixFlightClient.tryWrapFlightInstruction(ix, authority)` is renamed to `tryWrapOrderInstruction(ix, signer, usePositionAuthority = false)`. Its return type also changed from `ProxyInstructionIx` to the more general `InstructionsWithAccountsAndData`.
+- `flight.wrapInstructionWithFlight(...)` renamed its `authority` parameter to `signer`, and added `usePositionAuthority` / `resolveRootAuthority` options — callers using named-argument objects must update the key.
+- The invalid fee-bps-override error message text changed from `"Fee bps override must be in the range 0..=10000"` to `"Invalid fee bps override (must be in 0..=10000)"`; update any code that pattern-matches on the message.
+
+### Consumer Notes
+
+- `ClientPlaceMarketOrderDelegatedInput.traderWallet` is now deprecated in favor of `positionAuthority`, the shared field name used across all placement inputs.
+- Owner-signed orders (including owner-signed `PlaceMarketOrderDelegated`) are unaffected — they continue to wrap without the collateral-transfer tail.
+- See the updated `ts/src/flight/README.md` "Position-Authority (Delegate-Signed) Orders" section and `ts/examples/06-flight-market-order.ts` (`POSITION_AUTHORITY` env var) for migration examples.
+
 ## v0.4.72 - 2026-09-14
 
 Source Phoenix commit: `6e87cca0c94f2daf3f64938b475bb0dc43564ecc`

@@ -5,13 +5,15 @@ import {
   Direction,
   decodeGlobalConfiguration,
   flight,
+  OrderFlags,
+  SelfTradeBehavior,
   StopLossOrderKind,
 } from "@/index";
 import { MarginType } from "@/primitives";
-import { baseLots, ticks } from "@/primitives/_numberTypes";
+import { baseLots, quoteLots, ticks } from "@/primitives/_numberTypes";
 import { Side } from "@/primitives/Side";
 import type { PerpAssetMetadata } from "@/accounts";
-import type { ExchangeSnapshotView } from "@/api/exchange/types";
+import type { ExchangeKeys, ExchangeSnapshotView } from "@/api/exchange/types";
 import type {
   ExchangeDeltaMsg,
   ExchangeMsg,
@@ -29,6 +31,7 @@ import * as coreHelpers from "@/core/helpers";
 const TESTS_DIR = dirname(fileURLToPath(import.meta.url));
 const MOCKS_DIR = resolve(TESTS_DIR, "mocks");
 const ORIGINAL_ENV = { ...process.env };
+const ROOT_AUTHORITY = address("So11111111111111111111111111111111111111112");
 
 type FixtureFile = {
   account: {
@@ -44,7 +47,7 @@ const buildSnapshot = (): ExchangeSnapshotView => ({
     programId: "program-id",
     globalConfig: "global-config",
     currentAuthorities: {
-      rootAuthority: "root",
+      rootAuthority: ROOT_AUTHORITY,
       riskAuthority: "risk",
       marketAuthority: "market",
       oracleAuthority: "oracle",
@@ -116,6 +119,21 @@ const buildSnapshot = (): ExchangeSnapshotView => ({
     },
   ],
 });
+
+const buildExchangeKeys = (): ExchangeKeys => {
+  const exchange = buildSnapshot().exchange;
+  return {
+    globalConfig: exchange.globalConfig,
+    currentAuthorities: exchange.currentAuthorities,
+    pendingAuthorities: exchange.currentAuthorities,
+    canonicalMint: exchange.canonicalMint,
+    globalVault: exchange.globalVault,
+    perpAssetMap: exchange.perpAssetMap,
+    globalTraderIndex: exchange.globalTraderIndex,
+    activeTraderBuffer: exchange.activeTraderBuffer,
+    withdrawQueue: exchange.withdrawQueue,
+  };
+};
 
 const buildSnapshotMsg = (
   sequenceNumber: bigint,
@@ -1010,6 +1028,102 @@ describe("exchange metadata client integration", () => {
       subaccountIndex: 7,
       phoenixProgramAddress: client.pda.getProgramAddress(),
     });
+
+    client.dispose();
+  });
+
+  it("derives delegated Flight transfer permission from the exchange metadata snapshot", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = new URL(String(input)).pathname;
+      return new Response(
+        stringifyWithBigints(
+          path === "/v1/view/exchange/keys"
+            ? buildExchangeKeys()
+            : buildSnapshot()
+        ),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const authority = address("11111111111111111111111111111111");
+    // Distinct from `authority`: the tail is only appended for
+    // delegate-signed orders (positionAuthority !== authority).
+    const delegateSigner = address(
+      "F952dz4aHVUu75YdxUrGhLejhCfzXCYVDysDw6yL6uT4"
+    );
+    const builderAuthority = address(
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+    );
+    const feeCollectorTrader = address(
+      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+    ) as never;
+
+    const client = createPhoenixClient({
+      baseUrl: "https://example.com",
+      ws: false,
+      flight: {
+        builderAuthority,
+        builderPdaIndex: 4,
+        builderSubaccountIndex: 7,
+      },
+    });
+    vi.spyOn(client.pda, "getTraderAddress").mockResolvedValue(
+      feeCollectorTrader
+    );
+
+    const buildDelegatedIx = () =>
+      client.ixs.placeMarketOrderDelegated({
+        authority,
+        positionAuthority: delegateSigner,
+        permissionAccount: authority,
+        symbol: "SOL-PERP",
+        orderPacket: {
+          side: Side.Ask,
+          priceInTicks: ticks(99n),
+          numBaseLots: baseLots(3n),
+          numQuoteLots: null,
+          minBaseLotsToFill: baseLots(3n),
+          minQuoteLotsToFill: quoteLots(1n),
+          selfTradeBehavior: SelfTradeBehavior.Abort,
+          matchLimit: null,
+          clientOrderId: 0n,
+          lastValidSlot: null,
+          orderFlags: OrderFlags.ReduceOnly,
+          cancelExisting: false,
+        },
+      });
+
+    const firstIx = await buildDelegatedIx();
+    const secondIx = await buildDelegatedIx();
+    const expectedCollateralAuthority =
+      await flight.getFlightCollateralTransferAuthorityAddress(
+        client.pda.getProgramAddress()
+      );
+    const expectedPermission =
+      await flight.getFlightAuthorizedCollateralTransferPermissionAddress(
+        ROOT_AUTHORITY,
+        client.pda.getProgramAddress()
+      );
+
+    for (const ix of [firstIx, secondIx]) {
+      expect(ix.programAddress).toBe(flight.FLIGHT_PROGRAM_ADDRESS);
+      expect(ix.accounts[5]?.address).toBe(delegateSigner);
+      expect(ix.accounts.at(-2)?.address).toBe(expectedCollateralAuthority);
+      expect(ix.accounts.at(-1)?.address).toBe(expectedPermission);
+    }
+    // The root authority always comes from the exchange metadata snapshot;
+    // the keys endpoint must never be consulted.
+    expect(
+      fetchMock.mock.calls.filter(
+        ([input]) =>
+          new URL(String(input)).pathname === "/v1/view/exchange/keys"
+      )
+    ).toHaveLength(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     client.dispose();
   });

@@ -769,10 +769,15 @@ export const buildPlaceLimitOrderFlow = async (
   );
   const orderFlags = isReduceOnly ? OrderFlags.ReduceOnly : OrderFlags.None;
 
+  // Effective signer of the placement instruction; the Flight wrap must name
+  // the same wallet and take the position-authority path whenever it is not
+  // the owner.
+  const signer = positionAuthority ?? authority;
+
   const placeOrderIx = isPostOnly
     ? buildPlacePostOnlyOrderIx({
         ...clientPhoenixInstructionAddresses(client),
-        trader: positionAuthority ?? authority,
+        trader: signer,
         traderAccount: subaccountAddress,
         perpAssetMap: globalConfiguration.perpAssetMapKey,
         orderbook: marketAccount,
@@ -792,7 +797,7 @@ export const buildPlaceLimitOrderFlow = async (
       })
     : buildPlaceLimitOrderIx({
         ...clientPhoenixInstructionAddresses(client),
-        trader: positionAuthority ?? authority,
+        trader: signer,
         traderAccount: subaccountAddress,
         perpAssetMap: globalConfiguration.perpAssetMapKey,
         orderbook: marketAccount,
@@ -813,7 +818,11 @@ export const buildPlaceLimitOrderFlow = async (
       });
 
   const maybeWrappedIx = isFlightClient(client)
-    ? await client.tryWrapFlightInstruction(placeOrderIx, authority)
+    ? await client.tryWrapOrderInstruction(
+        placeOrderIx,
+        signer,
+        signer !== authority
+      )
     : placeOrderIx;
 
   instructions.push(maybeWrappedIx);
@@ -929,9 +938,14 @@ export const buildPlaceMarketOrderFlow = async (
     resolvedPriceInTicks = ticks(BigInt(Math.floor(priceTicks)));
   }
 
+  // Effective signer of the placement instruction; the Flight wrap must name
+  // the same wallet and take the position-authority path whenever it is not
+  // the owner.
+  const signer = positionAuthority ?? authority;
+
   const placeOrderIx = buildPlaceMarketOrderIx({
     ...clientPhoenixInstructionAddresses(client),
-    trader: positionAuthority ?? authority,
+    trader: signer,
     traderAccount: subaccountAddress,
     perpAssetMap: globalConfiguration.perpAssetMapKey,
     orderbook: marketAccount,
@@ -955,7 +969,11 @@ export const buildPlaceMarketOrderFlow = async (
   });
 
   const maybeWrappedIx = isFlightClient(client)
-    ? await client.tryWrapFlightInstruction(placeOrderIx, authority)
+    ? await client.tryWrapOrderInstruction(
+        placeOrderIx,
+        signer,
+        signer !== authority
+      )
     : placeOrderIx;
 
   instructions.push(maybeWrappedIx);
@@ -1148,6 +1166,11 @@ export const buildPlaceMultiLimitOrderFlow = async (
   const chunks = chunkScaleLevelsForTx(placeableLevels, { maxOrdersPerTx });
   const batches: PlaceMultiLimitOrderFlowBatch[] = [];
 
+  // Effective signer of the placement instructions. Multi-limit orders are
+  // not Flight-routable today, so the wrap below is a passthrough; the
+  // signer is still named for uniformity with the other flows.
+  const signer = positionAuthority ?? authority;
+
   for (let i = 0; i < chunks.length; i++) {
     const multipleOrderPacket = scaleLevelsToMultipleOrderPacket(
       chunks[i],
@@ -1157,7 +1180,7 @@ export const buildPlaceMultiLimitOrderFlow = async (
 
     const placeIx = buildPlaceMultiLimitOrderIx({
       ...clientPhoenixInstructionAddresses(client),
-      trader: positionAuthority ?? authority,
+      trader: signer,
       traderAccount: subaccountAddress,
       perpAssetMap: globalConfiguration.perpAssetMapKey,
       orderbook: marketAccount,
@@ -1168,7 +1191,11 @@ export const buildPlaceMultiLimitOrderFlow = async (
     });
 
     const placeMultiLimitOrder = isFlightClient(client)
-      ? await client.tryWrapFlightInstruction(placeIx, authority)
+      ? await client.tryWrapOrderInstruction(
+          placeIx,
+          signer,
+          signer !== authority
+        )
       : placeIx;
 
     const instructions: InstructionsWithAccountsAndData[] = [];

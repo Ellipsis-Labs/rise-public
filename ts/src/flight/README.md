@@ -73,6 +73,22 @@ Recommended settings:
   builder's registered fee.
 - Keep `exchangeMetadata: { stream: true }` enabled for long-running apps that
   build orders against live market metadata.
+- One rule for the collateral-transfer tail: **signing as a position
+  authority ⇒ declare it**. Wraps never infer the tail from the wrapped
+  instruction — a plain wrap of a delegated market order appends nothing,
+  because owner-signed `PlaceMarketOrderDelegated` settles the builder fee
+  via the plain transfer on-chain, and the tail write-locks a global
+  permission account, so it is opt-in by signer kind only. On the high-level
+  `client.ixs` order methods the declaration is derived for you: pass the
+  delegate as `positionAuthority` and the wrap takes the position-authority
+  path whenever the effective signer (`positionAuthority ?? authority`)
+  differs from `authority`.
+- Position-authority wraps append a collateral-transfer permission account
+  derived from the Phoenix root authority. `rise` always resolves that root
+  authority from the client's exchange metadata snapshot at wrap time — it
+  is never configured manually and never cached, so on-chain authority
+  rotations (streamed as `exchangeKeysUpdated` deltas in websocket mode, or
+  picked up by HTTP refreshes otherwise) are reflected automatically.
 - Keep PDA caching enabled. `pdaCache: { maxEntries: 1024 }` is the explicit
   default for long-lived processes.
 
@@ -101,6 +117,38 @@ The builder trader that collects fees is always derived from:
 - `builderAuthority`
 - `builderPdaIndex ?? 0`
 - `builderSubaccountIndex ?? 0`
+
+There is no root-authority configuration. When a wrap needs the Phoenix root
+authority (position-authority orders), the client reads it from the exchange
+metadata snapshot at wrap time, so a root-authority rotation on-chain never
+leaves the client deriving a stale permission PDA.
+
+## Position-Authority (Delegate-Signed) Orders
+
+The trader PDA always derives from `authority` (the owner). When a delegate
+key signs instead of the owner, pass it as `positionAuthority` on the
+high-level order methods — mirroring the API server DTOs, the effective
+signer is `positionAuthority ?? authority`, and the path is picked from the
+pure comparison of that signer with `authority`, never from the wrapped
+instruction:
+
+```ts
+const ix = await client.ixs.placeMarketOrder({
+  authority: ownerWallet, // trader account owner; trader PDA derives from it
+  positionAuthority: delegateWallet, // signs the transaction
+  symbol: "SOL-PERP",
+  orderPacket,
+});
+```
+
+With `positionAuthority` set (and different from `authority`), the Flight
+wrap appends the collateral-transfer authority and permission accounts so
+the builder fee can move via `AuthorizedTransferCollateral`; the permission
+account derives from the Phoenix root authority resolved from the exchange
+snapshot, and the collateral-transfer authority is scoped to the exact
+Phoenix program address. `client.ixs.placeMarketOrderDelegated(...)` follows
+the same rule via its effective signer
+(`traderWallet ?? positionAuthority ?? authority`).
 
 ## Build A Flight-Wrapped Limit Order Ix
 
@@ -216,6 +264,14 @@ Flight-wrapped market-order instruction via `client.ixs.placeMarketOrder(...)`:
 bun examples/06-flight-market-order.ts <BUILDER_AUTHORITY> <TRADER_AUTHORITY> <SYMBOL> <bid|ask> <NUM_BASE_LOTS> [PRICE_LIMIT_TICKS]
 ```
 
+Set `POSITION_AUTHORITY=<DELEGATE_ADDRESS>` to build the delegate-signed
+variant, where the delegate is passed as `positionAuthority` and the wrap
+goes through the position-authority path:
+
+```bash
+POSITION_AUTHORITY=<DELEGATE_ADDRESS> bun examples/06-flight-market-order.ts <BUILDER_AUTHORITY> <TRADER_AUTHORITY> <SYMBOL> <bid|ask> <NUM_BASE_LOTS> [PRICE_LIMIT_TICKS]
+```
+
 ## Wrap A Native Order Ix Manually
 
 If you already built a native Phoenix order instruction and just want to wrap
@@ -233,7 +289,7 @@ const innerIx = buildPlaceLimitOrderIxResolved({
 
 const wrappedIx = await flight.wrapInstructionWithFlight({
   phoenixInstruction: innerIx,
-  authority: "Authority111111111111111111111111111111111",
+  signer: "Authority111111111111111111111111111111111",
   phoenixProgramAddress: client.pda.getProgramAddress(),
   flight: {
     builderAuthority: "Builder111111111111111111111111111111111",
@@ -252,7 +308,29 @@ const wrappedIx = await flight.wrapInstructionWithFlight({
 ```
 
 `wrapInstructionWithFlight(...)` only wraps supported placement instructions.
-Unsupported instructions are returned unchanged.
+Unsupported instructions are returned unchanged. `signer` is the wallet that
+signs the wrapped instruction — the effective signer
+(`positionAuthority ?? ownerAuthority`), not necessarily the trader account's
+owner.
+
+If `signer` signs as the trader's position authority, declare it with
+`usePositionAuthority: true` and pass `resolveRootAuthority` so the wrapper
+can derive the collateral-transfer permission account (the declaration is
+the only trigger — the wrapper never infers the tail from the instruction,
+so owner-signed delegated market orders wrap plainly). Source the root
+authority from live exchange metadata rather than a hardcoded value:
+
+```ts
+const wrappedPositionAuthorityIx = await flight.wrapInstructionWithFlight({
+  // ... same fields as above ...
+  usePositionAuthority: true,
+  resolveRootAuthority: async () => {
+    await client.exchange.ready();
+    return client.exchange.snapshot().exchange.currentAuthorities
+      .rootAuthority as Authority;
+  },
+});
+```
 
 ## Wrap An Existing `PhoenixInstructionClient`
 
@@ -268,7 +346,7 @@ const flightClient = new flight.PhoenixFlightClient(instructionClient, {
   builderSubaccountIndex: 0,
 });
 
-const wrappedIx = await flightClient.tryWrapFlightInstruction(
+const wrappedIx = await flightClient.tryWrapOrderInstruction(
   nativeOrderIx,
   "Authority111111111111111111111111111111111"
 );
@@ -276,3 +354,20 @@ const wrappedIx = await flightClient.tryWrapFlightInstruction(
 
 This is the lower-level path if you are integrating Flight into an existing ix
 builder stack rather than using `createPhoenixClient(...)`.
+
+`tryWrapOrderInstruction(ix, signer, usePositionAuthority = false)` is the
+single wrap entry, an exact mirror of the Rust rise client's
+`try_wrap_order_instruction`: `signer` is the wallet that signs the wrapped
+instruction, and `usePositionAuthority` declares that the signer is the
+trader's position authority. Derive the flag as `signer !== ownerAuthority`
+when the owner is known — never from the instruction being wrapped. Left
+`false` (owner-signed), the wrap never appends the collateral-transfer tail,
+delegated market orders included; set `true`, it always appends it.
+Unsupported instructions come back unchanged, so the result is a plain
+`InstructionsWithAccountsAndData`, not necessarily a proxy instruction.
+
+For position-authority wraps (`usePositionAuthority: true`), the wrapped
+`instructionClient` must expose exchange metadata
+(`instructionClient.exchange`) — `PhoenixFlightClient` resolves the current
+Phoenix root authority from that snapshot on every wrap and throws if the
+metadata is unavailable.

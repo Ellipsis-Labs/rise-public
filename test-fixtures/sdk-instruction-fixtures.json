@@ -294,6 +294,16 @@
     {
       "program": "phoenix-eternal",
       "enumName": "PhoenixInstruction",
+      "instructionName": "AuthorizedTransferCollateral",
+      "snakeCaseName": "authorized_transfer_collateral",
+      "preimage": "global:authorized_transfer_collateral",
+      "tag": "2700316393894958814",
+      "discriminatorHex": "ded6450f74737925",
+      "discriminatorBase64": "3tZFD3RzeSU="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
       "instructionName": "CreateEscrowAccount",
       "snakeCaseName": "create_escrow_account",
       "preimage": "global:create_escrow_account",
