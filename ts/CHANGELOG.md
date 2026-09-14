@@ -3,6 +3,23 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.74 - 2026-09-14
+
+Source Phoenix commit: `e5cc47a90b5069779e5e5b647a1ce07d446b31bf`
+
+### Summary
+
+- Bumped `@ellipsis-labs/rise` package version to `0.4.74`.
+- Added `brace-expansion` to the workspace's Bun `minimumReleaseAgeExcludes` list in `bunfig.toml`, an internal install-tooling adjustment with no effect on the published package.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- None identified in the synced diff.
+
 ## v0.4.73 - 2026-09-14
 
 Source Phoenix commit: `78c281b8371c6653c52b1dfe4e57873beabde5d9`
