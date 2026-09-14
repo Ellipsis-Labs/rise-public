@@ -327,6 +327,8 @@ export {
   type HistoricalValuesRequest,
   type MarketPositionSnapshot,
   MarketPositionSnapshotSchema,
+  type SpotCollateralValue,
+  SpotCollateralValueSchema,
   type PortfolioValueDataPoint,
   PortfolioValueDataPointSchema,
   type TraderMarketPnLQueryParams,

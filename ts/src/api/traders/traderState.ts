@@ -210,6 +210,8 @@ export interface TraderStateSpotCollateral {
   symbol: string;
   /** Balance in the asset's native units (lamports for SOL), decimal integer string. */
   balance: string;
+  /** Native-unit decimals of the asset (9 for SOL). */
+  decimals: number;
 }
 
 export interface TraderStateSubaccountSnapshot {
@@ -516,6 +518,7 @@ const TraderStateSpotCollateralSchema: z.ZodType<TraderStateSpotCollateral> =
     assetIndex: z.number(),
     symbol: z.string(),
     balance: z.string(),
+    decimals: z.number(),
   });
 
 const TraderStateSubaccountSnapshotSchema: z.ZodType<TraderStateSubaccountSnapshot> =
