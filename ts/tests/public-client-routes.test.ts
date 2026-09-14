@@ -671,6 +671,7 @@ describe("public client route mapping", () => {
             valuationIntervalSeconds: 600,
             exactFlowBoundaryValuations: false,
             totalReturn: 0.1,
+            returnStartTime: "1",
             equityDefinition: "economic equity",
             window: {
               requestedStartTime: "1",

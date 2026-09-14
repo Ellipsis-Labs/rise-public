@@ -3,6 +3,24 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.3 - 2026-09-14
+
+Source Phoenix commit: `19f87e1e6e19bf4ad42ce4e9489a8cad4fde0bcc`
+
+### Summary
+
+- `TimeWeightedReturnsResponse` (and its Zod schema) now includes a new `returnStartTime: string | null` field indicating the actual start of the return calculation window.
+- `TimeWeightedReturnsResolution` no longer accepts the `"15m"` interval — supported resolutions are now `"1h" | "4h" | "1d" | "1w" | "1M"`.
+
+### Breaking Changes
+
+- `TimeWeightedReturnsResolution` dropped the `"15m"` value. Any code requesting or type-checking against a `"15m"` resolution for time-weighted returns will no longer compile and must switch to `"1h"` or coarser.
+- `TimeWeightedReturnsResponse` gained a new required field `returnStartTime` (`string | null`). Code that constructs literal objects of this type (e.g. test fixtures, mocks) will need to add this field to satisfy the type.
+
+### Consumer Notes
+
+- When consuming `TimeWeightedReturnsResponse`, use the new `returnStartTime` field to determine when return accrual actually began for the requested window, rather than assuming it matches the requested start time.
+
 ## v0.5.2 - 2026-09-14
 
 Source Phoenix commit: `1a0ff4c19848f92d519f3cb8db7e597a952f165f`
