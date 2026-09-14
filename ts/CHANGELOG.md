@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.78 - 2026-09-14
+
+Source Phoenix commit: `c9987c1e77e75c7ded83bcd29446f9255fbb600c`
+
+### Summary
+
+- Added `getTraderTimeWeightedReturns(traderPubkey, request)` to `V1TradersClient`, exposing the `GET /v1/traders/{traderPubkey}/time-weighted-returns` endpoint.
+- Added new exported types and Zod schemas: `TimeWeightedReturnsRequest`, `TimeWeightedReturnsResponse`, `TimeWeightedReturnPoint`, `TimeWeightedReturnScope`, `TimeWeightedReturnWindow`, `TimeWeightedReturnQuality`, `TimeWeightedReturnCompleteness`, and `TimeWeightedReturnsResolution`, along with their corresponding `*Schema` exports.
+- Response fields for timestamps, `userId`, and `resetCount` are normalized to `string` (via a shared JSON-safe integer transform) to preserve values beyond `Number.MAX_SAFE_INTEGER`.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- This is a purely additive endpoint/type release — existing methods and types are unchanged, so no consumer code should require updates.
+- When calling `getTraderTimeWeightedReturns`, expect large integer-like fields (`scope.userId`, `quality.resetCount`, and all timestamp fields) to arrive as `string`, not `number` — parse them accordingly if doing arithmetic.
+- `resolution` accepts `"15m" | "1h" | "4h" | "1d" | "1w" | "1M"`; `startTime`/`endTime`/`limit` are optional and reused from `HistoricalValuesRequest`.
+
 ## v0.4.77 - 2026-09-14
 
 Source Phoenix commit: `5ea2e8690ca50cdeca209b0e3a92c01e27badfbd`
