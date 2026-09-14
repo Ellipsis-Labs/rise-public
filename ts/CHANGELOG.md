@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.8 - 2026-09-14
+
+Source Phoenix commit: `cca7cbac0ce315d181325cda81d711386d98b7a9`
+
+### Summary
+
+- Added support for a new `stop_loss_order_placed` event notification, emitted when a stop-loss or take-profit conditional order rests on the book instead of executing immediately.
+- Exported new `OrderPlacedEventData` / `OrderPlacedEventDataSchema` types describing the placed order's price, quantity, side, and sequencing fields.
+- Exported new `StopLossOrderPlacedDetails` / `StopLossOrderPlacedDetailsSchema` and `StopLossOrderPlacedNotification` types, with `filledBaseAmount` / `filledQuoteAmount` present only when the order was partially filled before resting.
+- `EventNotificationType` and `EventNotificationItem` now include this new variant; `NotificationItemSchema` parses it via the existing discriminated union.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- If you exhaustively switch over `EventNotificationType` or `EventNotificationItem` (e.g. a `switch` with no `default`), add a case for `"stop_loss_order_placed"` to keep exhaustiveness checks passing.
+- `filledBaseAmount` and `filledQuoteAmount` are independently optional on `StopLossOrderPlacedDetails` — both are omitted when the order rested in full, so don't assume they always appear together.
+
 ## v0.5.7 - 2026-09-14
 
 Source Phoenix commit: `6826b06a0d967b9b926b6328302508546b62f573`
