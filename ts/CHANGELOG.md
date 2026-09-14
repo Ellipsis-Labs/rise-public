@@ -3,6 +3,23 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.10 - 2026-09-14
+
+Source Phoenix commit: `29c2f9e5571ff898b32cf6a2e3a310bde2016ae9`
+
+### Summary
+
+- Bumped `@ellipsis-labs/rise` to `0.5.10`.
+- Updated the `nanoid` dependency from `^3.3.17` to `^3.3.18` (patch-level bump, lockfile updated accordingly).
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- No action required; this is a routine dependency patch update with no changes to public exports, types, or runtime behavior.
+
 ## v0.5.9 - 2026-09-14
 
 Source Phoenix commit: `cd96962f181a2e28c87ec592db4f20460c6b510e`
