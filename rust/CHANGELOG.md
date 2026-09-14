@@ -3,6 +3,30 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.0 - 2026-09-14
+
+Source Phoenix commit: `72cb240e31283f3518f5f5f9ee4f2a64bfd89be2`
+
+### Summary
+
+- Adds native SOL spot collateral end-to-end: on-chain fields (`GlobalConfig::native_sol_spot_metadata`, `Trader::native_sol_collateral`), six new instructions in `ix` (`sync_native`, `withdraw_native_sol`, `transfer_native_sol`, `transfer_native_sol_from_child_to_parent`, `liquidate_native_sol`, `swap_native`), three new `events` (`SpotCollateralDeposited`/`Withdrawn`/`Liquidated`), and valuation support in `math`/`api` (`SpotCollateralParams`, `TraderPortfolio::spot_collaterals`, `PhoenixClient` pulling `/v1/collateral/assets`).
+- Adds a trader preference to disable `SwapNative` when signed by the position authority (`accounts::TraderPreferenceKind::DisablePositionAuthoritySwap`).
+- `api`'s `PhoenixClient`/`PhoenixHttpClient` gain `get_spot_collaterals`, fold spot collateral into `PhoenixMetadata` on connect and via WS deltas, and expose `SubaccountState::to_trader_portfolio_with_metadata` for margin that includes SOL collateral.
+- `types::TraderView` and trader-state snapshots gain `spot_collaterals` balance views; `PlaceIsolatedMarketOrderRequest` gains an optional `min_base_lots_to_fill`.
+
+### Breaking Changes
+
+- `math::RiskAction::Withdrawal` is renamed to `WithdrawQuoteCollateral`, and `ADL` is deprecated in favor of `View`; update any exhaustive matches on `RiskAction`.
+- New enum variants break exhaustive `match` arms downstream: `api::MarginTrigger::SpotCollateralsUpdated`, `types::ExchangeDeltaOp::SpotCollateralsUpdated`, `events::MarketEvent::SpotCollateralDeposited/Withdrawn/Liquidated`, `events::AdminParameterUpdateKind::SpotCollateralConfig`, `api::PhoenixClientError::Metadata`, and `accounts::TraderPreferenceKind::DisablePositionAuthoritySwap` (`ALL_TRADER_PREFERENCE_KINDS` grew from 1 to 2 entries).
+- `math::TraderPortfolio` gained a required `spot_collaterals: Vec<SpotCollateralInput>` field — struct literals built without `..Default::default()` will no longer compile.
+- The `GlobalConfig` account layout grew (previously-reserved bytes now hold `native_sol_spot_metadata`), and the total instruction count grew from 96 to 102 — code asserting exact raw byte offsets/sizes or exact instruction-enum counts needs updating.
+
+### Consumer Notes
+
+- Spot collateral is valued at the bound perp market's index price with a linear balance-dependent discount curve; see `math::spot_collateral` for the exact formula and rounding rules.
+- `PhoenixClient::new` fails open (values SOL at zero) if `/v1/collateral/assets` is unreachable, but fails construction if a successful response references an unknown perp market — treat that as a server/client version mismatch.
+- Admin instructions for configuring/activating native SOL are deliberately not exposed in `ix::native_sol`; only user- and liquidation-facing instructions are public.
+
 ## v0.3.6 - 2026-09-14
 
 Source Phoenix commit: `8b82f4267044e45cd33050bf86138e845866e049`

@@ -67,6 +67,15 @@ pub fn derive_global_vault_address(program_id: &Pubkey, mint: &Pubkey) -> Pubkey
     pda
 }
 
+/// Derives the native SOL authority PDA, which custodies native SOL spot
+/// collateral and signs the program's own withdrawals of it.
+///
+/// Seeds: `["native_sol"]`.
+pub fn derive_native_sol_authority_address(program_id: &Pubkey) -> Pubkey {
+    let (pda, _bump) = Pubkey::find_program_address(&[b"native_sol"], program_id);
+    pda
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

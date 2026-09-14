@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 use parking_lot::RwLock;
 use phoenix_rise_types::prelude::{
-    ExchangeDeltaMessage, ExchangeDeltaOp, ExchangeMarketParameterUpdate, ExchangeMarketSnapshot,
-    ExchangeSnapshotMessage, ExchangeSnapshotView, ExchangeStateSnapshot, MarketPublicMetadata,
-    MarketStatus,
+    CollateralAssetMetadata, ExchangeDeltaMessage, ExchangeDeltaOp, ExchangeMarketParameterUpdate,
+    ExchangeMarketSnapshot, ExchangeSnapshotMessage, ExchangeSnapshotView, ExchangeStateSnapshot,
+    MarketPublicMetadata, MarketStatus,
 };
 use solana_pubkey::Pubkey;
 use thiserror::Error;
@@ -22,6 +22,7 @@ pub enum ExchangeCacheSnapshotSource {
 pub enum ExchangeCacheExchangeChangeKind {
     Keys,
     Status,
+    SpotCollaterals,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,6 +106,10 @@ impl PhoenixExchangeCacheStore {
 
     pub fn snapshot(&self) -> &ExchangeSnapshotView {
         &self.snapshot
+    }
+
+    pub fn spot_collaterals(&self) -> &[CollateralAssetMetadata] {
+        &self.snapshot.spot_collaterals
     }
 
     pub fn market(&self, symbol: &str) -> Option<&ExchangeMarketSnapshot> {
@@ -224,6 +229,14 @@ impl PhoenixExchangeCacheStore {
                     next_snapshot.exchange.withdrawals_available = *withdrawals_available;
                     events.push(ExchangeCacheEvent::ExchangeUpdated {
                         change: ExchangeCacheExchangeChangeKind::Status,
+                        slot: delta.slot,
+                        slot_index: delta.slot_index,
+                    });
+                }
+                ExchangeDeltaOp::SpotCollateralsUpdated { assets } => {
+                    next_snapshot.spot_collaterals = assets.clone();
+                    events.push(ExchangeCacheEvent::ExchangeUpdated {
+                        change: ExchangeCacheExchangeChangeKind::SpotCollaterals,
                         slot: delta.slot,
                         slot_index: delta.slot_index,
                     });
@@ -448,6 +461,14 @@ impl SharedExchangeCacheStore {
             .map(|store| store.snapshot().clone())
     }
 
+    pub fn spot_collaterals(&self) -> Option<Vec<CollateralAssetMetadata>> {
+        self.inner
+            .store
+            .read()
+            .as_ref()
+            .map(|store| store.spot_collaterals().to_vec())
+    }
+
     /// The current Phoenix root authority, or `None` when the store has not
     /// applied a snapshot yet or the authority is unset or not a valid
     /// pubkey.
@@ -662,7 +683,7 @@ mod tests {
         ExchangeSnapshotMessage, ExchangeWsCommodityMetadata, ExchangeWsFundingConfig,
         ExchangeWsLeverageTier, ExchangeWsMarkPriceParameters, ExchangeWsMarketPriceBand,
         ExchangeWsMarketPriceBand as MarketPriceBand, ExchangeWsRiskActionPriceValidityRules,
-        ExchangeWsValidationRule, JsSafeU64, MarketCalendar,
+        ExchangeWsValidationRule, JsSafeU64, MarketCalendar, SpotAssetConfig,
     };
 
     use super::*;
@@ -784,6 +805,23 @@ mod tests {
                     last_index_expiry_timestamp: Some(1_713_200_000),
                 }),
             }],
+            spot_collaterals: vec![CollateralAssetMetadata {
+                asset_index: 0xffff0000,
+                symbol: "SOL".to_string(),
+                decimals: 9,
+                spot: Some(SpotAssetConfig {
+                    is_active: true,
+                    perp_asset_index: Some(1),
+                    max_per_trader_balance: 1_000_000_000u64.into(),
+                    max_global_balance: 10_000_000_000u64.into(),
+                    curr_global_balance: 500_000_000u64.into(),
+                    min_margin_discount_bps: 100,
+                    max_margin_discount_bps: 1_000,
+                    max_liquidation_discount_bps: 500,
+                    min_liquidation_slippage_bps: 50,
+                    max_liquidation_size: 1_000_000_000u64.into(),
+                }),
+            }],
         }
     }
 
@@ -801,6 +839,7 @@ mod tests {
             reason: phoenix_rise_types::exchange_ws::ExchangeSnapshotReason::Snapshot,
             exchange: snapshot.exchange,
             markets: snapshot.markets,
+            spot_collaterals: snapshot.spot_collaterals,
         }
     }
 
@@ -819,6 +858,27 @@ mod tests {
                     previous_base_lots: 5_000_u64.into(),
                     new_base_lots: new_base_lots.into(),
                 },
+            }],
+        }
+    }
+
+    fn build_spot_collaterals_delta(
+        sequence_number: u64,
+        curr_global_balance: u64,
+    ) -> ExchangeDeltaMessage {
+        let mut asset = build_snapshot(1, 0).spot_collaterals.remove(0);
+        asset
+            .spot
+            .as_mut()
+            .expect("SOL spot collateral config")
+            .curr_global_balance = curr_global_balance.into();
+        ExchangeDeltaMessage {
+            version: 1,
+            sequence_number: sequence_number.into(),
+            slot: 3,
+            slot_index: 2,
+            ops: vec![ExchangeDeltaOp::SpotCollateralsUpdated {
+                assets: vec![asset],
             }],
         }
     }
@@ -938,6 +998,33 @@ mod tests {
             metadata_events.get(1),
             Some(ExchangeCacheEvent::MarketUpdated {
                 change: ExchangeCacheMarketChangeKind::Metadata,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn applies_collateral_registry_deltas() {
+        let mut cache = PhoenixExchangeCacheStore::new(build_snapshot(1, 0));
+        cache.apply_snapshot_message(&build_snapshot_message(10));
+
+        let events = cache
+            .apply_delta(&build_spot_collaterals_delta(11, 750_000_000))
+            .expect("collateral registry delta should apply");
+
+        assert_eq!(
+            cache.spot_collaterals()[0]
+                .spot
+                .as_ref()
+                .expect("SOL spot collateral config")
+                .curr_global_balance
+                .into_inner(),
+            750_000_000
+        );
+        assert!(matches!(
+            events.get(1),
+            Some(ExchangeCacheEvent::ExchangeUpdated {
+                change: ExchangeCacheExchangeChangeKind::SpotCollaterals,
                 ..
             })
         ));

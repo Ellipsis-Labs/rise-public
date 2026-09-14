@@ -39,6 +39,8 @@ const TRADER_POSITION_ENTRY_LEN: usize = 40;
 const TRADER_POSITION_ENTRIES_START: usize = TRADER_HEADER_LEN + TRADER_POSITION_MAP_PREFIX_LEN;
 const POSITION_ENTRY_ASSET_INDEX_BOUND: u32 = 0xFF00_0000;
 
+pub use phoenix_rise_math::NATIVE_SOL_ASSET_INDEX;
+
 const_assert_eq!(core::mem::size_of::<TraderState>(), 16);
 const_assert_eq!(core::mem::size_of::<TraderHeader>(), 224);
 
@@ -232,6 +234,11 @@ const fn is_position_entry_asset_id(raw_asset_id: u64) -> bool {
     position_entry_asset_index(raw_asset_id) < POSITION_ENTRY_ASSET_INDEX_BOUND
 }
 
+#[inline(always)]
+const fn is_native_sol_entry_asset_id(raw_asset_id: u64) -> bool {
+    position_entry_asset_index(raw_asset_id) == NATIVE_SOL_ASSET_INDEX
+}
+
 impl TraderHeader {
     /// Borrow the fixed trader header from raw account data.
     ///
@@ -323,6 +330,14 @@ impl TraderHeader {
     #[inline(always)]
     pub const fn disable_collateral_sweep(&self) -> bool {
         self.trader_preference_flags().disable_collateral_sweep()
+    }
+
+    /// Whether this trader opted out of `SwapNative` signed by its position
+    /// authority. The trader wallet itself is never gated.
+    #[inline(always)]
+    pub const fn disable_position_authority_swap(&self) -> bool {
+        self.trader_preference_flags()
+            .disable_position_authority_swap()
     }
 
     #[inline(always)]
@@ -445,6 +460,21 @@ struct TraderPositionEntryRaw {
 }
 
 const_assert_eq!(core::mem::size_of::<TraderPositionEntryRaw>(), 40);
+
+/// Value payload of a header-extension entry. Shares the 32-byte value slot
+/// with [`TraderPositionRaw`], which is why it can be cast from one.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+struct TraderHeaderExtensionRaw {
+    native_sol_collateral: u64,
+    _padding: [u64; 3],
+}
+
+const_assert_eq!(core::mem::size_of::<TraderHeaderExtensionRaw>(), 32);
+const_assert_eq!(
+    core::mem::size_of::<TraderHeaderExtensionRaw>(),
+    core::mem::size_of::<TraderPositionRaw>()
+);
 
 #[derive(Clone, Copy, Debug)]
 pub struct TraderPositionRef<'a> {
@@ -631,6 +661,12 @@ impl<'a> Trader<'a> {
         self.header.disable_collateral_sweep()
     }
 
+    /// See [`TraderHeader::disable_position_authority_swap`].
+    #[inline(always)]
+    pub const fn disable_position_authority_swap(&self) -> bool {
+        self.header.disable_position_authority_swap()
+    }
+
     #[inline(always)]
     pub const fn position_map_header(&self) -> &'a TraderPositionMapHeader {
         self.position_map_header
@@ -690,6 +726,26 @@ impl<'a> Trader<'a> {
     pub fn positions(&self) -> impl Iterator<Item = (u64, TraderPositionRef<'a>)> + '_ {
         self.position_entries()
             .map(|entry| (entry.asset_id(), entry.position()))
+    }
+
+    /// Native SOL spot collateral, in lamports.
+    ///
+    /// The balance is stored as a header-extension entry in the position map
+    /// rather than as a position, so it never appears in [`Self::positions`].
+    /// Zero when the trader holds none.
+    ///
+    /// This is the *accounted* balance. Lamports sitting in the account above
+    /// it (rent plus any excess a capped credit could not take) are not
+    /// collateral and carry no margin value.
+    pub fn native_sol_collateral(&self) -> u64 {
+        self.active_position_entries_raw()
+            .iter()
+            .find(|raw| is_native_sol_entry_asset_id(raw.asset_id))
+            .map(|raw| {
+                bytemuck::cast_ref::<TraderPositionRaw, TraderHeaderExtensionRaw>(&raw.position)
+                    .native_sol_collateral
+            })
+            .unwrap_or(0)
     }
 }
 
@@ -769,6 +825,17 @@ impl<'a> TraderPositions<'a> {
             remaining: self.entries,
         }
     }
+
+    /// Native SOL spot collateral, in lamports. See
+    /// [`Trader::native_sol_collateral`]; [`Self::iter`] deliberately skips
+    /// this entry, so it needs its own scan.
+    pub fn native_sol_collateral(&self) -> u64 {
+        self.entries
+            .chunks_exact(TRADER_POSITION_ENTRY_LEN)
+            .find(|entry| is_native_sol_entry_asset_id(read_u64(entry, 0)))
+            .map(|entry| read_u64(entry, 8))
+            .unwrap_or(0)
+    }
 }
 
 pub struct TraderPositionIter<'a> {
@@ -845,7 +912,7 @@ impl serde::Serialize for TraderHeader {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_struct("TraderHeader", 25)?;
+        let mut state = serializer.serialize_struct("TraderHeader", 26)?;
         state.serialize_field("sequence_number", &self.sequence_number())?;
         state.serialize_field("key", &pubkey_string(self.key()))?;
         state.serialize_field("authority", &pubkey_string(self.authority()))?;
@@ -859,6 +926,10 @@ impl serde::Serialize for TraderHeader {
         state.serialize_field("trader_preference_flags", &self.trader_preference_flags())?;
         state.serialize_field("preferences", &self.preferences())?;
         state.serialize_field("disable_collateral_sweep", &self.disable_collateral_sweep())?;
+        state.serialize_field(
+            "disable_position_authority_swap",
+            &self.disable_position_authority_swap(),
+        )?;
         state.serialize_field(
             "position_authority",
             &pubkey_string(self.position_authority()),
@@ -1174,6 +1245,69 @@ mod tests {
                 .map(|(asset_id, _)| asset_id)
                 .collect::<Vec<_>>(),
             vec![42, 44]
+        );
+    }
+
+    #[test]
+    fn native_sol_collateral_reads_the_header_extension_entry_without_leaking_a_position() {
+        let mut words = aligned_trader_account_data(3, 3);
+        let data = bytemuck::cast_slice_mut::<u64, u8>(&mut words);
+
+        write_position_entry(data, 0, 42, -5, 10, 11, 9, 123);
+        write_position_entry(data, 1, 43, 6, -12, 13, 10, -321);
+        // The header-extension value reuses the position slot: its first u64 is
+        // the lamport balance. `write_position_entry` writes that u64 as
+        // `base_lot_position`.
+        write_position_entry(
+            data,
+            2,
+            NATIVE_SOL_ASSET_INDEX as u64,
+            1_234_567_890,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        let data = bytemuck::cast_slice::<u64, u8>(&words);
+
+        let trader = Trader::try_from_account_bytes(data).unwrap();
+        assert_eq!(trader.native_sol_collateral(), 1_234_567_890);
+        assert_eq!(trader.position_entries().count(), 2);
+        assert_eq!(
+            trader
+                .positions()
+                .map(|(asset_id, _)| asset_id)
+                .collect::<Vec<_>>(),
+            vec![42, 43]
+        );
+
+        let positions = TraderPositions::try_from_account_bytes(data).unwrap();
+        assert_eq!(positions.native_sol_collateral(), 1_234_567_890);
+        assert_eq!(positions.iter().count(), 2);
+    }
+
+    #[test]
+    fn native_sol_collateral_is_zero_without_a_header_extension_entry() {
+        let mut words = aligned_trader_account_data(2, 2);
+        let data = bytemuck::cast_slice_mut::<u64, u8>(&mut words);
+
+        write_position_entry(data, 0, 42, -5, 10, 11, 9, 123);
+        write_position_entry(data, 1, 43, 6, -12, 13, 10, -321);
+
+        let data = bytemuck::cast_slice::<u64, u8>(&words);
+
+        assert_eq!(
+            Trader::try_from_account_bytes(data)
+                .unwrap()
+                .native_sol_collateral(),
+            0
+        );
+        assert_eq!(
+            TraderPositions::try_from_account_bytes(data)
+                .unwrap()
+                .native_sol_collateral(),
+            0
         );
     }
 

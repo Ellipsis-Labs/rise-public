@@ -45,6 +45,9 @@ pub enum PhoenixStateError {
     #[error("Invalid margin simulation input: {reason}")]
     InvalidMarginSimulationInput { reason: String },
 
+    #[error("Spot collateral valuation failed for {symbol}: {reason}")]
+    SpotCollateralValuation { symbol: String, reason: String },
+
     #[error("Margin error: {0}")]
     MarginError(#[from] MarginError),
 

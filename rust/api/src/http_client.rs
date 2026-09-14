@@ -9,17 +9,17 @@ use std::time::Duration;
 
 use phoenix_rise_ix::types::{IsolatedCollateralFlow, Side};
 use phoenix_rise_types::prelude::{
-    ApiCandle, CancelStopLossOrderRequest, CandlesQueryParams, CollateralHistoryQueryParams,
-    CollateralHistoryResponse, CommodityMarketCalendarResponse, ExchangeKeysView,
-    ExchangeMarketConfig, ExchangeResponse, ExchangeSnapshotView, FundingHistoryQueryParams,
-    FundingHistoryResponse, FundingHourlyHistoryResponse, FundingHourlyQuery,
-    FundingRateHistoryQuery, FundingRateHistoryResponse, MarketCalendarResponse,
-    NextCommodityMarketTransition, NextMarketCalendarTransition, OrderHistoryQueryParams,
-    OrderHistoryResponse, PlaceAttachedConditionalOrderRequest, PlaceIsolatedLimitOrderRequest,
-    PlaceIsolatedLimitOrderWithConditionalsRequest, PlaceIsolatedMarketOrderRequest,
-    PlacePositionConditionalOrderRequest, PlaceStopLossOrderRequest, PnlPoint, PnlQueryParams,
-    TpSlOrderConfig, TradeHistoryQueryParams, TradeHistoryResponse,
-    UserLiquidationHistoryQueryParams, UserLiquidationHistoryResponse,
+    ApiCandle, CancelStopLossOrderRequest, CandlesQueryParams, CollateralAssetsResponse,
+    CollateralHistoryQueryParams, CollateralHistoryResponse, CommodityMarketCalendarResponse,
+    ExchangeKeysView, ExchangeMarketConfig, ExchangeResponse, ExchangeSnapshotView,
+    FundingHistoryQueryParams, FundingHistoryResponse, FundingHourlyHistoryResponse,
+    FundingHourlyQuery, FundingRateHistoryQuery, FundingRateHistoryResponse,
+    MarketCalendarResponse, NextCommodityMarketTransition, NextMarketCalendarTransition,
+    OrderHistoryQueryParams, OrderHistoryResponse, PlaceAttachedConditionalOrderRequest,
+    PlaceIsolatedLimitOrderRequest, PlaceIsolatedLimitOrderWithConditionalsRequest,
+    PlaceIsolatedMarketOrderRequest, PlacePositionConditionalOrderRequest,
+    PlaceStopLossOrderRequest, PnlPoint, PnlQueryParams, TpSlOrderConfig, TradeHistoryQueryParams,
+    TradeHistoryResponse, UserLiquidationHistoryQueryParams, UserLiquidationHistoryResponse,
 };
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -663,6 +663,10 @@ impl PhoenixHttpClient {
         self.collateral()
             .get_user_collateral_history(authority, params)
             .await
+    }
+
+    pub async fn get_spot_collaterals(&self) -> Result<CollateralAssetsResponse, PhoenixHttpError> {
+        self.collateral().get_assets().await
     }
 
     pub async fn get_collateral_history_with_trader_key(

@@ -152,6 +152,20 @@ basic_u64_struct_with_bounds!(QuoteLotsPerBaseLotPerTick, 0, 10_000);
 // Basis points for general percentage calculations (0.0 to 1.0, where 10_000 =
 // 100%)
 basic_u64_struct_with_bounds!(BasisPoints, 0, 10_000);
+// Basis points stored as a `u32`, mirroring the on-chain field width.
+basic_u32_struct_with_bounds!(BasisPointsU32, 0, 10_000);
+
+impl BasisPointsU32 {
+    /// The denominator for basis points (10,000 = 100%).
+    pub const DENOMINATOR: u32 = 10_000;
+
+    /// Widen to the `u64`-backed [`BasisPoints`] the math paths compute in,
+    /// mirroring the on-chain conversion.
+    #[inline(always)]
+    pub fn upcast(self) -> BasisPoints {
+        BasisPoints::new(u64::from(self.as_inner()))
+    }
+}
 
 // Risk factor (discount) for positive uPnL (0.0 to 1.0)
 // This is just an alias to BasisPoints since they're semantically identical.
@@ -180,10 +194,10 @@ impl BasisPoints {
     /// up)
     pub fn apply_to_quote_lots_ceil(&self, value: QuoteLots) -> Option<QuoteLots> {
         // Try checked arithmetic first
-        if let Some(numerator) = value.as_inner().checked_mul(self.as_inner()) {
-            if let Some(result) = numerator.checked_add(Self::DENOMINATOR - 1) {
-                return QuoteLots::new_checked(result / Self::DENOMINATOR).ok();
-            }
+        if let Some(numerator) = value.as_inner().checked_mul(self.as_inner())
+            && let Some(result) = numerator.checked_add(Self::DENOMINATOR - 1)
+        {
+            return QuoteLots::new_checked(result / Self::DENOMINATOR).ok();
         }
 
         // Upcast to u128 for intermediate calculations
@@ -215,7 +229,7 @@ impl BasisPoints {
     }
 
     pub fn to_u16(&self) -> u16 {
-        if self.as_inner() > Self::UPPER_BOUND as u64 {
+        if self.as_inner() > Self::UPPER_BOUND {
             Self::UPPER_BOUND as u16
         } else {
             self.as_inner() as u16
@@ -347,6 +361,11 @@ allow_multiply!(QuoteLotsPerBaseLot, BaseLots, QuoteLots);
 basic_u64_struct!(BaseLotsPerTick);
 
 allow_multiply!(BaseLotsPerTick, Ticks, BaseLots);
+
+// Native SOL's own unit. Spot collateral balances in general are raw `u64`
+// native units, because the unit differs per asset — `Lamports` is correct only
+// where the asset *is* native SOL.
+basic_u64_struct_with_bounds!(Lamports, 0, u64::MAX);
 
 #[repr(transparent)]
 #[derive(

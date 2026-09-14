@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
+use phoenix_rise_math::{BasisPoints, SpotCollateralParams};
 use serde::{Deserialize, Serialize};
 
 use crate::js_safe_ints::{JsSafeI64, JsSafeU64};
@@ -186,6 +187,87 @@ pub struct ExchangeMarketConfig {
 pub struct ExchangeResponse {
     pub keys: ExchangeKeysView,
     pub markets: Vec<ExchangeMarketConfig>,
+}
+
+/// One accepted collateral asset returned by `/v1/collateral/assets`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CollateralAssetMetadata {
+    pub asset_index: i64,
+    pub symbol: String,
+    pub decimals: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot: Option<SpotAssetConfig>,
+}
+
+impl CollateralAssetMetadata {
+    /// The margin engine's view of this asset, or `None` when it does not
+    /// currently count toward margin (the quote asset, an inactive spot asset,
+    /// or one not yet bound to a perp market).
+    ///
+    /// This is the **canonical** DTO → [`SpotCollateralParams`] conversion:
+    /// the two types deliberately differ (wire integers vs math quantities,
+    /// liquidation bounds the margin engine never reads, and `perp_symbol`,
+    /// which is a join through the market map rather than a wire field), and
+    /// every consumer should go through here so the shapes cannot drift apart
+    /// silently.
+    ///
+    /// `resolve_perp_symbol` maps `spot.perp_asset_index` to a market symbol.
+    /// Returning `None` from it is an *error* — an active collateral asset
+    /// referencing an unknown market is a live server contradicting itself —
+    /// not a skip.
+    pub fn margin_params(
+        &self,
+        resolve_perp_symbol: impl FnOnce(u32) -> Option<String>,
+    ) -> Result<Option<SpotCollateralParams>, String> {
+        let Some(spot) = &self.spot else {
+            return Ok(None);
+        };
+        let Some(perp_asset_index) = spot.perp_asset_index.filter(|_| spot.is_active) else {
+            return Ok(None);
+        };
+        let perp_symbol = resolve_perp_symbol(perp_asset_index).ok_or_else(|| {
+            format!(
+                "Collateral {} references unknown perp asset {perp_asset_index}",
+                self.symbol
+            )
+        })?;
+        Ok(Some(SpotCollateralParams {
+            asset_index: u32::try_from(self.asset_index)
+                .map_err(|_| format!("Invalid collateral asset index: {}", self.asset_index))?,
+            symbol: self.symbol.clone(),
+            perp_symbol,
+            decimals: self.decimals,
+            max_per_trader_balance: spot.max_per_trader_balance.into_inner(),
+            max_global_balance: spot.max_global_balance.into_inner(),
+            curr_global_balance: spot.curr_global_balance.into_inner(),
+            min_margin_discount: BasisPoints::new(spot.min_margin_discount_bps.into()),
+            max_margin_discount: BasisPoints::new(spot.max_margin_discount_bps.into()),
+        }))
+    }
+}
+
+/// Live risk configuration for a non-quote collateral asset.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SpotAssetConfig {
+    pub is_active: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perp_asset_index: Option<u32>,
+    pub max_per_trader_balance: JsSafeU64,
+    pub max_global_balance: JsSafeU64,
+    pub curr_global_balance: JsSafeU64,
+    pub min_margin_discount_bps: u32,
+    pub max_margin_discount_bps: u32,
+    pub max_liquidation_discount_bps: u32,
+    pub min_liquidation_slippage_bps: u32,
+    pub max_liquidation_size: JsSafeU64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CollateralAssetsResponse {
+    pub assets: Vec<CollateralAssetMetadata>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

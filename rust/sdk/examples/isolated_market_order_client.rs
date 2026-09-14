@@ -226,6 +226,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 margin_updates, msg.symbol, msg.mark_price
                             );
                         }
+                        MarginTrigger::SpotCollateralsUpdated => {
+                            println!("[margin {:>3}] spot collateral trigger", margin_updates);
+                        }
                     }
 
                     if let Some(ref m) = margin {

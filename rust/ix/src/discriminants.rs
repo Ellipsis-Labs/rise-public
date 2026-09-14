@@ -357,6 +357,12 @@ define_instruction_discriminants! {
         UpdateSplinePositionLimitsConfig => "update_spline_position_limits_config",
         CloseTraderAccount => "close_trader_account",
         EnableFeature => "enable_feature",
+        SyncNative => "sync_native",
+        WithdrawNativeSol => "withdraw_native_sol",
+        TransferNativeSol => "transfer_native_sol",
+        TransferNativeSolFromChildToParent => "transfer_native_sol_from_child_to_parent",
+        LiquidateNativeSol => "liquidate_native_sol",
+        SwapNative => "swap_native",
     }
     aliases {
         UpdateSplinePriceWithOrdering => UpdateSplinePrice = "update_spline_price_with_ordering",

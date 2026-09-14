@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use phoenix_rise_math::{
-    BaseLots, BaseLotsPerTick, BasisPoints, Constant, FundingRateUnitInSeconds,
-    QuoteLotsPerBaseLotPerTick, SequenceNumberU8, SignedBaseLots, SignedQuoteLots,
+    BaseLots, BaseLotsPerTick, BasisPoints, BasisPointsU32, Constant, FundingRateUnitInSeconds,
+    QuoteLots, QuoteLotsPerBaseLotPerTick, SequenceNumberU8, SignedBaseLots, SignedQuoteLots,
     SignedQuoteLotsI56, SignedQuoteLotsI56Error, SignedQuoteLotsPerBaseLot,
     SignedQuoteLotsPerBaseLotUpcasted, SignedTicks, Ticks, TraderPosition as MathTraderPosition,
     UPnlRiskFactor,
@@ -151,6 +151,52 @@ pub struct AuthoritySet {
     pub adl_authority: Pubkey,
     pub cancel_authority: Pubkey,
     pub backstop_authority: Pubkey,
+}
+
+/// Owned mirror of [`crate::spot_collateral::SpotCollateralMetadata`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SpotCollateralMetadata {
+    pub mint_address: Pubkey,
+    pub decimals: u32,
+    pub perp_asset_index: u32,
+    pub max_per_trader_balance: u64,
+    pub max_global_balance: u64,
+    pub curr_global_balance: u64,
+    pub min_margin_discount: BasisPointsU32,
+    pub max_margin_discount: BasisPointsU32,
+    pub max_liquidation_discount: BasisPointsU32,
+    pub min_liquidation_slippage: BasisPointsU32,
+    pub max_liquidation_size: u64,
+    pub post_liquidation_buffer: QuoteLots,
+    pub quote_lot_collateral_shortfall_buffer: QuoteLots,
+    pub flags: u8,
+    pub is_active: bool,
+    pub has_perp_asset: bool,
+    pub position_authority_swap_disabled: bool,
+}
+
+impl From<&crate::spot_collateral::SpotCollateralMetadata> for SpotCollateralMetadata {
+    fn from(value: &crate::spot_collateral::SpotCollateralMetadata) -> Self {
+        Self {
+            mint_address: Pubkey::new_from_array(value.mint_address()),
+            decimals: value.decimals(),
+            perp_asset_index: value.perp_asset_index_raw(),
+            max_per_trader_balance: value.max_per_trader_balance(),
+            max_global_balance: value.max_global_balance(),
+            curr_global_balance: value.curr_global_balance(),
+            min_margin_discount: value.min_margin_discount(),
+            max_margin_discount: value.max_margin_discount(),
+            max_liquidation_discount: value.max_liquidation_discount(),
+            min_liquidation_slippage: value.min_liquidation_slippage(),
+            max_liquidation_size: value.max_liquidation_size(),
+            post_liquidation_buffer: value.post_liquidation_buffer(),
+            quote_lot_collateral_shortfall_buffer: value.quote_lot_collateral_shortfall_buffer(),
+            flags: value.flags(),
+            is_active: value.is_active(),
+            has_perp_asset: value.has_perp_asset(),
+            position_authority_swap_disabled: value.position_authority_swap_disabled(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -510,7 +556,7 @@ impl Spline {
     }
 
     pub fn max_position_size(&self, side: SplineSide) -> Option<BaseLots> {
-        self.has_max_position_size.then(|| match side {
+        self.has_max_position_size.then_some(match side {
             SplineSide::Bid => self.max_position_size_long,
             SplineSide::Ask => self.max_position_size_short,
         })

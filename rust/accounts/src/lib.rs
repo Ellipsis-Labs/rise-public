@@ -41,6 +41,7 @@ pub mod pda;
 pub mod permission;
 pub mod perp_asset_map;
 pub mod spline_collection;
+pub mod spot_collateral;
 pub mod stop_losses;
 pub mod trader;
 pub mod withdraw_queue;
@@ -61,6 +62,7 @@ pub mod prelude {
     pub use super::permission::*;
     pub use super::perp_asset_map::*;
     pub use super::spline_collection::*;
+    pub use super::spot_collateral::*;
     pub use super::stop_losses::*;
     pub use super::trader::capabilities::*;
     pub use super::trader::preferences::*;
