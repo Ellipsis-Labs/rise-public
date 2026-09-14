@@ -934,6 +934,16 @@
     {
       "program": "phoenix-eternal",
       "enumName": "PhoenixInstruction",
+      "instructionName": "AcknowledgeRestart",
+      "snakeCaseName": "acknowledge_restart",
+      "preimage": "global:acknowledge_restart",
+      "tag": "11256301435470231763",
+      "discriminatorHex": "d338ec61846a369c",
+      "discriminatorBase64": "0zjsYYRqNpw="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
       "instructionName": "EnableFeature",
       "snakeCaseName": "enable_feature",
       "preimage": "global:enable_feature",

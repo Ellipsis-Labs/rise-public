@@ -264,6 +264,10 @@ pub enum AdminParameterUpdateKind {
         previous: SpotCollateralMetadata,
         new: SpotCollateralMetadata,
     },
+    AcknowledgedRestartSlot {
+        previous: u64,
+        new: u64,
+    },
 }
 
 impl fmt::Display for AdminParameterUpdateKind {
@@ -344,6 +348,9 @@ impl fmt::Display for AdminParameterUpdateKind {
                     f,
                     "SpotCollateralConfig(asset_index={asset_index}, {previous:?} -> {new:?})"
                 )
+            }
+            Self::AcknowledgedRestartSlot { previous, new } => {
+                write!(f, "AcknowledgedRestartSlot({previous} -> {new})")
             }
         }
     }

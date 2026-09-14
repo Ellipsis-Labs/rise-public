@@ -86,7 +86,9 @@ pub use exchange_cache::{
     PhoenixExchangeCacheStore, SharedExchangeCacheStore,
 };
 pub use flight_client::PhoenixFlightClient;
-pub use http_client::{PhoenixHttpClient, PhoenixHttpClientBuilder, RateLimitRetryConfig};
+pub use http_client::{
+    PhoenixHttpClient, PhoenixHttpClientBuilder, RateLimitCooldownConfig, RateLimitRetryConfig,
+};
 pub use http_error::PhoenixHttpError;
 pub use metadata::PhoenixMetadata;
 pub use phoenix_rise_types::exchange::{ExchangeKeysView, ExchangeMarketConfig, ExchangeView};

@@ -23,6 +23,7 @@ pub struct GlobalConfiguration {
     pub deposit_cooldown_period_in_slots: u64,
     pub pending_authorities: AuthoritySet,
     pub native_sol_spot_metadata: SpotCollateralMetadata,
+    pub acknowledged_restart_slot: u64,
 }
 
 impl AccountDeserialize for GlobalConfiguration {
@@ -72,6 +73,7 @@ impl From<borrowed::GlobalConfig> for GlobalConfiguration {
                 backstop_authority: Pubkey::new_from_array(value.pending_backstop_authority()),
             },
             native_sol_spot_metadata: value.native_sol_spot_metadata().into(),
+            acknowledged_restart_slot: value.acknowledged_restart_slot(),
         }
     }
 }
@@ -79,5 +81,14 @@ impl From<borrowed::GlobalConfig> for GlobalConfiguration {
 impl GlobalConfiguration {
     pub fn try_from_account_bytes(data: &[u8]) -> Result<Self, AccountDeserializeError> {
         <Self as AccountDeserialize>::try_from_account_bytes(data)
+    }
+
+    /// Returns the effective activity exposed to off-chain callers.
+    /// A zero acknowledged slot is the legacy/uninitialized sentinel.
+    pub fn is_exchange_active(&self, last_restart_slot: Option<u64>) -> bool {
+        let stored_active = self.exchange_status & 0b1000_0001 == 0b1000_0001;
+        stored_active
+            && (self.acknowledged_restart_slot == 0
+                || last_restart_slot == Some(self.acknowledged_restart_slot))
     }
 }

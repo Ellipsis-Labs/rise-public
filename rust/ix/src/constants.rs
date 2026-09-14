@@ -504,10 +504,11 @@ mod tests {
                 "update_spline_position_limits_config",
             ),
             ("CloseTraderAccount", "close_trader_account"),
+            ("AcknowledgeRestart", "acknowledge_restart"),
             ("EnableFeature", "enable_feature"),
         ];
 
-        assert_eq!(ETERNAL_INSTRUCTIONS.len(), 92);
+        assert_eq!(ETERNAL_INSTRUCTIONS.len(), 93);
         for (instruction_name, snake_case_name) in ETERNAL_INSTRUCTIONS {
             let by_instruction_name = PhoenixInstruction::from_instruction_name(instruction_name)
                 .unwrap_or_else(|| panic!("missing {instruction_name}"));
