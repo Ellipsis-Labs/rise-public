@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.75 - 2026-09-14
+
+Source Phoenix commit: `8b82f4267044e45cd33050bf86138e845866e049`
+
+### Summary
+
+- Added spot collateral balance support: new `SpotCollateralBalance` type and `SpotCollateralBalanceSchema`, exported from both `_exports/public-types.ts` and `types/index.ts`.
+- `TraderView` now includes an optional `spotCollaterals` field (`SpotCollateralBalance[]`, defaults to `[]`) alongside the existing `collateralBalance`.
+- Trader-state WebSocket snapshots and deltas gained a new `TraderStateSpotCollateral` shape (`assetIndex`, `symbol`, `balance`) and an optional `spotCollaterals` array on `TraderStateSubaccountSnapshot` / `TraderStateSubaccountDelta`.
+- `TraderStateManager` now tracks `spotCollaterals` through subaccount state construction, snapshot/delta application, and initial state, defaulting to an empty array when absent.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- All new fields are additive and optional (default `[]`), so existing consumers deserializing `TraderView` or trader-state snapshots/deltas do not need code changes.
+- Consumers who want per-asset spot collateral detail (balance, notional, discounted, withdrawable) can start reading `TraderView.spotCollaterals` or `TraderStateSubaccountState.spotCollaterals`.
+
 ## v0.4.74 - 2026-09-14
 
 Source Phoenix commit: `e5cc47a90b5069779e5e5b647a1ce07d446b31bf`

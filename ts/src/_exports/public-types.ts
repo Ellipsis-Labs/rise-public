@@ -8,6 +8,8 @@ export {
   type CapabilityAccess,
   type TraderCapabilities,
   TraderCapabilitiesSchema,
+  type SpotCollateralBalance,
+  SpotCollateralBalanceSchema,
   type TraderView,
   TraderViewSchema,
   type MarketUnits,
