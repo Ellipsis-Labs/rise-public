@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.4.69 - 2026-09-14
+
+Source Phoenix commit: `68ec7e66b25a869e95ba56ac5bca31fbdef2209d`
+
+### Summary
+
+- Added `buildFlameAtomicDepositFlow`, a new flow that bundles Flame proxy funding, permission setup, and the Flame `DepositToPhoenix` instruction into one atomic, sponsor-payable deposit.
+- Added the underlying `buildFlameDepositToPhoenixIx` instruction builder plus `deriveFlameDepositToPhoenixAddresses` and `deriveFlameGlobalStateAddress` address helpers, all exported from the package root.
+- Added a new `DEPOSIT_PERMISSION` bitflag constant alongside the existing trader onboarding/management permissions.
+- Sponsors act as the crank/fee payer for the new deposit instruction, fronting rent for a transient proxy Phoenix ATA that is refunded on close within the same instruction, so wallets with no SOL can complete a deposit.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `buildFlameAtomicDepositFlow` currently only supports `traderSubaccountIndex: 0`; passing any other value throws `"Flame atomic deposit sponsorship only supports traderSubaccountIndex 0"`.
+- `buildDepositFlow` is unchanged and remains the direct Ember + Phoenix deposit path; use the new flow only when you need a single-transaction sponsored deposit via Flame.
+
 ## v0.4.68 - 2026-07-10
 
 Source Phoenix commit: `3343d458b9162061b4f810408bee2b14bcdf6af0`
