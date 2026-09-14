@@ -370,6 +370,7 @@ fn trader_onboarder_rejects_permission_with_no_uses_remaining() {
     let permission = Permission::try_from_account_bytes(&permission_data)
         .expect("permission account should decode");
     assert_eq!(permission.allowed_signer_actions, 0);
+    assert_eq!(permission.permission, 0);
 
     let ready_retry_result = context.try_send_instructions_with_metadata(
         vec![create_trader_idempotent_ix(
@@ -409,7 +410,7 @@ fn trader_onboarder_rejects_permission_with_no_uses_remaining() {
         logs,
         "trader onboarding permission signer actions remaining=0",
     );
-    assert_logs_contain(logs, "permission account has no uses remaining");
+    assert_logs_contain(logs, "permission account is not set for trader onboarding");
     assert_logs_do_not_contain(logs, "trader already exists");
     assert_logs_do_not_contain(logs, "trader already has required capabilities");
     assert_logs_do_not_contain(logs, "Phoenix Eternal: RegisterTrader");
@@ -460,7 +461,7 @@ fn trader_onboarder_rejects_permission_with_no_uses_remaining() {
         logs,
         "trader onboarding permission signer actions remaining=0",
     );
-    assert_logs_contain(logs, "permission account has no uses remaining");
+    assert_logs_contain(logs, "permission account is not set for trader onboarding");
     assert_logs_do_not_contain(logs, "Phoenix Eternal: RegisterTrader");
     assert_logs_do_not_contain(logs, "Phoenix Eternal Admin: SetTraderCapability");
 }
