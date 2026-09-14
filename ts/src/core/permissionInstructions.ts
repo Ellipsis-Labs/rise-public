@@ -73,6 +73,7 @@ export type SetPermissionDelegatedAccounts = readonly AccountMeta[];
 
 export const TRADER_ONBOARDING_PERMISSION: bigint = 1n << 4n;
 export const TRADER_MANAGEMENT_PERMISSION: bigint = 1n << 7n;
+export const DEPOSIT_PERMISSION: bigint = 1n << 12n;
 
 export const getCreatePermissionEncoder = (): Encoder<void> =>
   getConstantEncoder(DISCRIMINANTS.CREATE_PERMISSION);

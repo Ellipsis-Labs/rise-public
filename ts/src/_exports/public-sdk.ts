@@ -277,11 +277,17 @@ export {
 
 export {
   FLAME_PROGRAM_ADDRESS,
+  buildFlameDepositToPhoenixIx,
+  deriveFlameDepositToPhoenixAddresses,
   deriveFlameDepositAddress,
   deriveFlameDepositAddresses,
+  deriveFlameGlobalStateAddress,
   deriveFlameProxyAuthorityAddress,
   type FlameDepositAddressInput,
   type FlameDepositAddresses,
+  type FlameDepositToPhoenixAddresses,
+  type FlameDepositToPhoenixIx,
+  type FlameDepositToPhoenixParams,
   type FlameProxyAuthorityAddressInput,
   type ResolveFlameAddressesInput,
 } from "../flame";
@@ -300,6 +306,7 @@ export {
   getSetPermissionParamsCodec,
   getSetPermissionParamsDecoder,
   getSetPermissionParamsEncoder,
+  DEPOSIT_PERMISSION,
   TRADER_MANAGEMENT_PERMISSION,
   TRADER_ONBOARDING_PERMISSION,
   type CreatePermissionAccounts,
@@ -359,6 +366,7 @@ export {
 
 export {
   buildDepositFlow,
+  buildFlameAtomicDepositFlow,
   buildFlameDepositFundingFlow,
   buildGrantEscrowPermissionFlow,
   buildPlaceLimitOrderFlow,
@@ -369,6 +377,9 @@ export {
   type DepositFlowInstructions,
   type DepositFlowParams,
   type DepositFlowResult,
+  type FlameAtomicDepositFlowInstructions,
+  type FlameAtomicDepositFlowParams,
+  type FlameAtomicDepositFlowResult,
   type FlameDepositFundingFlowInstructions,
   type FlameDepositFundingFlowParams,
   type FlameDepositFundingFlowResult,
