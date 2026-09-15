@@ -3,6 +3,24 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.4 - 2026-09-15
+
+Source Phoenix commit: `6f2ee74196c4494d2899c3a677a99255fe59458e`
+
+### Summary
+
+- Bump the shared Rise Rust workspace release to `0.5.4` (`sdk`, `accounts`, `api`, `core`, `events`, `ix`, `math`, `litesvm-test`, `cli`, `types`).
+- Fix a concurrency bug in `api`'s HTTP transport: the client now compares only credential fields (access token, refresh token, PoP key) when deciding whether a session needs reloading, instead of the full session snapshot. Previously, derived expiry timestamps and the per-request PoP counter — which change independently of a real credential refresh — could mask a concurrently-refreshed session or trigger spurious reload skips.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- No public API signatures changed; `PhoenixApiClient` consumers making concurrent requests should see auth refresh correctly detected across requests instead of being masked by unrelated expiry/counter drift.
+- Update to `0.5.4` to pick up the auth refresh fix.
+
 ## v0.5.3 - 2026-09-15
 
 Source Phoenix commit: `e902efb7e98b284b8a56cae5c98df492a7d0ac4b`

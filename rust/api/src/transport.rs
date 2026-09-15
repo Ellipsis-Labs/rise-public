@@ -19,8 +19,8 @@ use tracing_opentelemetry::OpenTelemetrySpanExt;
 use url::Url;
 
 use crate::auth::{
-    AuthError, AuthResponseBody, AuthSession, AuthSessionStore, PhoenixAuthSigner,
-    PhoenixSessionManager, RefreshRequestBody, login_with_auth_signer,
+    AuthError, AuthResponseBody, AuthSession, AuthSessionSnapshot, AuthSessionStore,
+    PhoenixAuthSigner, PhoenixSessionManager, RefreshRequestBody, login_with_auth_signer,
 };
 use crate::auth_lifecycle::{
     AuthLifecycleController, AuthLifecycleError, AuthLifecycleErrorReason, AuthLifecycleState,
@@ -459,7 +459,7 @@ impl PhoenixApiClient {
 
         if let Some(candidate) = refresh_candidate
             && let Some(current) = self.current_auth_session().await?
-            && current.snapshot() != candidate
+            && !session_credentials_match(&current.snapshot(), &candidate)
             && !access_expires_at_is_expired(&current)
         {
             return Ok(());
@@ -704,6 +704,17 @@ fn should_reload_for_error_code(error_code: Option<&str>) -> bool {
         error_code,
         Some("invalid_access_token") | Some("access_jti_mismatch")
     )
+}
+
+fn session_credentials_match(
+    current: &AuthSessionSnapshot,
+    candidate: &AuthSessionSnapshot,
+) -> bool {
+    // Derived expiry values and the per-request PoP counter can change without
+    // refreshed credentials. Expiration is checked separately.
+    current.access_token == candidate.access_token
+        && current.refresh_token == candidate.refresh_token
+        && current.pop_key == candidate.pop_key
 }
 
 fn sessions_match_for_reload(current_session: &AuthSession, loaded_session: &AuthSession) -> bool {
@@ -1117,6 +1128,55 @@ mod tests {
             .and_then(|value| value.to_str().ok())
             .expect("traceparent header should be present");
         assert!(traceparent.contains("4bf92f3577b34da6a3ce929d0e0e4736"));
+    }
+
+    #[test]
+    fn refresh_comparison_ignores_derived_expiry_and_request_counter() {
+        let candidate = AuthSessionSnapshot {
+            access_token: "access-token".into(),
+            refresh_token: Some("refresh-token".into()),
+            pop_key: "pop-key".into(),
+            access_expires_at: Some(1_000),
+            refresh_expires_at: Some(2_000),
+            counter: 7,
+        };
+        let later = AuthSessionSnapshot {
+            access_expires_at: Some(999),
+            refresh_expires_at: Some(1_999),
+            counter: 8,
+            ..candidate.clone()
+        };
+        assert_ne!(candidate, later);
+        assert!(session_credentials_match(&candidate, &later));
+        for changed in [
+            AuthSessionSnapshot {
+                access_token: "different-access-token".into(),
+                ..candidate.clone()
+            },
+            AuthSessionSnapshot {
+                refresh_token: Some("different-refresh-token".into()),
+                ..candidate.clone()
+            },
+            AuthSessionSnapshot {
+                pop_key: "different-pop-key".into(),
+                ..candidate.clone()
+            },
+        ] {
+            assert!(!session_credentials_match(&candidate, &changed));
+        }
+    }
+
+    #[test]
+    fn captured_session_snapshot_detects_refresh_through_shared_handle() {
+        let session = expired_session();
+        let candidate = session.snapshot();
+        let shared_session = session.clone();
+        let replacement = AuthSessionSnapshot {
+            access_token: test_jwt("refreshed-jti", future_unix_secs(Duration::from_secs(900))),
+            ..candidate.clone()
+        };
+        shared_session.update_from_snapshot(replacement).unwrap();
+        assert!(!session_credentials_match(&session.snapshot(), &candidate));
     }
 
     #[tokio::test]
