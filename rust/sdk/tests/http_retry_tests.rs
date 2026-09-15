@@ -8,7 +8,9 @@ use axum::http::header::{CONTENT_TYPE, RETRY_AFTER};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
-use phoenix_rise::api::{PhoenixHttpClient, PhoenixHttpError, RateLimitRetryConfig};
+use phoenix_rise::api::{
+    PhoenixHttpClient, PhoenixHttpError, RateLimitCooldownConfig, RateLimitRetryConfig,
+};
 use serde_json::json;
 use tokio::net::TcpListener;
 
@@ -117,6 +119,71 @@ async fn retry_after_beyond_max_total_wait_returns_rate_limited_without_sleeping
     server.abort();
 }
 
+#[tokio::test]
+async fn independent_get_waits_for_shared_rate_limit_cooldown() {
+    let state = TestState::new(1, "1");
+    let (base_url, server) = spawn_test_server(state.clone()).await;
+
+    let client = PhoenixHttpClient::builder(base_url).build().unwrap();
+    let first_client = client.clone();
+    let first = tokio::spawn(async move { first_client.exchange().get_keys().await });
+
+    wait_for_exchange_key_calls(&state, 1).await;
+
+    let second_client = client.clone();
+    let second = tokio::spawn(async move { second_client.exchange().get_keys().await });
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert_eq!(state.exchange_keys_calls(), 1);
+    assert!(!second.is_finished());
+
+    let first_keys = first.await.unwrap().unwrap();
+    let second_keys = second.await.unwrap().unwrap();
+
+    assert_eq!(first_keys.global_config, "11111111111111111111111111111111");
+    assert_eq!(
+        second_keys.global_config,
+        "11111111111111111111111111111111"
+    );
+    assert_eq!(state.exchange_keys_calls(), 3);
+
+    server.abort();
+}
+
+#[tokio::test]
+async fn disabling_shared_rate_limit_cooldown_preserves_independent_get_behavior() {
+    let state = TestState::new(1, "1");
+    let (base_url, server) = spawn_test_server(state.clone()).await;
+
+    let client = PhoenixHttpClient::builder(base_url)
+        .with_rate_limit_cooldown_config(RateLimitCooldownConfig::disabled())
+        .build()
+        .unwrap();
+    let first_client = client.clone();
+    let first = tokio::spawn(async move { first_client.exchange().get_keys().await });
+
+    wait_for_exchange_key_calls(&state, 1).await;
+
+    let second_client = client.clone();
+    let second = tokio::spawn(async move { second_client.exchange().get_keys().await });
+    let second_keys = tokio::time::timeout(Duration::from_millis(500), second)
+        .await
+        .expect("second independent GET should not wait for shared cooldown")
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(
+        second_keys.global_config,
+        "11111111111111111111111111111111"
+    );
+    assert!(state.exchange_keys_calls() >= 2);
+
+    let first_keys = first.await.unwrap().unwrap();
+    assert_eq!(first_keys.global_config, "11111111111111111111111111111111");
+
+    server.abort();
+}
+
 async fn spawn_test_server(state: TestState) -> (String, tokio::task::JoinHandle<()>) {
     let app = Router::new()
         .route(
@@ -132,6 +199,17 @@ async fn spawn_test_server(state: TestState) -> (String, tokio::task::JoinHandle
     });
 
     (format!("http://{}", addr), server)
+}
+
+async fn wait_for_exchange_key_calls(state: &TestState, expected_calls: usize) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+    while state.exchange_keys_calls() < expected_calls {
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "timed out waiting for exchange key call count to reach {expected_calls}"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
 }
 
 fn assert_rate_limited(error: PhoenixHttpError, retry_after_seconds: Option<u64>, attempts: u32) {

@@ -14,7 +14,7 @@ const GLOBAL_CONFIG_ACCOUNT: &str = "GlobalConfig";
 const GLOBAL_CONFIG_PREFIX_LEN: usize = core::mem::size_of::<GlobalConfigPrefixRaw>();
 
 const_assert_eq!(core::mem::size_of::<AuthoritySetRaw>(), 256);
-const_assert_eq!(core::mem::size_of::<GlobalConfigPrefixRaw>(), 1096);
+const_assert_eq!(core::mem::size_of::<GlobalConfigPrefixRaw>(), 1104);
 
 // `native_sol_spot_metadata` was carved out of reserved bytes, so a drifting
 // prefix silently decodes garbage rather than failing a length check.
@@ -25,6 +25,10 @@ const_assert_eq!(
 const_assert_eq!(
     core::mem::offset_of!(GlobalConfigPrefixRaw, native_sol_spot_metadata),
     776
+);
+const_assert_eq!(
+    core::mem::offset_of!(GlobalConfigPrefixRaw, acknowledged_restart_slot),
+    1096
 );
 
 #[repr(C)]
@@ -61,6 +65,7 @@ struct GlobalConfigPrefixRaw {
     deposit_cooldown_period_in_slots: u64,
     pending_authorities: AuthoritySetRaw,
     native_sol_spot_metadata: SpotCollateralMetadata,
+    acknowledged_restart_slot: u64,
 }
 
 /// View over the GlobalConfig fields most CPI callers need.
@@ -195,6 +200,24 @@ impl GlobalConfig {
     }
 
     #[inline(always)]
+    pub const fn acknowledged_restart_slot(&self) -> u64 {
+        self.raw.acknowledged_restart_slot
+    }
+
+    /// Returns the effective activity exposed to off-chain callers.
+    /// A zero acknowledged slot is the legacy/uninitialized sentinel.
+    #[inline(always)]
+    pub const fn is_exchange_active(&self, last_restart_slot: Option<u64>) -> bool {
+        let stored_active = self.raw.exchange_status & 0b1000_0001 == 0b1000_0001;
+        stored_active
+            && (self.raw.acknowledged_restart_slot == 0
+                || matches!(
+                    last_restart_slot,
+                    Some(slot) if slot == self.raw.acknowledged_restart_slot
+                ))
+    }
+
+    #[inline(always)]
     pub const fn pending_root_authority(&self) -> [u8; 32] {
         self.raw.pending_authorities.root_authority
     }
@@ -241,7 +264,7 @@ impl serde::Serialize for GlobalConfig {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_struct("GlobalConfig", 30)?;
+        let mut state = serializer.serialize_struct("GlobalConfig", 31)?;
         state.serialize_field("account_key", &pubkey_string(&self.account_key()))?;
         state.serialize_field("root_authority", &pubkey_string(&self.root_authority()))?;
         state.serialize_field("risk_authority", &pubkey_string(&self.risk_authority()))?;
@@ -323,6 +346,10 @@ impl serde::Serialize for GlobalConfig {
             &pubkey_string(&self.pending_backstop_authority()),
         )?;
         state.serialize_field("native_sol_spot_metadata", self.native_sol_spot_metadata())?;
+        state.serialize_field(
+            "acknowledged_restart_slot",
+            &self.acknowledged_restart_slot(),
+        )?;
         state.end()
     }
 }
@@ -335,11 +362,13 @@ mod tests {
     };
 
     /// On-chain `GlobalConfiguration` is 2560 bytes; the prefix this crate
-    /// decodes is only the leading 1096.
+    /// decodes is only the leading 1104.
     const GLOBAL_CONFIG_ACCOUNT_LEN: usize = 2560;
     const SPOT_METADATA_OFFSET: usize = 776;
     const SPOT_FLAGS_OFFSET: usize = SPOT_METADATA_OFFSET + 104;
     const SPOT_MAX_GLOBAL_BALANCE_OFFSET: usize = SPOT_METADATA_OFFSET + 48;
+    const EXCHANGE_STATUS_OFFSET: usize = 504;
+    const ACKNOWLEDGED_RESTART_SLOT_OFFSET: usize = 1096;
 
     fn global_config_bytes(spot_flags: u8) -> Vec<u8> {
         let mut data = vec![0u8; GLOBAL_CONFIG_ACCOUNT_LEN];
@@ -374,5 +403,24 @@ mod tests {
 
         assert!(config.native_sol_spot_metadata().is_zeroed());
         assert!(!config.native_sol_spot_metadata().is_active());
+    }
+
+    #[test]
+    fn restart_interlock_fields_decode_at_on_chain_offsets() {
+        let mut data = global_config_bytes(0);
+        data[EXCHANGE_STATUS_OFFSET] = 0b1000_0001;
+        data[ACKNOWLEDGED_RESTART_SLOT_OFFSET..ACKNOWLEDGED_RESTART_SLOT_OFFSET + 8]
+            .copy_from_slice(&42u64.to_le_bytes());
+
+        let config = GlobalConfig::try_from_account_bytes(&data).unwrap();
+        assert_eq!(config.acknowledged_restart_slot(), 42);
+        assert!(config.is_exchange_active(Some(42)));
+        assert!(!config.is_exchange_active(Some(43)));
+        assert!(!config.is_exchange_active(None));
+
+        data[ACKNOWLEDGED_RESTART_SLOT_OFFSET..ACKNOWLEDGED_RESTART_SLOT_OFFSET + 8]
+            .copy_from_slice(&0u64.to_le_bytes());
+        let config = GlobalConfig::try_from_account_bytes(&data).unwrap();
+        assert!(config.is_exchange_active(None));
     }
 }

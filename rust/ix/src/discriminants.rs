@@ -354,6 +354,7 @@ define_instruction_discriminants! {
         CancelAllPlusConditional => "cancel_all_plus_conditional",
         UpdateSplinePositionLimitsConfig => "update_spline_position_limits_config",
         CloseTraderAccount => "close_trader_account",
+        AcknowledgeRestart => "acknowledge_restart",
         EnableFeature => "enable_feature",
         SyncNative => "sync_native",
         WithdrawNativeSol => "withdraw_native_sol",

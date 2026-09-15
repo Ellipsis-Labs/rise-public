@@ -142,11 +142,11 @@ def internal_dependencies(workspace: Workspace, package: Package) -> set[str]:
             )
 
         dependency_req = dependency.get("req", "").replace(" ", "")
-        expected_req = f"={dependency_package.version}"
-        if dependency_req != expected_req:
+        expected_reqs = (f"={dependency_package.version}", f"^{dependency_package.version}")
+        if dependency_req not in expected_reqs:
             fail(
                 f"{package.name} depends on {dependency_name} with version requirement "
-                f"{dependency_req!r}; expected exact requirement {expected_req!r}"
+                f"{dependency_req!r}; expected {expected_reqs[0]!r} or {expected_reqs[1]!r}"
             )
 
         dependencies.add(dependency_name)

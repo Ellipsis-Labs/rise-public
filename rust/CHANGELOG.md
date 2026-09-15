@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.1 - 2026-09-14
+
+Source Phoenix commit: `da9e74fe54eb6430cedc59ff530feaa5da8130e9`
+
+### Summary
+
+- **accounts**: `GlobalConfig`/`GlobalConfiguration` decode a new `acknowledged_restart_slot` field and expose `is_exchange_active(last_restart_slot)` to compute effective exchange activity across a restart interlock.
+- **api**: `PhoenixHttpClient` adds a shared, client-wide rate-limit cooldown (`RateLimitCooldownConfig`) so independent retryable GET requests can wait out an active `Retry-After` window instead of hammering the server in parallel.
+- **events**: `AdminParameterUpdateKind` gains an `AcknowledgedRestartSlot { previous, new }` variant.
+- **ix**: adds a new `AcknowledgeRestart` instruction and discriminant.
+
+### Breaking Changes
+
+- **accounts**: `GlobalConfigPrefixRaw`/`GlobalConfiguration` grew by 8 bytes (1096 -> 1104) to add `acknowledged_restart_slot`; downstream code that constructs `GlobalConfiguration` via struct literal, or hardcodes the previous prefix length/offsets, must be updated.
+- **events / ix**: `AdminParameterUpdateKind` and `PhoenixInstruction` each gained a new public enum variant (`AcknowledgedRestartSlot`, `AcknowledgeRestart`); exhaustive `match` statements over these enums in downstream code will fail to compile until updated.
+- **api**: the new rate-limit cooldown is **enabled by default** on `PhoenixHttpClient`. Independent GET calls made on a shared/cloned client can now block waiting on another request's `Retry-After` cooldown, a behavior change even though existing code still compiles. Use `.disable_rate_limit_cooldown()` (builder) or `RateLimitCooldownConfig::disabled()` to restore the previous per-request-only behavior.
+
+### Consumer Notes
+
+- **api**: `Retry-After`-driven retry delays for the request that hit the 429 now always add small positive jitter (100–115%) instead of using the raw header value verbatim.
+- **api**: new `RateLimitCooldownConfig` is exported from `phoenix_rise_api`/`phoenix_rise::api`; configure it via `PhoenixHttpClientBuilder::with_rate_limit_cooldown_config` / `with_rate_limit_cooldown_enabled`, or the client's `set_rate_limit_cooldown_*` setters.
+- **accounts**: prefer the new `acknowledged_restart_slot()` / `is_exchange_active(last_restart_slot)` accessors over reading raw `exchange_status` bits when checking exchange activity after a restart.
+
 ## v0.5.0 - 2026-09-14
 
 Source Phoenix commit: `7e656050cf75743be140e7fb1ab849056f002e62`
