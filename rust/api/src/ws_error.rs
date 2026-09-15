@@ -46,6 +46,15 @@ pub enum PhoenixWsError {
     #[error("Invalid trader key: {0}")]
     InvalidTraderKey(String),
 
+    /// A filtered market-stats V2 subscription must include at least one
+    /// symbol.
+    #[error("marketStatsV2 symbols must not be empty; omit symbols to subscribe to all markets")]
+    EmptyMarketStatsV2Symbols,
+
+    /// Market-stats V2 symbols must contain non-whitespace text.
+    #[error("marketStatsV2 symbols must not contain empty values")]
+    BlankMarketStatsV2Symbol,
+
     /// Missing environment variable.
     #[error("Missing environment variable: {0}")]
     MissingEnvVar(String),

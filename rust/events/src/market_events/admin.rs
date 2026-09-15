@@ -264,10 +264,8 @@ pub enum AdminParameterUpdateKind {
         previous: SpotCollateralMetadata,
         new: SpotCollateralMetadata,
     },
-    AcknowledgedRestartSlot {
-        previous: u64,
-        new: u64,
-    },
+    /// Reserved tag 17; must not be emitted.
+    Reserved,
 }
 
 impl fmt::Display for AdminParameterUpdateKind {
@@ -349,9 +347,7 @@ impl fmt::Display for AdminParameterUpdateKind {
                     "SpotCollateralConfig(asset_index={asset_index}, {previous:?} -> {new:?})"
                 )
             }
-            Self::AcknowledgedRestartSlot { previous, new } => {
-                write!(f, "AcknowledgedRestartSlot({previous} -> {new})")
-            }
+            Self::Reserved => write!(f, "Reserved"),
         }
     }
 }

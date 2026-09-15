@@ -217,6 +217,7 @@ impl PhoenixExchangeCacheStore {
                 ExchangeDeltaOp::ExchangeStatusChanged {
                     new_bits,
                     new_features,
+                    running_state,
                     active,
                     gated,
                     withdrawals_available,
@@ -224,6 +225,7 @@ impl PhoenixExchangeCacheStore {
                 } => {
                     next_snapshot.exchange.exchange_status_bits = *new_bits;
                     next_snapshot.exchange.exchange_status_features = new_features.clone();
+                    next_snapshot.exchange.running_state = *running_state;
                     next_snapshot.exchange.active = *active;
                     next_snapshot.exchange.gated = *gated;
                     next_snapshot.exchange.withdrawals_available = *withdrawals_available;
@@ -680,10 +682,11 @@ fn normalize_symbol(symbol: &str) -> String {
 mod tests {
     use phoenix_rise_types::prelude::{
         AuthoritySet, CommodityMarketState, Decimal, ExchangeMarketParameterUpdate,
-        ExchangeSnapshotMessage, ExchangeWsCommodityMetadata, ExchangeWsFundingConfig,
-        ExchangeWsLeverageTier, ExchangeWsMarkPriceParameters, ExchangeWsMarketPriceBand,
-        ExchangeWsMarketPriceBand as MarketPriceBand, ExchangeWsRiskActionPriceValidityRules,
-        ExchangeWsValidationRule, JsSafeU64, MarketCalendar, SpotAssetConfig,
+        ExchangeRunningState, ExchangeSnapshotMessage, ExchangeWsCommodityMetadata,
+        ExchangeWsFundingConfig, ExchangeWsLeverageTier, ExchangeWsMarkPriceParameters,
+        ExchangeWsMarketPriceBand, ExchangeWsMarketPriceBand as MarketPriceBand,
+        ExchangeWsRiskActionPriceValidityRules, ExchangeWsValidationRule, JsSafeU64,
+        MarketCalendar, SpotAssetConfig,
     };
 
     use super::*;
@@ -727,6 +730,7 @@ mod tests {
                 withdraw_queue: "withdraw-queue".to_string(),
                 exchange_status_bits: 129,
                 exchange_status_features: vec!["initialized".to_string(), "active".to_string()],
+                running_state: ExchangeRunningState::Active,
                 active: true,
                 gated: false,
                 withdrawals_available: true,
@@ -858,6 +862,32 @@ mod tests {
                     previous_base_lots: 5_000_u64.into(),
                     new_base_lots: new_base_lots.into(),
                 },
+            }],
+        }
+    }
+
+    fn build_maintenance_delta(sequence_number: u64) -> ExchangeDeltaMessage {
+        ExchangeDeltaMessage {
+            version: 1,
+            sequence_number: sequence_number.into(),
+            slot: 3,
+            slot_index: 2,
+            ops: vec![ExchangeDeltaOp::ExchangeStatusChanged {
+                previous_bits: 129,
+                new_bits: 133,
+                previous_features: vec!["initialized".to_string(), "active".to_string()],
+                new_features: vec![
+                    "initialized".to_string(),
+                    "active".to_string(),
+                    "maintenance".to_string(),
+                ],
+                enabled_features: vec!["maintenance".to_string()],
+                disabled_features: Vec::new(),
+                previous_running_state: ExchangeRunningState::Active,
+                running_state: ExchangeRunningState::Maintenance,
+                active: false,
+                gated: false,
+                withdrawals_available: false,
             }],
         }
     }
@@ -1002,6 +1032,22 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    #[test]
+    fn applies_effective_exchange_status_fields_from_maintenance_delta() {
+        let mut cache = PhoenixExchangeCacheStore::new(build_snapshot(1, 0));
+        cache.apply_snapshot_message(&build_snapshot_message(10));
+
+        cache
+            .apply_delta(&build_maintenance_delta(11))
+            .expect("maintenance delta should apply");
+
+        let exchange = &cache.snapshot().exchange;
+        assert_eq!(exchange.exchange_status_bits, 133);
+        assert_eq!(exchange.running_state, ExchangeRunningState::Maintenance);
+        assert!(!exchange.active);
+        assert!(!exchange.withdrawals_available);
     }
 
     #[test]

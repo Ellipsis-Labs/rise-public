@@ -10,6 +10,16 @@ use crate::exchange::{
 use crate::js_safe_ints::JsSafeU64;
 use crate::market::MarketStatus;
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ExchangeRunningState {
+    #[default]
+    Unknown,
+    Active,
+    Maintenance,
+    Suspended,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthoritySet {
@@ -127,6 +137,8 @@ pub struct ExchangeStateSnapshot {
     pub withdraw_queue: String,
     pub exchange_status_bits: u8,
     pub exchange_status_features: Vec<String>,
+    #[serde(default)]
+    pub running_state: ExchangeRunningState,
     pub active: bool,
     pub gated: bool,
     #[serde(default = "default_withdrawals_available")]
@@ -327,6 +339,10 @@ pub enum ExchangeDeltaOp {
         new_features: Vec<String>,
         enabled_features: Vec<String>,
         disabled_features: Vec<String>,
+        #[serde(default)]
+        previous_running_state: ExchangeRunningState,
+        #[serde(default)]
+        running_state: ExchangeRunningState,
         active: bool,
         gated: bool,
         #[serde(default = "default_withdrawals_available")]
@@ -547,6 +563,7 @@ mod tests {
                 withdraw_queue: "withdraw-queue".to_string(),
                 exchange_status_bits: 129,
                 exchange_status_features: vec!["active".to_string()],
+                running_state: ExchangeRunningState::Active,
                 active: true,
                 gated: false,
                 withdrawals_available: true,
@@ -663,6 +680,8 @@ mod tests {
                 new_features: vec!["initialized".to_string(), "active".to_string()],
                 enabled_features: vec!["active".to_string()],
                 disabled_features: Vec::new(),
+                previous_running_state: ExchangeRunningState::Unknown,
+                running_state: ExchangeRunningState::Unknown,
                 active: true,
                 gated: false,
                 withdrawals_available: true,

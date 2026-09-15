@@ -75,6 +75,19 @@ Use this when you want typed REST access without the reconnecting live runtime.
   `PhoenixHttpClient::builder(...)`
 - Auth-enabled constructor: `PhoenixHttpClient::new_from_env_with_auth()`
 
+#### Atomic isolated market entry with TP/SL v2
+
+Rust callers opt in with `PlaceIsolatedMarketOrderV2Request` and
+`build_isolated_market_order_tx_v2_with_request()` (or
+`build_isolated_market_order_tx_enhanced_v2_with_request()`) on the HTTP client
+or its `orders()` client. Existing `PlaceIsolatedMarketOrderRequest` struct
+literals and request methods remain source-compatible and use the legacy
+request shape. The HTTP endpoints and JSON field names are unchanged.
+
+Supply `size_percent: Some(100)` and either or both of `greater_trigger` and
+`less_trigger`; do not combine these with `tp_sl`. This requires a backend
+release containing PRO-829.
+
 ### `PhoenixWSClient`
 
 Use this when you want direct typed websocket subscriptions without the

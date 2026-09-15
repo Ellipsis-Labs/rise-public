@@ -493,8 +493,12 @@ impl<'a> PhoenixTxBuilder<'a> {
     /// * `slide` - Whether orders should slide to top of book if they would
     ///   cross
     /// * `reduce_only` - Whether orders may only reduce an existing position
-    /// * `scale_set_id` - 0 = not part of a scale-order set; 1-255 =
+    /// * `scale_set_id` - 0 = not part of a scale-order set; 1-127 =
     ///   caller-assigned ladder id
+    ///
+    /// Continuation packets are built through
+    /// `MultiLimitOrderParamsV2::builder().scale_set_continuation(true)` and
+    /// [`Self::build_multi_limit_order_v2_with_params`].
     #[allow(clippy::too_many_arguments)]
     pub fn build_multi_limit_order_v2(
         &self,

@@ -187,6 +187,8 @@ pub enum MarketEvent {
     SpotCollateralDeposited(SpotCollateralDepositedEvent),
     SpotCollateralWithdrawn(SpotCollateralWithdrawnEvent),
     SpotCollateralLiquidated(SpotCollateralLiquidatedEvent),
+    /// Reserved event payload; retained to preserve stream decoding boundaries.
+    Reserved70([u8; 18]),
 }
 
 /// Stable event type for a decoded [`MarketEvent`].
@@ -266,6 +268,7 @@ pub enum MarketEventType {
     SpotCollateralDeposited,
     SpotCollateralWithdrawn,
     SpotCollateralLiquidated,
+    Reserved70,
 }
 
 impl fmt::Display for MarketEventType {
@@ -365,6 +368,7 @@ impl MarketEvent {
             MarketEvent::SpotCollateralDeposited(_) => MarketEventType::SpotCollateralDeposited,
             MarketEvent::SpotCollateralWithdrawn(_) => MarketEventType::SpotCollateralWithdrawn,
             MarketEvent::SpotCollateralLiquidated(_) => MarketEventType::SpotCollateralLiquidated,
+            MarketEvent::Reserved70(_) => MarketEventType::Reserved70,
         }
     }
 }

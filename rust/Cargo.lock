@@ -2672,7 +2672,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -2712,7 +2712,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-accounts"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "borsh",
  "bs58",
@@ -2727,7 +2727,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-api"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -2772,7 +2772,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-cli"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "base64 0.22.1",
  "bincode",
@@ -2800,7 +2800,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-core"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "base64 0.22.1",
  "borsh",
@@ -2826,7 +2826,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-events"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "borsh",
  "phoenix-rise-math",
@@ -2837,7 +2837,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-ix"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "borsh",
  "bytemuck",
@@ -2855,7 +2855,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-litesvm-test"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "base64 0.22.1",
  "borsh",
@@ -2878,7 +2878,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-math"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "borsh",
  "bytemuck",
@@ -2896,7 +2896,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-types"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "chrono",
  "phoenix-rise-math",
@@ -3496,9 +3496,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.41"
+version = "0.23.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b92b125634d9b795e7beca796cc790df15a7fb38323bf3196fda83292d06b1f"
+checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
 dependencies = [
  "once_cell",
  "ring",
@@ -3520,9 +3520,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.13"
+version = "0.103.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61c429a8649f110dddef65e2a5ad240f747e85f7758a6bccc7e5777bd33f756e"
+checksum = "f3c3cf1d8b1e7d4927e2d154c3fcb02979afb9939629c62cd9048d4f07b60ac2"
 dependencies = [
  "ring",
  "rustls-pki-types",

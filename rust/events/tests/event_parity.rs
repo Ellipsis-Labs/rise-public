@@ -43,20 +43,6 @@ fn representative_event_serialization_matches_phoenix_exchange() {
     );
 }
 
-#[test]
-fn acknowledged_restart_slot_uses_the_expected_admin_update_tag() {
-    let update = borsh::to_vec(&rise::AdminParameterUpdateKind::AcknowledgedRestartSlot {
-        previous: 10,
-        new: 11,
-    })
-    .unwrap();
-
-    let mut expected = vec![17];
-    expected.extend_from_slice(&10_u64.to_le_bytes());
-    expected.extend_from_slice(&11_u64.to_le_bytes());
-    assert_eq!(update, expected);
-}
-
 /// The `SpotCollateralConfig` admin payload embeds the account struct
 /// verbatim, padding included. If this mirror is short, every enclosing event
 /// decodes misaligned from the `new` field onward.

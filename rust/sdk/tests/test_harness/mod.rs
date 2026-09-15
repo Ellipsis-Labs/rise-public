@@ -10,6 +10,7 @@ use litesvm::types::{FailedTransactionMetadata, TransactionMetadata};
 use phoenix_rise::api::PhoenixMetadata;
 use phoenix_rise::ix::HAWKEYE_PROGRAM_ID;
 use phoenix_rise::ix::flight::FLIGHT_PROGRAM_ID;
+use phoenix_rise::ix::twap::FLICKER_PROGRAM_ID;
 use phoenix_rise::types::prelude::{
     AuthoritySetView, ExchangeKeysView, ExchangeMarketConfig, ExchangeRiskFactors, ExchangeView,
     MarketStatus,
@@ -30,6 +31,7 @@ pub const ETERNAL_PROGRAM_ENV: &str = "RISE_SDK_LOCALNET_ETERNAL_SO";
 pub const EMBER_PROGRAM_ENV: &str = "RISE_SDK_LOCALNET_EMBER_SO";
 pub const HAWKEYE_PROGRAM_ENV: &str = "RISE_SDK_LOCALNET_HAWKEYE_SO";
 pub const FLIGHT_PROGRAM_ENV: &str = "RISE_SDK_LOCALNET_FLIGHT_SO";
+pub const FLICKER_PROGRAM_ENV: &str = "RISE_SDK_LOCALNET_FLICKER_SO";
 
 const MICRO_FEE_DENOMINATOR: f64 = 1_000_000.0;
 
@@ -316,6 +318,7 @@ pub struct SdkLocalnetProgramPaths {
     pub ember: PathBuf,
     pub hawkeye: Option<PathBuf>,
     pub flight: Option<PathBuf>,
+    pub flicker: Option<PathBuf>,
 }
 
 pub struct SdkLocalnetContext {
@@ -339,6 +342,9 @@ impl SdkLocalnetContext {
         }
         if let Some(flight) = program_paths.flight.as_ref() {
             load_program(&mut svm, &FLIGHT_PROGRAM_ID.to_string(), flight);
+        }
+        if let Some(flicker) = program_paths.flicker.as_ref() {
+            load_program(&mut svm, &FLICKER_PROGRAM_ID.to_string(), flicker);
         }
 
         let mut signers_by_seed = HashMap::new();
@@ -554,13 +560,17 @@ pub fn find_sdk_localnet_program_paths() -> Option<SdkLocalnetProgramPaths> {
         std::env::var(EMBER_PROGRAM_ENV),
         std::env::var(HAWKEYE_PROGRAM_ENV),
         std::env::var(FLIGHT_PROGRAM_ENV),
+        std::env::var(FLICKER_PROGRAM_ENV),
     ) {
-        (Ok(phoenix_eternal), Ok(ember), hawkeye, flight) => Some(SdkLocalnetProgramPaths {
-            phoenix_eternal: PathBuf::from(phoenix_eternal),
-            ember: PathBuf::from(ember),
-            hawkeye: hawkeye.ok().map(PathBuf::from),
-            flight: flight.ok().map(PathBuf::from),
-        }),
+        (Ok(phoenix_eternal), Ok(ember), hawkeye, flight, flicker) => {
+            Some(SdkLocalnetProgramPaths {
+                phoenix_eternal: PathBuf::from(phoenix_eternal),
+                ember: PathBuf::from(ember),
+                hawkeye: hawkeye.ok().map(PathBuf::from),
+                flight: flight.ok().map(PathBuf::from),
+                flicker: flicker.ok().map(PathBuf::from),
+            })
+        }
         _ => None,
     };
     if explicit.as_ref().is_some_and(program_paths_exist) {
@@ -578,12 +588,16 @@ pub fn find_sdk_localnet_program_paths() -> Option<SdkLocalnetProgramPaths> {
                 flight: optional_program_path(
                     root.join("programs/target/deploy/phoenix_flight.so"),
                 ),
+                flicker: optional_program_path(
+                    root.join("programs/target/deploy/phoenix_flicker.so"),
+                ),
             },
             SdkLocalnetProgramPaths {
                 phoenix_eternal: root.join("target/deploy/phoenix_eternal.so"),
                 ember: root.join("target/deploy/phoenix_ember_program.so"),
                 hawkeye: optional_program_path(root.join("target/deploy/phoenix_hawkeye.so")),
                 flight: optional_program_path(root.join("target/deploy/phoenix_flight.so")),
+                flicker: optional_program_path(root.join("target/deploy/phoenix_flicker.so")),
             },
             SdkLocalnetProgramPaths {
                 phoenix_eternal: root.join("programs/eternal/target/deploy/phoenix_eternal.so"),
@@ -593,6 +607,9 @@ pub fn find_sdk_localnet_program_paths() -> Option<SdkLocalnetProgramPaths> {
                 ),
                 flight: optional_program_path(
                     root.join("programs/flight/target/deploy/phoenix_flight.so"),
+                ),
+                flicker: optional_program_path(
+                    root.join("programs/flicker/target/deploy/phoenix_flicker.so"),
                 ),
             },
         ] {
@@ -628,6 +645,10 @@ fn program_paths_exist(paths: &SdkLocalnetProgramPaths) -> bool {
         }
         && match paths.flight.as_ref() {
             Some(flight) => flight.exists(),
+            None => true,
+        }
+        && match paths.flicker.as_ref() {
+            Some(flicker) => flicker.exists(),
             None => true,
         }
 }

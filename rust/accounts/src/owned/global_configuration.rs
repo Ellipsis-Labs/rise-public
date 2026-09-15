@@ -83,12 +83,15 @@ impl GlobalConfiguration {
         <Self as AccountDeserialize>::try_from_account_bytes(data)
     }
 
-    /// Returns the effective activity exposed to off-chain callers.
-    /// A zero acknowledged slot is the legacy/uninitialized sentinel.
-    pub fn is_exchange_active(&self, last_restart_slot: Option<u64>) -> bool {
-        let stored_active = self.exchange_status & 0b1000_0001 == 0b1000_0001;
-        stored_active
-            && (self.acknowledged_restart_slot == 0
-                || last_restart_slot == Some(self.acknowledged_restart_slot))
+    /// Returns whether the exchange is active for the observed restart slot.
+    ///
+    /// [`borrowed::LastRestartSlot::Unknown`] evaluates only persisted status
+    /// bits.
+    pub fn is_exchange_active(&self, last_restart_slot: borrowed::LastRestartSlot) -> bool {
+        borrowed::is_exchange_active(
+            self.exchange_status,
+            self.acknowledged_restart_slot,
+            last_restart_slot,
+        )
     }
 }

@@ -13,10 +13,11 @@ use parking_lot::Mutex;
 use phoenix_rise_types::prelude::{
     AllMidsData, CandleData, CandlesSubscriptionRequest, ClientMessage, ExchangeMessage,
     ExchangeSnapshotEncoding, ExchangeSubscriptionRequest, FundingRateMessage,
-    FundingRateSubscriptionRequest, L2BookUpdate, MarketStatsUpdate, MarketSubscriptionRequest,
-    OrderbookSubscriptionRequest, ServerMessage, SubscriptionConfirmedMessage,
-    SubscriptionErrorMessage, SubscriptionRequest, Timeframe, TraderStateServerMessage,
-    TraderStateSubscriptionRequest, TradesMessage, TradesSubscriptionRequest,
+    FundingRateSubscriptionRequest, L2BookUpdate, MarketStatsUpdate,
+    MarketStatsV2SubscriptionRequest, MarketStatsV2Update, OrderbookSubscriptionRequest,
+    ServerMessage, SubscriptionConfirmedMessage, SubscriptionErrorMessage, SubscriptionRequest,
+    Timeframe, TraderStateServerMessage, TraderStateSubscriptionRequest, TradesMessage,
+    TradesSubscriptionRequest,
 };
 use solana_pubkey::Pubkey;
 use tokio::sync::mpsc;
@@ -141,6 +142,7 @@ enum Subscriber {
     L2Book(mpsc::UnboundedSender<L2BookUpdate>),
     TraderState(mpsc::UnboundedSender<TraderStateServerMessage>),
     MarketStats(mpsc::UnboundedSender<MarketStatsUpdate>),
+    MarketStatsV2(mpsc::UnboundedSender<MarketStatsV2Update>),
     Trades(mpsc::UnboundedSender<TradesMessage>),
     Candles(mpsc::UnboundedSender<CandleData>),
     Exchange(mpsc::UnboundedSender<ExchangeMessage>),
@@ -524,7 +526,8 @@ impl PhoenixWSClient {
         Ok((rx, handle))
     }
 
-    /// Subscribe to market updates for a given symbol.
+    /// Subscribe to legacy market updates for a given symbol over the V2
+    /// market-stats channel.
     ///
     /// # Arguments
     /// * `symbol` - Market symbol (e.g., "SOL" or "BTC")
@@ -541,16 +544,45 @@ impl PhoenixWSClient {
         ),
         PhoenixWsError,
     > {
+        self.subscribe_to_market_stats_v2_channel(Some(vec![symbol]), Subscriber::MarketStats)
+    }
+
+    /// Subscribe to one batched market-stats snapshot per server refresh.
+    ///
+    /// Pass `None` for all markets, or `Some` with one or more symbols. Symbols
+    /// are normalized before subscription so equivalent filters share one wire
+    /// subscription. Drop the handle to unsubscribe.
+    pub fn subscribe_to_market_stats_v2(
+        &self,
+        symbols: Option<Vec<String>>,
+    ) -> Result<
+        (
+            mpsc::UnboundedReceiver<MarketStatsV2Update>,
+            SubscriptionHandle,
+        ),
+        PhoenixWsError,
+    > {
+        self.subscribe_to_market_stats_v2_channel(symbols, Subscriber::MarketStatsV2)
+    }
+
+    fn subscribe_to_market_stats_v2_channel<T>(
+        &self,
+        symbols: Option<Vec<String>>,
+        subscriber: fn(mpsc::UnboundedSender<T>) -> Subscriber,
+    ) -> Result<(mpsc::UnboundedReceiver<T>, SubscriptionHandle), PhoenixWsError> {
+        validate_market_stats_v2_symbols(&symbols)?;
         let subscriber_id = self.next_subscriber_id.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = mpsc::unbounded_channel();
-        let sub_key = SubscriptionKey::market(symbol.clone());
-        let request = SubscriptionRequest::Market(MarketSubscriptionRequest { symbol });
+        let sub_key = SubscriptionKey::market_stats_v2(symbols);
+        let request = SubscriptionRequest::MarketStatsV2(MarketStatsV2SubscriptionRequest {
+            symbols: sub_key.market_stats_v2_symbols().map(<[String]>::to_vec),
+        });
 
         self.control_tx
             .send(ControlMessage::Subscribe {
                 key: sub_key.clone(),
                 request,
-                subscriber: Subscriber::MarketStats(tx),
+                subscriber: subscriber(tx),
                 subscriber_id,
             })
             .map_err(|_| PhoenixWsError::SubscriptionClosed)?;
@@ -1325,6 +1357,17 @@ impl PhoenixWSClient {
                     |sub: &Subscriber| matches!(sub, Subscriber::MarketStats(tx) if tx.send(msg.clone()).is_err()),
                 );
             }
+            Ok(ServerMessage::MarketStatsV2(msg)) => {
+                let key = SubscriptionKey::market_stats_v2(msg.symbols.clone());
+                let legacy_update = msg.legacy_market_stats_update();
+                Self::broadcast_to_subscribers(subscribers, &key, |sub| match sub {
+                    Subscriber::MarketStatsV2(tx) => tx.send(msg.clone()).is_err(),
+                    Subscriber::MarketStats(tx) => legacy_update
+                        .as_ref()
+                        .is_some_and(|update| tx.send(update.clone()).is_err()),
+                    _ => false,
+                });
+            }
             Ok(ServerMessage::Trades(msg)) => {
                 let key = SubscriptionKey::trades(msg.symbol.clone());
                 Self::broadcast_to_subscribers(
@@ -1403,6 +1446,19 @@ fn is_ws_auth_error(error: &TungsteniteError) -> bool {
 
 fn ws_auth_error(error: impl std::fmt::Display) -> PhoenixWsError {
     PhoenixWsError::Authentication(error.to_string())
+}
+
+fn validate_market_stats_v2_symbols(symbols: &Option<Vec<String>>) -> Result<(), PhoenixWsError> {
+    let Some(symbols) = symbols else {
+        return Ok(());
+    };
+    if symbols.is_empty() {
+        return Err(PhoenixWsError::EmptyMarketStatsV2Symbols);
+    }
+    if symbols.iter().any(|symbol| symbol.trim().is_empty()) {
+        return Err(PhoenixWsError::BlankMarketStatsV2Symbol);
+    }
+    Ok(())
 }
 #[cfg(feature = "opentelemetry")]
 fn trace_parent_context(provider: Option<&TraceContextProvider>) -> Option<Context> {
@@ -1495,6 +1551,24 @@ mod tests {
     }
 
     #[test]
+    fn market_stats_v2_symbols_are_canonicalized() {
+        assert_eq!(
+            SubscriptionKey::market_stats_v2(Some(vec![
+                " sol-perp ".to_string(),
+                "BTC-PERP".to_string(),
+                "SOL-PERP".to_string(),
+            ]))
+            .market_stats_v2_symbols(),
+            Some(["BTC-PERP".to_string(), "SOL-PERP".to_string()].as_slice())
+        );
+        assert!(matches!(
+            validate_market_stats_v2_symbols(&Some(Vec::new())),
+            Err(PhoenixWsError::EmptyMarketStatsV2Symbols)
+        ));
+        assert!(validate_market_stats_v2_symbols(&None).is_ok());
+    }
+
+    #[test]
     fn process_message_forwards_subscription_status_event() {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let subscribers = HashMap::new();
@@ -1519,6 +1593,59 @@ mod tests {
                 subscription: SubscriptionRequest::TraderState(_),
             } if status == "subscribed"
         ));
+    }
+
+    #[test]
+    fn process_message_routes_market_stats_v2_by_exact_filter() {
+        let (filtered_tx, mut filtered_rx) = mpsc::unbounded_channel();
+        let (legacy_tx, mut legacy_rx) = mpsc::unbounded_channel();
+        let (all_tx, mut all_rx) = mpsc::unbounded_channel();
+        let mut subscribers = HashMap::new();
+        subscribers.insert(
+            SubscriptionKey::market_stats_v2(Some(vec!["SOL-PERP".to_string()])),
+            HashMap::from([
+                (1, Subscriber::MarketStatsV2(filtered_tx)),
+                (3, Subscriber::MarketStats(legacy_tx)),
+            ]),
+        );
+        subscribers.insert(
+            SubscriptionKey::market_stats_v2(None),
+            HashMap::from([(2, Subscriber::MarketStatsV2(all_tx))]),
+        );
+        let (event_tx, _event_rx) = mpsc::unbounded_channel();
+        let json = serde_json::to_vec(&json!({
+            "channel": "marketStatsV2",
+            "symbols": ["SOL-PERP"],
+            "stats": [{
+                "symbol": "SOL-PERP",
+                "timestamp": 1,
+                "openInterest": 2.0,
+                "markPrice": 3.0,
+                "midPrice": 3.5,
+                "oraclePrice": 4.0,
+                "prevDayMarkPrice": 5.0,
+                "dayVolumeUsd": 6.0,
+                "dayVolumeBase": 7.0,
+                "currentFundingRate": 8.0,
+                "eightHourFundingRate": 9.0,
+                "annualizedFundingRate": 10.0
+            }]
+        }))
+        .unwrap();
+
+        PhoenixWSClient::process_message(&json, &subscribers, &event_tx);
+
+        let update = filtered_rx
+            .try_recv()
+            .expect("filtered subscriber should receive the batch");
+        assert_eq!(update.stats[0].symbol, "SOL-PERP");
+        let legacy_update = legacy_rx
+            .try_recv()
+            .expect("legacy subscriber should receive the adapted V2 entry");
+        assert_eq!(legacy_update.symbol, "SOL-PERP");
+        assert_eq!(legacy_update.mark_price, 3.0);
+        assert_eq!(legacy_update.mid_price, 3.5);
+        assert!(all_rx.try_recv().is_err());
     }
 
     #[tokio::test]
@@ -1740,6 +1867,7 @@ mod tests {
             withdraw_queue: "withdraw-queue".to_string(),
             exchange_status_bits: 129,
             exchange_status_features: vec!["initialized".to_string(), "active".to_string()],
+            running_state: phoenix_rise_types::prelude::ExchangeRunningState::Active,
             active: true,
             gated: false,
             withdrawals_available: true,

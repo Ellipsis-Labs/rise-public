@@ -25,6 +25,9 @@ pub enum SubscriptionKey {
     Market {
         symbol: String,
     },
+    MarketStatsV2 {
+        symbols: Option<Vec<String>>,
+    },
     Trades {
         symbol: String,
     },
@@ -89,6 +92,27 @@ impl SubscriptionKey {
     pub fn market_from_message(msg: &MarketStatsUpdate) -> Self {
         Self::Market {
             symbol: msg.symbol.clone(),
+        }
+    }
+
+    pub fn market_stats_v2(symbols: Option<Vec<String>>) -> Self {
+        let symbols = symbols.map(|mut symbols| {
+            for symbol in &mut symbols {
+                *symbol = symbol.trim().to_ascii_uppercase();
+            }
+            symbols.sort_unstable();
+            symbols.dedup();
+            symbols
+        });
+        Self::MarketStatsV2 { symbols }
+    }
+
+    pub(crate) fn market_stats_v2_symbols(&self) -> Option<&[String]> {
+        match self {
+            Self::MarketStatsV2 {
+                symbols: Some(symbols),
+            } => Some(symbols),
+            _ => None,
         }
     }
 

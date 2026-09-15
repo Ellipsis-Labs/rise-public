@@ -2369,9 +2369,12 @@ impl TraderPortfolioMargin {
             + SignedQuoteLots::new(self.discounted_spot_collateral().as_inner() as i64)
     }
 
-    /// Mirrors the on-chain `RiskAction::WithdrawQuoteCollateral` semantics:
-    /// spot collateral cannot back a quote-collateral withdrawal, so it is not
-    /// valued here.
+    /// Quote-side effective collateral for the withdrawal action: quote
+    /// collateral plus unrealized PnL discounted at the withdrawal risk factor
+    /// plus unsettled funding, excluding spot collateral. Mirrors the on-chain
+    /// `RiskView::effective_quote_collateral`: the most a quote withdrawal can
+    /// pay out. Spot collateral still backs the margin side of a withdrawal;
+    /// see [`Self::calculate_transferable_collateral`].
     pub fn effective_collateral_for_withdrawals(&self) -> SignedQuoteLots {
         self.quote_lot_collateral
             + self.margin.discounted_pnl_for_withdrawals
@@ -2470,30 +2473,32 @@ impl TraderPortfolioMargin {
         Ok(prices)
     }
 
+    /// Maximum quote collateral transferable or withdrawable, mirroring the
+    /// on-chain `get_max_quote_withdrawable_amount`: the tighter of the margin
+    /// bound (withdrawal effective collateral, spot included, minus the
+    /// withdrawal initial margin for positions and open limit orders) and the
+    /// payout bound (the positive part of
+    /// [`Self::effective_collateral_for_withdrawals`], since spot collateral is
+    /// never paid out as quote).
     pub fn calculate_transferable_collateral(&self) -> Result<u64, MarginError> {
-        let available_collateral = self.effective_collateral_for_withdrawals();
-
-        // If trader has no positions or limit orders, all collateral is transferable
-        if self.positions.is_empty() {
-            return Ok(available_collateral.max(SignedQuoteLots::ZERO).as_inner() as u64);
+        let available_quote_collateral = self.effective_collateral_for_withdrawals();
+        if available_quote_collateral <= SignedQuoteLots::ZERO {
+            return Ok(0);
         }
 
-        // Use the pre-calculated initial_margin_for_withdrawals which includes
-        // margin requirements for both positions AND open limit orders
+        let available_collateral = available_quote_collateral
+            .checked_add(self.discounted_spot_collateral().checked_as_signed()?)
+            .ok_or(MarginError::Overflow)?;
         let total_margin_required = self
             .margin
             .initial_margin_for_withdrawals
             .checked_as_signed()?;
 
-        // Transferable amount = withdrawal effective collateral - required
-        // margin, matching on-chain withdrawal checks.
-        if available_collateral >= total_margin_required {
-            Ok((available_collateral - total_margin_required)
-                .max(SignedQuoteLots::ZERO)
-                .as_inner() as u64)
-        } else {
-            Ok(0)
-        }
+        Ok(available_collateral
+            .saturating_sub(total_margin_required)
+            .min(available_quote_collateral)
+            .max(SignedQuoteLots::ZERO)
+            .as_inner() as u64)
     }
 }
 
@@ -2567,7 +2572,8 @@ mod tests {
             margin.effective_collateral(),
             SignedQuoteLots::new(93_000_000)
         );
-        // Spot never backs quote withdrawals.
+        // Spot stays out of the quote-side withdrawal collateral (the payout
+        // cap); it still backs the withdrawal margin bound.
         assert_eq!(
             margin.effective_collateral_for_withdrawals(),
             SignedQuoteLots::new(1_000_000)
@@ -3011,6 +3017,62 @@ mod tests {
         };
 
         assert_eq!(margin.calculate_transferable_collateral().unwrap(), 45);
+    }
+
+    /// Mirrors the on-chain `get_max_quote_withdrawable_amount`: spot
+    /// collateral backs the withdrawal margin, but the payout is capped at the
+    /// positive quote-side collateral.
+    #[test]
+    fn transferable_collateral_takes_the_tighter_of_margin_and_quote_bounds() {
+        let with_spot =
+            |quote: i64, spot: u64, initial_margin_for_withdrawals: u64| TraderPortfolioMargin {
+                quote_lot_collateral: SignedQuoteLots::new(quote),
+                spot_collaterals: vec![SpotCollateralMargin {
+                    asset_index: 0,
+                    symbol: "SOL".to_string(),
+                    pricing_market_symbol: "SOL-PERP".to_string(),
+                    balance: 1_000_000_000,
+                    native_units_per_base_lot: 10_000_000,
+                    retained_bps: crate::quantities::BasisPoints::new(9_500),
+                    notional: QuoteLots::new(spot),
+                    discounted: QuoteLots::new(spot),
+                }],
+                margin: Margin {
+                    initial_margin_for_withdrawals: QuoteLots::new(initial_margin_for_withdrawals),
+                    ..Margin::default()
+                },
+                ..TraderPortfolioMargin::default()
+            };
+
+        // Margin 120 exceeds the quote balance but spot carries it: previously
+        // nothing, now the margin bound 100 + 40 - 120.
+        assert_eq!(
+            with_spot(100, 40, 120)
+                .calculate_transferable_collateral()
+                .unwrap(),
+            20
+        );
+        // Margin 30 is slack: the payout bound (the quote balance) applies.
+        assert_eq!(
+            with_spot(100, 40, 30)
+                .calculate_transferable_collateral()
+                .unwrap(),
+            100
+        );
+        // Even the spot does not cover the margin.
+        assert_eq!(
+            with_spot(100, 40, 200)
+                .calculate_transferable_collateral()
+                .unwrap(),
+            0
+        );
+        // A negative quote balance is never withdrawable against spot.
+        assert_eq!(
+            with_spot(-10, 40, 0)
+                .calculate_transferable_collateral()
+                .unwrap(),
+            0
+        );
     }
 
     #[test]

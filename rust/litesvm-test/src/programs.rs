@@ -32,6 +32,8 @@ pub const EMBER_PROGRAM_ENV: &str = "RISE_SDK_LOCALNET_EMBER_SO";
 pub const HAWKEYE_PROGRAM_ENV: &str = "RISE_SDK_LOCALNET_HAWKEYE_SO";
 /// Override the Flight SBF artifact path.
 pub const FLIGHT_PROGRAM_ENV: &str = "RISE_SDK_LOCALNET_FLIGHT_SO";
+/// Override the Flicker SBF artifact path.
+pub const FLICKER_PROGRAM_ENV: &str = "RISE_SDK_LOCALNET_FLICKER_SO";
 /// Enable fetching cached mainnet protocol BPFs for non-CI local runs.
 pub const PHOENIX_MAINNET_BPF_PROGRAMS_ENV: &str = "PHOENIX_MAINNET_BPF_PROGRAMS";
 /// Override the cache directory for fetched mainnet protocol BPFs.
@@ -58,6 +60,7 @@ pub struct SdkLocalnetProgramPaths {
     pub ember: PathBuf,
     pub hawkeye: Option<PathBuf>,
     pub flight: Option<PathBuf>,
+    pub flicker: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug)]
@@ -103,6 +106,7 @@ pub fn find_sdk_localnet_program_paths() -> Option<SdkLocalnetProgramPaths> {
             ember: PathBuf::new(),
             hawkeye: None,
             flight: None,
+            flicker: None,
         });
     }
 
@@ -111,13 +115,17 @@ pub fn find_sdk_localnet_program_paths() -> Option<SdkLocalnetProgramPaths> {
         std::env::var(EMBER_PROGRAM_ENV),
         std::env::var(HAWKEYE_PROGRAM_ENV),
         std::env::var(FLIGHT_PROGRAM_ENV),
+        std::env::var(FLICKER_PROGRAM_ENV),
     ) {
-        (Ok(phoenix_eternal), Ok(ember), hawkeye, flight) => Some(SdkLocalnetProgramPaths {
-            phoenix_eternal: PathBuf::from(phoenix_eternal),
-            ember: PathBuf::from(ember),
-            hawkeye: hawkeye.ok().map(PathBuf::from),
-            flight: flight.ok().map(PathBuf::from),
-        }),
+        (Ok(phoenix_eternal), Ok(ember), hawkeye, flight, flicker) => {
+            Some(SdkLocalnetProgramPaths {
+                phoenix_eternal: PathBuf::from(phoenix_eternal),
+                ember: PathBuf::from(ember),
+                hawkeye: hawkeye.ok().map(PathBuf::from),
+                flight: flight.ok().map(PathBuf::from),
+                flicker: flicker.ok().map(PathBuf::from),
+            })
+        }
         _ => None,
     };
     if explicit.as_ref().is_some_and(program_paths_exist) {
@@ -135,12 +143,16 @@ pub fn find_sdk_localnet_program_paths() -> Option<SdkLocalnetProgramPaths> {
                 flight: optional_program_path(
                     root.join("programs/target/deploy/phoenix_flight.so"),
                 ),
+                flicker: optional_program_path(
+                    root.join("programs/target/deploy/phoenix_flicker.so"),
+                ),
             },
             SdkLocalnetProgramPaths {
                 phoenix_eternal: root.join("target/deploy/phoenix_eternal.so"),
                 ember: root.join("target/deploy/phoenix_ember_program.so"),
                 hawkeye: optional_program_path(root.join("target/deploy/phoenix_hawkeye.so")),
                 flight: optional_program_path(root.join("target/deploy/phoenix_flight.so")),
+                flicker: optional_program_path(root.join("target/deploy/phoenix_flicker.so")),
             },
             SdkLocalnetProgramPaths {
                 phoenix_eternal: root.join("programs/eternal/target/deploy/phoenix_eternal.so"),
@@ -150,6 +162,9 @@ pub fn find_sdk_localnet_program_paths() -> Option<SdkLocalnetProgramPaths> {
                 ),
                 flight: optional_program_path(
                     root.join("programs/flight/target/deploy/phoenix_flight.so"),
+                ),
+                flicker: optional_program_path(
+                    root.join("programs/flicker/target/deploy/phoenix_flicker.so"),
                 ),
             },
         ] {
@@ -183,6 +198,10 @@ fn program_paths_exist(paths: &SdkLocalnetProgramPaths) -> bool {
         }
         && match paths.flight.as_ref() {
             Some(flight) => flight.exists(),
+            None => true,
+        }
+        && match paths.flicker.as_ref() {
+            Some(flicker) => flicker.exists(),
             None => true,
         }
 }
@@ -252,6 +271,11 @@ fn mainnet_protocol_programs(fixture: &SdkLocalnetFixture) -> Vec<MainnetProgram
             name: "flight",
             program_id: phoenix_rise_ix::flight::FLIGHT_PROGRAM_ID,
             file_name: "phoenix_flight-mainnet.so",
+        },
+        MainnetProgramSpec {
+            name: "flicker",
+            program_id: phoenix_rise_ix::twap::FLICKER_PROGRAM_ID,
+            file_name: "phoenix_flicker-mainnet.so",
         },
     ]
 }

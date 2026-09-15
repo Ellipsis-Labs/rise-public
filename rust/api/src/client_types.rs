@@ -13,8 +13,8 @@ use crate::metadata::PhoenixMetadata;
 use crate::subscription_key::SubscriptionKey;
 use crate::trader_state::Trader;
 use crate::types::prelude::{
-    AllMidsData, CandleData, FundingRateMessage, L2BookUpdate, MarketStatsUpdate, Timeframe,
-    TraderStateServerMessage, TradesMessage,
+    AllMidsData, CandleData, FundingRateMessage, L2BookUpdate, MarketStatsUpdate,
+    MarketStatsV2Update, Timeframe, TraderStateServerMessage, TradesMessage,
 };
 use crate::ws_error::PhoenixWsError;
 
@@ -88,6 +88,11 @@ impl PhoenixSubscription {
             market_symbols: Vec::new(),
         }
     }
+
+    /// Create a batched market-stats subscription for all or selected markets.
+    pub fn market_stats_v2(symbols: Option<Vec<String>>) -> Self {
+        Self::Key(SubscriptionKey::market_stats_v2(symbols))
+    }
 }
 
 /// Message that triggered a margin recomputation.
@@ -104,6 +109,8 @@ pub enum MarginTrigger {
 /// Event emitted by high-level client subscription receivers.
 #[derive(Debug, Clone)]
 pub enum PhoenixClientEvent {
+    /// Batched market stats from one server refresh cycle.
+    MarketStatsV2Update { update: MarketStatsV2Update },
     /// Market stats update and previous market snapshot.
     MarketUpdate {
         symbol: String,
