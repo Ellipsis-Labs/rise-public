@@ -174,12 +174,35 @@ Recommended defaults:
 - Set `rpcUrl` when you use `client.rpc` or want RPC-backed exchange metadata
   fallback if the API snapshot is unavailable. If you omit it, rise will also
   read `NEXT_PUBLIC_SOLANA_RPC_URL` or `SOLANA_RPC_URL`.
+- Keep the default rate-limit cooldown enabled for long-lived clients. When a
+  retryable GET or HEAD receives `429` with `Retry-After`, later retryable
+  requests on the same client wait for that server window before sending. The
+  cooldown is client-local, not process-global, adds positive release jitter to
+  avoid synchronized retries, and does not delay non-idempotent methods such as
+  POST. Server-provided delays are capped at 30 seconds by default.
 - If you use Flight consistently, configure it once on the client with
   `builderAuthority`, plus optional `builderPdaIndex` and
   `builderSubaccountIndex`. rise derives the builder trader account from those
   values and defaults both indexes to `0`. Set `feeBpsOverride` only when the
   client should emit Flight's fee-override proxy instruction for supported
   local order builders.
+
+To tune or disable shared rate-limit cooldowns:
+
+```ts
+import { createPhoenixClient } from "@ellipsis-labs/rise";
+
+const client = createPhoenixClient({
+  rateLimitCooldown: {
+    maxDelayMs: 30_000,
+    fallbackDelayMs: 1_000,
+  },
+});
+
+const cooldownDisabledClient = createPhoenixClient({
+  rateLimitCooldown: false,
+});
+```
 
 For short runnable onboarding examples, see:
 

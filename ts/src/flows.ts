@@ -22,6 +22,8 @@ import {
   buildSetPermissionIx,
   DEPOSIT_PERMISSION,
 } from "@/core/permissionInstructions";
+import { buildSyncNativeIx } from "@/core/ixBuilders/NativeSol";
+import { buildTransferSolIx } from "@/core/ixBuilders/SystemTransferSol";
 import {
   buildDepositFunds,
   buildEmberDeposit,
@@ -149,6 +151,49 @@ export interface FlameAtomicDepositFlowResult {
   proxyAta: TokenAccountAddress;
   traderPdaIndex: number;
   traderSubaccountIndex: number;
+}
+
+/**
+ * Native SOL deposits have no deposit instruction of their own: a System
+ * transfer lands lamports in the trader account, and a following `SyncNative`
+ * accounts them as collateral. The ordering is load-bearing — the sync must run
+ * after the transfer in the same transaction, and the sponsorship service
+ * rejects a sponsored transfer whose destination is not targeted by a later
+ * `SyncNative`.
+ */
+interface BaseNativeSolDepositFlowParams {
+  authority: Authority;
+  /** Deposit amount in lamports. */
+  lamports: bigint;
+  traderPdaIndex?: number;
+  /** Defaults to the cross-margin subaccount (`0`). */
+  subaccountIndex?: number;
+}
+
+type SponsoredNativeSolDepositFlowParams = BaseNativeSolDepositFlowParams &
+  SponsorshipUserIdentifier & {
+    feePayer: Authority;
+    sponsorshipToken: string;
+  };
+
+interface NonSponsoredNativeSolDepositFlowParams extends BaseNativeSolDepositFlowParams {
+  feePayer?: null;
+}
+
+export type NativeSolDepositFlowParams =
+  | SponsoredNativeSolDepositFlowParams
+  | NonSponsoredNativeSolDepositFlowParams;
+
+export interface NativeSolDepositFlowInstructions {
+  transferSol: InstructionsWithAccountsAndData;
+  syncNative: InstructionsWithAccountsAndData;
+}
+
+export interface NativeSolDepositFlowResult {
+  instructions: InstructionsWithAccountsAndData[];
+  named: NativeSolDepositFlowInstructions;
+  /** The trader (sub)account the lamports were sent to and synced against. */
+  traderAccount: TraderAddress;
 }
 
 const resolveFlowPayer = (params: {
@@ -544,6 +589,68 @@ export const buildFlameAtomicDepositFlow = async (
   };
 };
 
+/**
+ * Deposit native SOL as spot collateral: a System transfer of `lamports` into
+ * the trader account, then a `SyncNative` to account them.
+ *
+ * Mirrors `buildDepositFlow`: register-if-needed stays with the caller (compose
+ * `buildRegisterTrader` *before* these instructions when the trader account
+ * does not exist yet), and the sponsored variant carries the same params shape.
+ * The transfer is always signed and funded by `authority` — sponsorship covers
+ * the network fee only, never the deposited lamports.
+ *
+ * The credited amount can be less than `lamports`: `SyncNative` clamps, rather
+ * than rejects, against the per-trader and exchange-wide caps, and consumes any
+ * pre-existing unaccounted lamports first. Size deposits with
+ * `nativeSolCollateralHeadroomLamports` (and report credits with
+ * `attributedNativeSolDepositLamports`) so nothing lands uncounted.
+ */
+export const buildNativeSolDepositFlow = async (
+  params: NativeSolDepositFlowParams,
+  client: PhoenixInstructionClient
+): Promise<NativeSolDepositFlowResult> => {
+  const {
+    authority,
+    lamports,
+    traderPdaIndex = 0,
+    subaccountIndex = 0,
+  } = params;
+  if (lamports <= 0n) {
+    throw new Error("Deposit amount must be greater than 0");
+  }
+
+  const [{ arenaAddresses, globalTraderIndexAddresses }, traderAccount] =
+    await Promise.all([
+      fetchRequiredAccounts(client),
+      getPhoenixTraderSubaccountAddress({
+        authority,
+        traderPdaIndex,
+        subaccountIndex,
+        phoenixProgramAddress: client.addresses.phoenixProgramAddress,
+      }),
+    ]);
+
+  const transferSol = buildTransferSolIx({
+    source: authority,
+    destination: traderAccount,
+    lamports,
+  });
+  const syncNative = buildSyncNativeIx({
+    ...clientPhoenixInstructionAddresses(client),
+    traderAccount,
+    globalTraderIndex: globalTraderIndexAddresses,
+    activeTraderBuffer: arenaAddresses,
+  });
+
+  return {
+    instructions: [transferSol, syncNative],
+    named: {
+      transferSol,
+      syncNative,
+    },
+    traderAccount,
+  };
+};
 export const buildWithdrawFlow = async (
   params: WithdrawFlowParams,
   client: PhoenixInstructionClient

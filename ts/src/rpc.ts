@@ -56,8 +56,33 @@ type RpcAccountInfoResult = {
   context?: {
     slot?: number | string | bigint;
   };
-  value?: { data?: [string, string] | null } | null;
+  value?: {
+    data?: [string, string] | null;
+    lamports?: number | string | bigint;
+    space?: number | string | bigint;
+  } | null;
 };
+
+/**
+ * Lamport-level state of an account, for balance arithmetic that must respect
+ * the rent floor (native SOL deposit headroom, `nativeSolUnaccountedLamports`).
+ *
+ * The rent-exempt minimum is computed for the account's *own* data length —
+ * mirroring the on-chain `Rent::minimum_balance(data_len())` that `SyncNative`
+ * subtracts — so it must be read per account rather than assumed.
+ */
+export type LamportAccountState =
+  | Readonly<{
+      exists: false;
+      balanceLamports: 0n;
+      rentExemptMinimumLamports: 0n;
+    }>
+  | Readonly<{
+      exists: true;
+      /** Raw lamport balance, rent included. */
+      balanceLamports: bigint;
+      rentExemptMinimumLamports: bigint;
+    }>;
 
 type RpcMultipleAccountsResult = {
   context?: {
@@ -66,18 +91,21 @@ type RpcMultipleAccountsResult = {
   value?: Array<{ data?: [string, string] | null } | null>;
 };
 
-const toRpcSlot = (value: number | string | bigint | undefined): bigint => {
+const toRpcBigint = (
+  value: number | string | bigint | undefined,
+  what: string
+): bigint => {
   if (typeof value === "bigint") {
     return value;
   }
-  if (typeof value === "number") {
+  if (typeof value === "number" || typeof value === "string") {
     return BigInt(value);
   }
-  if (typeof value === "string") {
-    return BigInt(value);
-  }
-  throw new Error("RPC response did not include a slot");
+  throw new Error(`RPC response did not include ${what}`);
 };
+
+const toRpcSlot = (value: number | string | bigint | undefined): bigint =>
+  toRpcBigint(value, "a slot");
 
 const decodeRpcAccountData = (
   encoded: [string, string] | null | undefined,
@@ -136,6 +164,83 @@ export class PhoenixRpcAccountFetcherClient implements AccountFetcherClient {
     return decodeRpcAccountData(result.value?.data, address);
   }
 
+  // Rent parameters are cluster constants, so the minimum for a given size
+  // never changes within a process lifetime.
+  private readonly rentMinimumBySpace = new Map<bigint, bigint>();
+
+  /**
+   * Account data length, for the rent-exemption lookup.
+   *
+   * `space` is the full account length even under a `dataSlice`, so the sliced
+   * request above normally answers this outright. It is optional in the RPC
+   * schema though, and older or non-Agave implementations may omit it — and
+   * because the slice zeroes the payload there is no local data to measure. Re-
+   * query unsliced in that case rather than failing the read.
+   */
+  private async resolveAccountSpace(
+    address: Address,
+    space: number | string | bigint | undefined
+  ): Promise<bigint> {
+    if (space !== undefined) {
+      return toRpcBigint(space, "an account size");
+    }
+
+    const result = await this.request<RpcAccountInfoResult>("getAccountInfo", [
+      address,
+      { encoding: "base64", commitment: "confirmed" },
+    ]);
+    const value = result.value;
+    if (!value) {
+      throw new Error(`Account ${address} was not returned from RPC`);
+    }
+    if (value.space !== undefined) {
+      return toRpcBigint(value.space, "an account size");
+    }
+    return BigInt(decodeRpcAccountData(value.data, address).data.length);
+  }
+
+  async fetchLamportAccountState(
+    address: Address
+  ): Promise<LamportAccountState> {
+    const result = await this.request<RpcAccountInfoResult>("getAccountInfo", [
+      address,
+      {
+        encoding: "base64",
+        commitment: "confirmed",
+        // Only lamports and space are read; skip the account data payload.
+        dataSlice: { offset: 0, length: 0 },
+      },
+    ]);
+
+    const value = result.value;
+    if (!value) {
+      return {
+        exists: false,
+        balanceLamports: 0n,
+        rentExemptMinimumLamports: 0n,
+      };
+    }
+
+    const space = await this.resolveAccountSpace(address, value.space);
+    let rentExemptMinimumLamports = this.rentMinimumBySpace.get(space);
+    if (rentExemptMinimumLamports === undefined) {
+      rentExemptMinimumLamports = toRpcBigint(
+        await this.request<number | string | bigint>(
+          "getMinimumBalanceForRentExemption",
+          [Number(space), { commitment: "confirmed" }]
+        ),
+        "a rent-exempt minimum"
+      );
+      this.rentMinimumBySpace.set(space, rentExemptMinimumLamports);
+    }
+
+    return {
+      exists: true,
+      balanceLamports: toRpcBigint(value.lamports, "a lamport balance"),
+      rentExemptMinimumLamports,
+    };
+  }
+
   async fetchAccounts(addresses: readonly Address[]): Promise<{
     readonly slot: bigint;
     readonly accounts: readonly RpcAccountPayload[];
@@ -192,6 +297,8 @@ export interface PhoenixRpcClient {
   readonly available: boolean;
   accounts: {
     fetchAccount(address: Address): Promise<{ readonly data: Uint8Array }>;
+    /** Raw balance plus the current rent floor for an existing account. */
+    getLamportAccountState(address: Address): Promise<LamportAccountState>;
   };
   exchange: {
     getGlobalConfiguration(): Promise<GlobalConfiguration>;
@@ -508,6 +615,8 @@ export const createPhoenixRpcClient = (config: {
     accounts: {
       fetchAccount: async (address) =>
         assertRpcClient(fetcher).fetchAccount(address),
+      getLamportAccountState: async (address) =>
+        assertRpcClient(fetcher).fetchLamportAccountState(address),
     },
     exchange: {
       getGlobalConfiguration: async () => {
