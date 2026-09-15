@@ -8,6 +8,7 @@ export * from "./l2-book";
 export * from "./mark-price";
 export * from "./market";
 export * from "./market-stats";
+export * from "./market-stats-v2";
 export * from "./notifications";
 export * from "./orderbook";
 export * from "./trader-state";

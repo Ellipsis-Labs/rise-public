@@ -1,15 +1,18 @@
-import { createUpdateStream, normalizeTimestamp } from "@/ws/adapters/_utils";
+import { createUpdateStream } from "@/ws/adapters/_utils";
 import type { WsClient } from "@/ws/types";
-
-import type { MarketStatsPort } from "./ports";
-import {
-  MarketStatsMsgSchema,
-  type MarketStatsMsg,
-  type MarketStatsUpdate,
-} from "./wire";
 import { applyStrictModeRecursive } from "@/ws/zodStrictMode";
-import { handleError } from "@/ws/errorHandling/ErrorSystem";
-import { createInvalidTimestampError } from "@/ws/errorHandling/errors";
+
+import {
+  buildMarketStatsV2RoutingKey,
+  buildMarketStatsV2SubscriptionParams,
+} from "../market-stats-v2/routing";
+import {
+  MarketStatsV2MsgSchema,
+  type MarketStatsV2Msg,
+} from "../market-stats-v2/wire";
+import { normalizeMarketStatsEntries } from "./normalize";
+import type { MarketStatsPort } from "./ports";
+import type { MarketStatsUpdate } from "./wire";
 
 export type MarketStatsAdapter = MarketStatsPort;
 
@@ -23,54 +26,24 @@ export const createMarketStatsAdapter = (
   strictMode?: boolean
 ): MarketStatsAdapter => {
   const schema = strictMode
-    ? applyStrictModeRecursive(MarketStatsMsgSchema)
-    : MarketStatsMsgSchema;
+    ? applyStrictModeRecursive(MarketStatsV2MsgSchema)
+    : MarketStatsV2MsgSchema;
   return createUpdateStream<
-    MarketStatsMsg,
+    MarketStatsV2Msg,
     MarketStatsUpdate,
     [symbol?: string]
   >(
     ws,
     {
-      channel: "marketStats",
+      channel: "marketStatsV2",
       schema,
-      buildKey: (symbol?: string) =>
-        symbol ? `marketStats:${symbol}` : "marketStats",
-      buildSubParams: (symbol?: string) => (symbol ? { symbol } : {}),
-      processMessage: (m, [symbol]) => {
-        if (symbol && m.symbol !== symbol) {
-          return null;
-        }
-
-        let timestampMs: number;
-        try {
-          timestampMs = normalizeTimestamp(m.timestamp, "s");
-        } catch {
-          void handleError(
-            createInvalidTimestampError("s", {
-              operation: "timestamp_normalization",
-            })
-          );
-          return null;
-        }
-
-        return {
-          symbol: m.symbol,
-          stats: {
-            timestamp: BigInt(timestampMs),
-            openInterest: m.openInterest,
-            markPrice: m.markPrice,
-            oraclePrice: m.oraclePrice,
-            prevDayMarkPrice: m.prevDayMarkPrice,
-            dayVolumeUsd: m.dayVolumeUsd,
-            dayVolumeBase: m.dayVolumeBase,
-            currentFundingRate: m.currentFundingRate,
-            eightHourFundingRate: m.eightHourFundingRate,
-            annualizedFundingRate: m.annualizedFundingRate,
-          },
-        };
-      },
-      schemaErrorMessage: "Failed to parse MarketStats message",
+      buildKey: buildMarketStatsV2RoutingKey,
+      buildSubParams: buildMarketStatsV2SubscriptionParams,
+      processMessage: (message) =>
+        normalizeMarketStatsEntries(message.stats)?.map(
+          ({ update }) => update
+        ) ?? null,
+      schemaErrorMessage: "Failed to parse MarketStatsV2 compatibility message",
     },
     opts
   );

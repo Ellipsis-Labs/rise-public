@@ -320,6 +320,16 @@ export {
 } from "../ws/adapters/market-stats/wire";
 
 export {
+  type MarketStatsV2Data,
+  type MarketStatsV2Msg,
+  type MarketStatsV2Update,
+  type MarketStatsV2WireData,
+  MarketStatsV2MsgSchema,
+  MarketStatsV2UpdateSchema,
+  MarketStatsV2WireDataSchema,
+} from "../ws/adapters/market-stats-v2/wire";
+
+export {
   type OrderbookMsg,
   type OrderbookSnapshotUpdate,
   OrderbookMsgSchema,

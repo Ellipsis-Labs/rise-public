@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.18 - 2026-09-15
+
+Source Phoenix commit: `7fc763a0ec5ef143b123c0990ec836847056aba5`
+
+### Summary
+
+- Added a new `marketStatsV2` WebSocket channel/adapter (`createMarketStatsV2Adapter`, `ws.marketStatsV2`) supporting multi-symbol batch subscriptions (all markets, one symbol, or an explicit symbol list) and an optional `midPrice` field on stats.
+- New exported types/schemas for the V2 channel: `MarketStatsV2Adapter`, `MarketStatsV2AdapterOptions`, `MarketStatsV2Port`, `MarketStatsV2Selector`, `MarketStatsV2Data`, `MarketStatsV2Msg`, `MarketStatsV2Update`, `MarketStatsV2WireData`, `MarketStatsV2MsgSchema`, `MarketStatsV2UpdateSchema`, `MarketStatsV2WireDataSchema`.
+- `PhoenixWsClient` gains a `marketStatsV2` field, and `PublicAdapterOptions` gains a `marketStatsV2` option, alongside the existing `marketStats`.
+- The existing `createMarketStatsAdapter` / `ws.marketStats` stream is now implemented on top of the `marketStatsV2` channel internally; its public signature and emitted `MarketStatsUpdate` shape are unchanged.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `marketStats()` now subscribes on the wire using the `marketStatsV2` channel instead of `marketStats`; this is transparent through the SDK's public API but means the backing server must support `marketStatsV2` for the existing `marketStats` stream to keep working.
+- Prefer the new `marketStatsV2` adapter/channel going forward if you need multi-symbol batching or the `midPrice` field — it delivers stats as grouped batches (`{ symbols?, stats[] }`) rather than one update per symbol.
+
 ## v0.5.17 - 2026-09-15
 
 Source Phoenix commit: `5e0a1182c2f04b0cc37ab635e7bef509d40cc1f4`
