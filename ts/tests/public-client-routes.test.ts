@@ -589,6 +589,7 @@ describe("public client route mapping", () => {
               unrealizedPnl: 4,
               cumulativeFundingPayment: 5,
               cumulativeTakerFee: 6,
+              cumulativeMakerFee: 7,
             },
           ],
         ],
@@ -714,6 +715,7 @@ describe("public client route mapping", () => {
               unrealizedPnl: 4,
               cumulativeFundingPayment: 5,
               cumulativeTakerFee: 6,
+              cumulativeMakerFee: 7,
             },
           ],
         ],
@@ -840,7 +842,10 @@ describe("public client route mapping", () => {
     const traderView = await traders.getTrader("trader-pubkey");
     await traders.getTraderCapabilities();
     await traders.getTraderStateSnapshot("authority", { traderPdaIndex: 0 });
-    await traders.getTraderPnl("authority", { resolution: "1h", limit: 10 });
+    const userPnl = await traders.getTraderPnl("authority", {
+      resolution: "1h",
+      limit: 10,
+    });
     await collateral.getTraderPdaCollateralHistory("trader-pubkey", {
       limit: 10,
     });
@@ -916,7 +921,7 @@ describe("public client route mapping", () => {
       endTime: 1_785_456_000_000,
       limit: 400,
     });
-    await traders.getTraderPnlValues("trader-pubkey", {
+    const traderPnl = await traders.getTraderPnlValues("trader-pubkey", {
       resolution: "1h",
       limit: 10,
     });
@@ -964,6 +969,8 @@ describe("public client route mapping", () => {
     });
 
     expect(marketFills.data[0]?.timestamp).toBe(123);
+    expect(userPnl[0]?.cumulativeMakerFee).toBe(7);
+    expect(traderPnl[0]?.cumulativeMakerFee).toBe(7);
     expect(traderView.verifyCapabilities()).toBe(true);
 
     expect(records).toEqual([
