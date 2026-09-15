@@ -61,6 +61,8 @@ export {
   ExchangeLeverageTierSchema,
   type ExchangeMarketSnapshot,
   ExchangeMarketSnapshotSchema,
+  type ExchangeRunningState,
+  ExchangeRunningStateSchema,
   type ExchangeSnapshotEncoding,
   ExchangeSnapshotEncodingSchema,
   type ExchangeMarketConfig,

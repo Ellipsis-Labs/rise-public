@@ -72,6 +72,16 @@ describe("cancelIdsForScaleSet", () => {
     expect(() => cancelIdsForScaleSet([], 255)).not.toThrow();
   });
 
+  it("still cancels a legacy set whose id is above MAX_SCALE_SET_ID", () => {
+    const rows = [
+      row({ orderSequenceNumber: "11", scaleSetId: 200 }),
+      row({ orderSequenceNumber: "12", scaleSetId: 7 }),
+    ];
+    const result = cancelIdsForScaleSet(rows, 200);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.orderId.orderSequenceNumber).toBe(11n);
+  });
+
   it("throws for a negative orderSequenceNumber", () => {
     const rows = [row({ orderSequenceNumber: "-5", scaleSetId: 3 })];
     expect(() => cancelIdsForScaleSet(rows, 3)).toThrow();

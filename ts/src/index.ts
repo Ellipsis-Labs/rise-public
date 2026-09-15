@@ -23,9 +23,9 @@ export {
   MAX_SCALE_ORDERS,
   MIN_SCALE_BIAS,
   MAX_SCALE_BIAS,
+  MAX_SCALE_SET_ID,
+  SCALE_SET_CONTINUATION_BIT,
   DEFAULT_MIN_BASE_LOTS_PER_ORDER,
-  DEFAULT_MAX_ORDERS_PER_TX,
-  DEFAULT_MAX_ORDERS_PER_TX_V2,
   clampScaleBias,
   clampScaleOrderCount,
   computeScaleOrderLevels,
@@ -33,6 +33,8 @@ export {
   scaleLevelsToMultipleOrderPacket,
   chunkScaleLevelsForTx,
   cancelIdsForScaleSet,
+  encodeScaleSetTag,
+  decodeScaleSetTag,
   type ScaleOrderInput,
   type ScaleOrderLevel,
   type ScaleOrderPreview,
@@ -40,6 +42,7 @@ export {
   type ScaleOrderWarning,
   type ScaleOrderWarningCode,
   type ScaleLevelsToPacketOptions,
+  type ScaleSetTag,
 } from "./scaleOrders";
 export {
   buildCancelAllIxResolved,

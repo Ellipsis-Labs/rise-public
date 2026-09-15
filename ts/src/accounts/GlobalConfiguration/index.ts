@@ -7,4 +7,8 @@ export {
 
 export { fetchGlobalConfiguration } from "./fetcher";
 
-export { isExchangeEffectivelyActive } from "./status";
+export {
+  getExchangeRunningState,
+  isExchangeEffectivelyActive,
+  type ExchangeRunningState,
+} from "./status";

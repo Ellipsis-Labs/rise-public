@@ -1,12 +1,18 @@
 import z from "zod";
+import {
+  ExchangeRunningStateSchema,
+  type ExchangeRunningState,
+} from "@/api/exchange/types";
 
 export interface ExchangeStatusPayload {
   exchangeStatusBits: number;
   previousExchangeStatusBits: number;
+  previousRunningState: ExchangeRunningState;
+  runningState: ExchangeRunningState;
   active: boolean;
   gated: boolean;
   withdrawalsAvailable: boolean;
-  authority: string;
+  authority?: string;
   [key: string]: unknown;
 }
 
@@ -41,9 +47,11 @@ const ExchangeStatusPayloadSchema: z.ZodType<ExchangeStatusPayload> = z
         message: "previousExchangeStatusBits must be a u8",
       }),
     active: z.boolean(),
+    previousRunningState: ExchangeRunningStateSchema.default("unknown"),
+    runningState: ExchangeRunningStateSchema.default("unknown"),
     gated: z.boolean(),
     withdrawalsAvailable: z.boolean().default(true),
-    authority: z.string(),
+    authority: z.string().optional(),
   })
   .passthrough();
 

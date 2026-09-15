@@ -75,7 +75,7 @@ describe("buildPlaceMultiLimitOrderFlow V2 dispatch", () => {
         cancelAuthority: rootAuthority,
         backstopAuthority: rootAuthority,
       },
-      canonicalMint: "canonical-mint",
+      canonicalMint: "So11111111111111111111111111111111111111112",
       globalVault: "global-vault",
       perpAssetMap: "perp-asset-map",
       globalTraderIndex: ["gti-0"],
@@ -256,7 +256,7 @@ describe("buildPlaceMultiLimitOrderFlow V2 dispatch", () => {
         },
         client
       )
-    ).rejects.toThrow(/scaleSetId must be an integer in 0\.\.=255/);
+    ).rejects.toThrow(/scaleSetId must be an integer in 0\.\.=127/);
     await expect(
       buildPlaceMultiLimitOrderFlow(
         {
@@ -270,6 +270,101 @@ describe("buildPlaceMultiLimitOrderFlow V2 dispatch", () => {
         },
         client
       )
-    ).rejects.toThrow(/scaleSetId must be an integer in 0\.\.=255/);
+    ).rejects.toThrow(/scaleSetId must be an integer in 0\.\.=127/);
+  });
+
+  it("rejects a scaleSetId of 128, above the 1..=127 range", async () => {
+    await expect(
+      buildPlaceMultiLimitOrderFlow(
+        {
+          authority: authority as never,
+          symbol: "SOL-PERP" as never,
+          side: Side.Bid,
+          levels,
+          marginType: MarginType.Cross,
+          subaccountIndex: 0,
+          scaleSetId: 128,
+        },
+        client
+      )
+    ).rejects.toThrow(/scaleSetId must be an integer in 0\.\.=127/);
+  });
+
+  it("rejects scaleSetContinuation without a scaleSetId", async () => {
+    await expect(
+      buildPlaceMultiLimitOrderFlow(
+        {
+          authority: authority as never,
+          symbol: "SOL-PERP" as never,
+          side: Side.Bid,
+          levels,
+          marginType: MarginType.Cross,
+          subaccountIndex: 0,
+          scaleSetContinuation: true,
+        },
+        client
+      )
+    ).rejects.toThrow("scaleSetContinuation requires a nonzero scaleSetId");
+  });
+
+  it("spans transactions with scaleSetContinuation: batch 0 carries the plain id, batches >= 1 carry id | 0x80", async () => {
+    const result = await buildPlaceMultiLimitOrderFlow(
+      {
+        authority: authority as never,
+        symbol: "SOL-PERP" as never,
+        side: Side.Bid,
+        levels: bigLevels,
+        marginType: MarginType.Cross,
+        subaccountIndex: 0,
+        scaleSetId: 5,
+        scaleSetContinuation: true,
+        maxOrdersPerTx: 30,
+      },
+      client
+    );
+
+    expect(result.batches.length).toBeGreaterThan(1);
+    result.batches.forEach((batch, i) => {
+      expect(batch.index).toBe(i);
+      expect(batch.total).toBe(result.batches.length);
+      expect(batch.scaleSetContinuation).toBe(i > 0);
+
+      const data = batch.named.placeMultiLimitOrder.data;
+      // scale_set_id is the packet's trailing byte.
+      const rawScaleSetId = data.at(-1);
+      expect(rawScaleSetId).toBe(i === 0 ? 5 : 5 | 0x80);
+    });
+  });
+
+  it("keeps isolated setup on batch 0 and the sweep on the last batch when a continuation ladder spans transactions", async () => {
+    const result = await buildPlaceMultiLimitOrderFlow(
+      {
+        authority: authority as never,
+        symbol: "SOL-PERP" as never,
+        side: Side.Bid,
+        levels: bigLevels,
+        marginType: MarginType.Isolated,
+        subaccountIndex: 3,
+        transferAmount: 1_000_000n,
+        scaleSetId: 5,
+        scaleSetContinuation: true,
+        maxOrdersPerTx: 30,
+      },
+      client
+    );
+
+    expect(result.batches.length).toBeGreaterThan(1);
+    const [first, ...rest] = result.batches;
+    const last = result.batches[result.batches.length - 1];
+
+    expect(first?.named.syncParentToChild).toBeDefined();
+    expect(first?.named.transferCollateral).toBeDefined();
+    expect(first?.named.transferCollateralChildToParent).toBeUndefined();
+    for (const batch of rest.slice(0, -1)) {
+      expect(batch.named.syncParentToChild).toBeUndefined();
+      expect(batch.named.transferCollateral).toBeUndefined();
+      expect(batch.named.transferCollateralChildToParent).toBeUndefined();
+    }
+    expect(last?.named.transferCollateralChildToParent).toBeDefined();
   });
 });

@@ -2,6 +2,7 @@ import z from "zod";
 import { numericBigint } from "@/ws/numericSchemas";
 import {
   ExchangeMarketSnapshotSchema,
+  ExchangeRunningStateSchema,
   ExchangeSnapshotEncodingSchema,
   ExchangeStateSnapshotSchema,
   ExchangeWsCommodityMetadataSchema,
@@ -12,6 +13,7 @@ import {
   MarketPublicMetadataSchema,
 } from "@/api/exchange/types";
 import type {
+  ExchangeRunningState,
   ExchangeSnapshotEncoding,
   MarketPublicMetadata,
 } from "@/api/exchange/types";
@@ -35,6 +37,8 @@ export interface ExchangeStatusChangedOp {
   newFeatures: string[];
   enabledFeatures: string[];
   disabledFeatures: string[];
+  previousRunningState: ExchangeRunningState;
+  runningState: ExchangeRunningState;
   active: boolean;
   gated: boolean;
   withdrawalsAvailable: boolean;
@@ -343,6 +347,12 @@ const normalizeExchangeDeltaOp = (value: unknown): unknown => {
       if (op.withdrawalsAvailable === undefined) {
         op.withdrawalsAvailable = op.withdrawals_available ?? true;
       }
+      if (op.previousRunningState === undefined) {
+        op.previousRunningState = op.previous_running_state ?? "unknown";
+      }
+      if (op.runningState === undefined) {
+        op.runningState = op.running_state ?? "unknown";
+      }
       return op;
     case "marketStatusChanged":
       if (op.previousMarketStatus === undefined) {
@@ -412,6 +422,8 @@ const ExchangeStatusChangedOpSchema = z.object({
   newFeatures: z.array(z.string()),
   enabledFeatures: z.array(z.string()),
   disabledFeatures: z.array(z.string()),
+  previousRunningState: ExchangeRunningStateSchema.default("unknown"),
+  runningState: ExchangeRunningStateSchema.default("unknown"),
   active: z.boolean(),
   gated: z.boolean(),
   withdrawalsAvailable: z.boolean().default(true),

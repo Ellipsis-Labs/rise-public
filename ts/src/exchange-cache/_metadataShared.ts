@@ -3,7 +3,8 @@ import {
   decodePerpAssetMap,
   fetchWithdrawQueueHeader,
   fetchOrderbookHeader,
-  isExchangeEffectivelyActive,
+  decodeLastRestartSlot,
+  getExchangeRunningState,
 } from "@/accounts";
 import type {
   GlobalConfiguration,
@@ -27,10 +28,7 @@ import {
 import type { PhoenixPdaClient } from "@/pdaClient";
 import type { PhoenixProgramAddress } from "@/primitives";
 import { PhoenixRpcAccountFetcherClient } from "@/rpc";
-import {
-  getSysvarLastRestartSlotDecoder,
-  SYSVAR_LAST_RESTART_SLOT_ADDRESS,
-} from "@solana/sysvars";
+import { SYSVAR_LAST_RESTART_SLOT_ADDRESS } from "@solana/sysvars";
 import type { Address } from "@solana/kit";
 import type { PhoenixExchangeCacheStore } from "./types";
 import type {
@@ -43,8 +41,6 @@ import type {
   ExchangeMetadataSource,
   PhoenixExchangeMetadataConfig,
 } from "./types";
-
-const lastRestartSlotDecoder = getSysvarLastRestartSlotDecoder();
 
 export const DEFAULT_RPC_POLL_INTERVAL_MS = 5_000;
 export const DEFAULT_RPC_TTL_MS = 30_000;
@@ -91,6 +87,7 @@ const toExchangeStatusFeatures = (bits: number): string[] => {
   if ((bits & 0b1000_0000) !== 0) features.push("initialized");
   if ((bits & 0b0000_0001) !== 0) features.push("active");
   if ((bits & 0b0000_0010) !== 0) features.push("gated");
+  if ((bits & 0b0000_0100) !== 0) features.push("maintenance");
   return features;
 };
 
@@ -122,10 +119,11 @@ const toExchangeStateSnapshot = (
   lastRestartSlot: bigint | null
 ): ExchangeStateSnapshot => {
   const exchangeStatusBits = globalConfiguration.exchangeStatus;
-  const active = isExchangeEffectivelyActive({
+  const runningState = getExchangeRunningState({
     globalConfiguration,
     lastRestartSlot,
   });
+  const active = runningState === "active";
   return {
     programId,
     globalConfig: globalConfiguration.accountKey,
@@ -148,6 +146,7 @@ const toExchangeStateSnapshot = (
     withdrawQueue: globalConfiguration.withdrawQueueKey,
     exchangeStatusBits,
     exchangeStatusFeatures: toExchangeStatusFeatures(exchangeStatusBits),
+    runningState,
     active,
     gated:
       (exchangeStatusBits & 0b1000_0000) !== 0 &&
@@ -548,8 +547,7 @@ const loadGlobalConfigurationAndPerpAssetMap = async (params: {
       slot,
       globalConfiguration,
       perpAssetMap: decodePerpAssetMap(accounts[1].data),
-      lastRestartSlot: lastRestartSlotDecoder.decode(accounts[2].data)
-        .lastRestartSlot,
+      lastRestartSlot: decodeLastRestartSlot(accounts[2].data),
     };
   }
 

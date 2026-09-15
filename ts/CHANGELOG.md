@@ -3,6 +3,30 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.22 - 2026-09-15
+
+Source Phoenix commit: `e902efb7e98b284b8a56cae5c98df492a7d0ac4b`
+
+### Summary
+
+- Adds an `ExchangeRunningState` ("unknown" | "active" | "maintenance" | "suspended") surfaced via a new `getExchangeRunningState` helper, `ExchangeStatusView.runningState`, `ExchangeStateSnapshot.runningState`, and new `runningState`/`previousRunningState` fields on the `exchange` and `exchange-status` WebSocket payloads.
+- Reserves bit 7 of the wire `scale_set_id` byte for a "continuation" flag, shrinking the valid caller-assigned ladder id range from `1..=255` to `1..=127`; adds `encodeScaleSetTag`/`decodeScaleSetTag` helpers and `MAX_SCALE_SET_ID`/`SCALE_SET_CONTINUATION_BIT` constants.
+- Adds `scaleSetContinuation` to `buildPlaceMultiLimitOrderFlow`, letting a tagged scale ladder span multiple transactions (previously rejected outright); batches now report `index`, `total`, and `scaleSetContinuation`.
+- Adds `decodeLastRestartSlot`/`fetchLastRestartSlot` account helpers, and optional `circulatingSupply` / `circulating_supply` / `market_cap` fields on market metadata and stats responses.
+
+### Breaking Changes
+
+- `scaleSetId` inputs to `buildPlaceMultiLimitOrderFlow`, `scaleLevelsToMultipleOrderPacketV2`, and the `PlaceMultiLimitOrderV2` instruction builder now must be `0..=127` (was `0..=255`); ids `128-255` now throw. `cancelIdsForScaleSet` still accepts `1..=255` so existing legacy-tagged resting orders remain cancelable.
+- `DEFAULT_MAX_ORDERS_PER_TX` and `DEFAULT_MAX_ORDERS_PER_TX_V2` are no longer exported from the package root (`@ellipsis-labs/rise`); they remain internal to `scaleOrders`.
+- `isExchangeEffectivelyActive` / `getExchangeRunningState` behavior changed: when `acknowledgedRestartSlot` is `0n`, the exchange is now only reported active if `lastRestartSlot` is also `0n`. Previously any `lastRestartSlot` (including `null`) was treated as active in that case.
+- `ExchangeStatusPayload.authority` (WS `exchange-status` wire type) is now optional (`string | undefined`) instead of a required `string`.
+
+### Consumer Notes
+
+- Prefer `runningState`/`getExchangeRunningState` over the `active`/`gated` booleans when you need to distinguish "maintenance" from "suspended" exchange states.
+- Ladders that must span transactions require both `scaleSetContinuation: true` on the flow call and an upgraded on-chain program; batches must be submitted in order and each confirmed (not just accepted) before sending the next — see the updated `scaleSetContinuation` field docs in `flows.ts` for the failure/rollback contract.
+- Use `encodeScaleSetTag`/`decodeScaleSetTag` rather than hand-rolling the `scale_set_id` byte if you need to set or inspect the continuation bit directly.
+
 ## v0.5.21 - 2026-09-15
 
 Source Phoenix commit: `bddefbeebaa0c477268fbbc791888053219da2e6`

@@ -597,6 +597,7 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
             ...nextExchange,
             exchangeStatusBits: op.newBits,
             exchangeStatusFeatures: [...op.newFeatures],
+            runningState: op.runningState,
             active: op.active,
             gated: op.gated,
             withdrawalsAvailable: op.withdrawalsAvailable,

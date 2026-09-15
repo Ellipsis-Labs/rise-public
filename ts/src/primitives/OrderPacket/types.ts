@@ -221,9 +221,12 @@ export interface MultipleOrderPacketV2 {
   /** Client order id for the batch */
   clientOrderId: bigint | null;
   /**
-   * 0 = not part of a scale-order set; 1-255 = caller-assigned ladder id
-   * stamped onto every leg's resting order. Must be unique among the
-   * trader's resting orders on the market; never affects matching.
+   * Wire `scale_set_id` byte. 0 = not part of a scale-order set; bits 0-6
+   * (1-127) = caller-assigned ladder id stamped onto every leg's resting
+   * order; bit 7 = continuation packet (chunk 2..N of a ladder that spans
+   * transactions). The id must be unique among the trader's resting orders on
+   * the market; never affects matching. Build the byte with
+   * `encodeScaleSetTag`; `0x80` (bit 7 with id 0) is rejected.
    */
   scaleSetId: number; // u8
 }

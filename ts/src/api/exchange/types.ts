@@ -6,6 +6,14 @@ import {
   type CollateralAssetMetadata,
 } from "@/api/collateral/types";
 
+export type ExchangeRunningState =
+  | "unknown"
+  | "active"
+  | "maintenance"
+  | "suspended";
+export const ExchangeRunningStateSchema: z.ZodType<ExchangeRunningState> =
+  z.enum(["unknown", "active", "maintenance", "suspended"]);
+
 // ---------------------------------------------------------------------------
 // Authority Set
 // ---------------------------------------------------------------------------
@@ -164,6 +172,7 @@ export const SendRegisterIxsResponseSchema: z.ZodType<SendRegisterIxsResponse> =
 
 export interface ExchangeStatusView {
   active: boolean;
+  runningState: ExchangeRunningState;
   gated: boolean;
   withdrawalsAvailable: boolean;
 }
@@ -171,6 +180,7 @@ export interface ExchangeStatusView {
 export const ExchangeStatusViewSchema: z.ZodType<ExchangeStatusView> = z.object(
   {
     active: z.boolean(),
+    runningState: ExchangeRunningStateSchema.default("unknown"),
     gated: z.boolean(),
     withdrawalsAvailable: z.boolean().default(true),
   }
@@ -266,6 +276,8 @@ export interface MarketPublicMetadata {
   tokensXyzAssetId?: string | null;
   calendar?: MarketCalendar | null;
   displayColor?: string | null;
+  /** Circulating supply in units of the underlying asset; null when unknown. */
+  circulatingSupply?: number | null;
 }
 
 export const MarketPublicMetadataSchema: z.ZodType<MarketPublicMetadata> =
@@ -279,6 +291,7 @@ export const MarketPublicMetadataSchema: z.ZodType<MarketPublicMetadata> =
     tokensXyzAssetId: z.string().nullable().optional(),
     calendar: MarketCalendarSchema.nullable().optional(),
     displayColor: z.string().nullable().optional(),
+    circulatingSupply: z.number().nullable().optional(),
   });
 
 export interface MarketStatsSnapshot {
@@ -553,6 +566,7 @@ export interface ExchangeStateSnapshot {
   withdrawQueue: string;
   exchangeStatusBits: number;
   exchangeStatusFeatures: string[];
+  runningState: ExchangeRunningState;
   active: boolean;
   gated: boolean;
   withdrawalsAvailable: boolean;
@@ -572,6 +586,7 @@ export const ExchangeStateSnapshotSchema: z.ZodType<ExchangeStateSnapshot> =
     withdrawQueue: z.string(),
     exchangeStatusBits: z.number(),
     exchangeStatusFeatures: z.array(z.string()),
+    runningState: ExchangeRunningStateSchema.default("unknown"),
     active: z.boolean(),
     gated: z.boolean(),
     withdrawalsAvailable: z.boolean().default(true),

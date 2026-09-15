@@ -113,7 +113,7 @@ export interface TraderStateMarketLimitOrderRow {
   isStopLossDirection?: boolean;
   isConditionalOrder?: boolean;
   /**
-   * Scale-order set id (1-255) shared by every leg of a scale-order packet;
+   * Scale-order set id (1-127; historical rows may carry legacy ids >= 128) shared by every leg of a scale-order packet;
    * absent for standalone orders.
    */
   scaleSetId?: number;

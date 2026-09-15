@@ -71,6 +71,7 @@ import { buildPlacePostOnlyOrderIx } from "./core/ixBuilders/PlacePostOnlyOrder"
 import {
   chunkScaleLevelsForTx,
   MAX_SCALE_ORDERS,
+  MAX_SCALE_SET_ID,
   scaleLevelsToMultipleOrderPacket,
   scaleLevelsToMultipleOrderPacketV2,
   type ScaleOrderLevel,
@@ -327,16 +328,31 @@ export interface PlaceMultiLimitOrderFlowParams {
   maxOrdersPerTx?: number;
   skipTransferToParent?: boolean;
   /**
-   * Caller-assigned ladder id in `1..=255`, stamped onto every resting leg.
+   * Caller-assigned ladder id in `1..=127`, stamped onto every resting leg.
    * Setting this (non-zero) or `reduceOnly` routes the batch through
    * `place_multi_limit_order_v2`. The caller owns uniqueness — a duplicate id
    * among the trader's resting orders on this market fails the whole batch
-   * on-chain. A tagged ladder must fit one transaction; the flow throws if
-   * `levels` chunk into more than one.
+   * on-chain. A tagged ladder must fit one transaction unless
+   * `scaleSetContinuation` opts in to spanning several.
    */
   scaleSetId?: number;
   /** Marks every leg of the ladder reduce-only. Also routes through `place_multi_limit_order_v2`. */
   reduceOnly?: boolean;
+  /**
+   * Opts a tagged ladder (`scaleSetId` set) into spanning more than one
+   * transaction. Batch 0 carries the plain id; batches 1..N carry
+   * `id | 0x80` (the continuation bit), which skips the on-chain duplicate-id
+   * check for that batch only. Rise never submits, so the caller must submit
+   * batches in order and wait for each to **confirm** — not just for sponsor
+   * acceptance — before sending the next: a continuation landing before its
+   * plain batch makes the plain batch fail as a duplicate. A failed batch k
+   * leaves batches < k resting (and, for isolated margin, the child funded
+   * but not yet swept); rise does not retry or roll back. Requires a program
+   * build that recognizes the continuation bit — an opted-in caller against
+   * an older program gets a ladder split across two distinct ids (e.g. 7 and
+   * 135) with no error.
+   */
+  scaleSetContinuation?: boolean;
 }
 
 export interface PlaceMultiLimitOrderFlowBatchInstructions {
@@ -359,6 +375,12 @@ export interface PlaceMultiLimitOrderFlowBatchInstructions {
 export interface PlaceMultiLimitOrderFlowBatch {
   instructions: InstructionsWithAccountsAndData[];
   named: PlaceMultiLimitOrderFlowBatchInstructions;
+  /** 0-based position of this batch in `batches`. */
+  index: number;
+  /** Total batch count; equal for every batch in the result. */
+  total: number;
+  /** Whether this batch's `placeMultiLimitOrder` packet carries the continuation bit. */
+  scaleSetContinuation: boolean;
 }
 
 export interface PlaceMultiLimitOrderFlowResult {
@@ -1141,6 +1163,10 @@ export const buildPlaceMarketOrderFlow = async (
  * leave a partial ladder and collateral funded-but-not-yet-swept. Callers that
  * need atomicity should keep isolated ladders to a single batch (size the order
  * count to `maxOrdersPerTx`).
+ *
+ * A tagged ladder (`scaleSetId` set) that needs more than one batch requires
+ * `scaleSetContinuation: true` — see that field's doc for the submission
+ * contract (in-order, confirm-then-advance).
  */
 export const buildPlaceMultiLimitOrderFlow = async (
   params: PlaceMultiLimitOrderFlowParams,
@@ -1164,19 +1190,25 @@ export const buildPlaceMultiLimitOrderFlow = async (
     skipTransferToParent = false,
     scaleSetId,
     reduceOnly = false,
+    scaleSetContinuation: continuationOptIn = false,
   } = params;
 
   if (
     scaleSetId !== undefined &&
-    (!Number.isInteger(scaleSetId) || scaleSetId < 0 || scaleSetId > 255)
+    (!Number.isInteger(scaleSetId) ||
+      scaleSetId < 0 ||
+      scaleSetId > MAX_SCALE_SET_ID)
   ) {
     throw new Error(
-      `scaleSetId must be an integer in 0..=255; got ${scaleSetId}`
+      `scaleSetId must be an integer in 0..=${MAX_SCALE_SET_ID}; got ${scaleSetId}`
     );
   }
 
   const hasScaleSetId = (scaleSetId ?? 0) !== 0;
-  // Must match the Rust SDK's `uses_v2_instruction()` dispatch rule.
+  if (continuationOptIn && !hasScaleSetId) {
+    throw new Error("scaleSetContinuation requires a nonzero scaleSetId");
+  }
+  // Mirrors `uses_v2_instruction()` in the Rust SDK (sdk/programs/eternal).
   const usesV2Instruction = hasScaleSetId || reduceOnly;
 
   const placeableLevels = levels.filter((level) => level.sizeBaseLots > 0);
@@ -1305,11 +1337,12 @@ export const buildPlaceMultiLimitOrderFlow = async (
     usesV2Instruction,
   });
 
-  // A scale_set_id cannot span transactions: the on-chain duplicate-id check
-  // (`reject_duplicate_scale_set_id`) would reject every batch after the first.
-  if (hasScaleSetId && chunks.length > 1) {
+  // A scale_set_id cannot span transactions unless the caller opts in: the
+  // on-chain duplicate-id check (`reject_duplicate_scale_set_id`) would
+  // otherwise reject every batch after the first.
+  if (hasScaleSetId && chunks.length > 1 && !continuationOptIn) {
     throw new Error(
-      `A scaleSetId cannot span transactions; got ${chunks.length} chunks for ${placeableLevels.length} orders. Raise maxOrdersPerTx (capped at ${MAX_SCALE_ORDERS}) or reduce the order count so the ladder fits one transaction.`
+      `A scaleSetId cannot span transactions; got ${chunks.length} chunks for ${placeableLevels.length} orders. Raise maxOrdersPerTx (capped at ${MAX_SCALE_ORDERS}) or reduce the order count so the ladder fits one transaction, or pass scaleSetContinuation: true to opt in (requires an upgraded program).`
     );
   }
 
@@ -1338,7 +1371,13 @@ export const buildPlaceMultiLimitOrderFlow = async (
           multipleOrderPacket: scaleLevelsToMultipleOrderPacketV2(
             chunks[i],
             side,
-            { slide, reduceOnly, clientOrderId, scaleSetId }
+            {
+              slide,
+              reduceOnly,
+              clientOrderId,
+              scaleSetId,
+              scaleSetContinuation: hasScaleSetId && i > 0,
+            }
           ),
         })
       : buildPlaceMultiLimitOrderIx({
@@ -1385,7 +1424,13 @@ export const buildPlaceMultiLimitOrderFlow = async (
       named.transferCollateralChildToParent = sweepIx;
     }
 
-    batches.push({ instructions, named });
+    batches.push({
+      instructions,
+      named,
+      index: i,
+      total: chunks.length,
+      scaleSetContinuation: hasScaleSetId && i > 0,
+    });
   }
 
   return { batches, subaccountIndex };

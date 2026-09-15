@@ -70,6 +70,20 @@ const MULTIPLE_ORDER_PACKET_V2_BYTES = [
   7,                            // scaleSetId
 ];
 
+// Continuation counterpart of MULTIPLE_ORDER_PACKET_V2: same body, scaleSetId
+// is 7 | 0x80 = 135 (encodeScaleSetTag(7, true)). The Rust counterpart is
+// `order_packet::V2_PARITY_PACKET_BYTES_CONTINUATION`.
+const MULTIPLE_ORDER_PACKET_V2_CONTINUATION = {
+  ...MULTIPLE_ORDER_PACKET_V2,
+  scaleSetId: 135,
+};
+
+// prettier-ignore
+const MULTIPLE_ORDER_PACKET_V2_CONTINUATION_BYTES = [
+  ...MULTIPLE_ORDER_PACKET_V2_BYTES.slice(0, -1),
+  135, // scaleSetId = 7 | continuation bit
+];
+
 describe("order packet V2 TS<->Rust parity vectors", () => {
   it("encodes a single CondensedOrderV2 byte-for-byte", () => {
     const bytes = getCondensedOrderV2Encoder().encode(CONDENSED_ORDER_V2);
@@ -94,6 +108,26 @@ describe("order packet V2 TS<->Rust parity vectors", () => {
     expect(Array.from(data)).toEqual([
       ...DISCRIMINANTS.PLACE_MULTI_LIMIT_ORDER_V2,
       ...MULTIPLE_ORDER_PACKET_V2_BYTES,
+    ]);
+  });
+
+  // Rust counterpart: `order_packet::tests::test_multiple_order_packet_v2_continuation_byte_layout`
+  // and `multi_limit_order::tests::test_v2_continuation_instruction_data_matches_ts_parity_vector`.
+  it("encodes a continuation packet's scaleSetId byte-for-byte", () => {
+    const bytes = getMultipleOrderPacketV2Encoder().encode(
+      MULTIPLE_ORDER_PACKET_V2_CONTINUATION
+    );
+
+    expect(Array.from(bytes)).toEqual(
+      MULTIPLE_ORDER_PACKET_V2_CONTINUATION_BYTES
+    );
+
+    const data = getPlaceMultiLimitOrderV2Encoder().encode(
+      MULTIPLE_ORDER_PACKET_V2_CONTINUATION
+    );
+    expect(Array.from(data)).toEqual([
+      ...DISCRIMINANTS.PLACE_MULTI_LIMIT_ORDER_V2,
+      ...MULTIPLE_ORDER_PACKET_V2_CONTINUATION_BYTES,
     ]);
   });
 });

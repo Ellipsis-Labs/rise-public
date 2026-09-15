@@ -77,8 +77,9 @@ export interface LimitOrder {
   isStopLoss?: boolean;
   isStopLossDirection?: boolean;
   /**
-   * Client-assigned scale set id (1-255) when the order was placed as part
-   * of a scale (ladder) order batch; absent for standalone orders.
+   * Client-assigned scale set id (1-127; historical rows may carry legacy
+   * ids >= 128) when the order was placed as part of a scale (ladder) order
+   * batch; absent for standalone orders.
    */
   scaleSetId?: number;
 }
