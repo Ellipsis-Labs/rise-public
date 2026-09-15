@@ -14,6 +14,8 @@ import {
   buildCancelTwapOrderIx,
   buildCloseInactiveTwapAccountIx,
   buildCreateTwapAccountIx,
+  buildDisableTwapIx,
+  buildEnableTwapIxs,
   buildExecuteTwapOrderIx,
   buildUncrossCrankIxResolved,
   buildCreateEscrowRequestIxResolved,
@@ -39,9 +41,15 @@ import {
   buildWithdrawIxsResolved,
   CondensedOrderFlags,
   decodeTwapIocOrderPacket,
+  encodeTwapIocOrderPacket,
   getExecuteTwapOrderDecoder,
+  getPhoenixPermissionAddress,
   getPlaceMultiLimitOrderV2Decoder,
   getPlaceTwapOrderDecoder,
+  getSetPermissionInstructionEncoder,
+  getTwapDelegatePermissionAddress,
+  getTwapGlobalStateAddress,
+  POSITION_AUTHORITY_PERMISSION,
   quoteLots,
   ticks,
 } from "@/index";
@@ -284,14 +292,21 @@ describe("twap raw ix builders", () => {
     expect(decoded.childOrderCollateralQuoteLotsToTransfer).toBe(quoteLots(5n));
     expect(decoded.lastValidSlot).toBe(0n);
     expect(decoded.transferCollateralAccountCount).toBe(1);
-    expect(decoded.childOrderPacket).toEqual(twapChildOrderPacket);
+    expect(decoded.childOrderPacket).toEqual({
+      ...twapChildOrderPacket,
+      dustOrderSize: baseLots(0n),
+    });
+    expect(decoded.dustOrderSize).toBeNull();
 
     const packetOffset = 8 + 8 + 8 + 8 + 1 + 9;
     const packetBytes = ix.data.slice(
       packetOffset,
       packetOffset + TWAP_IOC_ORDER_PACKET_BYTE_LENGTH
     );
-    expect(decodeTwapIocOrderPacket(packetBytes)).toEqual(twapChildOrderPacket);
+    expect(decodeTwapIocOrderPacket(packetBytes)).toEqual({
+      ...twapChildOrderPacket,
+      dustOrderSize: baseLots(0n),
+    });
   });
 
   it("rejects optional IOC fields set to zero", () => {
@@ -372,6 +387,218 @@ describe("twap raw ix builders", () => {
     expect(bytes(closeIx.data)).toEqual(
       bytes(FLICKER_DISCRIMINANTS.CLOSE_INACTIVE_TWAP_ACCOUNT)
     );
+  });
+});
+
+describe("twap dust order size", () => {
+  // Pinned to the on-chain layout const-asserted in
+  // programs/flicker-lib/src/accounts/twap.rs:
+  // IOC_ORDER_PACKET_DUST_ORDER_SIZE_OFFSET == 104, packet size == 152.
+  const DUST_ORDER_SIZE_OFFSET = 104;
+
+  it("encodes dust order size at byte offset 104 of the 152-byte packet", () => {
+    const packetBytes = encodeTwapIocOrderPacket(
+      twapChildOrderPacket,
+      0x0102_0304_0506_0708n
+    );
+
+    expect(packetBytes.length).toBe(TWAP_IOC_ORDER_PACKET_BYTE_LENGTH);
+    expect(
+      bytes(
+        packetBytes.slice(DUST_ORDER_SIZE_OFFSET, DUST_ORDER_SIZE_OFFSET + 8)
+      )
+    ).toEqual([0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]);
+    // Remaining reserved tail stays zero-filled.
+    expect(bytes(packetBytes.slice(DUST_ORDER_SIZE_OFFSET + 8))).toEqual(
+      Array.from({ length: 40 }, () => 0)
+    );
+    // Zero dust matches the legacy all-zero tail byte-for-byte.
+    expect(bytes(encodeTwapIocOrderPacket(twapChildOrderPacket))).toEqual(
+      bytes(encodeTwapIocOrderPacket(twapChildOrderPacket, 0n))
+    );
+  });
+
+  it("round-trips dust through place TWAP order encode/decode", () => {
+    const ix = buildPlaceTwapOrderIx({
+      ...twapAddresses,
+      twapAccount: "twap-account" as never,
+      authority: "trader-authority" as never,
+      cooldownSlots: 12n,
+      nChildOrders: 3n,
+      childOrderMaxSlippageBps: 25n,
+      childOrderPacket: twapChildOrderPacket,
+      dustOrderSize: baseLots(300n),
+      orderAccounts: [
+        accountMeta("order-phoenix-program", AccountRole.READONLY),
+      ],
+    });
+
+    const decoded = getPlaceTwapOrderDecoder().decode(ix.data);
+    expect(decoded.dustOrderSize).toBe(baseLots(300n));
+    expect(decoded.childOrderPacket.dustOrderSize).toBe(baseLots(300n));
+  });
+
+  it("rejects dust order size with a single child order", () => {
+    expect(() =>
+      buildPlaceTwapOrderIx({
+        ...twapAddresses,
+        twapAccount: "twap-account" as never,
+        authority: "trader-authority" as never,
+        cooldownSlots: 12n,
+        nChildOrders: 1n,
+        childOrderMaxSlippageBps: 25n,
+        childOrderPacket: twapChildOrderPacket,
+        dustOrderSize: baseLots(300n),
+        orderAccounts: [
+          accountMeta("order-phoenix-program", AccountRole.READONLY),
+        ],
+      })
+    ).toThrow("Dust order size requires at least 2 child orders");
+  });
+
+  it("rejects dust order size at or above the child order size", () => {
+    for (const dust of [
+      twapChildOrderPacket.numBaseLots,
+      baseLots(twapChildOrderPacket.numBaseLots + 1n),
+    ]) {
+      expect(() =>
+        buildPlaceTwapOrderIx({
+          ...twapAddresses,
+          twapAccount: "twap-account" as never,
+          authority: "trader-authority" as never,
+          cooldownSlots: 12n,
+          nChildOrders: 3n,
+          childOrderMaxSlippageBps: 25n,
+          childOrderPacket: twapChildOrderPacket,
+          dustOrderSize: dust,
+          orderAccounts: [
+            accountMeta("order-phoenix-program", AccountRole.READONLY),
+          ],
+        })
+      ).toThrow("Dust order size must be less than the child order size");
+    }
+  });
+});
+
+describe("twap enrollment builders", () => {
+  const enrollmentAddresses = {
+    programAddress: "phoenix-program" as never,
+    logAuthorityAddress: "phoenix-log-authority" as never,
+    twapGlobalStateAddress: "twap-global-state" as never,
+    permissionPda: "twap-permission" as never,
+    traderAuthority: "trader-authority" as never,
+  } as const;
+
+  it("builds the enable pair granting position authority to the global delegate", () => {
+    const { createPermission, setPermission, instructions } =
+      buildEnableTwapIxs({
+        ...enrollmentAddresses,
+        payer: "payer" as never,
+      });
+
+    expect(instructions).toEqual([createPermission, setPermission]);
+
+    expect(createPermission.programAddress).toBe("phoenix-program");
+    expect(createPermission.accounts.map((account) => account.address)).toEqual(
+      [
+        "phoenix-program",
+        "phoenix-log-authority",
+        "payer",
+        "twap-permission",
+        "trader-authority",
+        "twap-global-state",
+        "11111111111111111111111111111111",
+      ]
+    );
+    expect(createPermission.accounts[2]?.role).toBe(
+      AccountRole.WRITABLE_SIGNER
+    );
+    expect(bytes(createPermission.data)).toEqual(
+      bytes(DISCRIMINANTS.CREATE_PERMISSION)
+    );
+
+    expect(setPermission.programAddress).toBe("phoenix-program");
+    expect(setPermission.accounts.map((account) => account.address)).toEqual([
+      "phoenix-program",
+      "phoenix-log-authority",
+      "twap-permission",
+      "trader-authority",
+      "twap-global-state",
+    ]);
+    expect(setPermission.accounts[3]?.role).toBe(AccountRole.READONLY_SIGNER);
+    expect(bytes(setPermission.data)).toEqual(
+      bytes(
+        getSetPermissionInstructionEncoder().encode({
+          permission: POSITION_AUTHORITY_PERMISSION,
+          expiresAtTimestamp: null,
+          allowedSignerActions: null,
+        })
+      )
+    );
+  });
+
+  it("defaults the enable rent payer to the trader authority", () => {
+    const { createPermission } = buildEnableTwapIxs(enrollmentAddresses);
+
+    expect(createPermission.accounts[2]?.address).toBe("trader-authority");
+    expect(createPermission.accounts[2]?.role).toBe(
+      AccountRole.WRITABLE_SIGNER
+    );
+  });
+
+  it("builds disable as a zero-permission revoke", () => {
+    const ix = buildDisableTwapIx(enrollmentAddresses);
+
+    expect(ix.accounts.map((account) => account.address)).toEqual([
+      "phoenix-program",
+      "phoenix-log-authority",
+      "twap-permission",
+      "trader-authority",
+      "twap-global-state",
+    ]);
+    expect(bytes(ix.data)).toEqual(
+      bytes(
+        getSetPermissionInstructionEncoder().encode({
+          permission: 0n,
+          expiresAtTimestamp: null,
+          allowedSignerActions: null,
+        })
+      )
+    );
+  });
+
+  it("rejects missing enrollment accounts", () => {
+    expect(() =>
+      buildEnableTwapIxs({
+        ...enrollmentAddresses,
+        permissionPda: undefined as never,
+      })
+    ).toThrow("Permission PDA is required");
+    expect(() =>
+      buildDisableTwapIx({
+        ...enrollmentAddresses,
+        twapGlobalStateAddress: undefined as never,
+      })
+    ).toThrow("TWAP global state account is required");
+  });
+});
+
+describe("twap delegate permission pda", () => {
+  const SAMPLE_TRADER_AUTHORITY =
+    "So11111111111111111111111111111111111111112" as never;
+
+  it("derives the permission PDA from the trader authority and global state", async () => {
+    const twapGlobalState = await getTwapGlobalStateAddress();
+    const expected = await getPhoenixPermissionAddress(
+      SAMPLE_TRADER_AUTHORITY,
+      twapGlobalState
+    );
+
+    await expect(
+      getTwapDelegatePermissionAddress({
+        traderAuthority: SAMPLE_TRADER_AUTHORITY,
+      })
+    ).resolves.toBe(expected);
   });
 });
 

@@ -9,6 +9,11 @@ import {
   generateWritableAccount,
   generateWritableSignerAccount,
 } from "@/core/utils/accountMeta";
+import {
+  POSITION_AUTHORITY_PERMISSION,
+  buildCreatePermissionIx,
+  buildSetPermissionIx,
+} from "@/core/permissionInstructions";
 import { address, type AccountMeta, type Address } from "@solana/kit";
 import {
   getCancelTwapOrderEncoder,
@@ -27,6 +32,10 @@ import type {
   CreateTwapAccountAccounts,
   CreateTwapAccountIx,
   CreateTwapAccountParams,
+  DisableTwapIx,
+  DisableTwapParams,
+  EnableTwapIxs,
+  EnableTwapParams,
   ExecuteTwapOrderAccounts,
   ExecuteTwapOrderIx,
   ExecuteTwapOrderParams,
@@ -96,6 +105,7 @@ export const buildPlaceTwapOrderIx = (
     childOrderMinPriceInTicks: params.childOrderMinPriceInTicks,
     childOrderMaxPriceInTicks: params.childOrderMaxPriceInTicks,
     childOrderPacket: params.childOrderPacket,
+    dustOrderSize: params.dustOrderSize,
     childOrderCollateralQuoteLotsToTransfer:
       params.childOrderCollateralQuoteLotsToTransfer,
     lastValidSlot: params.lastValidSlot,
@@ -195,6 +205,78 @@ export const buildCloseInactiveTwapAccountIx = (
   };
 };
 
+/**
+ * Builds the one-time TWAP enrollment pair: CreatePermission (idempotent
+ * on-chain when the permission account already exists) followed by
+ * SetPermission granting exactly the position authority bit to the global
+ * Flicker delegate, with no expiration and unlimited signer actions. The
+ * trader authority must sign; after this lands, TWAP placement and execution
+ * need only the position authority.
+ *
+ * SetPermission overwrites the account's permission bits, which is safe here
+ * because the (trader, TWAP global state) permission PDA carries only this
+ * grant.
+ */
+export const buildEnableTwapIxs = (params: EnableTwapParams): EnableTwapIxs => {
+  validateTwapPermissionParams(params);
+
+  const createPermission = buildCreatePermissionIx({
+    ...params,
+    payer: params.payer ?? params.traderAuthority,
+    permissionAuthority: params.traderAuthority,
+    delegatedKey: params.twapGlobalStateAddress,
+    permissionPda: params.permissionPda,
+  });
+  const setPermission = buildSetPermissionIx({
+    ...params,
+    permissionAuthority: params.traderAuthority,
+    delegatedKey: params.twapGlobalStateAddress,
+    permissionPda: params.permissionPda,
+    permission: POSITION_AUTHORITY_PERMISSION,
+    expiresAtTimestamp: null,
+    allowedSignerActions: null,
+  });
+
+  return {
+    createPermission,
+    setPermission,
+    instructions: [createPermission, setPermission] as const,
+  };
+};
+
+/**
+ * Revokes TWAP enrollment: SetPermission with no bits, which the program
+ * treats as a revoke of the (trader, TWAP global state) permission account.
+ */
+export const buildDisableTwapIx = (
+  params: DisableTwapParams
+): DisableTwapIx => {
+  validateTwapPermissionParams(params);
+
+  return buildSetPermissionIx({
+    ...params,
+    permissionAuthority: params.traderAuthority,
+    delegatedKey: params.twapGlobalStateAddress,
+    permissionPda: params.permissionPda,
+    permission: 0n,
+    expiresAtTimestamp: null,
+    allowedSignerActions: null,
+  });
+};
+
+const validateTwapPermissionParams = (
+  params: Pick<
+    EnableTwapParams,
+    "traderAuthority" | "twapGlobalStateAddress" | "permissionPda"
+  >
+) => {
+  if (!params.traderAuthority) throw new Error("Trader authority is required");
+  if (!params.twapGlobalStateAddress) {
+    throw new Error("TWAP global state account is required");
+  }
+  if (!params.permissionPda) throw new Error("Permission PDA is required");
+};
+
 const validateTwapAddresses = (params: TwapInstructionAddressOverrides) => {
   if (!params.twapGlobalStateAddress) {
     throw new Error("TWAP global state account is required");
@@ -254,6 +336,18 @@ const validatePlaceTwapOrder = (params: PlaceTwapOrderParams) => {
   }
   if (!params.childOrderPacket) {
     throw new Error("Child order packet is required");
+  }
+  const dustOrderSize = params.dustOrderSize ?? 0n;
+  if (dustOrderSize < 0n) {
+    throw new Error("Dust order size must be non-negative");
+  }
+  if (dustOrderSize > 0n) {
+    if (params.nChildOrders < 2n) {
+      throw new Error("Dust order size requires at least 2 child orders");
+    }
+    if (dustOrderSize >= params.childOrderPacket.numBaseLots) {
+      throw new Error("Dust order size must be less than the child order size");
+    }
   }
 };
 
