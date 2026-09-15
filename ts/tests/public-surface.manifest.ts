@@ -241,6 +241,7 @@ export const ROOT_PRESENT_PROPERTIES = [
   "createMarkPriceAdapter",
   "createMarketAdapter",
   "createMarketStatsAdapter",
+  "createMarketStatsV2Adapter",
   "createNotificationsAdapter",
   "createOrderbookAdapter",
   "createPhoenixExchangeCache",

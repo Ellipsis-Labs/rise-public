@@ -1,18 +1,12 @@
 import z from "zod";
-import { numericBigint } from "@/ws/numericSchemas";
+import {
+  type MarketStats,
+  type MarketStatsWireData,
+  marketStatsSchema,
+  marketStatsWireDataSchema,
+} from "./shared";
 
-export interface MarketStats {
-  timestamp: bigint;
-  openInterest: number;
-  markPrice: number;
-  oraclePrice: number;
-  prevDayMarkPrice: number;
-  dayVolumeUsd: number;
-  dayVolumeBase: number;
-  currentFundingRate: number;
-  eightHourFundingRate: number;
-  annualizedFundingRate: number;
-}
+export type { MarketStats } from "./shared";
 
 export interface MarketStatsUpdate {
   symbol: string;
@@ -21,46 +15,14 @@ export interface MarketStatsUpdate {
 
 export const MarketStatsUpdateSchema: z.ZodType<MarketStatsUpdate> = z.object({
   symbol: z.string(),
-  stats: z.object({
-    timestamp: numericBigint("timestamp"),
-    openInterest: z.number(),
-    markPrice: z.number(),
-    oraclePrice: z.number(),
-    prevDayMarkPrice: z.number(),
-    dayVolumeUsd: z.number(),
-    dayVolumeBase: z.number(),
-    currentFundingRate: z.number(),
-    eightHourFundingRate: z.number(),
-    annualizedFundingRate: z.number(),
-  }),
+  stats: marketStatsSchema,
 });
 
-export interface MarketStatsMsg {
+export interface MarketStatsMsg extends MarketStatsWireData {
   channel: "marketStats";
-  symbol: string;
-  timestamp: bigint;
-  openInterest: number;
-  markPrice: number;
-  oraclePrice: number;
-  prevDayMarkPrice: number;
-  dayVolumeUsd: number;
-  dayVolumeBase: number;
-  currentFundingRate: number;
-  eightHourFundingRate: number;
-  annualizedFundingRate: number;
 }
 
-export const MarketStatsMsgSchema: z.ZodType<MarketStatsMsg> = z.object({
-  channel: z.literal("marketStats"),
-  symbol: z.string(),
-  timestamp: numericBigint("timestamp"),
-  openInterest: z.number(),
-  markPrice: z.number(),
-  oraclePrice: z.number(),
-  prevDayMarkPrice: z.number(),
-  dayVolumeUsd: z.number(),
-  dayVolumeBase: z.number(),
-  currentFundingRate: z.number(),
-  eightHourFundingRate: z.number(),
-  annualizedFundingRate: z.number(),
-});
+export const MarketStatsMsgSchema: z.ZodType<MarketStatsMsg> =
+  marketStatsWireDataSchema.extend({
+    channel: z.literal("marketStats"),
+  });
