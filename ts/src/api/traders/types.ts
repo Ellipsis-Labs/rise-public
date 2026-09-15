@@ -285,6 +285,7 @@ export interface PnlDataPoint {
   unrealizedPnl: number;
   cumulativeFundingPayment: number;
   cumulativeTakerFee: number;
+  cumulativeMakerFee: number;
 }
 
 export const PnlDataPointSchema: z.ZodType<PnlDataPoint> = z.object({
@@ -295,6 +296,7 @@ export const PnlDataPointSchema: z.ZodType<PnlDataPoint> = z.object({
   unrealizedPnl: z.number(),
   cumulativeFundingPayment: z.number(),
   cumulativeTakerFee: z.number(),
+  cumulativeMakerFee: z.number(),
 });
 
 // ---------------------------------------------------------------------------

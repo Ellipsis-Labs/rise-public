@@ -3,6 +3,22 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.19 - 2026-09-15
+
+Source Phoenix commit: `d20f17df1c201ce9eb1b31c3927d5bb73b51cb98`
+
+### Summary
+
+- Added a `cumulativeMakerFee` field to `PnlDataPoint`, returned by `getTraderPnl` and `getTraderPnlValues`, alongside the existing `cumulativeTakerFee` fee breakdown.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `cumulativeMakerFee` is required (non-optional `number`) in the `PnlDataPointSchema` Zod validator, so any local mocks or fixtures for `PnlDataPoint` responses should include this field to keep parsing/tests passing.
+
 ## v0.5.18 - 2026-09-15
 
 Source Phoenix commit: `7fc763a0ec5ef143b123c0990ec836847056aba5`
