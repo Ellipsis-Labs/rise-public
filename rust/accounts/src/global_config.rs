@@ -12,6 +12,33 @@ use crate::serde_helpers::pubkey_string;
 
 const GLOBAL_CONFIG_ACCOUNT: &str = "GlobalConfig";
 const GLOBAL_CONFIG_PREFIX_LEN: usize = core::mem::size_of::<GlobalConfigPrefixRaw>();
+const INITIALIZED_ACTIVE_FLAGS: u8 = (1 << 7) | (1 << 0);
+const MAINTENANCE_FLAG: u8 = 1 << 2;
+
+/// The cluster's most recently observed restart slot.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum LastRestartSlot {
+    /// The cluster restart slot was observed directly.
+    Known(u64),
+    /// No cluster restart slot was available; use persisted status only.
+    #[default]
+    Unknown,
+}
+
+pub(crate) const fn is_exchange_active(
+    exchange_status: u8,
+    acknowledged_restart_slot: u64,
+    last_restart_slot: LastRestartSlot,
+) -> bool {
+    let persisted_active = exchange_status & INITIALIZED_ACTIVE_FLAGS == INITIALIZED_ACTIVE_FLAGS
+        && exchange_status & MAINTENANCE_FLAG == 0;
+    persisted_active
+        && (acknowledged_restart_slot == 0
+            || match last_restart_slot {
+                LastRestartSlot::Known(slot) => slot == acknowledged_restart_slot,
+                LastRestartSlot::Unknown => true,
+            })
+}
 
 const_assert_eq!(core::mem::size_of::<AuthoritySetRaw>(), 256);
 const_assert_eq!(core::mem::size_of::<GlobalConfigPrefixRaw>(), 1104);
@@ -204,17 +231,16 @@ impl GlobalConfig {
         self.raw.acknowledged_restart_slot
     }
 
-    /// Returns the effective activity exposed to off-chain callers.
-    /// A zero acknowledged slot is the legacy/uninitialized sentinel.
+    /// Returns whether the exchange is active for the observed restart slot.
+    ///
+    /// [`LastRestartSlot::Unknown`] evaluates only persisted status bits.
     #[inline(always)]
-    pub const fn is_exchange_active(&self, last_restart_slot: Option<u64>) -> bool {
-        let stored_active = self.raw.exchange_status & 0b1000_0001 == 0b1000_0001;
-        stored_active
-            && (self.raw.acknowledged_restart_slot == 0
-                || matches!(
-                    last_restart_slot,
-                    Some(slot) if slot == self.raw.acknowledged_restart_slot
-                ))
+    pub const fn is_exchange_active(&self, last_restart_slot: LastRestartSlot) -> bool {
+        is_exchange_active(
+            self.raw.exchange_status,
+            self.raw.acknowledged_restart_slot,
+            last_restart_slot,
+        )
     }
 
     #[inline(always)]
@@ -414,13 +440,19 @@ mod tests {
 
         let config = GlobalConfig::try_from_account_bytes(&data).unwrap();
         assert_eq!(config.acknowledged_restart_slot(), 42);
-        assert!(config.is_exchange_active(Some(42)));
-        assert!(!config.is_exchange_active(Some(43)));
-        assert!(!config.is_exchange_active(None));
+        assert!(config.is_exchange_active(LastRestartSlot::Known(42)));
+        assert!(!config.is_exchange_active(LastRestartSlot::Known(43)));
+        assert!(config.is_exchange_active(LastRestartSlot::Unknown));
 
+        data[EXCHANGE_STATUS_OFFSET] |= MAINTENANCE_FLAG;
+        let config = GlobalConfig::try_from_account_bytes(&data).unwrap();
+        assert!(!config.is_exchange_active(LastRestartSlot::Known(42)));
+        assert!(!config.is_exchange_active(LastRestartSlot::Unknown));
+
+        data[EXCHANGE_STATUS_OFFSET] = INITIALIZED_ACTIVE_FLAGS;
         data[ACKNOWLEDGED_RESTART_SLOT_OFFSET..ACKNOWLEDGED_RESTART_SLOT_OFFSET + 8]
             .copy_from_slice(&0u64.to_le_bytes());
         let config = GlobalConfig::try_from_account_bytes(&data).unwrap();
-        assert!(config.is_exchange_active(None));
+        assert!(config.is_exchange_active(LastRestartSlot::Known(42)));
     }
 }

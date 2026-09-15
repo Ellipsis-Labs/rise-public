@@ -59,9 +59,9 @@ pub struct OrderHistoryItem {
     pub placed_at: Option<chrono::DateTime<chrono::Utc>>,
     /// Timestamp when the order was completed (ISO 8601).
     pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
-    /// Scale-order set id (1-255) shared by every leg of a
-    /// `PlaceMultiLimitOrderV2` scale-order packet; absent for standalone
-    /// orders.
+    /// Scale-order set id (1-127; historical rows may carry legacy ids >=
+    /// 128) shared by every leg of a `PlaceMultiLimitOrderV2` scale-order
+    /// packet; absent for standalone orders.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale_set_id: Option<u8>,
 }
@@ -531,7 +531,7 @@ pub struct FundingHistoryEvent {
 
 #[cfg(test)]
 mod tests {
-    use super::FundingHistoryEvent;
+    use super::{FundingHistoryEvent, PnlPoint};
 
     #[test]
     fn funding_history_timestamp_accepts_rfc3339() {
@@ -565,6 +565,23 @@ mod tests {
             result.is_err(),
             "integer timestamp should not deserialize for FundingHistoryEvent"
         );
+    }
+
+    #[test]
+    fn pnl_point_deserializes_cumulative_maker_fee() {
+        let raw = r#"{
+            "timestamp":120,
+            "startTime":60,
+            "endTime":119,
+            "cumulativePnl":1.0,
+            "unrealizedPnl":2.0,
+            "cumulativeFundingPayment":3.0,
+            "cumulativeTakerFee":4.0,
+            "cumulativeMakerFee":5.0
+        }"#;
+
+        let point: PnlPoint = serde_json::from_str(raw).expect("PnL point should deserialize");
+        assert_eq!(point.cumulative_maker_fee, 5.0);
     }
 }
 
@@ -691,6 +708,8 @@ pub struct PnlPoint {
     pub cumulative_funding_payment: f64,
     /// Cumulative taker fees paid.
     pub cumulative_taker_fee: f64,
+    /// Cumulative maker fees paid.
+    pub cumulative_maker_fee: f64,
 }
 
 /// Response from the PnL endpoint.
@@ -750,8 +769,9 @@ pub struct LimitOrder {
     pub is_reduce_only: bool,
     #[serde(default)]
     pub is_stop_loss: bool,
-    /// Client-assigned scale set id when the order was placed as part of a
-    /// scale (ladder) order batch.
+    /// Client-assigned scale set id (1-127; historical rows may carry legacy
+    /// ids >= 128) when the order was placed as part of a scale (ladder)
+    /// order batch.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale_set_id: Option<u8>,
 }
@@ -803,7 +823,15 @@ pub struct TraderView {
     #[serde(default)]
     pub spot_collaterals: Vec<SpotCollateralBalanceView>,
     pub effective_collateral: Decimal,
+    /// Quote-side effective collateral used for withdrawal checks.
     pub effective_collateral_for_withdrawals: Decimal,
+    /// Maximum quote collateral currently withdrawable: the tighter of
+    /// `effective_collateral_for_withdrawals` plus discounted spot collateral
+    /// minus `initial_margin_for_withdrawals`, and the positive part of
+    /// `effective_collateral_for_withdrawals`. Defaulted so responses from API
+    /// versions that predate the field still decode.
+    #[serde(default = "zero_quote_decimal")]
+    pub withdrawable_quote_collateral: Decimal,
     pub unrealized_pnl: Decimal,
     pub discounted_unrealized_pnl: Decimal,
     pub unsettled_funding_owed: Decimal,
@@ -853,4 +881,10 @@ impl TraderStateResponse {
             .iter()
             .find(|t| t.trader_subaccount_index > 0 && t.positions.is_empty())
     }
+}
+
+/// Default for quote fields added after a response shape was published, so
+/// older payloads still decode.
+fn zero_quote_decimal() -> Decimal {
+    Decimal::from_i64_with_decimals(0, 6)
 }

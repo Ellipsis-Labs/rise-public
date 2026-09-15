@@ -4,8 +4,8 @@ use phoenix_rise_types::prelude::{
     OrderHistoryQueryParams, OrderHistoryResponse, PlaceAttachedConditionalOrderRequest,
     PlaceIsolatedLimitOrderEnhancedResponse, PlaceIsolatedLimitOrderRequest,
     PlaceIsolatedLimitOrderWithConditionalsRequest, PlaceIsolatedMarketOrderEnhancedResponse,
-    PlaceIsolatedMarketOrderRequest, PlacePositionConditionalOrderRequest,
-    PlaceStopLossOrderRequest, TpSlOrderConfig,
+    PlaceIsolatedMarketOrderRequest, PlaceIsolatedMarketOrderV2Request,
+    PlacePositionConditionalOrderRequest, PlaceStopLossOrderRequest, TpSlOrderConfig,
 };
 use solana_instruction::{AccountMeta, Instruction};
 use solana_pubkey::Pubkey;
@@ -221,6 +221,18 @@ impl OrdersClient<'_> {
         api_ixs.into_iter().map(try_into_instruction).collect()
     }
 
+    pub async fn build_isolated_market_order_tx_v2_with_request(
+        &self,
+        request: PlaceIsolatedMarketOrderV2Request,
+    ) -> Result<Vec<Instruction>, PhoenixHttpError> {
+        let api_ixs: Vec<ApiInstructionResponse> = self
+            .http
+            .post_json("/v1/ix/place-isolated-market-order", &request)
+            .await?;
+
+        api_ixs.into_iter().map(try_into_instruction).collect()
+    }
+
     pub async fn build_isolated_market_order_tx_enhanced(
         &self,
         authority: &Pubkey,
@@ -251,6 +263,24 @@ impl OrdersClient<'_> {
     pub async fn build_isolated_market_order_tx_enhanced_with_request(
         &self,
         request: PlaceIsolatedMarketOrderRequest,
+    ) -> Result<(Vec<Instruction>, Option<f64>), PhoenixHttpError> {
+        let enhanced: PlaceIsolatedMarketOrderEnhancedResponse = self
+            .http
+            .post_json("/v1/ix/place-isolated-market-order-enhanced", &request)
+            .await?;
+
+        let instructions = enhanced
+            .instructions
+            .into_iter()
+            .map(try_into_instruction)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok((instructions, enhanced.estimated_liquidation_price_usd))
+    }
+
+    pub async fn build_isolated_market_order_tx_enhanced_v2_with_request(
+        &self,
+        request: PlaceIsolatedMarketOrderV2Request,
     ) -> Result<(Vec<Instruction>, Option<f64>), PhoenixHttpError> {
         let enhanced: PlaceIsolatedMarketOrderEnhancedResponse = self
             .http

@@ -19,9 +19,9 @@ use phoenix_rise_types::prelude::{
     NextCommodityMarketTransition, NextMarketCalendarTransition, OrderHistoryQueryParams,
     OrderHistoryResponse, PlaceAttachedConditionalOrderRequest, PlaceIsolatedLimitOrderRequest,
     PlaceIsolatedLimitOrderWithConditionalsRequest, PlaceIsolatedMarketOrderRequest,
-    PlacePositionConditionalOrderRequest, PlaceStopLossOrderRequest, PnlPoint, PnlQueryParams,
-    TpSlOrderConfig, TradeHistoryQueryParams, TradeHistoryResponse,
-    UserLiquidationHistoryQueryParams, UserLiquidationHistoryResponse,
+    PlaceIsolatedMarketOrderV2Request, PlacePositionConditionalOrderRequest,
+    PlaceStopLossOrderRequest, PnlPoint, PnlQueryParams, TpSlOrderConfig, TradeHistoryQueryParams,
+    TradeHistoryResponse, UserLiquidationHistoryQueryParams, UserLiquidationHistoryResponse,
 };
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -1233,6 +1233,15 @@ impl PhoenixHttpClient {
             .await
     }
 
+    pub async fn build_isolated_market_order_tx_v2_with_request(
+        &self,
+        request: PlaceIsolatedMarketOrderV2Request,
+    ) -> Result<Vec<Instruction>, PhoenixHttpError> {
+        self.orders()
+            .build_isolated_market_order_tx_v2_with_request(request)
+            .await
+    }
+
     pub async fn build_isolated_market_order_tx_enhanced(
         &self,
         authority: &Pubkey,
@@ -1262,6 +1271,15 @@ impl PhoenixHttpClient {
     ) -> Result<(Vec<Instruction>, Option<f64>), PhoenixHttpError> {
         self.orders()
             .build_isolated_market_order_tx_enhanced_with_request(request)
+            .await
+    }
+
+    pub async fn build_isolated_market_order_tx_enhanced_v2_with_request(
+        &self,
+        request: PlaceIsolatedMarketOrderV2Request,
+    ) -> Result<(Vec<Instruction>, Option<f64>), PhoenixHttpError> {
+        self.orders()
+            .build_isolated_market_order_tx_enhanced_v2_with_request(request)
             .await
     }
 

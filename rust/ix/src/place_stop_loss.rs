@@ -219,6 +219,15 @@ impl PlaceStopLossParamsBuilder {
         let asset_id = self
             .asset_id
             .ok_or(PhoenixIxError::MissingField("asset_id"))?;
+        let trigger_price = self
+            .trigger_price
+            .ok_or(PhoenixIxError::MissingField("trigger_price"))?;
+        // Execution price 0 is a deprecated sentinel; default to executing at
+        // the trigger price when no explicit execution price is given.
+        let execution_price = self.execution_price.unwrap_or(trigger_price);
+        if execution_price == 0 {
+            return Err(PhoenixIxError::InvalidExecutionPrice);
+        }
 
         Ok(PlaceStopLossParams {
             funder: self.funder.ok_or(PhoenixIxError::MissingField("funder"))?,
@@ -246,10 +255,8 @@ impl PlaceStopLossParamsBuilder {
                 None => get_stop_loss_address(&trader_account, asset_id)?,
             },
             asset_id,
-            trigger_price: self
-                .trigger_price
-                .ok_or(PhoenixIxError::MissingField("trigger_price"))?,
-            execution_price: self.execution_price.unwrap_or(0),
+            trigger_price,
+            execution_price,
             trade_side: self
                 .trade_side
                 .ok_or(PhoenixIxError::MissingField("trade_side"))?,

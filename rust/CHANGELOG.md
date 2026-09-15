@@ -3,6 +3,32 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.3 - 2026-09-15
+
+Source Phoenix commit: `e902efb7e98b284b8a56cae5c98df492a7d0ac4b`
+
+### Summary
+
+- Shared Rust workspace release (`accounts`, `api`, `core`, `events`, `ix`, `litesvm-test`, `math`, `types`) bumping `0.5.2` → `0.5.3`.
+- Adds a batched, multi-symbol WebSocket market-stats channel (`marketStatsV2`) alongside atomic isolated-market-order v2 requests with TP/SL triggers, and scale-order-set "continuation" packets for ladders split across transactions.
+- Tightens scale-order-set id encoding, exchange-active/maintenance-state checks, stop-loss execution price validation, and quote-withdrawal collateral math to match on-chain behavior.
+
+### Breaking Changes
+
+- `accounts`: `GlobalConfig::is_exchange_active` / `GlobalConfiguration::is_exchange_active` now take a `LastRestartSlot` enum instead of `Option<u64>`, and also fold in a new maintenance-flag check — callers must update call sites and expect maintenance mode to make the exchange inactive even with a matching restart slot.
+- `ix`: `scale_set_id` is now capped at 127 (bit 7 is reserved to tag continuation packets); ids 128–255 are now rejected with `PhoenixIxError::InvalidScaleSetId` instead of being accepted.
+- `events`: `AdminParameterUpdateKind::AcknowledgedRestartSlot { .. }` is removed and replaced by a reserved, non-emitted variant — code matching on the old variant no longer compiles.
+- `types`/`events`: new enum variants (`ServerMessage::MarketStatsV2`, `SubscriptionRequest::MarketStatsV2`, `MarketEvent::Reserved70`) will break exhaustive `match` statements in consumer code.
+- `ix`: `PlaceStopLossParamsBuilder::build()` no longer silently defaults execution price to `0`; it now defaults to `trigger_price` and returns `PhoenixIxError::InvalidExecutionPrice` if the resolved execution price is `0`.
+
+### Consumer Notes
+
+- `math`: `TraderPortfolioMargin::calculate_transferable_collateral` now lets spot collateral back the withdrawal margin bound while still capping payout at quote-only collateral, so computed withdrawable amounts can change (generally increase) versus 0.5.2.
+- New `subscribe_to_market_stats_v2` / `PhoenixSubscription::market_stats_v2` (all-markets or filtered) on `PhoenixWSClient`/`PhoenixClient`; the legacy single-symbol `market` subscription is now implemented on top of this channel with no API change.
+- New `PlaceIsolatedMarketOrderV2Request` plus `build_isolated_market_order_tx_v2_with_request` / `..._enhanced_v2_with_request` for atomic isolated entry with `greaterTrigger`/`lessTrigger` TP/SL (requires a backend release with PRO-829); existing `PlaceIsolatedMarketOrderRequest` call sites remain source-compatible.
+- `MultiLimitOrderParamsV2Builder::scale_set_continuation` marks ladder legs sent in follow-up transactions; `TraderView` gains a defaulted `withdrawable_quote_collateral` field and `PnlPoint` gains `cumulative_maker_fee`.
+- `ExchangeStateSnapshot` and `ExchangeDeltaOp::ExchangeStatusChanged` gain a defaulted `running_state: ExchangeRunningState` (Unknown/Active/Maintenance/Suspended).
+
 ## v0.5.2 - 2026-09-15
 
 Source Phoenix commit: `bb97cff3b8d6ca1cb131fcdd43d2a8baa471c23a`

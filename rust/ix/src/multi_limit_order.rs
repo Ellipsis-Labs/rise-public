@@ -1,13 +1,15 @@
 //! Place multi-limit-order instruction construction.
 
+use std::num::NonZeroU8;
+
 use borsh::BorshSerialize;
 use solana_pubkey::Pubkey;
 
 use crate::constants::{PHOENIX_GLOBAL_CONFIGURATION, PHOENIX_LOG_AUTHORITY, PHOENIX_PROGRAM_ID};
 use crate::error::PhoenixIxError;
 use crate::order_packet::{
-    CondensedOrder, CondensedOrderV2, MultipleOrderPacket, MultipleOrderPacketV2,
-    client_order_id_to_bytes,
+    CondensedOrder, CondensedOrderV2, MAX_SCALE_SET_ID, MultipleOrderPacket, MultipleOrderPacketV2,
+    client_order_id_to_bytes, encode_scale_set_tag,
 };
 use crate::types::{AccountMeta, Instruction, push_trader_index_accounts};
 
@@ -248,6 +250,8 @@ pub struct MultiLimitOrderParamsV2 {
     asks: Vec<CondensedOrderV2>,
     client_order_id: Option<u128>,
     scale_set_id: u8,
+    #[cfg_attr(feature = "serde", serde(default))]
+    scale_set_continuation: bool,
     /// Market symbol (e.g. "SOL"). Not serialized into the instruction.
     symbol: String,
 }
@@ -313,6 +317,10 @@ impl MultiLimitOrderParamsV2 {
         self.scale_set_id
     }
 
+    pub fn scale_set_continuation(&self) -> bool {
+        self.scale_set_continuation
+    }
+
     pub fn symbol(&self) -> &str {
         &self.symbol
     }
@@ -332,6 +340,7 @@ pub struct MultiLimitOrderParamsV2Builder {
     asks: Vec<CondensedOrderV2>,
     client_order_id: Option<u128>,
     scale_set_id: u8,
+    scale_set_continuation: bool,
     symbol: Option<String>,
 }
 
@@ -400,9 +409,17 @@ impl MultiLimitOrderParamsV2Builder {
         self
     }
 
-    /// 0 = not part of a scale-order set; 1-255 = caller-assigned ladder id.
+    /// 0 = not part of a scale-order set; 1-127 = caller-assigned ladder id.
     pub fn scale_set_id(mut self, scale_set_id: u8) -> Self {
         self.scale_set_id = scale_set_id;
+        self
+    }
+
+    /// Marks the packet a continuation of a ladder split across
+    /// transactions; see [`encode_scale_set_tag`]. Requires a nonzero
+    /// `scale_set_id`.
+    pub fn scale_set_continuation(mut self, scale_set_continuation: bool) -> Self {
+        self.scale_set_continuation = scale_set_continuation;
         self
     }
 
@@ -412,6 +429,15 @@ impl MultiLimitOrderParamsV2Builder {
     }
 
     pub fn build(self) -> Result<MultiLimitOrderParamsV2, PhoenixIxError> {
+        if self.scale_set_id > MAX_SCALE_SET_ID {
+            return Err(PhoenixIxError::InvalidScaleSetId {
+                scale_set_id: self.scale_set_id,
+            });
+        }
+        if self.scale_set_continuation && self.scale_set_id == 0 {
+            return Err(PhoenixIxError::ScaleSetContinuationRequiresId);
+        }
+
         Ok(MultiLimitOrderParamsV2 {
             trader: self.trader.ok_or(PhoenixIxError::MissingField("trader"))?,
             trader_account: self
@@ -436,6 +462,7 @@ impl MultiLimitOrderParamsV2Builder {
             asks: self.asks,
             client_order_id: self.client_order_id,
             scale_set_id: self.scale_set_id,
+            scale_set_continuation: self.scale_set_continuation,
             symbol: self.symbol.unwrap_or_default(),
         })
     }
@@ -471,7 +498,7 @@ pub fn create_place_multi_limit_order_v2_ix(
     accounts.validate()?;
 
     let accounts = accounts.to_account_metas();
-    let data = encode_multi_limit_order_v2(params);
+    let data = encode_multi_limit_order_v2(params)?;
 
     Ok(Instruction {
         program_id: *PHOENIX_PROGRAM_ID,
@@ -546,18 +573,29 @@ fn encode_multi_limit_order(params: MultiLimitOrderParams) -> Vec<u8> {
     )
 }
 
-fn encode_multi_limit_order_v2(params: MultiLimitOrderParamsV2) -> Vec<u8> {
+fn encode_multi_limit_order_v2(params: MultiLimitOrderParamsV2) -> Result<Vec<u8>, PhoenixIxError> {
+    // Deserialized params bypass `MultiLimitOrderParamsV2Builder::build`, so
+    // this is the authoritative check for scale_set_id and the
+    // continuation-requires-id invariant.
+    let scale_set_id = match NonZeroU8::new(params.scale_set_id) {
+        Some(id) => encode_scale_set_tag(id, params.scale_set_continuation)?,
+        None if params.scale_set_continuation => {
+            return Err(PhoenixIxError::ScaleSetContinuationRequiresId);
+        }
+        None => 0,
+    };
+
     let packet = MultipleOrderPacketV2 {
         client_order_id: params.client_order_id.map(client_order_id_to_bytes),
-        scale_set_id: params.scale_set_id,
+        scale_set_id,
         bids: params.bids,
         asks: params.asks,
     };
 
-    encode_packet(
+    Ok(encode_packet(
         crate::PhoenixInstruction::PlaceMultiLimitOrderV2.discriminant(),
         &packet,
-    )
+    ))
 }
 
 /// Serialize `packet` straight after the 8-byte discriminant, so the encoded
@@ -776,5 +814,138 @@ mod tests {
             .chain(crate::order_packet::V2_PARITY_PACKET_BYTES.iter().copied())
             .collect();
         assert_eq!(ix.data, expected);
+    }
+
+    /// Rust counterpart of the TS continuation vector in
+    /// `rise/ts/tests/order-packets-parity.test.ts`.
+    #[test]
+    fn test_v2_continuation_instruction_data_matches_ts_parity_vector() {
+        let params = MultiLimitOrderParamsV2::builder()
+            .trader(Pubkey::new_unique())
+            .trader_account(Pubkey::new_unique())
+            .perp_asset_map(Pubkey::new_unique())
+            .orderbook(Pubkey::new_unique())
+            .spline_collection(Pubkey::new_unique())
+            .global_trader_index(vec![Pubkey::new_unique()])
+            .active_trader_buffer(vec![Pubkey::new_unique()])
+            .add_bid(CondensedOrderV2::new(50_000, 1_000, None, false, false))
+            .add_ask(CondensedOrderV2::new(51_000, 500, Some(999), false, true))
+            .client_order_id(0x0102030405060708090a0b0c0d0e0f10)
+            .scale_set_id(7)
+            .scale_set_continuation(true)
+            .build()
+            .unwrap();
+
+        let ix = create_place_multi_limit_order_v2_ix(params).unwrap();
+
+        let expected: Vec<u8> = crate::PhoenixInstruction::PlaceMultiLimitOrderV2
+            .discriminant()
+            .iter()
+            .copied()
+            .chain(
+                crate::order_packet::V2_PARITY_PACKET_BYTES_CONTINUATION
+                    .iter()
+                    .copied(),
+            )
+            .collect();
+        assert_eq!(ix.data, expected);
+    }
+
+    #[test]
+    fn test_build_rejects_scale_set_id_above_max() {
+        let accounts = TestAccounts::new_unique();
+        let result = accounts
+            .v2_builder()
+            .add_bid(CondensedOrderV2::new(50_000, 1_000, None, false, false))
+            .scale_set_id(128)
+            .build();
+
+        assert!(matches!(
+            result,
+            Err(PhoenixIxError::InvalidScaleSetId { scale_set_id: 128 })
+        ));
+    }
+
+    #[test]
+    fn test_build_rejects_continuation_with_zero_id() {
+        let accounts = TestAccounts::new_unique();
+        let result = accounts
+            .v2_builder()
+            .add_bid(CondensedOrderV2::new(50_000, 1_000, None, false, false))
+            .scale_set_continuation(true)
+            .build();
+
+        assert!(matches!(
+            result,
+            Err(PhoenixIxError::ScaleSetContinuationRequiresId)
+        ));
+    }
+}
+
+/// `MultiLimitOrderParamsV2` deserializes directly (not via the builder), so
+/// these cover fail-closed behavior for payloads a client sends around the
+/// builder's own validation.
+#[cfg(all(test, feature = "serde"))]
+mod serde_tests {
+    use serde_json::Value;
+    use solana_pubkey::Pubkey;
+
+    use super::*;
+
+    fn base_params_json() -> Value {
+        let params = MultiLimitOrderParamsV2::builder()
+            .trader(Pubkey::new_unique())
+            .trader_account(Pubkey::new_unique())
+            .perp_asset_map(Pubkey::new_unique())
+            .orderbook(Pubkey::new_unique())
+            .spline_collection(Pubkey::new_unique())
+            .global_trader_index(vec![Pubkey::new_unique()])
+            .active_trader_buffer(vec![Pubkey::new_unique()])
+            .add_bid(CondensedOrderV2::new(50_000, 1_000, None, false, false))
+            .scale_set_id(5)
+            .build()
+            .unwrap();
+
+        serde_json::to_value(&params).unwrap()
+    }
+
+    #[test]
+    fn legacy_payload_without_continuation_key_deserializes() {
+        let mut json = base_params_json();
+        json.as_object_mut()
+            .unwrap()
+            .remove("scale_set_continuation");
+
+        let params: MultiLimitOrderParamsV2 = serde_json::from_value(json).unwrap();
+        assert!(!params.scale_set_continuation());
+    }
+
+    #[test]
+    fn out_of_range_scale_set_id_fails_closed_at_encode() {
+        let mut json = base_params_json();
+        json["scale_set_id"] = Value::from(200);
+
+        let params: MultiLimitOrderParamsV2 = serde_json::from_value(json).unwrap();
+        let result = create_place_multi_limit_order_v2_ix(params);
+
+        assert!(matches!(
+            result,
+            Err(PhoenixIxError::InvalidScaleSetId { scale_set_id: 200 })
+        ));
+    }
+
+    #[test]
+    fn continuation_with_zero_id_fails_closed_at_encode() {
+        let mut json = base_params_json();
+        json["scale_set_id"] = Value::from(0);
+        json["scale_set_continuation"] = Value::from(true);
+
+        let params: MultiLimitOrderParamsV2 = serde_json::from_value(json).unwrap();
+        let result = create_place_multi_limit_order_v2_ix(params);
+
+        assert!(matches!(
+            result,
+            Err(PhoenixIxError::ScaleSetContinuationRequiresId)
+        ));
     }
 }

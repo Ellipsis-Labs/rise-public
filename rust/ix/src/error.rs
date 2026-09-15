@@ -42,6 +42,9 @@ pub enum PhoenixIxError {
     )]
     MissingRootAuthority,
 
+    #[error("Invalid execution price (must be greater than 0)")]
+    InvalidExecutionPrice,
+
     #[error("Invalid deposit amount (must be greater than 0)")]
     InvalidDepositAmount,
 
@@ -113,4 +116,10 @@ pub enum PhoenixIxError {
 
     #[error("Invalid TWAP optional field {field} (must be greater than 0 when set)")]
     InvalidTwapOptionalU64 { field: &'static str },
+
+    #[error("Invalid scale_set_id {scale_set_id} (must be 0, or 1..=127 for a tagged ladder)")]
+    InvalidScaleSetId { scale_set_id: u8 },
+
+    #[error("scale_set_continuation requires a nonzero scale_set_id")]
+    ScaleSetContinuationRequiresId,
 }

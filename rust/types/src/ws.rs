@@ -54,6 +54,15 @@ pub struct MarketSubscriptionRequest {
     pub symbol: String,
 }
 
+/// Subscription request for batched market statistics.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketStatsV2SubscriptionRequest {
+    /// Canonical market symbols to include. Omit to subscribe to all markets.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub symbols: Option<Vec<String>>,
+}
+
 /// Subscription request for the candles channel.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
@@ -87,6 +96,8 @@ pub enum SubscriptionRequest {
     TraderState(TraderStateSubscriptionRequest),
     #[serde(rename = "market")]
     Market(MarketSubscriptionRequest),
+    #[serde(rename = "marketStatsV2")]
+    MarketStatsV2(MarketStatsV2SubscriptionRequest),
     #[serde(rename = "trades")]
     Trades(TradesSubscriptionRequest),
     #[serde(rename = "candles")]
@@ -133,6 +144,68 @@ pub struct FundingRateMessage {
     pub funding: f64,
 }
 
+/// One market's statistics in a V2 batch.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketStatsV2Data {
+    pub symbol: String,
+    /// Unix timestamp in seconds.
+    pub timestamp: u64,
+    pub open_interest: f64,
+    pub mark_price: f64,
+    /// Current orderbook midpoint. Omitted when the orderbook has no midpoint.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mid_price: Option<f64>,
+    pub oracle_price: f64,
+    pub prev_day_mark_price: f64,
+    pub day_volume_usd: f64,
+    pub day_volume_base: f64,
+    pub current_funding_rate: f64,
+    pub eight_hour_funding_rate: f64,
+    pub annualized_funding_rate: f64,
+}
+
+impl MarketStatsV2Data {
+    fn legacy_market_stats_update(&self) -> Option<MarketStatsUpdate> {
+        Some(MarketStatsUpdate {
+            symbol: self.symbol.clone(),
+            open_interest: self.open_interest,
+            mark_price: self.mark_price,
+            mid_price: self.mid_price?,
+            oracle_price: self.oracle_price,
+            prev_day_mark_price: self.prev_day_mark_price,
+            day_volume_usd: self.day_volume_usd,
+            funding_rate: self.current_funding_rate,
+        })
+    }
+}
+
+/// Batched market statistics from one server refresh cycle.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketStatsV2Update {
+    /// Canonical subscription filter. Omitted for an all-markets subscription.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub symbols: Option<Vec<String>>,
+    pub stats: Vec<MarketStatsV2Data>,
+}
+
+impl MarketStatsV2Update {
+    /// Adapt a one-symbol V2 batch to the legacy `market` update shape.
+    ///
+    /// The legacy shape requires a midpoint, so entries without one cannot be
+    /// represented losslessly.
+    pub fn legacy_market_stats_update(&self) -> Option<MarketStatsUpdate> {
+        let [symbol] = self.symbols.as_deref()? else {
+            return None;
+        };
+        self.stats
+            .iter()
+            .find(|update| update.symbol == *symbol)
+            .and_then(MarketStatsV2Data::legacy_market_stats_update)
+    }
+}
+
 /// WebSocket message types from server to client.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "channel")]
@@ -148,6 +221,8 @@ pub enum ServerMessage {
     TraderState(TraderStateServerMessage),
     #[serde(rename = "market")]
     Market(MarketStatsUpdate),
+    #[serde(rename = "marketStatsV2")]
+    MarketStatsV2(MarketStatsV2Update),
     #[serde(rename = "trades")]
     Trades(TradesMessage),
     #[serde(rename = "candle", alias = "candles")]
@@ -204,8 +279,8 @@ pub struct ErrorMessage {
 mod tests {
     use super::*;
     use crate::exchange_ws::{
-        AuthoritySet, ExchangeDeltaMessage, ExchangeDeltaOp, ExchangeSnapshotMessage,
-        ExchangeSnapshotReason, ExchangeStateSnapshot,
+        AuthoritySet, ExchangeDeltaMessage, ExchangeDeltaOp, ExchangeRunningState,
+        ExchangeSnapshotMessage, ExchangeSnapshotReason, ExchangeStateSnapshot,
     };
 
     fn sample_exchange_state_snapshot() -> ExchangeStateSnapshot {
@@ -230,6 +305,7 @@ mod tests {
             withdraw_queue: "withdraw-queue".to_string(),
             exchange_status_bits: 129,
             exchange_status_features: vec!["initialized".to_string(), "active".to_string()],
+            running_state: ExchangeRunningState::Active,
             active: true,
             gated: false,
             withdrawals_available: true,
@@ -507,5 +583,52 @@ mod tests {
         } else {
             panic!("Expected Candles message");
         }
+    }
+
+    #[test]
+    fn test_market_stats_v2_wire_contract() {
+        let all =
+            SubscriptionRequest::MarketStatsV2(MarketStatsV2SubscriptionRequest { symbols: None });
+        assert_eq!(
+            serde_json::to_value(all).unwrap(),
+            serde_json::json!({ "channel": "marketStatsV2" })
+        );
+
+        let filtered = SubscriptionRequest::MarketStatsV2(MarketStatsV2SubscriptionRequest {
+            symbols: Some(vec!["BTC-PERP".to_string(), "SOL-PERP".to_string()]),
+        });
+        assert_eq!(
+            serde_json::to_value(filtered).unwrap(),
+            serde_json::json!({
+                "channel": "marketStatsV2",
+                "symbols": ["BTC-PERP", "SOL-PERP"]
+            })
+        );
+
+        let message: ServerMessage = serde_json::from_value(serde_json::json!({
+            "channel": "marketStatsV2",
+            "symbols": ["SOL-PERP"],
+            "stats": [{
+                "symbol": "SOL-PERP",
+                "timestamp": 1,
+                "openInterest": 2.0,
+                "markPrice": 3.0,
+                "midPrice": 3.5,
+                "oraclePrice": 4.0,
+                "prevDayMarkPrice": 5.0,
+                "dayVolumeUsd": 6.0,
+                "dayVolumeBase": 7.0,
+                "currentFundingRate": 8.0,
+                "eightHourFundingRate": 9.0,
+                "annualizedFundingRate": 10.0
+            }]
+        }))
+        .unwrap();
+        let ServerMessage::MarketStatsV2(message) = message else {
+            panic!("expected MarketStatsV2 message");
+        };
+        assert_eq!(message.symbols, Some(vec!["SOL-PERP".to_string()]));
+        assert_eq!(message.stats[0].mark_price, 3.0);
+        assert_eq!(message.stats[0].mid_price, Some(3.5));
     }
 }

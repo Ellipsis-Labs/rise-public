@@ -242,8 +242,8 @@ mod tests {
     use phoenix_rise_ix::limit_order::{LimitOrderParams, create_place_limit_order_ix};
     use phoenix_rise_ix::types::Side;
     use phoenix_rise_types::prelude::{
-        AuthoritySet, ExchangeDeltaMessage, ExchangeDeltaOp, ExchangeSnapshotView,
-        ExchangeStateSnapshot,
+        AuthoritySet, ExchangeDeltaMessage, ExchangeDeltaOp, ExchangeRunningState,
+        ExchangeSnapshotView, ExchangeStateSnapshot,
     };
     use solana_instruction::AccountMeta as SolAccountMeta;
 
@@ -296,6 +296,7 @@ mod tests {
             withdraw_queue: Pubkey::new_unique().to_string(),
             exchange_status_bits: 129,
             exchange_status_features: vec!["initialized".to_string(), "active".to_string()],
+            running_state: ExchangeRunningState::Active,
             active: true,
             gated: false,
             withdrawals_available: true,

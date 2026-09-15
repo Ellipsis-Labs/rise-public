@@ -95,6 +95,13 @@ impl SdkLocalnetContext {
                     flight,
                 );
             }
+            if let Some(flicker) = program_paths.flicker.as_ref() {
+                load_program(
+                    &mut svm,
+                    &phoenix_rise_ix::twap::FLICKER_PROGRAM_ID.to_string(),
+                    flicker,
+                );
+            }
         }
 
         for program in extra_programs {

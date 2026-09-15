@@ -68,10 +68,10 @@ pub mod prelude {
     pub use super::exchange_ws::{
         AuthoritySet, CommodityMarketState, ExchangeDeltaMessage, ExchangeDeltaOp,
         ExchangeEncodedSnapshotMessage, ExchangeMarketParameterUpdate, ExchangeMarketSnapshot,
-        ExchangeMessage, ExchangeSnapshotEncoding, ExchangeSnapshotMessage, ExchangeSnapshotReason,
-        ExchangeSnapshotView, ExchangeStateSnapshot, ExchangeWsCommodityMetadata,
-        ExchangeWsFeeConfig, ExchangeWsFundingConfig, ExchangeWsLeverageTier,
-        ExchangeWsMarkPriceParameters, ExchangeWsMarketPriceBand,
+        ExchangeMessage, ExchangeRunningState, ExchangeSnapshotEncoding, ExchangeSnapshotMessage,
+        ExchangeSnapshotReason, ExchangeSnapshotView, ExchangeStateSnapshot,
+        ExchangeWsCommodityMetadata, ExchangeWsFeeConfig, ExchangeWsFundingConfig,
+        ExchangeWsLeverageTier, ExchangeWsMarkPriceParameters, ExchangeWsMarketPriceBand,
         ExchangeWsRiskActionPriceValidityRules, ExchangeWsValidationRule,
     };
     pub use super::funding::{
@@ -84,8 +84,8 @@ pub mod prelude {
         PlaceAttachedConditionalOrderRequest, PlaceIsolatedLimitOrderEnhancedResponse,
         PlaceIsolatedLimitOrderRequest, PlaceIsolatedLimitOrderWithConditionalsRequest,
         PlaceIsolatedMarketOrderEnhancedResponse, PlaceIsolatedMarketOrderRequest,
-        PlacePositionConditionalOrderRequest, PlaceStopLossOrderRequest,
-        StopLossExecutionDirection, TpSlOrderConfig,
+        PlaceIsolatedMarketOrderV2Request, PlacePositionConditionalOrderRequest,
+        PlaceStopLossOrderRequest, StopLossExecutionDirection, TpSlOrderConfig,
     };
     pub use super::js_safe_ints::{JsSafeI64, JsSafeU64};
     pub use super::l2book::{L2Book, PriceLevel};
@@ -137,6 +137,7 @@ pub mod prelude {
     pub use super::ws::{
         AllMidsData, CandlesSubscriptionRequest, ClientMessage, ErrorMessage,
         ExchangeSubscriptionRequest, FundingRateMessage, FundingRateSubscriptionRequest,
+        MarketStatsV2Data, MarketStatsV2SubscriptionRequest, MarketStatsV2Update,
         MarketSubscriptionRequest, OrderbookSubscriptionRequest, ServerMessage,
         SubscriptionConfirmedMessage, SubscriptionErrorMessage, SubscriptionRequest,
         SubscriptionStatusMessage, TraderStateSubscriptionRequest,

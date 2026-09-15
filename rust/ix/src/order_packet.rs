@@ -3,8 +3,11 @@
 //! These types match the wire format expected by the Phoenix program,
 //! using proper Borsh serialization with `Option<T>` types.
 
+use std::num::NonZeroU8;
+
 use borsh::{BorshDeserialize, BorshSerialize};
 
+use crate::error::PhoenixIxError;
 use crate::types::{OrderFlags, SelfTradeBehavior, Side};
 
 /// An order packet for Phoenix instructions.
@@ -282,8 +285,32 @@ pub struct MultipleOrderPacketV2 {
     pub bids: Vec<CondensedOrderV2>,
     pub asks: Vec<CondensedOrderV2>,
     pub client_order_id: Option<[u8; 16]>,
-    /// 0 = not part of a scale-order set; 1-255 = caller-assigned ladder id.
+    /// 0 = not part of a scale-order set; 1-127 = caller-assigned ladder id;
+    /// bit 7 set = continuation packet. See [`encode_scale_set_tag`].
     pub scale_set_id: u8,
+}
+
+/// Largest valid scale-order-set id (the low 7 bits of `scale_set_id`).
+pub const MAX_SCALE_SET_ID: u8 = 127;
+
+/// Bit 7 of `scale_set_id`: marks a continuation packet (chunk 2..N of a
+/// ladder split across transactions), which the program lets skip its
+/// duplicate-id check.
+pub const SCALE_SET_CONTINUATION_BIT: u8 = 0x80;
+
+/// Pack a ladder id and continuation flag into the wire `scale_set_id` byte.
+/// Rejects `id > MAX_SCALE_SET_ID`.
+pub fn encode_scale_set_tag(id: NonZeroU8, continuation: bool) -> Result<u8, PhoenixIxError> {
+    if id.get() > MAX_SCALE_SET_ID {
+        return Err(PhoenixIxError::InvalidScaleSetId {
+            scale_set_id: id.get(),
+        });
+    }
+    Ok(if continuation {
+        id.get() | SCALE_SET_CONTINUATION_BIT
+    } else {
+        id.get()
+    })
 }
 
 /// The canonical `MultipleOrderPacketV2` body pinned by the Rust and TS parity
@@ -304,6 +331,26 @@ pub(crate) const V2_PARITY_PACKET_BYTES: &[u8] = &[
     1, // client_order_id: Option tag = Some
     16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, // client_order_id bytes
     7, // scale_set_id
+];
+
+/// Same body as [`V2_PARITY_PACKET_BYTES`] but for a continuation packet
+/// (`scale_set_id = 7 | 0x80 = 135`); mirrors the TS vector in
+/// `order-packets-parity.test.ts`.
+#[cfg(test)]
+pub(crate) const V2_PARITY_PACKET_BYTES_CONTINUATION: &[u8] = &[
+    1, 0, 0, 0, // bids: Vec len = 1
+    80, 195, 0, 0, 0, 0, 0, 0, // bid.price_in_ticks = 50_000
+    232, 3, 0, 0, 0, 0, 0, 0, // bid.size_in_base_lots = 1_000
+    0, 0, 0, 0, 0, 0, 0, 0, // bid.last_valid_slot = None (raw 0)
+    0, // bid.flags = None
+    1, 0, 0, 0, // asks: Vec len = 1
+    56, 199, 0, 0, 0, 0, 0, 0, // ask.price_in_ticks = 51_000
+    244, 1, 0, 0, 0, 0, 0, 0, // ask.size_in_base_lots = 500
+    231, 3, 0, 0, 0, 0, 0, 0, // ask.last_valid_slot = Some(999)
+    2, // ask.flags = ReduceOnly
+    1, // client_order_id: Option tag = Some
+    16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1,   // client_order_id bytes
+    135, // scale_set_id = 7 | continuation bit
 ];
 
 #[cfg(test)]
@@ -484,5 +531,43 @@ mod tests {
         };
 
         assert_eq!(to_vec(&packet).unwrap(), V2_PARITY_PACKET_BYTES);
+    }
+
+    /// Fixture shared verbatim with the TS parity test in
+    /// `rise/ts/tests/order-packets-parity.test.ts`.
+    #[test]
+    fn test_multiple_order_packet_v2_continuation_byte_layout() {
+        let packet = MultipleOrderPacketV2 {
+            bids: vec![CondensedOrderV2::new(50_000, 1_000, None, false, false)],
+            asks: vec![CondensedOrderV2::new(51_000, 500, Some(999), false, true)],
+            client_order_id: Some(client_order_id_to_bytes(0x0102030405060708090a0b0c0d0e0f10)),
+            scale_set_id: encode_scale_set_tag(NonZeroU8::new(7).unwrap(), true).unwrap(),
+        };
+
+        assert_eq!(packet.scale_set_id, 135);
+        assert_eq!(
+            to_vec(&packet).unwrap(),
+            V2_PARITY_PACKET_BYTES_CONTINUATION
+        );
+    }
+
+    #[test]
+    fn test_encode_scale_set_tag() {
+        assert_eq!(
+            encode_scale_set_tag(NonZeroU8::new(7).unwrap(), false).unwrap(),
+            7
+        );
+        assert_eq!(
+            encode_scale_set_tag(NonZeroU8::new(7).unwrap(), true).unwrap(),
+            0x87
+        );
+        assert_eq!(
+            encode_scale_set_tag(NonZeroU8::new(127).unwrap(), false).unwrap(),
+            127
+        );
+        assert!(matches!(
+            encode_scale_set_tag(NonZeroU8::new(128).unwrap(), false),
+            Err(PhoenixIxError::InvalidScaleSetId { scale_set_id: 128 })
+        ));
     }
 }

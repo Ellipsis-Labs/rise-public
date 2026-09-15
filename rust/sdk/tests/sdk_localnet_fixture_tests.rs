@@ -48,6 +48,7 @@ const PHOENIX_REPO_ROOT_ENV: &str = "PHOENIX_REPO_ROOT";
 const ETERNAL_PROGRAM_ENV: &str = "RISE_SDK_LOCALNET_ETERNAL_SO";
 const EMBER_PROGRAM_ENV: &str = "RISE_SDK_LOCALNET_EMBER_SO";
 const HAWKEYE_PROGRAM_ENV: &str = "RISE_SDK_LOCALNET_HAWKEYE_SO";
+const FLICKER_PROGRAM_ENV: &str = "RISE_SDK_LOCALNET_FLICKER_SO";
 const STOP_LOSS_PERMISSION: u64 = 1 << 2;
 const TRADER_ONBOARDING_PERMISSION: u64 = 1 << 4;
 const ORACLE_UPDATE_TIMESTAMP: u64 = 1_900_000_001;
@@ -405,6 +406,7 @@ fn rise_sdk_onboard_trader_delegated_ix_executes() {
     struct ChangeExchangeStatusData {
         active: Option<bool>,
         gated: Option<bool>,
+        maintenance: Option<bool>,
     }
 
     let mut set_gated_exchange_data =
@@ -413,6 +415,7 @@ fn rise_sdk_onboard_trader_delegated_ix_executes() {
         &to_vec(&ChangeExchangeStatusData {
             active: Some(true),
             gated: Some(true),
+            maintenance: None,
         })
         .unwrap(),
     );
@@ -698,6 +701,7 @@ struct SdkLocalnetProgramPaths {
     phoenix_eternal: PathBuf,
     ember: PathBuf,
     hawkeye: Option<PathBuf>,
+    flicker: Option<PathBuf>,
 }
 
 struct SdkLocalnetContext {
@@ -718,6 +722,13 @@ impl SdkLocalnetContext {
         load_program(&mut svm, &fixture.programs.ember, &program_paths.ember);
         if let Some(hawkeye) = program_paths.hawkeye.as_ref() {
             load_program(&mut svm, &HAWKEYE_PROGRAM_ID.to_string(), hawkeye);
+        }
+        if let Some(flicker) = program_paths.flicker.as_ref() {
+            load_program(
+                &mut svm,
+                &phoenix_rise::ix::twap::FLICKER_PROGRAM_ID.to_string(),
+                flicker,
+            );
         }
 
         let mut signers_by_seed = HashMap::new();
@@ -907,11 +918,13 @@ fn find_sdk_localnet_program_paths() -> Option<SdkLocalnetProgramPaths> {
         std::env::var(ETERNAL_PROGRAM_ENV),
         std::env::var(EMBER_PROGRAM_ENV),
         std::env::var(HAWKEYE_PROGRAM_ENV),
+        std::env::var(FLICKER_PROGRAM_ENV),
     ) {
-        (Ok(phoenix_eternal), Ok(ember), hawkeye) => Some(SdkLocalnetProgramPaths {
+        (Ok(phoenix_eternal), Ok(ember), hawkeye, flicker) => Some(SdkLocalnetProgramPaths {
             phoenix_eternal: PathBuf::from(phoenix_eternal),
             ember: PathBuf::from(ember),
             hawkeye: hawkeye.ok().map(PathBuf::from),
+            flicker: flicker.ok().map(PathBuf::from),
         }),
         _ => None,
     };
@@ -927,17 +940,24 @@ fn find_sdk_localnet_program_paths() -> Option<SdkLocalnetProgramPaths> {
                 hawkeye: optional_program_path(
                     root.join("programs/target/deploy/phoenix_hawkeye.so"),
                 ),
+                flicker: optional_program_path(
+                    root.join("programs/target/deploy/phoenix_flicker.so"),
+                ),
             },
             SdkLocalnetProgramPaths {
                 phoenix_eternal: root.join("target/deploy/phoenix_eternal.so"),
                 ember: root.join("target/deploy/phoenix_ember_program.so"),
                 hawkeye: optional_program_path(root.join("target/deploy/phoenix_hawkeye.so")),
+                flicker: optional_program_path(root.join("target/deploy/phoenix_flicker.so")),
             },
             SdkLocalnetProgramPaths {
                 phoenix_eternal: root.join("programs/eternal/target/deploy/phoenix_eternal.so"),
                 ember: root.join("programs/ember/target/deploy/phoenix_ember_program.so"),
                 hawkeye: optional_program_path(
                     root.join("programs/phoenix-hawkeye/target/deploy/phoenix_hawkeye.so"),
+                ),
+                flicker: optional_program_path(
+                    root.join("programs/flicker/target/deploy/phoenix_flicker.so"),
                 ),
             },
         ] {
@@ -967,6 +987,10 @@ fn program_paths_exist(paths: &SdkLocalnetProgramPaths) -> bool {
         && paths.ember.exists()
         && match paths.hawkeye.as_ref() {
             Some(hawkeye) => hawkeye.exists(),
+            None => true,
+        }
+        && match paths.flicker.as_ref() {
+            Some(flicker) => flicker.exists(),
             None => true,
         }
 }

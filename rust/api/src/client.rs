@@ -797,6 +797,16 @@ impl PhoenixClient {
                         .boxed(),
                 );
             }
+            SubscriptionKey::MarketStatsV2 { symbols } => {
+                let (rx, handle) = ws_client.subscribe_to_market_stats_v2(symbols.clone())?;
+                ws_handles.insert(key.clone(), handle);
+                ws_streams.insert(
+                    key.clone(),
+                    UnboundedReceiverStream::new(rx)
+                        .map(ServerMessage::MarketStatsV2)
+                        .boxed(),
+                );
+            }
             SubscriptionKey::Trades { symbol } => {
                 let (rx, handle) = ws_client.subscribe_to_trades(symbol.clone())?;
                 ws_handles.insert(key.clone(), handle);
@@ -882,6 +892,14 @@ impl PhoenixClient {
                     MarginTrigger::Market(update),
                     None,
                     runtime_state,
+                    logical_subscriptions,
+                    subscribers_by_key,
+                ));
+            }
+            ServerMessage::MarketStatsV2(update) => {
+                stale.extend(Self::dispatch_raw_event(
+                    key,
+                    PhoenixClientEvent::MarketStatsV2Update { update },
                     logical_subscriptions,
                     subscribers_by_key,
                 ));

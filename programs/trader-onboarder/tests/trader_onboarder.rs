@@ -563,6 +563,7 @@ fn set_exchange_gated(context: &mut SdkLocalnetContext, root_authority: Pubkey) 
     struct ChangeExchangeStatusData {
         active: Option<bool>,
         gated: Option<bool>,
+        maintenance: Option<bool>,
     }
 
     let mut data = compute_discriminant("global:change_exchange_status").to_vec();
@@ -570,6 +571,7 @@ fn set_exchange_gated(context: &mut SdkLocalnetContext, root_authority: Pubkey) 
         &to_vec(&ChangeExchangeStatusData {
             active: Some(true),
             gated: Some(true),
+            maintenance: None,
         })
         .unwrap(),
     );
