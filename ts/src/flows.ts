@@ -23,6 +23,7 @@ import {
   DEPOSIT_PERMISSION,
 } from "@/core/permissionInstructions";
 import { buildSyncNativeIx } from "@/core/ixBuilders/NativeSol";
+import { buildReallocTraderIx } from "@/core/ixBuilders/ReallocTrader";
 import { buildTransferSolIx } from "@/core/ixBuilders/SystemTransferSol";
 import {
   buildDepositFunds,
@@ -175,6 +176,8 @@ type SponsoredNativeSolDepositFlowParams = BaseNativeSolDepositFlowParams &
   SponsorshipUserIdentifier & {
     feePayer: Authority;
     sponsorshipToken: string;
+    /** Complete wallet-paid ReallocTrader preparation before sponsorship. */
+    traderCapacityPrepared: true;
   };
 
 interface NonSponsoredNativeSolDepositFlowParams extends BaseNativeSolDepositFlowParams {
@@ -186,6 +189,8 @@ export type NativeSolDepositFlowParams =
   | NonSponsoredNativeSolDepositFlowParams;
 
 export interface NativeSolDepositFlowInstructions {
+  /** Included for wallet-paid flows; sponsored flows require prior preparation. */
+  reallocTrader?: InstructionsWithAccountsAndData;
   transferSol: InstructionsWithAccountsAndData;
   syncNative: InstructionsWithAccountsAndData;
 }
@@ -612,12 +617,18 @@ export const buildFlameAtomicDepositFlow = async (
 };
 
 /**
- * Deposit native SOL as spot collateral: a System transfer of `lamports` into
- * the trader account, then a `SyncNative` to account them.
+ * Deposit native SOL as spot collateral: reserve map capacity with
+ * `ReallocTrader`, transfer `lamports`, then account them with `SyncNative`.
+ * Reallocation preserves the position limit and can reserve one extra entry;
+ * `authority` pays its rent before the deposit transfer, preserving the deposit
+ * principal. Already sufficient capacity is a no-op.
  *
  * Mirrors `buildDepositFlow`: register-if-needed stays with the caller (compose
  * `buildRegisterTrader` *before* these instructions when the trader account
- * does not exist yet), and the sponsored variant carries the same params shape.
+ * does not exist yet). Sponsored deposits require a wallet-paid
+ * `buildReallocTraderIx` preparation transaction followed by
+ * `traderCapacityPrepared: true`; their sponsored transaction contains only the
+ * transfer and sync.
  * The transfer is always signed and funded by `authority` — sponsorship covers
  * the network fee only, never the deposited lamports.
  *
@@ -640,6 +651,18 @@ export const buildNativeSolDepositFlow = async (
   if (lamports <= 0n) {
     throw new Error("Deposit amount must be greater than 0");
   }
+  const sponsored = params.feePayer != null;
+  if (
+    sponsored &&
+    !(
+      "traderCapacityPrepared" in params &&
+      params.traderCapacityPrepared === true
+    )
+  ) {
+    throw new Error(
+      "Sponsored native SOL deposits require traderCapacityPrepared: true after wallet-paid ReallocTrader preparation"
+    );
+  }
 
   const [{ arenaAddresses, globalTraderIndexAddresses }, traderAccount] =
     await Promise.all([
@@ -652,6 +675,14 @@ export const buildNativeSolDepositFlow = async (
       }),
     ]);
 
+  const reallocTrader = sponsored
+    ? undefined
+    : buildReallocTraderIx({
+        ...clientPhoenixInstructionAddresses(client),
+        payer: authority,
+        trader: authority,
+        traderAccount,
+      });
   const transferSol = buildTransferSolIx({
     source: authority,
     destination: traderAccount,
@@ -665,8 +696,13 @@ export const buildNativeSolDepositFlow = async (
   });
 
   return {
-    instructions: [transferSol, syncNative],
+    instructions: [
+      ...(reallocTrader ? [reallocTrader] : []),
+      transferSol,
+      syncNative,
+    ],
     named: {
+      reallocTrader,
       transferSol,
       syncNative,
     },
