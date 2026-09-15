@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.7 - 2026-09-15
+
+Source Phoenix commit: `cdd5303fea774b0609f2402dee4e387dbf90714a`
+
+### Summary
+
+- Bumped the shared Rise Rust crate version from `0.5.5` to `0.5.7` across all components (`sdk`, `math`, `accounts`, `api`, `core`, `events`, `ix`, `types`, `cli`, `litesvm-test`).
+- Added `ix::native_sol::create_deposit_native_sol_ixs(payer, trader_wallet, lamports, sync_params)`, a helper that returns the ordered instruction set for depositing native SOL: trader reallocation, then a System Program transfer, then `SyncNative`.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- Reallocation runs before the transfer so newly deposited SOL isn't consumed by a higher rent floor; pass the same wallet for `payer` and `trader_wallet` when there's no separate rent sponsor.
+- The trader account must already exist, or be registered earlier in the same transaction, before calling this helper.
+- Passing `lamports == 0` returns `PhoenixIxError::InvalidDepositAmount` rather than building a no-op transfer.
+- `create_realloc_trader_ix` remains available on its own for callers building custom instruction bundles.
+
 ## v0.5.5 - 2026-09-15
 
 Source Phoenix commit: `9a60c7ba487c57c88a8769607120204ffc3bc3de`

@@ -3002,6 +3002,114 @@
   ],
   "actionTemplates": [
     {
+      "name": "sol-collateral-setup",
+      "description": "Configure SOL collateral with a fixed 20% margin discount for deposit tests",
+      "signerSeeds": ["payer"],
+      "instructions": [
+        {
+          "name": "sol-collateral-availability",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "GxfO/74T51wB"
+        },
+        {
+          "name": "sol-collateral-parameters",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "8RMsJXczxRsBAOQLVAIAAAABAOh2SBcAAAAB0AcAAAHQBwAAAfQBAAABBQAAAAEA5AtUAgAAAAGAlpgAAAAAAAEA5AtUAgAAAAA="
+        },
+        {
+          "name": "sol-collateral-activation",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "D/ZbXUbpv3g="
+        }
+      ]
+    },
+    {
       "name": "oracleSetPrices",
       "description": "Update deterministic mark/spot prices with the delegated price oracle.",
       "signerSeeds": ["price-oracle"],

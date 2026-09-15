@@ -68,6 +68,37 @@ pub fn create_realloc_trader_ix(
     }
 }
 
+/// Deposit native SOL: reserve extension capacity, transfer lamports, then sync
+/// collateral. Reallocation runs before the transfer so newly deposited SOL is
+/// not used to pay additional rent. `payer` pays rent; `trader_wallet` supplies
+/// the SOL. The trader must exist, or be registered earlier in the transaction.
+/// The contract may retain one spare entry for another non-position extension.
+pub fn create_deposit_native_sol_ixs(
+    payer: Pubkey,
+    trader_wallet: Pubkey,
+    lamports: u64,
+    sync: SyncNativeParams,
+) -> Result<Vec<Instruction>, PhoenixIxError> {
+    if lamports == 0 {
+        return Err(PhoenixIxError::InvalidDepositAmount);
+    }
+    let trader_account = sync.trader_account();
+    let mut transfer_data = 2_u32.to_le_bytes().to_vec(); // SystemInstruction::Transfer
+    transfer_data.extend_from_slice(&lamports.to_le_bytes());
+    Ok(vec![
+        create_realloc_trader_ix(payer, trader_wallet, trader_account),
+        Instruction {
+            program_id: SYSTEM_PROGRAM_ID,
+            accounts: vec![
+                AccountMeta::writable_signer(trader_wallet),
+                AccountMeta::writable(trader_account),
+            ],
+            data: transfer_data,
+        },
+        create_sync_native_ix(sync)?,
+    ])
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // SyncNative
 ////////////////////////////////////////////////////////////////////////////////
@@ -1448,6 +1479,48 @@ mod tests {
 
     fn index_accounts() -> (Vec<Pubkey>, Vec<Pubkey>) {
         (vec![key(20), key(21)], vec![key(30), key(31)])
+    }
+
+    #[test]
+    fn native_deposit_reserves_capacity_before_transferring_exact_principal() {
+        let (global_trader_index, active_trader_buffer) = index_accounts();
+        let sync = SyncNativeParams::builder()
+            .trader_account(key(2))
+            .global_trader_index(global_trader_index)
+            .active_trader_buffer(active_trader_buffer)
+            .build()
+            .unwrap();
+        let instructions =
+            create_deposit_native_sol_ixs(key(3), key(1), 2_000_000_000, sync.clone()).unwrap();
+        let realloc = &instructions[0];
+        assert_eq!(realloc.data, [174, 248, 63, 35, 225, 236, 19, 204]);
+        assert_eq!(
+            realloc.accounts,
+            vec![
+                AccountMeta::readonly(*PHOENIX_PROGRAM_ID),
+                AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY),
+                AccountMeta::readonly(*PHOENIX_GLOBAL_CONFIGURATION),
+                AccountMeta::writable_signer(key(3)),
+                AccountMeta::readonly(key(1)),
+                AccountMeta::writable(key(2)),
+                AccountMeta::readonly(SYSTEM_PROGRAM_ID),
+            ]
+        );
+        assert_eq!(instructions[1].program_id, SYSTEM_PROGRAM_ID);
+        assert_eq!(instructions[1].data[..4], 2_u32.to_le_bytes());
+        assert_eq!(instructions[1].data[4..], 2_000_000_000_u64.to_le_bytes());
+        assert_eq!(
+            instructions[1].accounts,
+            vec![
+                AccountMeta::writable_signer(key(1)),
+                AccountMeta::writable(key(2))
+            ]
+        );
+        assert_eq!(
+            instructions[2],
+            create_sync_native_ix(sync.clone()).unwrap()
+        );
+        assert!(create_deposit_native_sol_ixs(key(3), key(1), 0, sync).is_err());
     }
 
     fn sync_native_ix() -> Instruction {
