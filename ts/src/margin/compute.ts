@@ -288,8 +288,9 @@ export const computeSubaccountMarginFromInputs = (
 
   const collateralBalance = toBigInt(inputs.collateralBalanceQuoteLots ?? "0");
   // Spot collateral enters effective collateral discounted and portfolio value
-  // undiscounted, and never backs quote withdrawals — mirroring phoenix-state
-  // TraderPortfolioMargin (sdk/phoenix-state/src/margin.rs).
+  // undiscounted, and stays out of the quote-side withdrawal collateral —
+  // mirroring phoenix-state TraderPortfolioMargin
+  // (sdk/phoenix-state/src/margin.rs).
   const effectiveCollateral =
     collateralBalance +
     totalDiscountedUnrealizedPnl +
@@ -299,6 +300,23 @@ export const computeSubaccountMarginFromInputs = (
     collateralBalance +
     totalDiscountedPnlForWithdrawals +
     totalUnsettledFunding;
+  // Mirrors the on-chain get_max_quote_withdrawable_amount: spot backs the
+  // withdrawal margin bound, but the payout is capped at the positive
+  // quote-side collateral because spot is never paid out as quote.
+  const withdrawalMarginBound =
+    effectiveCollateralForWithdrawals +
+    totalSpotDiscounted -
+    totalInitialMarginForWithdrawals;
+  const withdrawalPayoutBound =
+    effectiveCollateralForWithdrawals > 0n
+      ? effectiveCollateralForWithdrawals
+      : 0n;
+  const withdrawableQuoteCollateral =
+    withdrawalMarginBound < withdrawalPayoutBound
+      ? withdrawalMarginBound > 0n
+        ? withdrawalMarginBound
+        : 0n
+      : withdrawalPayoutBound;
   const portfolioValue =
     collateralBalance +
     totalUnrealizedPnl +
@@ -320,6 +338,8 @@ export const computeSubaccountMarginFromInputs = (
     effectiveCollateralQuoteLots: effectiveCollateral.toString(),
     effectiveCollateralForWithdrawalsQuoteLots:
       effectiveCollateralForWithdrawals.toString(),
+    withdrawableQuoteCollateralQuoteLots:
+      withdrawableQuoteCollateral.toString(),
     portfolioValueQuoteLots: portfolioValue.toString(),
     initialMarginQuoteLots: totalInitialMargin.toString(),
     initialMarginForWithdrawalsQuoteLots:

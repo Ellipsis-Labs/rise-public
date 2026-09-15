@@ -116,6 +116,34 @@ Use the examples as the fastest reference for intended SDK usage:
 - [examples/phoenix-ws-example.ts](./examples/phoenix-ws-example.ts):
   interactive websocket demo
 
+## Atomic isolated market entry with TP/SL v2
+
+`client.api.orders().placeIsolatedMarketOrder()` and
+`client.api.orders().placeIsolatedMarketOrderEnhanced()`
+accept `greaterTrigger`, `lessTrigger`, and `sizePercent: 100`. Supply either
+trigger or both. Both triggers share one position conditional and cancel
+together when one executes. The backend allocates the isolated subaccount if
+needed and includes collection creation in the same instruction bundle.
+
+```ts
+const instructions = await client.api.orders().placeIsolatedMarketOrder({
+  authority,
+  symbol: "SOL-PERP",
+  side: "buy",
+  quantity: 1,
+  transferAmount: 10_000_000,
+  sizePercent: 100,
+  greaterTrigger: { side: "sell", triggerPrice: 180 },
+  lessTrigger: { side: "sell", triggerPrice: 140 },
+});
+```
+
+For short entries, use `side: "buy"` on the closing triggers; take profit is
+then the less trigger and stop loss the greater trigger. Authority, fee-payer,
+and Flight options apply to the whole bundle. Do not combine v2 fields with
+legacy `tpSl`. Partial and fixed-lot protection are not supported on this path.
+This request requires a backend release containing PRO-829.
+
 ## Recommended Client Setup
 
 `createPhoenixClient()` works with no config and defaults `apiUrl` to

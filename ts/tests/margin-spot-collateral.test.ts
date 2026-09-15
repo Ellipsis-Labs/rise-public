@@ -62,10 +62,13 @@ describe("margin spot collateral valuation", () => {
     expect(margin.margin.spotCollateralDiscountedQuoteLots).toBe("92000000");
     expect(margin.margin.portfolioValueQuoteLots).toBe("101000000");
     expect(margin.margin.effectiveCollateralQuoteLots).toBe("93000000");
-    // Spot never backs quote withdrawals.
+    // Spot stays out of the quote-side withdrawal collateral (the payout cap).
     expect(margin.margin.effectiveCollateralForWithdrawalsQuoteLots).toBe(
       "1000000"
     );
+    // With no margin requirement the withdrawable amount is the quote balance,
+    // not the spot on top of it.
+    expect(margin.margin.withdrawableQuoteCollateralQuoteLots).toBe("1000000");
     expect(margin.spotCollaterals).toEqual([
       {
         assetIndex: 4294901760,

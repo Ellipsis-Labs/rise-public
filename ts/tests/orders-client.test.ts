@@ -379,3 +379,76 @@ describe("isolated order spot collateral transfer schemas", () => {
     expect(parsed.transferSpotCollateralAmounts).toBeUndefined();
   });
 });
+
+describe("isolated market-order v2 protection", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const base = {
+    authority: "owner",
+    positionAuthority: "delegate",
+    feePayer: "sponsor",
+    symbol: "SOL-PERP",
+    side: "buy",
+    numBaseLots: 50,
+    transferAmount: 1000000,
+    pdaIndex: 2,
+    sizePercent: 100 as const,
+    flightBuilderAuthority: "builder",
+    flightFeeCollectorTrader: "collector",
+  };
+  const trigger = { side: "sell", triggerPriceInTicks: 1200 };
+
+  it.each([
+    { greaterTrigger: trigger },
+    { lessTrigger: trigger },
+    { greaterTrigger: trigger, lessTrigger: trigger },
+  ])(
+    "preserves protection and routing on both endpoints: %j",
+    async (triggers) => {
+      const request = { ...base, ...triggers };
+      const bodies: unknown[] = [];
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+          bodies.push(JSON.parse(String(init?.body)));
+          const enhanced = String(input).endsWith("-enhanced");
+          return new Response(
+            JSON.stringify(enhanced ? { instructions: [] } : []),
+            {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }
+          );
+        })
+      );
+      const client = new PhoenixHttpClient({ baseUrl: "https://example.com" });
+      await client.orders().placeIsolatedMarketOrder(request);
+      await client.orders().placeIsolatedMarketOrderEnhanced(request);
+      expect(bodies).toEqual([request, request]);
+    }
+  );
+
+  it.each([
+    { sizePercent: 50, greaterTrigger: trigger },
+    { sizePercent: undefined, greaterTrigger: trigger },
+    { sizePercent: 100 },
+    { sizePercent: 100, greaterTrigger: trigger, tpSl: {} },
+  ])("rejects invalid v2 protection: %j", (protection) => {
+    expect(
+      PlaceIsolatedMarketOrderRequestSchema.safeParse({
+        ...base,
+        ...protection,
+      }).success
+    ).toBe(false);
+  });
+
+  it("keeps legacy and unprotected requests compatible", () => {
+    const { sizePercent, ...request } = base;
+    expect(sizePercent).toBe(100);
+    expect(PlaceIsolatedMarketOrderRequestSchema.parse(request)).toEqual(
+      request
+    );
+    const legacy = { ...request, tpSl: { takeProfitTriggerPrice: 120 } };
+    expect(PlaceIsolatedMarketOrderRequestSchema.parse(legacy)).toEqual(legacy);
+  });
+});
