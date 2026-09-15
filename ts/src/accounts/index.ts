@@ -11,9 +11,11 @@ export {
   fetchGlobalConfiguration,
   decodeGlobalConfiguration,
   getGlobalConfigurationDecoder,
+  getExchangeRunningState,
   isExchangeEffectivelyActive,
   type GlobalConfiguration,
 } from "./GlobalConfiguration";
+export { decodeLastRestartSlot, fetchLastRestartSlot } from "./lastRestartSlot";
 export {
   getSpotCollateralMetadataDecoder,
   getSpotCollateralAssetId,

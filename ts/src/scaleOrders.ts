@@ -29,6 +29,57 @@ export const MAX_SCALE_BIAS = 1;
 /** Per-order floor in base lots; an order may not rest below this. */
 export const DEFAULT_MIN_BASE_LOTS_PER_ORDER = 1;
 
+/** Largest valid `scaleSetId` (the low 7 bits of the wire byte). */
+export const MAX_SCALE_SET_ID = 127;
+
+/**
+ * Bit 7 of the wire `scale_set_id` byte: marks a continuation packet (chunk
+ * 2..N of a ladder that spans transactions), which skips the on-chain
+ * duplicate-id check. See {@link encodeScaleSetTag}.
+ */
+export const SCALE_SET_CONTINUATION_BIT = 0x80;
+
+export interface ScaleSetTag {
+  /** `1..=MAX_SCALE_SET_ID`, or `null` when the raw byte is `0`. */
+  id: number | null;
+  continuation: boolean;
+}
+
+/**
+ * Pack a logical ladder id and continuation flag into the wire
+ * `scale_set_id` byte. Throws unless `id` is an integer in
+ * `1..=MAX_SCALE_SET_ID`.
+ */
+export const encodeScaleSetTag = (id: number, continuation = false): number => {
+  if (!Number.isInteger(id) || id < 1 || id > MAX_SCALE_SET_ID) {
+    throw new Error(
+      `scaleSetId must be an integer in 1..=${MAX_SCALE_SET_ID}; got ${id}`
+    );
+  }
+  return continuation ? id | SCALE_SET_CONTINUATION_BIT : id;
+};
+
+/**
+ * Unpack a wire `scale_set_id` byte into its id and continuation bit.
+ * Throws on `0x80` (continuation bit set with a zero id), the one byte value
+ * the program rejects outright.
+ */
+export const decodeScaleSetTag = (raw: number): ScaleSetTag => {
+  if (!Number.isInteger(raw) || raw < 0 || raw > 0xff) {
+    throw new Error(
+      `raw scale_set_id byte must be an integer in 0..=255; got ${raw}`
+    );
+  }
+  const id = raw & ~SCALE_SET_CONTINUATION_BIT;
+  const continuation = (raw & SCALE_SET_CONTINUATION_BIT) !== 0;
+  if (id === 0 && continuation) {
+    throw new Error(
+      `invalid scale_set_id byte 0x${raw.toString(16)}: continuation bit set with id 0`
+    );
+  }
+  return { id: id === 0 ? null : id, continuation };
+};
+
 /**
  * Conservative default for how many sub-orders to pack into a single
  * `place_multi_limit_order` transaction. A full 64-order side does not fit one
@@ -126,8 +177,14 @@ export interface ScaleLevelsToPacketOptions {
 
 export interface ScaleLevelsToPacketV2Options extends ScaleLevelsToPacketOptions {
   reduceOnly?: boolean;
-  /** 1-255 = caller-assigned ladder id; 0 (default) = not part of a scale-order set. */
+  /** 1-127 = caller-assigned ladder id; 0 (default) = not part of a scale-order set. */
   scaleSetId?: number;
+  /**
+   * Stamps `scaleSetId | 0x80` (see {@link encodeScaleSetTag}). Requires a
+   * nonzero `scaleSetId` — a continuation packet with no ladder id is the one
+   * byte the program rejects outright.
+   */
+  scaleSetContinuation?: boolean;
 }
 
 export const clampScaleBias = (bias: number): number => {
@@ -473,8 +530,27 @@ export const scaleLevelsToMultipleOrderPacketV2 = (
       flags,
     })),
     clientOrderId: options?.clientOrderId ?? null,
-    scaleSetId: options?.scaleSetId ?? 0,
+    scaleSetId: encodeScaleSetIdField(options),
   };
+};
+
+/**
+ * Resolve the wire `scale_set_id` byte from the packet options. Mirrors the
+ * Rust encoder's `NonZeroU8` peel: no id means no scale set, and a
+ * continuation flag without an id is rejected rather than ignored.
+ */
+const encodeScaleSetIdField = (
+  options: ScaleLevelsToPacketV2Options | undefined
+): number => {
+  const id = options?.scaleSetId ?? 0;
+  const continuation = options?.scaleSetContinuation ?? false;
+  if (id === 0) {
+    if (continuation) {
+      throw new Error("scaleSetContinuation requires a nonzero scaleSetId");
+    }
+    return 0;
+  }
+  return encodeScaleSetTag(id, continuation);
 };
 
 const levelsToSideOrders = <TOrder>(
@@ -550,6 +626,9 @@ export const cancelIdsForScaleSet = (
   rows: readonly ScaleSetCancelableOrderRow[],
   scaleSetId: number
 ): CancelId[] => {
+  // Deliberately wider than MAX_SCALE_SET_ID: ladders placed before the
+  // continuation bit reserved bit 7 may carry ids 128-255 and are still
+  // resting and cancellable. Only the packet encoders are capped at 1-127.
   if (!Number.isInteger(scaleSetId) || scaleSetId < 1 || scaleSetId > 255) {
     throw new Error(
       `scaleSetId must be an integer in 1..=255; got ${scaleSetId}`

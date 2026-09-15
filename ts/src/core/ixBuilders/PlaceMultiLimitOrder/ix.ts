@@ -12,6 +12,7 @@ import {
   CondensedOrderFlags,
   type CondensedOrderV2,
 } from "@/primitives/OrderPacket";
+import { decodeScaleSetTag } from "@/scaleOrders";
 import {
   getPlaceMultiLimitOrderEncoder,
   getPlaceMultiLimitOrderV2Encoder,
@@ -135,11 +136,9 @@ const validateCondensedOrderV2Flags = (order: CondensedOrderV2) => {
 
 const validateV2Packet = (params: PlaceMultiLimitOrderV2Params) => {
   const { scaleSetId, bids, asks } = params.multipleOrderPacket;
-  if (!Number.isInteger(scaleSetId) || scaleSetId < 0 || scaleSetId > 255) {
-    throw new Error(
-      `scaleSetId must be an integer in 0..=255; got ${scaleSetId}`
-    );
-  }
+  // Wire-byte validity is the decoder's contract: it throws on a non-byte
+  // value and on 0x80 (continuation bit set with id 0).
+  decodeScaleSetTag(scaleSetId);
   for (const order of bids) {
     validateCondensedOrderV2Flags(order);
   }

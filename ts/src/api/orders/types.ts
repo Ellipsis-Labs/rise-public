@@ -106,8 +106,9 @@ export interface OrderHistoryItem {
   placedAt: number | null;
   completedAt: number | null;
   /**
-   * Scale-order set id (1-255) shared by every leg of a
-   * PlaceMultiLimitOrderV2 scale-order packet; absent for standalone orders.
+   * Scale-order set id (1-127; historical rows may carry legacy ids >= 128)
+   * shared by every leg of a PlaceMultiLimitOrderV2 scale-order packet;
+   * absent for standalone orders.
    */
   scaleSetId?: number;
 }
@@ -694,8 +695,9 @@ export interface PlacedOrder {
   orderFlags: number | null;
   clientOrderId?: string | null;
   /**
-   * Scale-order set id (1-255) shared by every leg of a
-   * PlaceMultiLimitOrderV2 scale-order packet; absent for standalone orders.
+   * Scale-order set id (1-127; historical rows may carry legacy ids >= 128)
+   * shared by every leg of a PlaceMultiLimitOrderV2 scale-order packet;
+   * absent for standalone orders.
    */
   scaleSetId?: number;
   transactionTimestamp: string;
@@ -714,8 +716,9 @@ export interface CurrentOrderState {
   cancelledAt: string | null;
   lastFillAt: string | null;
   /**
-   * Scale-order set id (1-255) shared by every leg of a
-   * PlaceMultiLimitOrderV2 scale-order packet; absent for standalone orders.
+   * Scale-order set id (1-127; historical rows may carry legacy ids >= 128)
+   * shared by every leg of a PlaceMultiLimitOrderV2 scale-order packet;
+   * absent for standalone orders.
    */
   scaleSetId?: number;
 }

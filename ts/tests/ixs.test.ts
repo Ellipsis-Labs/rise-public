@@ -1566,6 +1566,11 @@ describe("buildPlaceMultiLimitOrderV2Ix", () => {
     expect(() => buildIx({ scaleSetId: -1 } as never)).toThrow();
   });
 
+  it("rejects the raw byte 0x80 (continuation bit set with id 0) but accepts 0x87", () => {
+    expect(() => buildIx({ scaleSetId: 0x80 })).toThrow();
+    expect(() => buildIx({ scaleSetId: 0x87 })).not.toThrow();
+  });
+
   it("rejects unknown CondensedOrderV2 flag bits", () => {
     expect(() =>
       buildIx({

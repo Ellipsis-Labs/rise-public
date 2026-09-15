@@ -286,6 +286,10 @@ export const ROOT_PRESENT_PROPERTIES = [
   "getMultipleOrderPacketV2Decoder",
   "getMultipleOrderPacketV2Encoder",
   "cancelIdsForScaleSet",
+  "MAX_SCALE_SET_ID",
+  "SCALE_SET_CONTINUATION_BIT",
+  "encodeScaleSetTag",
+  "decodeScaleSetTag",
 ] as const;
 
 export const MIGRATED_INSTRUCTION_BUILDERS = [

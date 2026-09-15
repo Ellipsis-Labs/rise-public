@@ -56,6 +56,7 @@ const buildSnapshot = (
     withdrawQueue: "withdraw-queue",
     exchangeStatusBits: 129,
     exchangeStatusFeatures: ["initialized", "active"],
+    runningState: "active",
     active: true,
     gated: false,
     withdrawalsAvailable: true,
@@ -251,6 +252,31 @@ const buildOpenInterestCapDelta = (
         previousBaseLots: 5_000n,
         newBaseLots,
       },
+    },
+  ],
+});
+
+const buildMaintenanceDelta = (sequenceNumber: bigint): ExchangeDeltaMsg => ({
+  channel: "exchange",
+  messageType: "delta",
+  version: 1,
+  sequenceNumber,
+  slot: 3n,
+  slotIndex: 2,
+  ops: [
+    {
+      kind: "exchangeStatusChanged",
+      previousBits: 129,
+      newBits: 133,
+      previousFeatures: ["initialized", "active"],
+      newFeatures: ["initialized", "active", "maintenance"],
+      enabledFeatures: ["maintenance"],
+      disabledFeatures: [],
+      previousRunningState: "active",
+      runningState: "maintenance",
+      active: false,
+      gated: false,
+      withdrawalsAvailable: false,
     },
   ],
 });
@@ -681,6 +707,21 @@ describe("exchange cache", () => {
           event.symbol === "SOL-PERP"
       )
     ).toBe(true);
+  });
+
+  it("applies effective exchange status fields from maintenance deltas", () => {
+    const store = createPhoenixExchangeCacheStore(buildSnapshot(1n, 0));
+    store.applySnapshotMessage(buildSnapshotMsg(10n, buildSnapshot(2n, 1)));
+
+    store.applyDelta(buildMaintenanceDelta(11n));
+
+    expect(store.snapshot().exchange).toMatchObject({
+      exchangeStatusBits: 133,
+      exchangeStatusFeatures: ["initialized", "active", "maintenance"],
+      runningState: "maintenance",
+      active: false,
+      withdrawalsAvailable: false,
+    });
   });
 
   it("keeps the collateral registry live through exchange deltas", () => {

@@ -394,6 +394,10 @@ export interface LatestMarketStatsResponse {
   current_funding_rate: number;
   eight_hour_funding_rate: number;
   annualized_funding_rate: number;
+  /** Circulating supply in units of the underlying asset; null when unknown. */
+  circulating_supply?: number | null;
+  /** Market capitalization in USD; null when the supply is unknown. */
+  market_cap?: number | null;
 }
 
 export const LatestMarketStatsResponseSchema: z.ZodType<LatestMarketStatsResponse> =
@@ -409,6 +413,8 @@ export const LatestMarketStatsResponseSchema: z.ZodType<LatestMarketStatsRespons
     current_funding_rate: z.number(),
     eight_hour_funding_rate: z.number(),
     annualized_funding_rate: z.number(),
+    circulating_supply: z.number().nullable().optional(),
+    market_cap: z.number().nullable().optional(),
   });
 
 export interface LatestMarketsStatsResponse {

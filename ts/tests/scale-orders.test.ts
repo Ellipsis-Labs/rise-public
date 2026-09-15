@@ -1,14 +1,16 @@
 import {
-  DEFAULT_MAX_ORDERS_PER_TX,
-  DEFAULT_MAX_ORDERS_PER_TX_V2,
   MAX_SCALE_ORDERS,
+  MAX_SCALE_SET_ID,
   MIN_SCALE_ORDERS,
+  SCALE_SET_CONTINUATION_BIT,
   buildPlaceMultiLimitOrderIxResolved,
   chunkScaleLevelsForTx,
   clampScaleBias,
   clampScaleOrderCount,
   computeScaleOrderLevels,
   CondensedOrderFlags,
+  decodeScaleSetTag,
+  encodeScaleSetTag,
   previewScaleOrder,
   priceUsdToTicksWithMarketParams,
   scaleLevelsToMultipleOrderPacket,
@@ -16,7 +18,11 @@ import {
   type ScaleOrderInput,
   type ScaleOrderLevel,
 } from "@/index";
-import { scaleLevelsToMultipleOrderPacketV2 } from "@/scaleOrders";
+import {
+  DEFAULT_MAX_ORDERS_PER_TX,
+  DEFAULT_MAX_ORDERS_PER_TX_V2,
+  scaleLevelsToMultipleOrderPacketV2,
+} from "@/scaleOrders";
 import type { ResolvedPlaceOrderContext } from "@/ixs/types";
 import { Side } from "@/primitives/Side";
 import { DISCRIMINANTS } from "@/core/discriminants";
@@ -51,6 +57,50 @@ describe("clampScaleOrderCount", () => {
     expect(clampScaleOrderCount(1)).toBe(MIN_SCALE_ORDERS);
     expect(clampScaleOrderCount(1000)).toBe(MAX_SCALE_ORDERS);
     expect(clampScaleOrderCount(4.9)).toBe(4);
+  });
+});
+
+describe("encodeScaleSetTag", () => {
+  it("returns the plain id with no continuation bit by default", () => {
+    expect(encodeScaleSetTag(7)).toBe(7);
+    expect(encodeScaleSetTag(MAX_SCALE_SET_ID)).toBe(MAX_SCALE_SET_ID);
+  });
+
+  it("sets the continuation bit when requested", () => {
+    expect(encodeScaleSetTag(7, true)).toBe(0x87);
+    expect(encodeScaleSetTag(1, true)).toBe(SCALE_SET_CONTINUATION_BIT | 1);
+  });
+
+  it.each([0, -1, 128, 1.5, Number.NaN])(
+    "throws for an out-of-range id %s",
+    (id) => {
+      expect(() => encodeScaleSetTag(id)).toThrow();
+    }
+  );
+});
+
+describe("decodeScaleSetTag", () => {
+  it("decodes 0 as no scale set", () => {
+    expect(decodeScaleSetTag(0)).toEqual({ id: null, continuation: false });
+  });
+
+  it("decodes a plain id", () => {
+    expect(decodeScaleSetTag(7)).toEqual({ id: 7, continuation: false });
+  });
+
+  it("decodes a continuation byte", () => {
+    expect(decodeScaleSetTag(0x87)).toEqual({ id: 7, continuation: true });
+  });
+
+  it("throws on 0x80 (continuation bit set with id 0)", () => {
+    expect(() => decodeScaleSetTag(0x80)).toThrow();
+  });
+
+  it("round-trips through encodeScaleSetTag", () => {
+    for (const continuation of [false, true]) {
+      const raw = encodeScaleSetTag(42, continuation);
+      expect(decodeScaleSetTag(raw)).toEqual({ id: 42, continuation });
+    }
   });
 });
 
@@ -442,6 +492,43 @@ describe("scaleLevelsToMultipleOrderPacketV2", () => {
     );
     expect(() =>
       scaleLevelsToMultipleOrderPacketV2(tooMany, Side.Bid)
+    ).toThrow();
+  });
+
+  it("stamps the continuation bit when scaleSetContinuation is set", () => {
+    const packet = scaleLevelsToMultipleOrderPacketV2(levels, Side.Bid, {
+      scaleSetId: 7,
+      scaleSetContinuation: true,
+    });
+    expect(packet.scaleSetId).toBe(0x87);
+  });
+
+  it("rejects scaleSetContinuation when scaleSetId is unset", () => {
+    expect(() =>
+      scaleLevelsToMultipleOrderPacketV2(levels, Side.Bid, {
+        scaleSetContinuation: true,
+      })
+    ).toThrow("scaleSetContinuation requires a nonzero scaleSetId");
+    expect(() =>
+      scaleLevelsToMultipleOrderPacketV2(levels, Side.Bid, {
+        scaleSetId: 0,
+        scaleSetContinuation: true,
+      })
+    ).toThrow("scaleSetContinuation requires a nonzero scaleSetId");
+  });
+
+  it("leaves scaleSetId 0 alone when continuation is not requested", () => {
+    const packet = scaleLevelsToMultipleOrderPacketV2(levels, Side.Bid, {
+      scaleSetContinuation: false,
+    });
+    expect(packet.scaleSetId).toBe(0);
+  });
+
+  it("throws for a scaleSetId above the max", () => {
+    expect(() =>
+      scaleLevelsToMultipleOrderPacketV2(levels, Side.Bid, {
+        scaleSetId: 128,
+      })
     ).toThrow();
   });
 });
