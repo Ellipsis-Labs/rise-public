@@ -47,6 +47,7 @@ struct PerpAssetMapExpected {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PerpAssetExpected {
+    finalized_mark_price: String,
     symbol: String,
     static_market_params: StaticMarketParamsExpected,
     price_sequence_number: SequenceNumberExpected,
@@ -133,6 +134,8 @@ struct TicksAtSlotExpected {
 struct OracleParametersExpected {
     oracle_divergence_radius: u16,
     min_oracle_responses: u8,
+    book_hard_stale_multiplier: u8,
+    oracle_hard_stale_multiplier: u8,
 }
 
 #[derive(Debug, Deserialize)]
@@ -277,7 +280,7 @@ fn generated_instruction_fixtures_match_rise_discriminants() {
     // missed regeneration fails loudly instead.
     assert_eq!(
         instruction_fixtures().instructions.len(),
-        118,
+        119,
         "regenerate with `cargo run -p eternal-cli -- sdk-fixtures export`"
     );
 
@@ -340,6 +343,10 @@ fn generated_instruction_fixtures_match_rise_discriminants() {
 }
 
 fn assert_owned_asset(actual: &accounts::PerpAssetMetadata, expected: &PerpAssetExpected) {
+    assert_eq!(
+        actual.finalized_mark_price.to_string(),
+        expected.finalized_mark_price
+    );
     assert_static_market_params(
         &actual.static_market_params.market_account.to_string(),
         actual.static_market_params.tick_size,
@@ -374,6 +381,10 @@ fn assert_owned_asset(actual: &accounts::PerpAssetMetadata, expected: &PerpAsset
 }
 
 fn assert_borrowed_asset(actual: PerpAssetMetadata, expected: &PerpAssetExpected) {
+    assert_eq!(
+        actual.finalized_mark_price().to_string(),
+        expected.finalized_mark_price
+    );
     let static_market_params = actual.static_market_params();
     assert_static_market_params(
         &Pubkey::new_from_array(static_market_params.market_account).to_string(),
@@ -454,6 +465,14 @@ fn assert_owned_mark_price(actual: &accounts::MarkPrice, expected: &MarkPriceExp
         actual.oracle_parameters.min_oracle_responses,
         expected.oracle_parameters.min_oracle_responses
     );
+    assert_eq!(
+        actual.oracle_parameters.book_hard_stale_multiplier,
+        expected.oracle_parameters.book_hard_stale_multiplier
+    );
+    assert_eq!(
+        actual.oracle_parameters.oracle_hard_stale_multiplier,
+        expected.oracle_parameters.oracle_hard_stale_multiplier
+    );
     assert_oracle_responses(
         &actual.oracle_data,
         &actual.spot_price_component.last_exchange_spot_price,
@@ -494,6 +513,14 @@ fn assert_borrowed_mark_price(actual: &MarkPrice, expected: &MarkPriceExpected) 
     assert_eq!(
         actual.oracle_parameters().min_oracle_responses,
         expected.oracle_parameters.min_oracle_responses
+    );
+    assert_eq!(
+        actual.oracle_parameters().book_hard_stale_multiplier,
+        expected.oracle_parameters.book_hard_stale_multiplier
+    );
+    assert_eq!(
+        actual.oracle_parameters().oracle_hard_stale_multiplier,
+        expected.oracle_parameters.oracle_hard_stale_multiplier
     );
     assert_oracle_responses(
         &actual.oracle_data,

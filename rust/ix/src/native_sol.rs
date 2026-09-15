@@ -42,6 +42,32 @@ use crate::types::{AccountMeta, Instruction, push_trader_index_accounts};
 /// swap or liquidation can reference at most this many distinct accounts.
 pub const MAX_PACKED_EXTERNAL_ACCOUNTS: usize = 64;
 
+/// Reserve capacity for a non-position entry without increasing the trader's
+/// permitted perpetual-position count. The contract grows by one entry only
+/// when needed and otherwise succeeds without resizing; it never shrinks.
+/// `payer` funds additional rent and `trader_wallet` identifies the owner.
+pub fn create_realloc_trader_ix(
+    payer: Pubkey,
+    trader_wallet: Pubkey,
+    trader_account: Pubkey,
+) -> Instruction {
+    Instruction {
+        program_id: *PHOENIX_PROGRAM_ID,
+        accounts: vec![
+            AccountMeta::readonly(*PHOENIX_PROGRAM_ID),
+            AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY),
+            AccountMeta::readonly(*PHOENIX_GLOBAL_CONFIGURATION),
+            AccountMeta::writable_signer(payer),
+            AccountMeta::readonly(trader_wallet),
+            AccountMeta::writable(trader_account),
+            AccountMeta::readonly(SYSTEM_PROGRAM_ID),
+        ],
+        data: crate::PhoenixInstruction::ReallocTrader
+            .discriminant()
+            .to_vec(),
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // SyncNative
 ////////////////////////////////////////////////////////////////////////////////

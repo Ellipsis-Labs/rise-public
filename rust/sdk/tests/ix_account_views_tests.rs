@@ -477,7 +477,11 @@ fn phoenix_instruction_discriminants_round_trip() {
         );
     }
 
-    assert_eq!(PhoenixInstruction::ALL.len(), 102);
+    assert_eq!(PhoenixInstruction::ALL.len(), 103);
+    assert_eq!(
+        PhoenixInstruction::ReallocTrader.discriminant(),
+        compute_discriminant("global:realloc_trader")
+    );
     assert_eq!(
         PhoenixInstruction::SetMultiArenaAdditionalNodesWatermark.discriminant(),
         compute_discriminant("global:set_multi_arena_additional_nodes_watermark")

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 /// Account metadata returned from instruction-building endpoints.
@@ -206,6 +208,9 @@ pub struct PlaceIsolatedLimitOrderRequest {
     pub quantity: Option<f64>,
     #[serde(default)]
     pub transfer_amount: u64,
+    /// Native collateral amounts keyed by symbol; SOL amounts are lamports.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub transfer_spot_collateral_amounts: HashMap<String, u64>,
     #[serde(default)]
     pub pda_index: Option<u8>,
     #[serde(default)]
@@ -247,6 +252,9 @@ pub struct PlaceIsolatedLimitOrderWithConditionalsRequest {
     pub quantity: Option<f64>,
     #[serde(default)]
     pub transfer_amount: u64,
+    /// Native collateral amounts keyed by symbol; SOL amounts are lamports.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub transfer_spot_collateral_amounts: HashMap<String, u64>,
     #[serde(default)]
     pub pda_index: Option<u8>,
     #[serde(default)]
@@ -288,6 +296,9 @@ pub struct PlaceIsolatedMarketOrderRequest {
     pub quantity: Option<f64>,
     #[serde(default)]
     pub transfer_amount: u64,
+    /// Native collateral amounts keyed by symbol; SOL amounts are lamports.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub transfer_spot_collateral_amounts: HashMap<String, u64>,
     #[serde(default)]
     pub max_price_in_ticks: Option<u64>,
     #[serde(default)]
@@ -327,6 +338,9 @@ pub struct PlaceIsolatedMarketOrderV2Request {
     pub quantity: Option<f64>,
     #[serde(default)]
     pub transfer_amount: u64,
+    /// Native collateral amounts keyed by symbol; SOL amounts are lamports.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub transfer_spot_collateral_amounts: HashMap<String, u64>,
     #[serde(default)]
     pub max_price_in_ticks: Option<u64>,
     #[serde(default)]
@@ -624,7 +638,7 @@ mod isolated_market_compatibility_tests {
     use super::{PlaceIsolatedMarketOrderRequest, PlaceIsolatedMarketOrderV2Request};
 
     #[test]
-    fn isolated_market_order_legacy_exhaustive_literal_remains_compatible() {
+    fn isolated_market_order_without_sol_map_preserves_legacy_wire_shape() {
         let legacy = PlaceIsolatedMarketOrderRequest {
             authority: "owner".to_string(),
             position_authority: None,
@@ -635,6 +649,7 @@ mod isolated_market_compatibility_tests {
             min_quote_lots_to_fill: None,
             quantity: None,
             transfer_amount: 0,
+            transfer_spot_collateral_amounts: Default::default(),
             max_price_in_ticks: None,
             pda_index: None,
             allow_cross_and_isolated_for_asset: None,
@@ -655,5 +670,59 @@ mod isolated_market_compatibility_tests {
         assert!(current.size_percent.is_none());
         assert!(current.greater_trigger.is_none());
         assert!(current.less_trigger.is_none());
+    }
+}
+
+#[cfg(test)]
+mod isolated_spot_collateral_tests {
+    use super::{
+        PlaceIsolatedLimitOrderRequest, PlaceIsolatedLimitOrderWithConditionalsRequest,
+        PlaceIsolatedMarketOrderRequest, PlaceIsolatedMarketOrderV2Request,
+    };
+
+    #[test]
+    fn every_isolated_request_round_trips_native_sol_funding() {
+        let payload = serde_json::json!({"authority":"owner", "symbol":"SOL", "side":"buy", "transferAmount":0,
+            "transferSpotCollateralAmounts":{"SOL":1_000_000_000_u64}});
+        let encoded = [
+            serde_json::to_value(
+                serde_json::from_value::<PlaceIsolatedLimitOrderRequest>(payload.clone()).unwrap(),
+            )
+            .unwrap(),
+            serde_json::to_value(
+                serde_json::from_value::<PlaceIsolatedLimitOrderWithConditionalsRequest>(
+                    payload.clone(),
+                )
+                .unwrap(),
+            )
+            .unwrap(),
+            serde_json::to_value(
+                serde_json::from_value::<PlaceIsolatedMarketOrderRequest>(payload.clone()).unwrap(),
+            )
+            .unwrap(),
+            serde_json::to_value(
+                serde_json::from_value::<PlaceIsolatedMarketOrderV2Request>(payload.clone())
+                    .unwrap(),
+            )
+            .unwrap(),
+        ];
+        for value in encoded {
+            assert_eq!(
+                value["transferSpotCollateralAmounts"],
+                payload["transferSpotCollateralAmounts"]
+            );
+            assert_eq!(value["transferAmount"], 0);
+        }
+        let mut legacy = payload;
+        legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("transferSpotCollateralAmounts");
+        assert!(
+            serde_json::from_value::<PlaceIsolatedMarketOrderRequest>(legacy)
+                .unwrap()
+                .transfer_spot_collateral_amounts
+                .is_empty()
+        );
     }
 }

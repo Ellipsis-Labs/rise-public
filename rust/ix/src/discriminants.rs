@@ -288,6 +288,7 @@ define_instruction_discriminants! {
         SetTraderCapabilitiesDelegated => "set_trader_capabilities_delegated",
         ConsumeWithdrawQueue => "consume_withdraw_queue",
         RegisterTrader => "register_trader",
+        ReallocTrader => "realloc_trader",
         TransferCollateral => "transfer_collateral",
         AuthorizedTransferCollateral => "authorized_transfer_collateral",
         CreateEscrowAccount => "create_escrow_account",
