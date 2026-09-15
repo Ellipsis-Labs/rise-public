@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.25 - 2026-09-15
+
+Source Phoenix commit: `cdd5303fea774b0609f2402dee4e387dbf90714a`
+
+### Summary
+
+- `buildNativeSolDepositFlow` (wallet-paid) now prepends a `ReallocTrader` instruction to reserve trader account map capacity before the SOL transfer and `SyncNative`, exposed as `flow.named.reallocTrader`; already-sufficient capacity is a no-op.
+- Sponsored native SOL deposits must now confirm that wallet-paid capacity preparation already ran, via a new required `traderCapacityPrepared: true` flag; the sponsored transaction itself still contains only the transfer + sync.
+- `test-fixtures/default-localnet.json` (and its `ts/test-fixtures` mirror) adds a `sol-collateral-setup` action template for configuring SOL collateral with a fixed margin discount in local test setups.
+
+### Breaking Changes
+
+- `NativeSolDepositFlowParams` (sponsored variant) now requires `traderCapacityPrepared: true`. Calls that omit it throw `"Sponsored native SOL deposits require traderCapacityPrepared: true after wallet-paid ReallocTrader preparation"`.
+- Non-sponsored `buildNativeSolDepositFlow` output can now include an additional leading `reallocTrader` instruction in `flow.instructions`; code that assumed exactly two instructions (`transferSol`, `syncNative`) must account for this new optional leading entry.
+
+### Consumer Notes
+
+- Existing sponsored-flow integrations that already perform a wallet-paid `ReallocTrader` step before sponsorship just need to add `traderCapacityPrepared: true` to the call — no other change required.
+- `flow.named.reallocTrader` is `undefined` for sponsored flows and populated for wallet-paid flows; check for its presence before consuming `flow.named` or `flow.instructions` positionally.
+
 ## v0.5.23 - 2026-09-15
 
 Source Phoenix commit: `9a60c7ba487c57c88a8769607120204ffc3bc3de`

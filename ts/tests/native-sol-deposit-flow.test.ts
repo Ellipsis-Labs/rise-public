@@ -44,7 +44,7 @@ const client = {
 } as unknown as PhoenixInstructionClient;
 
 describe("buildNativeSolDepositFlow", () => {
-  it("emits the System transfer into the trader account, then SyncNative", async () => {
+  it("reserves collateral capacity before the System transfer and SyncNative", async () => {
     const flow = await buildNativeSolDepositFlow(
       { authority, lamports: 250_000_000n },
       client
@@ -59,11 +59,31 @@ describe("buildNativeSolDepositFlow", () => {
 
     expect(flow.traderAccount).toBe(expectedTraderAccount);
     expect(flow.instructions).toEqual([
+      flow.named.reallocTrader,
       flow.named.transferSol,
       flow.named.syncNative,
     ]);
 
-    const { transferSol, syncNative } = flow.named;
+    const { reallocTrader, transferSol, syncNative } = flow.named;
+    if (!reallocTrader)
+      throw new Error("Expected wallet-paid capacity preparation");
+    // Canonical ReallocTrader ABI: no payload; wallet need not sign unless it
+    // is also funding rent. The transaction merges duplicate account roles.
+    expect([...reallocTrader.data]).toEqual([
+      174, 248, 63, 35, 225, 236, 19, 204,
+    ]);
+    expect(reallocTrader.accounts).toEqual([
+      { address: phoenixProgramAddress, role: AccountRole.READONLY },
+      { address: "log-authority", role: AccountRole.READONLY },
+      { address: "global-config", role: AccountRole.READONLY },
+      { address: authority, role: AccountRole.WRITABLE_SIGNER },
+      { address: authority, role: AccountRole.READONLY },
+      { address: expectedTraderAccount, role: AccountRole.WRITABLE },
+      {
+        address: "11111111111111111111111111111111",
+        role: AccountRole.READONLY,
+      },
+    ]);
     expect(transferSol.programAddress).toBe("11111111111111111111111111111111");
     expect(transferSol.accounts).toEqual([
       { address: authority, role: AccountRole.WRITABLE_SIGNER },
@@ -109,6 +129,7 @@ describe("buildNativeSolDepositFlow", () => {
         lamports: 1n,
         feePayer,
         sponsorshipToken: "token",
+        traderCapacityPrepared: true,
         userPubkey: authority,
       },
       client
@@ -120,6 +141,27 @@ describe("buildNativeSolDepositFlow", () => {
       address: authority,
       role: AccountRole.WRITABLE_SIGNER,
     });
+    expect(flow.named.reallocTrader).toBeUndefined();
+    expect(flow.instructions).toEqual([
+      flow.named.transferSol,
+      flow.named.syncNative,
+    ]);
+  });
+
+  it("rejects sponsored callers that have not confirmed capacity preparation", async () => {
+    // Exercise an untyped JavaScript caller at the public runtime boundary.
+    await expect(
+      Reflect.apply(buildNativeSolDepositFlow, undefined, [
+        {
+          authority,
+          lamports: 1n,
+          feePayer,
+          sponsorshipToken: "token",
+          userPubkey: authority,
+        },
+        client,
+      ])
+    ).rejects.toThrow("require traderCapacityPrepared: true");
   });
 
   it("rejects a non-positive amount", async () => {
