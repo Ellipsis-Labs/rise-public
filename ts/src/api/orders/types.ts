@@ -599,32 +599,52 @@ export interface PlaceIsolatedMarketOrderRequest {
   flightBuilderAuthority?: string;
   flightFeeCollectorTrader?: string;
   tpSl?: TpSlOrderConfig;
+  /** Full-position v2 protection; cannot be combined with tpSl. */
+  greaterTrigger?: ConditionalTriggerRequest;
+  lessTrigger?: ConditionalTriggerRequest;
+  sizePercent?: 100;
 }
 
 export const PlaceIsolatedMarketOrderRequestSchema: z.ZodType<PlaceIsolatedMarketOrderRequest> =
-  z.object({
-    authority: z.string(),
-    positionAuthority: z.string().optional(),
-    symbol: z.string(),
-    side: z.string(),
-    numBaseLots: z.number().int().nonnegative().optional(),
-    minBaseLotsToFill: z.number().int().nonnegative().optional(),
-    minQuoteLotsToFill: z.number().int().nonnegative().optional(),
-    quantity: z.number().optional(),
-    transferAmount: z.number().int().nonnegative().optional(),
-    transferSpotCollateralAmounts: z
-      .record(z.string(), z.number().int().nonnegative())
-      .optional(),
-    maxPriceInTicks: z.number().int().nonnegative().optional(),
-    pdaIndex: z.number().int().nonnegative().optional(),
-    allowCrossAndIsolatedForAsset: z.boolean().optional(),
-    feePayer: z.string().optional(),
-    isReduceOnly: z.boolean().optional(),
-    skipTransferToParent: z.boolean().optional(),
-    flightBuilderAuthority: z.string().optional(),
-    flightFeeCollectorTrader: z.string().optional(),
-    tpSl: TpSlOrderConfigSchema.optional(),
-  });
+  z
+    .object({
+      authority: z.string(),
+      positionAuthority: z.string().optional(),
+      symbol: z.string(),
+      side: z.string(),
+      numBaseLots: z.number().int().nonnegative().optional(),
+      minBaseLotsToFill: z.number().int().nonnegative().optional(),
+      minQuoteLotsToFill: z.number().int().nonnegative().optional(),
+      quantity: z.number().optional(),
+      transferAmount: z.number().int().nonnegative().optional(),
+      transferSpotCollateralAmounts: z
+        .record(z.string(), z.number().int().nonnegative())
+        .optional(),
+      maxPriceInTicks: z.number().int().nonnegative().optional(),
+      pdaIndex: z.number().int().nonnegative().optional(),
+      allowCrossAndIsolatedForAsset: z.boolean().optional(),
+      feePayer: z.string().optional(),
+      isReduceOnly: z.boolean().optional(),
+      skipTransferToParent: z.boolean().optional(),
+      flightBuilderAuthority: z.string().optional(),
+      flightFeeCollectorTrader: z.string().optional(),
+      tpSl: TpSlOrderConfigSchema.optional(),
+      greaterTrigger: ConditionalTriggerRequestSchema.optional(),
+      lessTrigger: ConditionalTriggerRequestSchema.optional(),
+      sizePercent: z.literal(100).optional(),
+    })
+    .refine((request) => {
+      const hasV2Protection =
+        request.greaterTrigger !== undefined ||
+        request.lessTrigger !== undefined ||
+        request.sizePercent !== undefined;
+      return (
+        !hasV2Protection ||
+        (request.tpSl === undefined &&
+          request.sizePercent === 100 &&
+          hasConditionalTrigger(request))
+      );
+    }, "Isolated v2 protection requires a trigger and sizePercent: 100, without tpSl");
 
 export type ServerBuiltInstruction = InstructionsWithAccountsAndData;
 

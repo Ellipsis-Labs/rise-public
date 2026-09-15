@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.21 - 2026-09-15
+
+Source Phoenix commit: `bddefbeebaa0c477268fbbc791888053219da2e6`
+
+### Summary
+
+- Added atomic isolated market order protection (v2): `placeIsolatedMarketOrder()` and `placeIsolatedMarketOrderEnhanced()` now accept `greaterTrigger`, `lessTrigger`, and `sizePercent: 100` for full-position TP/SL that shares one conditional and cancels together when either side executes. Requires a backend release containing PRO-829.
+- Added `withdrawableQuoteCollateral` to `TraderView` and `withdrawableQuoteCollateralQuoteLots` to `MarginTotals`, mirroring the on-chain `get_max_quote_withdrawable_amount`: the tighter of (effective withdrawal collateral + discounted spot collateral − initial margin for withdrawals) and the positive part of effective withdrawal collateral.
+- Clarified doc comments around spot collateral and withdrawal margin semantics; no behavior change to existing `effectiveCollateralForWithdrawals*` fields.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- v2 protection fields are optional and additive; requests must supply at least one trigger with `sizePercent: 100` and cannot combine them with legacy `tpSl` — the request schema now enforces this via a `.refine()` check, so previously-passing requests that happened to mix these fields will now fail validation.
+- `withdrawableQuoteCollateral` defaults to a zero `TokenAmount` when parsing responses from older API versions that predate the field, so no manual migration is needed for existing integrations.
+- Partial and fixed-lot protection are not supported on the new isolated market-order v2 path; use `side: "buy"` on closing triggers for short entries (take profit becomes the less trigger, stop loss the greater trigger).
+
 ## v0.5.20 - 2026-09-15
 
 Source Phoenix commit: `8b62fb6aea0f7e8520ebee0bf72698295264a23a`

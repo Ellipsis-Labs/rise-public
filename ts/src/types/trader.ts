@@ -187,7 +187,14 @@ export interface TraderView {
   collateralBalance: TokenAmount;
   spotCollaterals?: SpotCollateralBalance[];
   effectiveCollateral: TokenAmount;
+  /** Quote-side effective collateral used for withdrawal checks. */
   effectiveCollateralForWithdrawals: TokenAmount;
+  /** Maximum quote collateral currently withdrawable: the tighter of
+   * effectiveCollateralForWithdrawals plus discounted spot collateral minus
+   * initialMarginForWithdrawals, and the positive part of
+   * effectiveCollateralForWithdrawals. Defaults to zero for API versions that
+   * predate the field. */
+  withdrawableQuoteCollateral: TokenAmount;
   unrealizedPnl: TokenAmount;
   discountedUnrealizedPnl: TokenAmount;
   unsettledFundingOwed: TokenAmount;
@@ -227,6 +234,11 @@ export const TraderViewSchema: z.ZodType<TraderView> = z
       .default([]),
     effectiveCollateral: TokenAmountSchema,
     effectiveCollateralForWithdrawals: TokenAmountSchema,
+    withdrawableQuoteCollateral: TokenAmountSchema.optional().default({
+      value: 0,
+      decimals: 6,
+      ui: "0",
+    }),
     unsettledFundingOwed: TokenAmountSchema,
     accumulatedFunding: TokenAmountSchema,
     portfolioValue: TokenAmountSchema,

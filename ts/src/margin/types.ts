@@ -182,6 +182,14 @@ export interface MarginTotals {
   collateralBalanceQuoteLots: string;
   effectiveCollateralQuoteLots: string;
   effectiveCollateralForWithdrawalsQuoteLots: string;
+  /**
+   * Maximum quote collateral withdrawable, mirroring the on-chain
+   * get_max_quote_withdrawable_amount: the tighter of
+   * effectiveCollateralForWithdrawals + spotCollateralDiscounted -
+   * initialMarginForWithdrawals (spot backs the margin) and the positive part
+   * of effectiveCollateralForWithdrawals (spot is never paid out as quote).
+   */
+  withdrawableQuoteCollateralQuoteLots: string;
   portfolioValueQuoteLots: string;
   initialMarginQuoteLots: string;
   /**
@@ -206,10 +214,10 @@ export interface MarginTotals {
    */
   spotCollateralNotionalQuoteLots?: string;
   /**
-   * Discounted spot collateral value included in effectiveCollateral (but
-   * never in effectiveCollateralForWithdrawals, mirroring the on-chain
-   * WithdrawQuoteCollateral semantics). Present only when the inputs carry
-   * spot collaterals.
+   * Discounted spot collateral value included in effectiveCollateral. It stays
+   * out of effectiveCollateralForWithdrawals (the quote payout cap) but backs
+   * the margin bound of withdrawableQuoteCollateralQuoteLots. Present only
+   * when the inputs carry spot collaterals.
    */
   spotCollateralDiscountedQuoteLots?: string;
   riskState: MarginRiskState;
