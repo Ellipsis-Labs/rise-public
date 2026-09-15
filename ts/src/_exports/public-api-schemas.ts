@@ -15,8 +15,20 @@ export {
 export {
   type ApiCandle,
   ApiCandleSchema,
+  type ApiCandleV2,
+  ApiCandleV2Schema,
+  type CandlesV2Page,
+  CandlesV2PageSchema,
+  type CandlesV2Response,
+  CandlesV2ResponseSchema,
   type TradingCandlesQuery,
   TradingCandlesQuerySchema,
+  type TradingCandlesV2CursorQuery,
+  TradingCandlesV2CursorQuerySchema,
+  type TradingCandlesV2InitialQuery,
+  TradingCandlesV2InitialQuerySchema,
+  type TradingCandlesV2Query,
+  TradingCandlesV2QuerySchema,
 } from "../api/candles/types";
 
 export {

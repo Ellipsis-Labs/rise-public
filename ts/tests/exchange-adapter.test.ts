@@ -214,6 +214,61 @@ describe("exchange adapter", () => {
     abort.abort();
   });
 
+  it("accepts search aliases in strict snapshots and metadata deltas", async () => {
+    const { ws, subscriptions } = createFakeWs();
+    const adapter = createExchangeAdapter(ws, undefined, true);
+    const abort = new AbortController();
+    const iterator = adapter(abort.signal)[Symbol.asyncIterator]();
+    const [subscription] = [...subscriptions.values()];
+
+    const payload = buildSnapshotPayload();
+    const nextSnapshot = iterator.next();
+    subscription?.onMessage({
+      channel: "exchange",
+      messageType: "snapshot",
+      ...payload,
+      markets: payload.markets.map((market) => ({
+        ...market,
+        metadata: { searchAliases: ["XAU"] },
+      })),
+    });
+
+    const snapshot = await nextSnapshot;
+    if (snapshot.done || snapshot.value.messageType !== "snapshot") {
+      throw new Error("expected exchange snapshot");
+    }
+    expect(snapshot.value.markets[0]?.metadata?.searchAliases).toEqual(["XAU"]);
+
+    const nextDelta = iterator.next();
+    subscription?.onMessage({
+      channel: "exchange",
+      messageType: "delta",
+      version: 1,
+      sequenceNumber: "10",
+      slot: "43",
+      slotIndex: 4,
+      ops: [
+        {
+          kind: "marketMetadataUpdated",
+          symbol: "GOLD",
+          metadata: { searchAliases: ["XAU"] },
+        },
+      ],
+    });
+
+    const delta = await nextDelta;
+    if (delta.done || delta.value.messageType !== "delta") {
+      throw new Error("expected exchange delta");
+    }
+    expect(delta.value.ops[0]).toMatchObject({
+      kind: "marketMetadataUpdated",
+      symbol: "GOLD",
+      metadata: { searchAliases: ["XAU"] },
+    });
+
+    abort.abort();
+  });
+
   it("normalizes snake_case delta op fields from the exchange stream", async () => {
     const { ws, subscriptions } = createFakeWs();
     const adapter = createExchangeAdapter(ws);

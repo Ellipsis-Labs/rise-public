@@ -36,4 +36,5 @@ export interface GlobalConfiguration {
    * addresses instead (`RequiredAccounts`).
    */
   nativeSolSpotMetadata: SpotCollateralMetadata;
+  acknowledgedRestartSlot: bigint;
 }

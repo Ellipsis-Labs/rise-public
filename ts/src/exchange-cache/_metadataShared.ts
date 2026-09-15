@@ -3,6 +3,7 @@ import {
   decodePerpAssetMap,
   fetchWithdrawQueueHeader,
   fetchOrderbookHeader,
+  isExchangeEffectivelyActive,
 } from "@/accounts";
 import type {
   GlobalConfiguration,
@@ -26,6 +27,10 @@ import {
 import type { PhoenixPdaClient } from "@/pdaClient";
 import type { PhoenixProgramAddress } from "@/primitives";
 import { PhoenixRpcAccountFetcherClient } from "@/rpc";
+import {
+  getSysvarLastRestartSlotDecoder,
+  SYSVAR_LAST_RESTART_SLOT_ADDRESS,
+} from "@solana/sysvars";
 import type { Address } from "@solana/kit";
 import type { PhoenixExchangeCacheStore } from "./types";
 import type {
@@ -38,6 +43,8 @@ import type {
   ExchangeMetadataSource,
   PhoenixExchangeMetadataConfig,
 } from "./types";
+
+const lastRestartSlotDecoder = getSysvarLastRestartSlotDecoder();
 
 export const DEFAULT_RPC_POLL_INTERVAL_MS = 5_000;
 export const DEFAULT_RPC_TTL_MS = 30_000;
@@ -111,12 +118,14 @@ const toExchangeStateSnapshot = (
   withdrawQueueHeader: WithdrawQueueHeader | null,
   globalTraderIndex: string[],
   activeTraderBuffer: string[],
-  programId: PhoenixProgramAddress
+  programId: PhoenixProgramAddress,
+  lastRestartSlot: bigint | null
 ): ExchangeStateSnapshot => {
   const exchangeStatusBits = globalConfiguration.exchangeStatus;
-  const active =
-    (exchangeStatusBits & 0b1000_0000) !== 0 &&
-    (exchangeStatusBits & 0b0000_0001) !== 0;
+  const active = isExchangeEffectivelyActive({
+    globalConfiguration,
+    lastRestartSlot,
+  });
   return {
     programId,
     globalConfig: globalConfiguration.accountKey,
@@ -515,6 +524,7 @@ const loadGlobalConfigurationAndPerpAssetMap = async (params: {
   slot: bigint;
   globalConfiguration: GlobalConfiguration;
   perpAssetMap: ReturnType<typeof decodePerpAssetMap>;
+  lastRestartSlot: bigint;
 }> => {
   const { fetcher, globalConfigurationAddress } = params;
 
@@ -526,6 +536,7 @@ const loadGlobalConfigurationAndPerpAssetMap = async (params: {
     const { slot, accounts } = await fetcher.fetchAccounts([
       globalConfigurationAddress,
       perpAssetMapAddress,
+      SYSVAR_LAST_RESTART_SLOT_ADDRESS,
     ]);
     const globalConfiguration = decodeGlobalConfiguration(accounts[0].data);
     if (globalConfiguration.perpAssetMapKey !== perpAssetMapAddress) {
@@ -537,6 +548,8 @@ const loadGlobalConfigurationAndPerpAssetMap = async (params: {
       slot,
       globalConfiguration,
       perpAssetMap: decodePerpAssetMap(accounts[1].data),
+      lastRestartSlot: lastRestartSlotDecoder.decode(accounts[2].data)
+        .lastRestartSlot,
     };
   }
 
@@ -561,7 +574,7 @@ export const loadRpcSnapshot = async (
     },
   };
 
-  const { slot, globalConfiguration, perpAssetMap } =
+  const { slot, globalConfiguration, perpAssetMap, lastRestartSlot } =
     await loadGlobalConfigurationAndPerpAssetMap({
       fetcher,
       globalConfigurationAddress,
@@ -604,7 +617,8 @@ export const loadRpcSnapshot = async (
       withdrawQueueHeader,
       globalTraderIndex,
       activeTraderBuffer,
-      phoenixProgramAddress
+      phoenixProgramAddress,
+      lastRestartSlot
     ),
     markets,
   };

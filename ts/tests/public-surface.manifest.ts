@@ -36,7 +36,7 @@ export const HTTP_CLIENT_ABSENT_METHODS = [
 ] as const;
 
 export const HTTP_RESOURCE_PRESENT_METHODS = {
-  candles: ["getCandles"],
+  candles: ["getCandles", "getCandlesV2"],
   collateral: [
     "getTraderCollateralHistory",
     "getUserCollateralHistory",

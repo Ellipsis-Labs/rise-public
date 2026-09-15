@@ -64,16 +64,6 @@
     {
       "program": "phoenix-eternal",
       "enumName": "PhoenixInstruction",
-      "instructionName": "PlaceMultiLimitOrderV2",
-      "snakeCaseName": "place_multi_limit_order_v2",
-      "preimage": "global:place_multi_limit_order_v2",
-      "tag": "12837142413540093760",
-      "discriminatorHex": "406f28d202b126b2",
-      "discriminatorBase64": "QG8o0gKxJrI="
-    },
-    {
-      "program": "phoenix-eternal",
-      "enumName": "PhoenixInstruction",
       "instructionName": "CancelOrdersById",
       "snakeCaseName": "cancel_orders_by_id",
       "preimage": "global:cancel_orders_by_id",

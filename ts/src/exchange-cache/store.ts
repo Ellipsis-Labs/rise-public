@@ -230,6 +230,18 @@ const buildMarketStatusSummary = (
 const sortSymbols = (symbols: Iterable<string>): readonly string[] =>
   Array.from(symbols).sort((left, right) => left.localeCompare(right));
 
+const sameStringArray = (
+  left: readonly string[] | null | undefined,
+  right: readonly string[] | null | undefined
+): boolean => {
+  const leftValues = left ?? [];
+  const rightValues = right ?? [];
+  return (
+    leftValues.length === rightValues.length &&
+    leftValues.every((value, index) => value === rightValues[index])
+  );
+};
+
 const sameMarketPublicMetadata = (
   left: MarketPublicMetadata | null | undefined,
   right: MarketPublicMetadata | null | undefined
@@ -239,6 +251,7 @@ const sameMarketPublicMetadata = (
   return (
     (left?.name ?? null) === (right?.name ?? null) &&
     (left?.description ?? null) === (right?.description ?? null) &&
+    sameStringArray(left?.searchAliases, right?.searchAliases) &&
     (left?.logoUri ?? null) === (right?.logoUri ?? null) &&
     (left?.coinGeckoId ?? null) === (right?.coinGeckoId ?? null) &&
     (left?.coinMarketCapId ?? null) === (right?.coinMarketCapId ?? null) &&

@@ -3,6 +3,27 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.15 - 2026-09-15
+
+Source Phoenix commit: `441ecc64f8549695ebe49cd2cf464550a0c60965`
+
+### Summary
+
+- Added `getCandlesV2` to the candles client (`ApiCandleV2`, `CandlesV2Response`, `CandlesV2Page`, and related query types), supporting cursor-based pagination, mark-price OHLC, `isFinal`, and external-source metadata; the existing `getCandles` method and its legacy 2,500-bar endpoint are unchanged.
+- Added an `isExchangeEffectivelyActive` helper and a new `acknowledgedRestartSlot` field on `GlobalConfiguration` so exchange-cache "active" status can be reconciled against the on-chain `LastRestartSlot` sysvar after a validator/network restart.
+- `MarketPublicMetadata` gains an optional `searchAliases: string[]` field, propagated through the exchange WebSocket adapter and cache store/selectors.
+
+### Breaking Changes
+
+- Exchange-cache "active" status can now resolve to `false` immediately after a restart (until the restart slot is acknowledged on-chain), even when `GlobalConfiguration.exchangeStatus` bits still read active — code that inspects the raw status bits directly should switch to `isExchangeEffectivelyActive`.
+- RPC bootstrap for exchange metadata now fetches an additional sysvar account (`SYSVAR_LAST_RESTART_SLOT_ADDRESS`) alongside `GlobalConfiguration` and `PerpAssetMap`; code asserting on the count/order of accounts in that `getMultipleAccounts` call will need updating.
+
+### Consumer Notes
+
+- New runtime dependency: `@solana/sysvars` (`^4.0.0`), required by the exchange-cache RPC bootstrap path.
+- `GlobalConfiguration` decoding adds `acknowledgedRestartSlot: bigint` (carved out of previously reserved padding); total account size is unchanged, so existing raw-byte parsing outside the SDK decoder is unaffected.
+- Prefer `getCandlesV2` for new integrations needing pagination or mark-price data; it defaults to 1,000 bars per page (server max 10,000) vs. the legacy endpoint's 2,500-bar cap.
+
 ## v0.5.14 - 2026-09-14
 
 Source Phoenix commit: `be93e77bc13e301ace3c9cd7132e867d258ce17e`

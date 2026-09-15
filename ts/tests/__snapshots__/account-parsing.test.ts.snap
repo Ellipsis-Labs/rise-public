@@ -3,6 +3,7 @@
 exports[`raw account parsing > decodes GlobalConfiguration fixtures 1`] = `
 {
   "accountKey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+  "acknowledgedRestartSlot": "0",
   "activeTraderBufferHeaderKey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
   "canonicalTokenMintKey": "PhUsd11YkbjSaWjFncfAAmatntsjx3MgDR9B6g1ks3A",
   "currentAuthorities": {

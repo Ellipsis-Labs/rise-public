@@ -6,3 +6,5 @@ export {
 } from "./codec";
 
 export { fetchGlobalConfiguration } from "./fetcher";
+
+export { isExchangeEffectivelyActive } from "./status";

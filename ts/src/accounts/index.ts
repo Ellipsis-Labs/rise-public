@@ -11,6 +11,7 @@ export {
   fetchGlobalConfiguration,
   decodeGlobalConfiguration,
   getGlobalConfigurationDecoder,
+  isExchangeEffectivelyActive,
   type GlobalConfiguration,
 } from "./GlobalConfiguration";
 export {

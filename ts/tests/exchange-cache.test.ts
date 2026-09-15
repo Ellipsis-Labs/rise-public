@@ -375,6 +375,7 @@ const buildCommodityMetadata = (
 const sampleMarketMetadata = (name = "Solana Perp"): MarketPublicMetadata => ({
   name,
   description: "Solana perpetual market",
+  searchAliases: ["SOL"],
   logoUri: "https://example.com/sol.png",
   coinGeckoId: "solana",
   coinMarketCapId: 5426,
@@ -639,8 +640,28 @@ describe("exchange cache", () => {
     expect(store.marketMetadata("sol-perp")).not.toBe(
       metadataBeforeParameterDelta
     );
-    expect(store.marketMetadataByAssetId(1)).toEqual(updatedMetadata);
-    expect(store.marketMetadataByPubkey("sol-market")).toEqual(updatedMetadata);
+
+    const metadataBeforeAliasDelta = store.marketMetadata("sol-perp");
+    const aliasUpdatedMetadata = {
+      ...updatedMetadata,
+      searchAliases: ["SOL", "Solana"],
+    };
+    const parsedAliasDelta = ExchangeWireMsgSchema.parse(
+      buildMarketMetadataDelta(13n, 4n, 1, aliasUpdatedMetadata)
+    );
+    if (parsedAliasDelta.messageType !== "delta") {
+      throw new Error("expected parsed alias metadata delta");
+    }
+    store.applyDelta(parsedAliasDelta);
+    expect(store.marketMetadata("sol-perp")?.searchAliases).toEqual([
+      "SOL",
+      "Solana",
+    ]);
+    expect(store.marketMetadata("sol-perp")).not.toBe(metadataBeforeAliasDelta);
+    expect(store.marketMetadataByAssetId(1)).toEqual(aliasUpdatedMetadata);
+    expect(store.marketMetadataByPubkey("sol-market")).toEqual(
+      aliasUpdatedMetadata
+    );
     expect(store.marketByAssetId(1)?.symbol).toBe("SOL-PERP");
     expect(store.marketByPubkey("sol-market")?.symbol).toBe("SOL-PERP");
     expect(store.instructionContext("SOL-PERP")?.market.assetId).toBe(1);
