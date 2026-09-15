@@ -299,6 +299,10 @@ export {
   type RegisterTraderIx,
   type RegisterTraderParams,
 } from "../core/ixBuilders/RegisterTrader";
+export {
+  buildReallocTraderIx,
+  type ReallocTraderParams,
+} from "../core/ixBuilders/ReallocTrader";
 
 export {
   buildOnboardTraderDelegatedIx,

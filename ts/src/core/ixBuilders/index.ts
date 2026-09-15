@@ -22,6 +22,7 @@ export * from "./PlacePostOnlyOrder";
 export * from "./PlacePositionConditionalOrder";
 export * from "./PlaceStopLoss";
 export * from "./RegisterTrader";
+export * from "./ReallocTrader";
 export * from "./OnboardTraderDelegated";
 export * from "./Spline";
 export * from "./SyncParentToChild";
