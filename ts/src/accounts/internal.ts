@@ -123,6 +123,8 @@ export interface OracleData {
 export interface OracleParameters {
   oracleDivergenceRadius: number;
   minOracleResponses: number;
+  bookHardStaleMultiplier: number;
+  oracleHardStaleMultiplier: number;
 }
 
 export interface BookPriceComponent {
@@ -222,6 +224,7 @@ export interface AssetFlags {
 }
 
 export interface PerpAssetMetadata {
+  finalizedMarkPrice: bigint;
   oraclePrice: PriceComponent;
   staticMarketParams: StaticMarketParams;
   riskParams: RiskParams;
@@ -746,7 +749,9 @@ export const getOracleParametersDecoder = (): Decoder<OracleParameters> =>
     getStructDecoder([
       ["oracleDivergenceRadius", getU16Decoder()],
       ["minOracleResponses", getU8Decoder()],
-      ["_padding", getFixedArrayDecoder(getU8Decoder, 5)],
+      ["bookHardStaleMultiplier", getU8Decoder()],
+      ["oracleHardStaleMultiplier", getU8Decoder()],
+      ["_padding", getFixedArrayDecoder(getU8Decoder, 3)],
     ]),
     ({ _padding, ...parameters }): OracleParameters => parameters
   );
@@ -949,7 +954,6 @@ const getPerpAssetMetadataInternalDecoder =
         _padding2,
         _padding3,
         _padding4a,
-        finalizedMarkPrice,
         _padding4,
         _paddingFlags,
         ...metadata

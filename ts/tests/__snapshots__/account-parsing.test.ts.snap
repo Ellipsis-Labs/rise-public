@@ -105,6 +105,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
           },
           "commoditiesAfterHoursRadius": "0",
           "commoditiesAfterHoursRadiusBps": 0,
+          "finalizedMarkPrice": "0",
           "fundingAccumulator": {
             "acc": "-185000",
             "cumulativeFundingRate": "-7782",
@@ -180,8 +181,10 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "0",
               ],
               "oracleParameters": {
+                "bookHardStaleMultiplier": 0,
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
+                "oracleHardStaleMultiplier": 0,
               },
               "perpPriceComponent": {
                 "lastExchangePerpPrice": [
@@ -579,6 +582,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
           },
           "commoditiesAfterHoursRadius": "0",
           "commoditiesAfterHoursRadiusBps": 0,
+          "finalizedMarkPrice": "0",
           "fundingAccumulator": {
             "acc": "3021800",
             "cumulativeFundingRate": "-83948",
@@ -654,8 +658,10 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "0",
               ],
               "oracleParameters": {
+                "bookHardStaleMultiplier": 0,
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
+                "oracleHardStaleMultiplier": 0,
               },
               "perpPriceComponent": {
                 "lastExchangePerpPrice": [
@@ -1053,6 +1059,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
           },
           "commoditiesAfterHoursRadius": "0",
           "commoditiesAfterHoursRadiusBps": 0,
+          "finalizedMarkPrice": "0",
           "fundingAccumulator": {
             "acc": "-905700",
             "cumulativeFundingRate": "-32592",
@@ -1128,8 +1135,10 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "0",
               ],
               "oracleParameters": {
+                "bookHardStaleMultiplier": 0,
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
+                "oracleHardStaleMultiplier": 0,
               },
               "perpPriceComponent": {
                 "lastExchangePerpPrice": [
@@ -1527,6 +1536,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
           },
           "commoditiesAfterHoursRadius": "0",
           "commoditiesAfterHoursRadiusBps": 0,
+          "finalizedMarkPrice": "0",
           "fundingAccumulator": {
             "acc": "-25480",
             "cumulativeFundingRate": "-169",
@@ -1602,8 +1612,10 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "0",
               ],
               "oracleParameters": {
+                "bookHardStaleMultiplier": 0,
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
+                "oracleHardStaleMultiplier": 0,
               },
               "perpPriceComponent": {
                 "lastExchangePerpPrice": [
@@ -2001,6 +2013,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
           },
           "commoditiesAfterHoursRadius": "0",
           "commoditiesAfterHoursRadiusBps": 0,
+          "finalizedMarkPrice": "0",
           "fundingAccumulator": {
             "acc": "51350",
             "cumulativeFundingRate": "-3888",
@@ -2076,8 +2089,10 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "0",
               ],
               "oracleParameters": {
+                "bookHardStaleMultiplier": 0,
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
+                "oracleHardStaleMultiplier": 0,
               },
               "perpPriceComponent": {
                 "lastExchangePerpPrice": [
@@ -2475,6 +2490,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
           },
           "commoditiesAfterHoursRadius": "0",
           "commoditiesAfterHoursRadiusBps": 0,
+          "finalizedMarkPrice": "0",
           "fundingAccumulator": {
             "acc": "-82538",
             "cumulativeFundingRate": "-762",
@@ -2550,8 +2566,10 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "0",
               ],
               "oracleParameters": {
+                "bookHardStaleMultiplier": 0,
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
+                "oracleHardStaleMultiplier": 0,
               },
               "perpPriceComponent": {
                 "lastExchangePerpPrice": [
@@ -2949,6 +2967,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
           },
           "commoditiesAfterHoursRadius": "0",
           "commoditiesAfterHoursRadiusBps": 0,
+          "finalizedMarkPrice": "0",
           "fundingAccumulator": {
             "acc": "-1391800",
             "cumulativeFundingRate": "-3882",
@@ -3024,8 +3043,10 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "0",
               ],
               "oracleParameters": {
+                "bookHardStaleMultiplier": 0,
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
+                "oracleHardStaleMultiplier": 0,
               },
               "perpPriceComponent": {
                 "lastExchangePerpPrice": [
@@ -3423,6 +3444,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
           },
           "commoditiesAfterHoursRadius": "0",
           "commoditiesAfterHoursRadiusBps": 0,
+          "finalizedMarkPrice": "0",
           "fundingAccumulator": {
             "acc": "-89251",
             "cumulativeFundingRate": "-456",
@@ -3498,8 +3520,10 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "0",
               ],
               "oracleParameters": {
+                "bookHardStaleMultiplier": 0,
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
+                "oracleHardStaleMultiplier": 0,
               },
               "perpPriceComponent": {
                 "lastExchangePerpPrice": [
@@ -3897,6 +3921,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
           },
           "commoditiesAfterHoursRadius": "0",
           "commoditiesAfterHoursRadiusBps": 0,
+          "finalizedMarkPrice": "0",
           "fundingAccumulator": {
             "acc": "-700400",
             "cumulativeFundingRate": "-6374",
@@ -3972,8 +3997,10 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "0",
               ],
               "oracleParameters": {
+                "bookHardStaleMultiplier": 0,
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
+                "oracleHardStaleMultiplier": 0,
               },
               "perpPriceComponent": {
                 "lastExchangePerpPrice": [
@@ -4371,6 +4398,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
           },
           "commoditiesAfterHoursRadius": "0",
           "commoditiesAfterHoursRadiusBps": 0,
+          "finalizedMarkPrice": "0",
           "fundingAccumulator": {
             "acc": "-626620",
             "cumulativeFundingRate": "-4802",
@@ -4446,8 +4474,10 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "0",
               ],
               "oracleParameters": {
+                "bookHardStaleMultiplier": 0,
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
+                "oracleHardStaleMultiplier": 0,
               },
               "perpPriceComponent": {
                 "lastExchangePerpPrice": [
@@ -4845,6 +4875,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
           },
           "commoditiesAfterHoursRadius": "0",
           "commoditiesAfterHoursRadiusBps": 0,
+          "finalizedMarkPrice": "0",
           "fundingAccumulator": {
             "acc": "-738800",
             "cumulativeFundingRate": "-11743",
@@ -4920,8 +4951,10 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "0",
               ],
               "oracleParameters": {
+                "bookHardStaleMultiplier": 0,
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
+                "oracleHardStaleMultiplier": 0,
               },
               "perpPriceComponent": {
                 "lastExchangePerpPrice": [
@@ -5319,6 +5352,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
           },
           "commoditiesAfterHoursRadius": "0",
           "commoditiesAfterHoursRadiusBps": 0,
+          "finalizedMarkPrice": "0",
           "fundingAccumulator": {
             "acc": "-381600",
             "cumulativeFundingRate": "-89",
@@ -5394,8 +5428,10 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "0",
               ],
               "oracleParameters": {
+                "bookHardStaleMultiplier": 0,
                 "minOracleResponses": 1,
                 "oracleDivergenceRadius": 500,
+                "oracleHardStaleMultiplier": 0,
               },
               "perpPriceComponent": {
                 "lastExchangePerpPrice": [

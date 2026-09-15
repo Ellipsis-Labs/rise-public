@@ -19,6 +19,7 @@ import {
   TraderPreferenceKind,
   flight,
 } from "@/index";
+import { getOracleParametersDecoder } from "@/accounts/internal";
 import { getAddressDecoder } from "@solana/kit";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -302,6 +303,37 @@ const getRustFixtures = (): Record<string, unknown> => {
 };
 
 describe("raw account parsing", () => {
+  it("decodes staleness settings and finalization without shifting the account ABI", () => {
+    const parameters = Uint8Array.from([
+      0xf4, 0x01, 3, 12, 20, 0xaa, 0xbb, 0xcc,
+    ]);
+    const [decodedParameters, nextOffset] = getOracleParametersDecoder().read(
+      parameters,
+      0
+    );
+    expect(nextOffset).toBe(8);
+    expect(decodedParameters).toEqual({
+      oracleDivergenceRadius: 500,
+      minOracleResponses: 3,
+      bookHardStaleMultiplier: 12,
+      oracleHardStaleMultiplier: 20,
+    });
+    const bytes = loadMockBytes("perp_asset_map.json");
+    // 48-byte map header, 16-byte symbol, then the 1,568-byte metadata entry.
+    const metadataOffset = 48 + 16;
+    // Price component (888), padding (16), static params (48), padding (64),
+    // risk (200), padding (64), funding (96), padding (48), open interest (16).
+    const finalizedOffset = metadataOffset + 1440;
+    const before = decodePerpAssetMap(bytes);
+    writeU64LE(bytes, finalizedOffset, 123456n);
+    const after = decodePerpAssetMap(bytes);
+    expect(after.metadata.entries[0].value.finalizedMarkPrice).toBe(123456n);
+    expect(after.metadata.entries[0].value.staticMarketParams).toEqual(
+      before.metadata.entries[0].value.staticMarketParams
+    );
+    expect(after.metadata.entries[1]).toEqual(before.metadata.entries[1]);
+  });
+
   it(
     "decodes GlobalConfiguration fixtures",
     () => {

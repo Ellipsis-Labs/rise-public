@@ -23,6 +23,7 @@ export const DISCRIMINANTS: DiscriminantMap = {
   DEPOSIT_FUNDS: sha2_const("global:deposit_funds"),
   WITHDRAW_FUNDS: sha2_const("global:withdraw_funds"),
   REGISTER_TRADER: sha2_const("global:register_trader"),
+  REALLOC_TRADER: sha2_const("global:realloc_trader"),
   DELEGATE_TRADER: sha2_const("global:delegate_trader"),
   SET_TRADER_CAPABILITIES_DELEGATED: sha2_const(
     "global:set_trader_capabilities_delegated"

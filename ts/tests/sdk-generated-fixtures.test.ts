@@ -36,6 +36,7 @@ type PerpAssetMapExpected = {
 };
 
 type PerpAssetExpected = {
+  finalizedMarkPrice: string;
   symbol: string;
   staticMarketParams: StaticMarketParamsExpected;
   priceSequenceNumber: SequenceNumberExpected;
@@ -104,6 +105,8 @@ type TicksAtSlotExpected = {
 };
 
 type OracleParametersExpected = {
+  bookHardStaleMultiplier: number;
+  oracleHardStaleMultiplier: number;
   oracleDivergenceRadius: number;
   minOracleResponses: number;
 };
@@ -240,7 +243,7 @@ describe("generated SDK fixtures", () => {
       "sdk-instruction-fixtures.json"
     );
     expect(fixture.schemaVersion).toBe(1);
-    expect(fixture.instructions).toHaveLength(118);
+    expect(fixture.instructions).toHaveLength(119);
 
     for (const instruction of fixture.instructions) {
       const discriminant = sha2_const(instruction.preimage);
@@ -263,6 +266,9 @@ const expectAsset = (
   actual: DecodedPerpAsset,
   expected: PerpAssetExpected
 ): void => {
+  expect(actual.finalizedMarkPrice.toString()).toBe(
+    expected.finalizedMarkPrice
+  );
   expect(actual.staticMarketParams.marketAccount).toBe(
     expected.staticMarketParams.marketAccount
   );

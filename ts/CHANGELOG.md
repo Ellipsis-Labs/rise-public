@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.23 - 2026-09-15
+
+Source Phoenix commit: `9a60c7ba487c57c88a8769607120204ffc3bc3de`
+
+### Summary
+
+- Added a new `buildReallocTraderIx` instruction builder (with `ReallocTraderParams`) for reserving additional space on a trader account ahead of collateral/extension writes, exported from the package's public instruction builders.
+- `OracleParameters` now decodes `bookHardStaleMultiplier` and `oracleHardStaleMultiplier` out of bytes that were previously unread padding.
+- `PerpAssetMetadata` now exposes a `finalizedMarkPrice` field, also decoded from previously unread padding.
+- Package version bumped to `0.5.23`.
+
+### Breaking Changes
+
+- `OracleParameters` and `PerpAssetMetadata` each gained new required fields (`bookHardStaleMultiplier` / `oracleHardStaleMultiplier`, and `finalizedMarkPrice`). Any downstream code constructing object literals typed as these interfaces (e.g. mocks or test fixtures) will fail to compile until updated; decoded values read from real accounts are unaffected since the new fields only consume bytes that were previously reserved padding.
+
+### Consumer Notes
+
+- No account byte layout or existing instruction account ordering changed — the new fields simply read bytes that were already reserved as padding.
+- The supported instruction set grows from 118 to 119 entries with the addition of `ReallocTrader`; no existing instruction discriminants or account lists changed.
+
 ## v0.5.22 - 2026-09-15
 
 Source Phoenix commit: `e902efb7e98b284b8a56cae5c98df492a7d0ac4b`

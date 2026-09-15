@@ -89,6 +89,7 @@
         {
           "key": "SOL",
           "value": {
+            "finalizedMarkPrice": "0",
             "assetFlags": {
               "bits": 0,
               "isCommodity": false,
@@ -163,6 +164,8 @@
                   }
                 ],
                 "oracleParameters": {
+                  "bookHardStaleMultiplier": 0,
+                  "oracleHardStaleMultiplier": 0,
                   "minOracleResponses": 1,
                   "oracleDivergenceRadius": 500
                 },
@@ -316,6 +319,7 @@
         {
           "key": "BTC",
           "value": {
+            "finalizedMarkPrice": "0",
             "assetFlags": {
               "bits": 0,
               "isCommodity": false,
@@ -390,6 +394,8 @@
                   }
                 ],
                 "oracleParameters": {
+                  "bookHardStaleMultiplier": 0,
+                  "oracleHardStaleMultiplier": 0,
                   "minOracleResponses": 1,
                   "oracleDivergenceRadius": 500
                 },
@@ -543,6 +549,7 @@
         {
           "key": "ETH",
           "value": {
+            "finalizedMarkPrice": "0",
             "assetFlags": {
               "bits": 0,
               "isCommodity": false,
@@ -617,6 +624,8 @@
                   }
                 ],
                 "oracleParameters": {
+                  "bookHardStaleMultiplier": 0,
+                  "oracleHardStaleMultiplier": 0,
                   "minOracleResponses": 1,
                   "oracleDivergenceRadius": 500
                 },
@@ -770,6 +779,7 @@
         {
           "key": "XRP",
           "value": {
+            "finalizedMarkPrice": "0",
             "assetFlags": {
               "bits": 0,
               "isCommodity": false,
@@ -844,6 +854,8 @@
                   }
                 ],
                 "oracleParameters": {
+                  "bookHardStaleMultiplier": 0,
+                  "oracleHardStaleMultiplier": 0,
                   "minOracleResponses": 1,
                   "oracleDivergenceRadius": 500
                 },
@@ -997,6 +1009,7 @@
         {
           "key": "HYPE",
           "value": {
+            "finalizedMarkPrice": "0",
             "assetFlags": {
               "bits": 0,
               "isCommodity": false,
@@ -1071,6 +1084,8 @@
                   }
                 ],
                 "oracleParameters": {
+                  "bookHardStaleMultiplier": 0,
+                  "oracleHardStaleMultiplier": 0,
                   "minOracleResponses": 1,
                   "oracleDivergenceRadius": 500
                 },
@@ -1224,6 +1239,7 @@
         {
           "key": "SKR",
           "value": {
+            "finalizedMarkPrice": "0",
             "assetFlags": {
               "bits": 0,
               "isCommodity": false,
@@ -1298,6 +1314,8 @@
                   }
                 ],
                 "oracleParameters": {
+                  "bookHardStaleMultiplier": 0,
+                  "oracleHardStaleMultiplier": 0,
                   "minOracleResponses": 1,
                   "oracleDivergenceRadius": 500
                 },
@@ -1451,6 +1469,7 @@
         {
           "key": "BNB",
           "value": {
+            "finalizedMarkPrice": "0",
             "assetFlags": {
               "bits": 0,
               "isCommodity": false,
@@ -1525,6 +1544,8 @@
                   }
                 ],
                 "oracleParameters": {
+                  "bookHardStaleMultiplier": 0,
+                  "oracleHardStaleMultiplier": 0,
                   "minOracleResponses": 1,
                   "oracleDivergenceRadius": 500
                 },
@@ -1678,6 +1699,7 @@
         {
           "key": "DOGE",
           "value": {
+            "finalizedMarkPrice": "0",
             "assetFlags": {
               "bits": 0,
               "isCommodity": false,
@@ -1752,6 +1774,8 @@
                   }
                 ],
                 "oracleParameters": {
+                  "bookHardStaleMultiplier": 0,
+                  "oracleHardStaleMultiplier": 0,
                   "minOracleResponses": 1,
                   "oracleDivergenceRadius": 500
                 },
@@ -1905,6 +1929,7 @@
         {
           "key": "AAVE",
           "value": {
+            "finalizedMarkPrice": "0",
             "assetFlags": {
               "bits": 0,
               "isCommodity": false,
@@ -1979,6 +2004,8 @@
                   }
                 ],
                 "oracleParameters": {
+                  "bookHardStaleMultiplier": 0,
+                  "oracleHardStaleMultiplier": 0,
                   "minOracleResponses": 1,
                   "oracleDivergenceRadius": 500
                 },
@@ -2132,6 +2159,7 @@
         {
           "key": "SUI",
           "value": {
+            "finalizedMarkPrice": "0",
             "assetFlags": {
               "bits": 0,
               "isCommodity": false,
@@ -2206,6 +2234,8 @@
                   }
                 ],
                 "oracleParameters": {
+                  "bookHardStaleMultiplier": 0,
+                  "oracleHardStaleMultiplier": 0,
                   "minOracleResponses": 1,
                   "oracleDivergenceRadius": 500
                 },
@@ -2359,6 +2389,7 @@
         {
           "key": "ZEC",
           "value": {
+            "finalizedMarkPrice": "0",
             "assetFlags": {
               "bits": 0,
               "isCommodity": false,
@@ -2433,6 +2464,8 @@
                   }
                 ],
                 "oracleParameters": {
+                  "bookHardStaleMultiplier": 0,
+                  "oracleHardStaleMultiplier": 0,
                   "minOracleResponses": 1,
                   "oracleDivergenceRadius": 500
                 },
@@ -2586,6 +2619,7 @@
         {
           "key": "TAO",
           "value": {
+            "finalizedMarkPrice": "0",
             "assetFlags": {
               "bits": 0,
               "isCommodity": false,
@@ -2655,6 +2689,8 @@
                   }
                 ],
                 "oracleParameters": {
+                  "bookHardStaleMultiplier": 0,
+                  "oracleHardStaleMultiplier": 0,
                   "minOracleResponses": 1,
                   "oracleDivergenceRadius": 500
                 },
