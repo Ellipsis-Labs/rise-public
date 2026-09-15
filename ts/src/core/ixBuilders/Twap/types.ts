@@ -40,6 +40,12 @@ export interface TwapIocOrderPacketData {
   lastValidSlot: bigint | null;
   orderFlags: OrderFlags;
   cancelExisting: boolean;
+  /**
+   * Size of the final child order in base lots; zero disables dust handling.
+   * When set, every child trades `numBaseLots` except the last, which trades
+   * exactly this amount. Byte offset 104 of the fixed 152-byte packet.
+   */
+  dustOrderSize: BaseLots;
 }
 
 export interface CreateTwapAccountData {
@@ -53,6 +59,8 @@ export interface PlaceTwapOrderData {
   childOrderMinPriceInTicks?: Ticks | null;
   childOrderMaxPriceInTicks?: Ticks | null;
   childOrderPacket: ImmediateOrCancelOrderPacket;
+  /** Final-child dust size in base lots; omit or null for no dust child. */
+  dustOrderSize?: BaseLots | null;
   childOrderCollateralQuoteLotsToTransfer?: QuoteLots | null;
   lastValidSlot?: bigint | null;
   transferCollateralAccountCount: number;
@@ -84,6 +92,12 @@ export interface PlaceTwapOrderParams
   childOrderMinPriceInTicks?: Ticks | null;
   childOrderMaxPriceInTicks?: Ticks | null;
   childOrderPacket: ImmediateOrCancelOrderPacket;
+  /**
+   * Final-child dust size in base lots. When set, requires at least two child
+   * orders and must be strictly less than the child order size. Omit or null
+   * for equal-sized children.
+   */
+  dustOrderSize?: BaseLots | null;
   childOrderCollateralQuoteLotsToTransfer?: QuoteLots | null;
   lastValidSlot?: bigint | null;
 }
@@ -103,6 +117,36 @@ export interface CloseInactiveTwapAccountParams extends TwapInstructionAddressOv
   recipient: Address;
 }
 
+/**
+ * Enrolls a trader in Flicker TWAP execution by granting the position
+ * authority permission bit to the global Flicker delegate (the TWAP global
+ * state PDA). `permissionPda` is the Eternal permission PDA of
+ * (`traderAuthority`, `twapGlobalStateAddress`); derive it with
+ * `getTwapDelegatePermissionAddress`.
+ */
+export interface EnableTwapParams extends PhoenixInstructionAddressOverrides {
+  traderAuthority: Authority;
+  twapGlobalStateAddress: TwapGlobalStateAddress;
+  permissionPda: Address;
+  /** Rent payer for CreatePermission. Defaults to `traderAuthority`. */
+  payer?: Address;
+}
+
+export interface EnableTwapIxs {
+  createPermission: InstructionsWithAccountsAndData;
+  setPermission: InstructionsWithAccountsAndData;
+  instructions: readonly [
+    InstructionsWithAccountsAndData,
+    InstructionsWithAccountsAndData,
+  ];
+}
+
+export interface DisableTwapParams extends PhoenixInstructionAddressOverrides {
+  traderAuthority: Authority;
+  twapGlobalStateAddress: TwapGlobalStateAddress;
+  permissionPda: Address;
+}
+
 export interface ResolvedTwapInstructionAddresses {
   phoenixProgramAddress: PhoenixProgramAddress;
   flickerProgramAddress: FlickerProgramAddress;
@@ -116,6 +160,7 @@ export type PlaceTwapOrderIx = InstructionsWithAccountsAndData;
 export type ExecuteTwapOrderIx = InstructionsWithAccountsAndData;
 export type CancelTwapOrderIx = InstructionsWithAccountsAndData;
 export type CloseInactiveTwapAccountIx = InstructionsWithAccountsAndData;
+export type DisableTwapIx = InstructionsWithAccountsAndData;
 
 export type CreateTwapAccountAccounts = readonly AccountMeta[];
 export type PlaceTwapOrderAccounts = readonly AccountMeta[];

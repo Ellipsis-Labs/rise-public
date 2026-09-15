@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.17 - 2026-09-15
+
+Source Phoenix commit: `5e0a1182c2f04b0cc37ab635e7bef509d40cc1f4`
+
+### Summary
+
+- TWAP orders support an optional final "dust" child order size (`dustOrderSize`) so the last child can trade a smaller remainder instead of an equal-sized slice; encoded at a newly carved-out offset in the previously reserved IOC packet tail.
+- Added `buildEnableTwapIxs` / `buildDisableTwapIx` plus `getTwapDelegatePermissionAddress` and `POSITION_AUTHORITY_PERMISSION` to enroll/revoke a trader's TWAP execution permission against the shared Flicker delegate.
+- Take-profit/stop-loss (`TpSlOrderConfig`) price fields and stop-loss `executionPrice` now reject zero/non-positive values at validation time.
+- Bumped the `@humanfs/node` override to `>=0.16.8` (transitive dependency, no API impact).
+
+### Breaking Changes
+
+- `TpSlOrderConfigObjectSchema` now uses `.positive()` instead of `.nonnegative()`/no-bound for all trigger and execution price fields (`takeProfitTriggerPrice(InTicks)`, `takeProfitExecutionPrice(InTicks)`, `stopLossTriggerPrice(InTicks)`, `stopLossExecutionPrice(InTicks)`). Values of `0` that previously validated will now throw.
+- `buildPlaceStopLossIx` (`PlaceStopLoss/ix.ts`) now throws `"Execution price must be greater than 0 ticks"` if `executionPrice <= 0n`, whereas `0n` was previously accepted.
+- `TwapIocOrderPacketData` gained a required `dustOrderSize: BaseLots` field. Code that builds this object as a literal (rather than via `decodeTwapIocOrderPacket`) will fail to type-check until `dustOrderSize` is supplied.
+
+### Consumer Notes
+
+- `encodeTwapIocOrderPacket(packet, dustOrderSize?)` defaults `dustOrderSize` to `0n`, so existing single-argument calls keep producing byte-identical output.
+- `PlaceTwapOrderParams.dustOrderSize` is optional; when set it requires `nChildOrders >= 2` and must be strictly less than the child order's `numBaseLots`, or the builder throws.
+- To enroll a trader for TWAP, derive the permission PDA with `getTwapDelegatePermissionAddress`, then submit `buildEnableTwapIxs(...).instructions` (CreatePermission + SetPermission granting `POSITION_AUTHORITY_PERMISSION`); use `buildDisableTwapIx` to revoke via a zero-permission `SetPermission`.
+
 ## v0.5.16 - 2026-09-15
 
 Source Phoenix commit: `a4bf845528348e8f3966a50c066057820100a84b`

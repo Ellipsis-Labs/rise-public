@@ -256,6 +256,7 @@ export {
   getPhoenixTraderSubaccountAddress,
   getPhoenixTraderTokenAccountAddress,
   getTwapAccountAddress,
+  getTwapDelegatePermissionAddress,
   getTwapGlobalStateAddress,
   getTwapLogAuthorityAddress,
   type ConditionalOrdersAddressParams,
@@ -263,6 +264,7 @@ export {
   type TraderSubaccountAddressParams,
   type TwapAccountAddressParams,
   type TwapAddressParams,
+  type TwapDelegatePermissionAddressParams,
 } from "../pdas";
 
 export type {
@@ -327,6 +329,7 @@ export {
   getSetPermissionParamsDecoder,
   getSetPermissionParamsEncoder,
   DEPOSIT_PERMISSION,
+  POSITION_AUTHORITY_PERMISSION,
   TRADER_MANAGEMENT_PERMISSION,
   TRADER_ONBOARDING_PERMISSION,
   type CreatePermissionAccounts,

@@ -72,6 +72,10 @@ export interface TwapAccountAddressParams extends TwapAddressParams {
   marketId: number;
 }
 
+export interface TwapDelegatePermissionAddressParams extends TwapAddressParams {
+  traderAuthority: Authority;
+}
+
 export const getPhoenixLogAuthorityAddress = async (
   phoenixProgramAddress: PhoenixProgramAddress = getPhoenixProgramAddress()
 ): Promise<LogAuthorityAddress> => {
@@ -258,6 +262,23 @@ export const getTwapGlobalStateAddress = async (
   });
 
   return pda as TwapGlobalStateAddress;
+};
+
+/**
+ * Derives the Eternal permission PDA that enrolls a trader in Flicker TWAP
+ * execution. The delegated key is the Flicker global state PDA — the single
+ * program-wide delegate that signs Phoenix CPIs for every TWAP account — so
+ * one enrollment covers all of the trader's TWAP orders on every market.
+ */
+export const getTwapDelegatePermissionAddress = async (
+  params: TwapDelegatePermissionAddressParams
+): Promise<Address> => {
+  const twapGlobalState = await getTwapGlobalStateAddress(params);
+  return getPhoenixPermissionAddress(
+    params.traderAuthority,
+    twapGlobalState,
+    params.phoenixProgramAddress ?? getPhoenixProgramAddress()
+  );
 };
 
 export const getTwapLogAuthorityAddress = async (

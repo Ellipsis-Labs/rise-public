@@ -247,32 +247,32 @@ export interface TpSlOrderConfig {
 }
 
 const TpSlOrderConfigObjectSchema = z.object({
-  takeProfitTriggerPrice: z.number().nullable().optional(),
+  takeProfitTriggerPrice: z.number().positive().nullable().optional(),
   takeProfitTriggerPriceInTicks: z
     .number()
     .int()
-    .nonnegative()
+    .positive()
     .nullable()
     .optional(),
-  takeProfitExecutionPrice: z.number().nullable().optional(),
+  takeProfitExecutionPrice: z.number().positive().nullable().optional(),
   takeProfitExecutionPriceInTicks: z
     .number()
     .int()
-    .nonnegative()
+    .positive()
     .nullable()
     .optional(),
-  stopLossTriggerPrice: z.number().nullable().optional(),
+  stopLossTriggerPrice: z.number().positive().nullable().optional(),
   stopLossTriggerPriceInTicks: z
     .number()
     .int()
-    .nonnegative()
+    .positive()
     .nullable()
     .optional(),
-  stopLossExecutionPrice: z.number().nullable().optional(),
+  stopLossExecutionPrice: z.number().positive().nullable().optional(),
   stopLossExecutionPriceInTicks: z
     .number()
     .int()
-    .nonnegative()
+    .positive()
     .nullable()
     .optional(),
   orderKind: z.string().nullable().optional(),

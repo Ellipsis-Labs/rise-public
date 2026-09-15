@@ -238,7 +238,8 @@ const expectZeroes = (
 };
 
 export const encodeTwapIocOrderPacket = (
-  packet: ImmediateOrCancelOrderPacket
+  packet: ImmediateOrCancelOrderPacket,
+  dustOrderSize: bigint | number = 0n
 ): Uint8Array =>
   concat(
     u64(TWAP_IOC_ORDER_PACKET_DISCRIMINANT, "iocDiscriminant"),
@@ -257,7 +258,10 @@ export const encodeTwapIocOrderPacket = (
     u8(Number(packet.orderFlags), "orderFlags"),
     u8(packet.cancelExisting ? 1 : 0, "cancelExisting"),
     zeroes(6),
-    zeroes(48)
+    // Byte offset 104: dust_order_size, carved out of the packet's previously
+    // reserved tail (zero means no dust child, matching old serializations).
+    u64(dustOrderSize, "dustOrderSize"),
+    zeroes(40)
   );
 
 export const decodeTwapIocOrderPacket = (
@@ -314,8 +318,10 @@ export const decodeTwapIocOrderPacket = (
   }
   expectZeroes(byteArray, cursor, 6, "paddingAfterFlags");
   cursor += 6;
-  expectZeroes(byteArray, cursor, 48, "reserved");
-  cursor += 48;
+  const [dustOrderSize, dustOrderSizeOffset] = readU64(byteArray, cursor);
+  cursor = dustOrderSizeOffset;
+  expectZeroes(byteArray, cursor, 40, "reserved");
+  cursor += 40;
   if (cursor !== endOffset) throw new Error("Invalid TWAP IOC packet length");
 
   return {
@@ -336,6 +342,7 @@ export const decodeTwapIocOrderPacket = (
     lastValidSlot: rawOptionalNonZero(lastValidSlot),
     orderFlags: orderFlags as TwapIocOrderPacketData["orderFlags"],
     cancelExisting: cancelExisting === 1,
+    dustOrderSize: baseLots(dustOrderSize),
   };
 };
 
@@ -396,7 +403,10 @@ export const getPlaceTwapOrderEncoder =
           value.childOrderMaxPriceInTicks,
           "childOrderMaxPriceInTicks"
         ),
-        encodeTwapIocOrderPacket(value.childOrderPacket),
+        encodeTwapIocOrderPacket(
+          value.childOrderPacket,
+          value.dustOrderSize ?? 0n
+        ),
         optionNonZeroU64(
           value.childOrderCollateralQuoteLotsToTransfer,
           "childOrderCollateralQuoteLotsToTransfer"
@@ -478,6 +488,10 @@ export const getPlaceTwapOrderDecoder =
             ? null
             : ticks(childOrderMaxPriceInTicks),
         childOrderPacket,
+        dustOrderSize:
+          childOrderPacket.dustOrderSize === 0n
+            ? null
+            : childOrderPacket.dustOrderSize,
         childOrderCollateralQuoteLotsToTransfer:
           childOrderCollateralQuoteLotsToTransfer === null
             ? null
