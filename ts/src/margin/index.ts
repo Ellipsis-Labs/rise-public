@@ -18,6 +18,18 @@ export type {
   SpotCollateralValuationFailure,
 } from "./spotCollateral";
 export {
+  attributedNativeSolDepositLamports,
+  nativeSolCollateralHeadroomLamports,
+  nativeSolSyncDeltaLamports,
+  nativeSolUnaccountedLamports,
+} from "./spotCollateralCaps";
+export type {
+  AttributedNativeSolDepositParams,
+  NativeSolAccountStateParams,
+  NativeSolCollateralHeadroomParams,
+  SpotCollateralCapParams,
+} from "./spotCollateralCaps";
+export {
   computeDraftOrderMarginRequirementFromInputs,
   computeDraftOrderMarginRequirementFromSnapshot,
   computeMaxDraftOrderSizeForAvailableMarginFromInputs,

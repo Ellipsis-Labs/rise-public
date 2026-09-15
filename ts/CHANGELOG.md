@@ -3,6 +3,27 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.16 - 2026-09-15
+
+Source Phoenix commit: `a4bf845528348e8f3966a50c066057820100a84b`
+
+### Summary
+
+- Adds native SOL deposits: `buildTransferSolIx`, `buildNativeSolDepositFlow`, and spot-collateral-cap helpers (`nativeSolCollateralHeadroomLamports`, `attributedNativeSolDepositLamports`, `nativeSolSyncDeltaLamports`, `nativeSolUnaccountedLamports`) for sizing deposits against per-trader/exchange caps.
+- Adds `client.rpc.accounts.getLamportAccountState()` (and exported `LamportAccountState` type) to read an account's raw lamport balance and rent-exempt minimum, used by the native SOL deposit helpers.
+- Adds an optional shared, client-local rate-limit cooldown (`rateLimitCooldown` client config) that makes later idempotent GET/HEAD requests wait out a `429 Retry-After` window from a prior response; enabled by default, capped at 30s, and disableable via `rateLimitCooldown: false`.
+- `timeout` is now documented and enforced as a per-attempt network timeout rather than a budget shared across internal retries.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `timeout` behavior changed: each network attempt (including automatic rate-limit retries) now gets its own full timeout window instead of sharing one budget across the whole request. Long-running retry sequences can now take longer in aggregate than before.
+- The new `rateLimitCooldown` default is opt-out, not opt-in — long-lived clients hitting `429`s will now see subsequent GET/HEAD requests delayed automatically. Pass `rateLimitCooldown: false` to restore prior behavior.
+- `buildNativeSolDepositFlow` only builds the transfer + `SyncNative` instructions; callers must still compose `buildRegisterTrader` first if the trader account doesn't exist, and should size deposits with `nativeSolCollateralHeadroomLamports` since `SyncNative` silently clamps (not rejects) credit above the per-trader/global caps.
+
 ## v0.5.15 - 2026-09-15
 
 Source Phoenix commit: `441ecc64f8549695ebe49cd2cf464550a0c60965`

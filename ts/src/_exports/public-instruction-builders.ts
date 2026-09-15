@@ -350,6 +350,14 @@ export {
 } from "../core/ixBuilders/SyncParentToChild";
 
 export {
+  buildTransferSolIx,
+  encodeSystemTransferSol,
+  type TransferSolAccounts,
+  type TransferSolIx,
+  type TransferSolParams,
+} from "../core/ixBuilders/SystemTransferSol";
+
+export {
   MAX_PACKED_EXTERNAL_ACCOUNTS,
   SwapDirection,
   buildLiquidateNativeSolIx,
