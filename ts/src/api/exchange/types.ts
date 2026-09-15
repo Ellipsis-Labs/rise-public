@@ -259,6 +259,7 @@ export const MarketCalendarSchema: z.ZodType<MarketCalendar> = z.object({
 export interface MarketPublicMetadata {
   name?: string | null;
   description?: string | null;
+  searchAliases?: string[] | null;
   logoUri?: string | null;
   coinGeckoId?: string | null;
   coinMarketCapId?: number | null;
@@ -271,6 +272,7 @@ export const MarketPublicMetadataSchema: z.ZodType<MarketPublicMetadata> =
   z.object({
     name: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
+    searchAliases: z.array(z.string()).nullable().optional(),
     logoUri: z.string().nullable().optional(),
     coinGeckoId: z.string().nullable().optional(),
     coinMarketCapId: z.number().nullable().optional(),

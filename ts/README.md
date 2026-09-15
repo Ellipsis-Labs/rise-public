@@ -201,9 +201,24 @@ const client = createPhoenixClient();
 const exchange = await client.api.exchange().getExchange();
 const metadata = await client.exchange.ready();
 const markets = await client.api.markets().getMarkets();
-const candles = await client.api.candles().getCandles("SOL");
+const now = Date.now();
+const candlesPage = await client.api.candles().getCandlesV2("SOL", {
+  timeframe: "1m",
+  from: now - 60 * 60_000,
+  to: now,
+  limit: 10_000,
+  includePartial: false,
+});
 const trader = await client.api.traders().getTrader("TRADER_PUBKEY");
 ```
+
+`getCandlesV2` exposes millisecond timestamps, cursor pagination, partial-bar
+control, mark-price OHLC, external-source metadata, and `isFinal`. The existing
+`getCandles` method remains available with its original array response and
+millisecond timestamps. It remains on the legacy endpoint to preserve its
+exchange-only default, server-relative finalized window, and 2,500-bar server
+limit. Use `getCandlesV2` for canonical v2 data; it defaults to 1,000 bars per
+page and accepts explicit page sizes up to 10,000.
 
 ### Unified HTTP + auth + WebSocket client
 

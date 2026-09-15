@@ -398,6 +398,7 @@ describe("exchange metadata client integration", () => {
   it("uses the RPC batch slot when bootstrapping exchange metadata from RPC", async () => {
     const globalConfigBytes = loadMockBytes("global_config.json");
     const perpAssetMapBytes = loadMockBytes("perp_asset_map.json");
+    const lastRestartSlotBytes = new Uint8Array(8);
     const fetchOrderbookHeaderSpy = vi
       .spyOn(accounts, "fetchOrderbookHeader")
       .mockResolvedValue({
@@ -436,7 +437,7 @@ describe("exchange metadata client integration", () => {
         }
 
         if (payload.method === "getMultipleAccounts") {
-          expect(payload.params[0]).toHaveLength(2);
+          expect(payload.params[0]).toHaveLength(3);
           return new Response(
             JSON.stringify({
               result: {
@@ -451,6 +452,12 @@ describe("exchange metadata client integration", () => {
                   {
                     data: [
                       Buffer.from(perpAssetMapBytes).toString("base64"),
+                      "base64",
+                    ],
+                  },
+                  {
+                    data: [
+                      Buffer.from(lastRestartSlotBytes).toString("base64"),
                       "base64",
                     ],
                   },

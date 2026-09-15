@@ -721,7 +721,7 @@ describe("public client route mapping", () => {
           "/v1/candles/SOL",
           [
             {
-              time: 1,
+              time: 60_000,
               open: 1,
               high: 2,
               low: 1,
@@ -920,7 +920,12 @@ describe("public client route mapping", () => {
       resolution: "1h",
       limit: 10,
     });
-    await candles.getCandles("SOL", { timeframe: "1m", limit: 100 });
+    await candles.getCandles("SOL", {
+      timeframe: "1m",
+      startTime: 0,
+      endTime: 60_000,
+      limit: 100,
+    });
     await invite.validateInvite({
       code: "invite-123",
       wallet_address: "wallet-abc",
@@ -1124,7 +1129,12 @@ describe("public client route mapping", () => {
       {
         method: "GET",
         endpoint: "/v1/candles/SOL",
-        params: { timeframe: "1m", limit: 100 },
+        params: {
+          timeframe: "1m",
+          startTime: 0,
+          endTime: 60_000,
+          limit: 100,
+        },
         body: undefined,
       },
       {
