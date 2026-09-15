@@ -267,6 +267,7 @@ define_instruction_discriminants! {
         PlaceMarketOrderDelegated => "place_market_order_delegated",
         PlaceLimitOrder => "place_limit_order",
         PlaceMultiLimitOrder => "place_multi_limit_order",
+        PlaceMultiLimitOrderV2 => "place_multi_limit_order_v2",
         CancelOrdersById => "cancel_orders_by_id",
         CancelUpTo => "cancel_up_to",
         CancelAll => "cancel_all",
@@ -429,6 +430,20 @@ define_account_discriminants! {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Pinned against the verified discriminant in
+    /// `phoenix-eternal-types/sdk/src/instructions/discriminants.rs`.
+    #[test]
+    fn place_multi_limit_order_v2_discriminant_matches_eternal_types() {
+        assert_eq!(
+            PhoenixInstruction::PlaceMultiLimitOrderV2.discriminant(),
+            [64, 111, 40, 210, 2, 177, 38, 178]
+        );
+        assert_ne!(
+            PhoenixInstruction::PlaceMultiLimitOrderV2.discriminant(),
+            PhoenixInstruction::PlaceMultiLimitOrder.discriminant()
+        );
+    }
 
     #[test]
     fn update_spline_price_with_ordering_is_update_spline_price_alias() {

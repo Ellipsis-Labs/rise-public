@@ -3,6 +3,27 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.2 - 2026-09-15
+
+Source Phoenix commit: `bb97cff3b8d6ca1cb131fcdd43d2a8baa471c23a`
+
+### Summary
+
+- Added a new `place_multi_limit_order_v2` instruction end-to-end: `ix` gains `CondensedOrderV2`, `MultipleOrderPacketV2`, `MultiLimitOrderParamsV2`/builder, and `create_place_multi_limit_order_v2_ix`; `core` gains `PhoenixTxBuilder::build_multi_limit_order_v2` and `build_multi_limit_order_v2_with_params`.
+- V2 moves `slide`/`reduce_only` from packet-wide fields to a per-order `CondensedOrderFlags` byte on each leg, adds a fixed-width optional `last_valid_slot` (`OptionalNonZeroU64`), and adds a `scale_set_id` for caller-assigned scale-order ladders.
+- The existing `place_multi_limit_order` (V1) instruction, types, and builder methods are unchanged and remain available alongside V2; V1 and V2 share an identical account list.
+- Bumped the shared Rise Rust workspace crates (`sdk`, `core`, `ix`, `math`, `types`, `accounts`, `api`, `events`, `litesvm-test`, `cli`) from 0.5.1 to 0.5.2.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `CondensedOrderV2::last_valid_slot` serializes as a raw `u64`, not a Borsh `Option`: `0` (including an explicit `Some(0)`) means "no expiry."
+- `PhoenixTxBuilder::build_multi_limit_order_v2` applies one `slide`/`reduce_only` pair to every leg; use `build_multi_limit_order_v2_with_params` with hand-built `CondensedOrderV2` legs for per-order flags.
+- V2 instruction data uses a distinct discriminant (`place_multi_limit_order_v2`) from V1, so existing V1 integrations are unaffected by adopting V2 selectively.
+
 ## v0.5.1 - 2026-09-14
 
 Source Phoenix commit: `da9e74fe54eb6430cedc59ff530feaa5da8130e9`

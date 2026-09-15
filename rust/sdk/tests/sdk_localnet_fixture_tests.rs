@@ -371,6 +371,7 @@ async fn rise_sdk_limit_order_with_conditionals_executes_stop_loss() {
         !orderbook_has_resting_price(
             &context,
             &orderbook,
+            Side::Bid,
             price_to_ticks(&builder, "BTC", 85_000.0)
         ),
         "stop-loss execution should consume the maker bid"
@@ -487,6 +488,71 @@ fn rise_sdk_onboard_trader_delegated_ix_executes() {
         decode_trader(&context, &trader_account).state.flags,
         TRADER_CAPABILITY_COLD,
         "delegated onboarding should restore the full cold capability set"
+    );
+}
+
+/// End-to-end V2 placement against the real Eternal program (both legs rest).
+#[test]
+fn rise_sdk_multi_limit_order_v2_places_two_legs() {
+    let Some(program_paths) = find_sdk_localnet_program_paths() else {
+        if sdk_localnet_vm_required() {
+            panic!(
+                "missing local SBF artifacts; run `mise build-sbf` or set \
+                 {ETERNAL_PROGRAM_ENV}/{EMBER_PROGRAM_ENV}"
+            );
+        }
+        eprintln!("skipping LiteSVM flow because local SBF artifacts are missing");
+        return;
+    };
+
+    let fixture = default_sdk_localnet_fixture().expect("fixture should deserialize");
+    let mut context = SdkLocalnetContext::new(fixture, program_paths);
+    context.execute_setup();
+
+    let metadata = phoenix_metadata_from_fixture(&context.fixture);
+    let builder = PhoenixTxBuilder::new(&metadata);
+    let taker = context.actor("taker0");
+    let market = context.market("BTC");
+    let taker_authority = parse_pubkey(&taker.pubkey);
+    let taker_trader = parse_pubkey(&taker.trader_account);
+    let orderbook = parse_pubkey(&market.orderbook);
+
+    // Priced well clear of the fixture's maker levels (bids at 99_500/99_000,
+    // asks at 100_500/101_000) so both legs simply rest post-only.
+    let bid_price = 80_000.0;
+    let ask_price = 120_000.0;
+    let bid_ticks = price_to_ticks(&builder, "BTC", bid_price);
+    let ask_ticks = price_to_ticks(&builder, "BTC", ask_price);
+
+    let instructions = builder
+        .build_multi_limit_order_v2(
+            taker_authority,
+            taker_trader,
+            "BTC",
+            &[(bid_price, 10)],
+            &[(ask_price, 10)],
+            false,
+            false,
+            3,
+        )
+        .unwrap();
+
+    assert_eq!(instructions.len(), 1);
+    assert_eq!(
+        instructions[0].data[..8],
+        compute_discriminant("global:place_multi_limit_order_v2"),
+        "should encode the V2 instruction, not V1"
+    );
+
+    context.send_instructions(instructions, &taker.seed, "place-multi-limit-order-v2");
+
+    assert!(
+        orderbook_has_resting_price(&context, &orderbook, Side::Bid, bid_ticks),
+        "V2 bid leg should rest on the book"
+    );
+    assert!(
+        orderbook_has_resting_price(&context, &orderbook, Side::Ask, ask_ticks),
+        "V2 ask leg should rest on the book"
     );
 }
 
@@ -1049,15 +1115,17 @@ fn decode_hawkeye_return(tx: &TransactionMetadata) -> HawkeyeReturnData {
 fn orderbook_has_resting_price(
     context: &SdkLocalnetContext,
     orderbook: &Pubkey,
+    side: Side,
     price_in_ticks: u64,
 ) -> bool {
-    decode_orderbook(context, orderbook)
-        .bids
-        .iter()
-        .any(|entry| {
-            entry.order_id.price_in_ticks == price_in_ticks
-                && entry.order.num_base_lots_remaining > 0
-        })
+    let book = decode_orderbook(context, orderbook);
+    let entries = match side {
+        Side::Bid => &book.bids,
+        Side::Ask => &book.asks,
+    };
+    entries.iter().any(|entry| {
+        entry.order_id.price_in_ticks == price_in_ticks && entry.order.num_base_lots_remaining > 0
+    })
 }
 
 fn effective_base_lot_position(
