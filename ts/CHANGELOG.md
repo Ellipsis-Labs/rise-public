@@ -3,6 +3,24 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.20 - 2026-09-15
+
+Source Phoenix commit: `8b62fb6aea0f7e8520ebee0bf72698295264a23a`
+
+### Summary
+
+- Bumped the minimum supported Bun version from `1.3.13` to `1.4.2` (`packageManager` and `engines.bun` in `package.json`).
+- Updated the `vitest` devDependency from `^4.1.8` to `^4.1.11`; no other dependency or lockfile changes affect published output.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- If you install or run `@ellipsis-labs/rise` with Bun, upgrade to Bun `>=1.4.2` to match the package's declared `engines` requirement.
+- The `vitest` bump is a devDependency-only change (test tooling) and does not affect the package's runtime behavior or public API.
+
 ## v0.5.19 - 2026-09-15
 
 Source Phoenix commit: `d20f17df1c201ce9eb1b31c3927d5bb73b51cb98`
