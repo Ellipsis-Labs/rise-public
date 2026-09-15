@@ -274,6 +274,16 @@
     {
       "program": "phoenix-eternal",
       "enumName": "PhoenixInstruction",
+      "instructionName": "ReallocTrader",
+      "snakeCaseName": "realloc_trader",
+      "preimage": "global:realloc_trader",
+      "tag": "14705357659997993134",
+      "discriminatorHex": "aef83f23e1ec13cc",
+      "discriminatorBase64": "rvg/I+HsE8w="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
       "instructionName": "TransferCollateral",
       "snakeCaseName": "transfer_collateral",
       "preimage": "global:transfer_collateral",

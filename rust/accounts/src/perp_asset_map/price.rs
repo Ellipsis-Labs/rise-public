@@ -37,6 +37,8 @@ pub struct OracleData {
 pub struct OracleParameters {
     pub oracle_divergence_radius: u16,
     pub min_oracle_responses: u8,
+    pub book_hard_stale_multiplier: u8,
+    pub oracle_hard_stale_multiplier: u8,
 }
 
 #[repr(C)]
@@ -99,6 +101,8 @@ impl MarkPrice {
         OracleParameters {
             oracle_divergence_radius: self.oracle_divergence_radius,
             min_oracle_responses: self.min_oracle_responses,
+            book_hard_stale_multiplier: self.book_hard_stale_multiplier,
+            oracle_hard_stale_multiplier: self.oracle_hard_stale_multiplier,
         }
     }
 }

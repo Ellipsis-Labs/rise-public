@@ -262,6 +262,8 @@ pub struct OracleData {
 pub struct OracleParameters {
     pub oracle_divergence_radius: u16,
     pub min_oracle_responses: u8,
+    pub book_hard_stale_multiplier: u8,
+    pub oracle_hard_stale_multiplier: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -375,6 +377,7 @@ pub struct AssetFlags {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PerpAssetMetadata {
     pub oracle_price: PriceComponent,
+    pub finalized_mark_price: Ticks,
     pub static_market_params: StaticMarketParams,
     pub risk_params: RiskParams,
     pub funding_accumulator: FundingAccumulator,
@@ -975,6 +978,8 @@ impl From<borrowed_perp::OracleParameters> for OracleParameters {
         Self {
             oracle_divergence_radius: value.oracle_divergence_radius,
             min_oracle_responses: value.min_oracle_responses,
+            book_hard_stale_multiplier: value.book_hard_stale_multiplier,
+            oracle_hard_stale_multiplier: value.oracle_hard_stale_multiplier,
         }
     }
 }
@@ -1201,6 +1206,7 @@ impl From<borrowed_perp::PerpAssetMetadata> for PerpAssetMetadata {
     fn from(value: borrowed_perp::PerpAssetMetadata) -> Self {
         Self {
             oracle_price: value.oracle_price().into(),
+            finalized_mark_price: value.finalized_mark_price(),
             static_market_params: value.static_market_params().into(),
             risk_params: value.risk_params().into(),
             funding_accumulator: value.funding_accumulator().into(),

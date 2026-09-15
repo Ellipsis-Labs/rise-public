@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.5 - 2026-09-15
+
+Source Phoenix commit: `9a60c7ba487c57c88a8769607120204ffc3bc3de`
+
+### Summary
+
+- Added `ix::native_sol::create_realloc_trader_ix` and a new `PhoenixInstruction::ReallocTrader` variant, letting a trader account reserve extra non-position capacity (e.g. for native SOL) without increasing its perpetual-position slot count.
+- `accounts` now exposes richer mark-price data: `OracleParameters` gained `book_hard_stale_multiplier` and `oracle_hard_stale_multiplier`, and `PerpAssetMetadata` gained `finalized_mark_price`.
+- `types::ix` isolated-order request types (`PlaceIsolatedLimitOrderRequest`, `PlaceIsolatedLimitOrderWithConditionalsRequest`, `PlaceIsolatedMarketOrderRequest`, `PlaceIsolatedMarketOrderV2Request`) gained an optional `transfer_spot_collateral_amounts` map for funding isolated positions with native/spot collateral keyed by symbol.
+- Shared Rust release across `math`, `sdk`, `ix`, `accounts`, `types`, and `litesvm-test` components.
+
+### Breaking Changes
+
+- `accounts::OracleParameters` gained two new required fields (`book_hard_stale_multiplier`, `oracle_hard_stale_multiplier`); code that builds this struct with an exhaustive literal or destructures it exhaustively will need updating.
+- `accounts::PerpAssetMetadata` gained a new required field (`finalized_mark_price`) for the same reason.
+
+### Consumer Notes
+
+- `PhoenixInstruction` gained a new `ReallocTrader` variant; downstream code that exhaustively matches on `PhoenixInstruction` should add a case for it.
+- The new `transfer_spot_collateral_amounts` fields default to empty and are skipped during serialization when empty, so existing callers and stored payloads remain wire-compatible.
+- Call `create_realloc_trader_ix(payer, trader_wallet, trader_account)` ahead of operations that need extra non-position capacity on a trader account; it grows capacity by at most one entry, succeeds as a no-op when capacity already suffices, and never shrinks.
+
 ## v0.5.4 - 2026-09-15
 
 Source Phoenix commit: `6f2ee74196c4494d2899c3a677a99255fe59458e`
