@@ -189,11 +189,11 @@ jobs:
       - uses: astral-sh/setup-uv@v7
 
       - name: Install Rust toolchain
-        run: rustup toolchain install 1.91.1 --profile minimal
+        run: rustup toolchain install 1.93.1 --profile minimal
 
       - name: Plan crates.io publishes
         id: crate-status
-        run: uv run --script scripts/rust_publish.py plan --toolchain 1.91.1 --expected-version "${RUST_VERSION}"
+        run: uv run --script scripts/rust_publish.py plan --toolchain 1.93.1 --expected-version "${RUST_VERSION}"
 
       - name: Authenticate to crates.io
         if: >
@@ -207,7 +207,7 @@ jobs:
         id: publish-crates
         run: |
           set -euo pipefail
-          args=(publish --toolchain 1.91.1 --expected-version "${RUST_VERSION}")
+          args=(publish --toolchain 1.93.1 --expected-version "${RUST_VERSION}")
           if [[ "${DRY_RUN}" == "true" ]]; then
             args+=(--dry-run)
           fi
