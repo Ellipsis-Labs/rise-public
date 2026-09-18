@@ -6,6 +6,7 @@
 use std::str::FromStr;
 
 use phoenix_rise_accounts::stop_losses::StopLosses;
+#[allow(deprecated)]
 use phoenix_rise_ix::prelude::{
     CancelAllParams, CancelId, CancelOrdersByIdParams, CancelStopLossParams, CancelUpToParams,
     CondensedOrder, CondensedOrderV2, CreateConditionalOrdersAccountParams, DepositFundsParams,
@@ -740,6 +741,10 @@ impl<'a> PhoenixTxBuilder<'a> {
     /// * `symbol` - Market symbol ("SOL", "BTC", "ETH")
     /// * `execution_direction` - Which leg to cancel (`LessThan` for SL on
     ///   longs, `GreaterThan` for TP on longs; reversed for shorts)
+    #[deprecated(
+        since = "0.6.4",
+        note = "legacy stop-loss account; use create_cancel_conditional_order_ix"
+    )]
     pub fn build_cancel_bracket_leg(
         &self,
         authority: Pubkey,
@@ -763,6 +768,11 @@ impl<'a> PhoenixTxBuilder<'a> {
     /// account to match the account that originally funded the stop-loss PDA.
     /// This mirrors the API ix route behavior while keeping instruction
     /// construction local to the Rust SDK.
+    #[deprecated(
+        since = "0.6.4",
+        note = "legacy stop-loss account; use create_cancel_conditional_order_ix"
+    )]
+    #[allow(deprecated)]
     pub async fn build_cancel_bracket_leg_from_account(
         &self,
         authority: Pubkey,
@@ -828,6 +838,7 @@ impl<'a> PhoenixTxBuilder<'a> {
         )
     }
 
+    #[allow(deprecated)]
     fn build_cancel_bracket_leg_with_funder(
         &self,
         funder: Pubkey,
@@ -885,6 +896,11 @@ impl<'a> PhoenixTxBuilder<'a> {
     /// These mutate the legacy stop-loss account and emit trader-state
     /// position trigger deltas. Use `place_position_bracket_order` for the
     /// newer conditional-order account flow.
+    #[deprecated(
+        since = "0.6.4",
+        note = "legacy stop-loss account; use place_position_bracket_order"
+    )]
+    #[allow(deprecated)]
     pub fn build_stop_loss_orders(
         &self,
         authority: Pubkey,
@@ -2243,6 +2259,7 @@ fn limit_order_packet(params: &LimitOrderParams) -> OrderPacket {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use std::collections::HashMap;
 

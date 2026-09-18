@@ -111,14 +111,16 @@ pub mod prelude {
     };
     pub use super::trader::{
         CapabilityAccess, CooldownStatus, OrderHistoryDelta, TradeHistoryDelta,
-        TraderCapabilitiesView, TraderStateCapabilities, TraderStateDelta,
+        TraderCapabilitiesView, TraderStateCapabilities, TraderStateConditionalStopLossTrigger,
+        TraderStateConditionalTakeProfitTrigger, TraderStateConditionalTrigger, TraderStateDelta,
         TraderStateLimitOrderEvent, TraderStateMarketLimitOrderEvent, TraderStatePayload,
         TraderStatePositionDelta, TraderStatePositionRow, TraderStatePositionSnapshot,
         TraderStateRowChangeKind, TraderStateServerMessage, TraderStateSnapshot,
         TraderStateSplineDelta, TraderStateSplineRow, TraderStateSplineSnapshot,
         TraderStateSpotCollateralSnapshot, TraderStateStopLossTrigger, TraderStateSubaccountDelta,
         TraderStateSubaccountSnapshot, TraderStateTakeProfitTrigger, TraderStateTickRegion,
-        TraderStateTrigger,
+        TraderStateTrigger, TraderStateTriggerDelta, TraderStateTriggerRow,
+        TraderStateTriggerSnapshot,
     };
     pub use super::trader_http::{
         CollateralEvent, CollateralHistoryQueryParams, CollateralHistoryRequest,

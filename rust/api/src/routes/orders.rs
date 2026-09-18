@@ -94,6 +94,10 @@ impl OrdersClient<'_> {
             .await
     }
 
+    #[deprecated(
+        since = "0.6.4",
+        note = "legacy stop-loss endpoint; use place_position_conditional_order"
+    )]
     pub async fn place_stop_loss_order(
         &self,
         request: PlaceStopLossOrderRequest,
@@ -102,6 +106,10 @@ impl OrdersClient<'_> {
             .await
     }
 
+    #[deprecated(
+        since = "0.6.4",
+        note = "legacy stop-loss endpoint; use cancel_conditional_order"
+    )]
     pub async fn cancel_stop_loss_order(
         &self,
         request: CancelStopLossOrderRequest,
