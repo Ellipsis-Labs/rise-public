@@ -10,10 +10,10 @@ crate-type = ["cdylib", "lib"]
 test       = false
 
 [dependencies]
-borsh = { version = "=1.6.0", features = ["derive"] }
-borsh-derive = "=1.6.0"
+borsh = { version = "~1.7", features = ["derive"] }
+borsh-derive = "~1.7"
 bytemuck = { version = "1.21", features = ["derive"] }
-indexmap = "=2.13.0"
+indexmap = "=2.14.2"
 phoenix-rise = { path = "../../rust/sdk", default-features = false, features = [
   "cpi",
 ] }
@@ -33,9 +33,9 @@ phoenix-rise = { path = "../../rust/sdk", default-features = false, features = [
   "core",
 ] }
 phoenix-rise-litesvm-test = { path = "../../rust/litesvm-test" }
-solana-account = "~3.2"
+solana-account = "~4.3"
 solana-compute-budget-interface = "~3.0"
-solana-instruction = { version = "~3.0", default-features = false, features = [
+solana-instruction = { version = "~3.4", default-features = false, features = [
   "std",
 ] }
 

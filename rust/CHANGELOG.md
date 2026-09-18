@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.0 - 2026-09-18
+
+Source Phoenix commit: `e9a7915d9161e5dae5057f91a2a507cc2e528939`
+
+### Summary
+
+- Bumps the shared Rise Rust workspace (`sdk`, `accounts`, `api`, `core`, `events`, `ix`, `math`, `types`) from `0.5.7` to `0.6.0`, alongside a coordinated upgrade of Solana crate dependencies to their v4 lines (`solana-account`, `solana-rpc-client`, `solana-rpc-client-api`, `solana-message`, `solana-transaction`, `solana-transaction-status-client-types`) and related crates (`solana-signature`, `solana-instruction`, `solana-keypair`, `solana-transaction-error`).
+- Relaxes the `borsh` requirement from an exact pin (`=1.6.0`/`1.5`) to `~1.7`, and bumps `indexmap` to `=2.14.2`.
+- Upgrades `litesvm` from `=0.11.0` to `=0.16.0` in the `litesvm-test` harness.
+- Adds an explicit `svm.warp_to_slot(0)` call in `SdkLocalnetContext` to restore the slot-0 baseline that litesvm test fixtures assume, since litesvm `>= 0.16` now starts the clock at a mainnet-like slot.
+
+### Breaking Changes
+
+- Consumers building against the Rise Rust crates now require Solana crates from the v4 line (e.g. `solana-account ~4.3`, `solana-rpc-client 4.2.2`, `solana-rpc-client-api 4.2.2`, `solana-message ~4.4`, `solana-transaction ~4.1`, `solana-transaction-status-client-types 4.2.2` with `agave-unstable-api`) instead of v3 — code depending directly on these crates' v3 APIs will need to update.
+- `litesvm` is now pinned to `=0.16.0` (from `=0.11.0`); downstream test code using `litesvm` directly, or relying on the previous default clock/slot behavior, may need to adjust (see the added `warp_to_slot(0)` workaround in `litesvm-test`).
+- `borsh` moved from an exact `=1.6.0` pin to `~1.7`, and `indexmap` moved to `=2.14.2`; downstream crates pinning exact older versions of these may hit resolver conflicts.
+
+### Consumer Notes
+
+- If you pin Solana crate versions directly in your `Cargo.toml`, update them to match the new v4-line requirements to avoid duplicate-version resolution issues.
+- If you use `phoenix-rise-litesvm-test`'s `SdkLocalnetContext` (or `litesvm` directly) in tests that assume slot 0 at startup, be aware the underlying `litesvm` upgrade changes the default starting slot — the harness now compensates internally, but custom test setups using `litesvm` outside this harness may need the same `warp_to_slot(0)` adjustment.
+- No public API signatures changed in this release; this is primarily a dependency/toolchain upgrade.
+
 ## v0.5.7 - 2026-09-18
 
 Source Phoenix commit: `9ea8a32688dff1ca9f6ce869c52f022b07c94257`

@@ -71,6 +71,9 @@ impl SdkLocalnetContext {
         extra_programs: impl IntoIterator<Item = SdkLocalnetProgram>,
     ) -> Self {
         let mut svm = LiteSVM::new();
+        // litesvm >= 0.16 starts the clock at a mainnet slot; tests warp to small
+        // absolute slots and the fixtures assume a slot 0 baseline.
+        svm.warp_to_slot(0);
 
         if should_load_mainnet_bpf_programs() && !running_in_ci() {
             load_mainnet_protocol_programs(&mut svm, &fixture);
