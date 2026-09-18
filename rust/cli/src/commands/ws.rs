@@ -7,8 +7,10 @@ use phoenix_rise::api::{
     LimitOrder, PhoenixWSClient, Position, Spline, SubaccountState, Trader, TraderKey,
 };
 use phoenix_rise::types::prelude::{
-    CooldownStatus, ServerMessage, Timeframe, TraderStateCapabilities, TraderStatePayload,
-    TraderStateServerMessage, TraderStateStopLossTrigger, TraderStateTakeProfitTrigger,
+    CooldownStatus, ServerMessage, Timeframe, TraderStateCapabilities,
+    TraderStateConditionalStopLossTrigger, TraderStateConditionalTakeProfitTrigger,
+    TraderStatePayload, TraderStateServerMessage, TraderStateStopLossTrigger,
+    TraderStateTakeProfitTrigger, TraderStateTriggerSnapshot,
 };
 use serde::Serialize;
 use tokio::sync::mpsc;
@@ -168,6 +170,7 @@ struct SubaccountOutput {
     stop_loss_orders: Vec<OrderOutput>,
     conditional_orders: Vec<OrderOutput>,
     splines: Vec<SplineOutput>,
+    triggers: Vec<TraderStateTriggerSnapshot>,
 }
 
 #[derive(Debug, Serialize)]
@@ -182,6 +185,8 @@ struct PositionOutput {
     accumulated_funding_quote_lots: i64,
     take_profit_triggers: Vec<TraderStateTakeProfitTrigger>,
     stop_loss_triggers: Vec<TraderStateStopLossTrigger>,
+    conditional_take_profit_triggers: Vec<TraderStateConditionalTakeProfitTrigger>,
+    conditional_stop_loss_triggers: Vec<TraderStateConditionalStopLossTrigger>,
 }
 
 #[derive(Debug, Serialize)]
@@ -499,6 +504,16 @@ impl SubaccountOutput {
             .collect();
         splines.sort_by(|a, b| a.symbol.cmp(&b.symbol));
 
+        let mut triggers: Vec<_> = subaccount
+            .triggers
+            .iter()
+            .map(|(symbol, triggers)| TraderStateTriggerSnapshot {
+                symbol: symbol.clone(),
+                triggers: triggers.clone(),
+            })
+            .collect();
+        triggers.sort_by(|a, b| a.symbol.cmp(&b.symbol));
+
         Self {
             subaccount_index: subaccount.subaccount_index,
             sequence: subaccount.sequence,
@@ -510,6 +525,7 @@ impl SubaccountOutput {
             stop_loss_orders,
             conditional_orders,
             splines,
+            triggers,
         }
     }
 }
@@ -526,6 +542,8 @@ impl PositionOutput {
             accumulated_funding_quote_lots: position.accumulated_funding_quote_lots,
             take_profit_triggers: position.take_profit_triggers.clone(),
             stop_loss_triggers: position.stop_loss_triggers.clone(),
+            conditional_take_profit_triggers: position.conditional_take_profit_triggers.clone(),
+            conditional_stop_loss_triggers: position.conditional_stop_loss_triggers.clone(),
         }
     }
 }
@@ -619,6 +637,12 @@ fn print_trader_state_human(output: &TraderStateWsOutput) {
         print_orders("Stop loss orders", &subaccount.stop_loss_orders);
         print_orders("Conditional orders", &subaccount.conditional_orders);
         print_splines(&subaccount.splines);
+        for triggers in &subaccount.triggers {
+            println!(
+                "  Triggers: {}",
+                serde_json::to_string(triggers).expect("trigger rows serialize")
+            );
+        }
     }
 }
 

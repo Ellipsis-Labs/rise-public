@@ -14,11 +14,12 @@ use tracing::{debug, warn};
 use crate::metadata::PhoenixMetadata;
 use crate::trader_key::TraderKey;
 use crate::types::prelude::{
-    CooldownStatus, TraderStateCapabilities, TraderStateMarketLimitOrderEvent, TraderStatePayload,
+    CooldownStatus, TraderStateCapabilities, TraderStateConditionalStopLossTrigger,
+    TraderStateConditionalTakeProfitTrigger, TraderStateMarketLimitOrderEvent, TraderStatePayload,
     TraderStatePositionRow, TraderStatePositionSnapshot, TraderStateRowChangeKind,
     TraderStateServerMessage, TraderStateSplineRow, TraderStateSplineSnapshot,
     TraderStateSpotCollateralSnapshot, TraderStateStopLossTrigger, TraderStateSubaccountDelta,
-    TraderStateSubaccountSnapshot, TraderStateTakeProfitTrigger,
+    TraderStateSubaccountSnapshot, TraderStateTakeProfitTrigger, TraderStateTriggerRow,
 };
 
 /// A position held by the trader in a specific market.
@@ -34,6 +35,8 @@ pub struct Position {
     pub accumulated_funding_quote_lots: i64,
     pub take_profit_triggers: Vec<TraderStateTakeProfitTrigger>,
     pub stop_loss_triggers: Vec<TraderStateStopLossTrigger>,
+    pub conditional_take_profit_triggers: Vec<TraderStateConditionalTakeProfitTrigger>,
+    pub conditional_stop_loss_triggers: Vec<TraderStateConditionalStopLossTrigger>,
 }
 
 impl Position {
@@ -53,6 +56,8 @@ impl Position {
             accumulated_funding_quote_lots: row.accumulated_funding_quote_lots.parse().unwrap_or(0),
             take_profit_triggers: row.take_profit_triggers.clone(),
             stop_loss_triggers: row.stop_loss_triggers.clone(),
+            conditional_take_profit_triggers: row.conditional_take_profit_triggers.clone(),
+            conditional_stop_loss_triggers: row.conditional_stop_loss_triggers.clone(),
         }
     }
 
@@ -174,6 +179,8 @@ pub struct SubaccountState {
     pub orders: HashMap<(String, u64), LimitOrder>,
     /// Splines keyed by market symbol.
     pub splines: HashMap<String, Spline>,
+    /// Canonical trigger state, including markets without an open position.
+    pub triggers: HashMap<String, TraderStateTriggerRow>,
 }
 
 impl SubaccountState {
@@ -298,6 +305,12 @@ impl SubaccountState {
             }
         }
 
+        self.triggers = snapshot
+            .triggers
+            .iter()
+            .map(|entry| (entry.symbol.clone(), entry.triggers.clone()))
+            .collect();
+
         self.splines.clear();
         for spline in &snapshot.splines {
             let s = Spline::from_snapshot(spline);
@@ -354,6 +367,20 @@ impl SubaccountState {
                     Some(TraderStateRowChangeKind::Updated) | None => {
                         let limit_order = LimitOrder::from_event(&order_group.symbol, order);
                         self.orders.insert(key, limit_order);
+                    }
+                }
+            }
+        }
+
+        for trigger_delta in &delta.triggers {
+            match trigger_delta.change {
+                TraderStateRowChangeKind::Closed => {
+                    self.triggers.remove(&trigger_delta.symbol);
+                }
+                TraderStateRowChangeKind::Updated => {
+                    if let Some(row) = &trigger_delta.triggers {
+                        self.triggers
+                            .insert(trigger_delta.symbol.clone(), row.clone());
                     }
                 }
             }

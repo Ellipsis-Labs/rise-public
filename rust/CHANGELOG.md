@@ -3,6 +3,27 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.5 - 2026-09-18
+
+Source Phoenix commit: `084d5bebe3936d01d73cd183e65c9126c4aa0ea6`
+
+### Summary
+
+- Adds trigger-state and margin behavior updates across `api`, `core`, `math`, `types`, and `sdk`, and formally deprecates the legacy stop-loss ix/API/tx-builder surface in favor of conditional orders. Bumps all Rise Rust crates to `0.6.5`.
+
+### Breaking Changes
+
+- `Position`, `TraderStatePositionRow`, `TraderStateSubaccountSnapshot`, and `TraderStateSubaccountDelta` gained new fields (`conditional_take_profit_triggers`, `conditional_stop_loss_triggers`, `triggers`). Code that constructs these via struct literals (rather than deserializing) must initialize the new fields.
+- `SpotCollateralInput::index_price = None` no longer falls back to the perp mark price for a nonzero balance — it now returns a valuation error. Callers that relied on the implicit mark-price fallback must supply an explicit index price. (A zero balance still succeeds without a price or market metadata.)
+- `TraderPortfolioMargin::portfolio_value()` now adds `unsettled_funding` into the total, changing computed portfolio values for accounts with nonzero unsettled funding.
+
+### Consumer Notes
+
+- Legacy stop-loss surfaces are now `#[deprecated]` (still functional): `PhoenixHttpClient`/`OrdersClient::{place_stop_loss_order, cancel_stop_loss_order}`, `BracketLegOrders::{to_tp_sl_config, try_to_tp_sl_config, try_to_tp_sl_config_for_side}`, `PhoenixTxBuilder::{build_cancel_bracket_leg, build_cancel_bracket_leg_from_account, build_stop_loss_orders}`, and `ix::{create_place_stop_loss_ix, create_cancel_stop_loss_ix}`. Migrate to `place_position_conditional_order`, `cancel_conditional_order`, or `place_position_bracket_order`.
+- New `SubaccountState::triggers` map and `TraderStateTriggerRow`/`TraderStateTriggerSnapshot`/`TraderStateTriggerDelta`/`TraderStateConditional{TakeProfit,StopLoss}Trigger` types expose canonical trigger state (legacy TP/SL plus advanced conditional TP/SL) per market, including markets with no open position; missing fields in older payloads default to empty.
+- `BasisPoints::apply_to_quote_lots` now correctly floors when the intermediate product overflows `u64` but the final quotient fits, matching on-chain rounding instead of returning `None`.
+- `phoenix-rise-cli`'s `place-stop-loss`/`cancel-stop-loss` trade subcommands are marked deprecated in favor of conditional-order commands.
+
 ## v0.6.2 - 2026-09-18
 
 Source Phoenix commit: `888c5453b1f7394ab1b2f4a26d1ce24eee06a0dd`

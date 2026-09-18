@@ -259,7 +259,9 @@ const cancelStopLossIx = await client.ixs.buildCancelStopLoss({
 });
 ```
 
-`buildPlaceStopLoss(...)` takes tick-based trigger prices. When you are starting
+`buildPlaceStopLoss` / `buildCancelStopLoss` are deprecated in favour of the
+conditional-order builders (`buildPlacePositionConditionalOrder`,
+`buildCancelConditionalOrder`). `buildPlaceStopLoss(...)` takes tick-based trigger prices. When you are starting
 from USD prices, convert them from market metadata first, or reuse the
 conditional-order patterns in
 [05-cancel-all-conditional-orders.ts](./ts/examples/05-cancel-all-conditional-orders.ts).
