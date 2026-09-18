@@ -288,6 +288,9 @@ pub struct TradeHistoryDelta {
     /// Deterministic UUID v3 derived from the raw fill coordinates.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fill_id: Option<String>,
+    /// Opaque identifier shared by fills from the same parent TWAP order.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_twap_id: Option<String>,
     pub timestamp: u64,
     pub slot: i64,
     pub slot_index: i32,
@@ -454,5 +457,35 @@ mod tests {
             delta.deltas[0].trade_history[0].fill_id,
             Some("43148c7f-1389-34f5-99f0-c7296f5858c2".to_string())
         );
+    }
+
+    #[test]
+    fn test_deserialize_trade_history_delta_parent_twap_id() {
+        let mut json = json!({
+            "signature": "test_signature",
+            "timestamp": 1000,
+            "slot": 100,
+            "slotIndex": 1,
+            "instructionIndex": 2,
+            "eventIndex": 3,
+            "market": "SOL-PERP",
+            "instructionType": "PlaceMarketOrder",
+            "tradeType": "market",
+            "baseQtyBefore": "0",
+            "baseQtyAfter": "1",
+            "size": "1",
+            "liquidity": "taker",
+            "price": "150",
+            "fee": "0.1",
+            "realizedPnl": "1",
+            "parentTwapId": "twap-account:42"
+        });
+
+        let delta: TradeHistoryDelta = serde_json::from_value(json.clone()).unwrap();
+        assert_eq!(delta.parent_twap_id.as_deref(), Some("twap-account:42"));
+
+        json.as_object_mut().unwrap().remove("parentTwapId");
+        let delta: TradeHistoryDelta = serde_json::from_value(json).unwrap();
+        assert_eq!(delta.parent_twap_id, None);
     }
 }

@@ -121,6 +121,8 @@ pub struct MarketPublicMetadata {
     pub description: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub search_aliases: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub classifications: Vec<String>,
     #[serde(default)]
     pub logo_uri: Option<String>,
     #[serde(default)]
@@ -335,15 +337,19 @@ mod tests {
     }
 
     #[test]
-    fn market_public_metadata_defaults_missing_search_aliases() {
+    fn market_public_metadata_defaults_missing_collection_fields() {
         let metadata: MarketPublicMetadata =
             serde_json::from_value(serde_json::json!({ "name": "Gold" })).unwrap();
         assert!(metadata.search_aliases.is_empty());
+        assert!(metadata.classifications.is_empty());
+        let empty_json = serde_json::to_value(&metadata).unwrap();
+        assert!(empty_json.get("classifications").is_none());
 
         let json = serde_json::to_value(MarketPublicMetadata {
             name: Some("Gold".to_string()),
             description: None,
             search_aliases: vec!["XAU".to_string()],
+            classifications: vec!["pre-ipo".to_string(), "new-listing".to_string()],
             logo_uri: None,
             coin_gecko_id: None,
             coin_market_cap_id: None,
@@ -353,6 +359,10 @@ mod tests {
         })
         .unwrap();
         assert_eq!(json["searchAliases"], serde_json::json!(["XAU"]));
+        assert_eq!(
+            json["classifications"],
+            serde_json::json!(["pre-ipo", "new-listing"])
+        );
     }
 
     #[test]

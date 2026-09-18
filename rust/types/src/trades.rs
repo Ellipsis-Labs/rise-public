@@ -110,6 +110,9 @@ pub struct TradeHistoryItem {
     /// Deterministic UUID v3 derived from the raw fill coordinates.
     #[serde(default)]
     pub fill_id: Option<String>,
+    /// Opaque identifier shared by fills from the same parent TWAP order.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_twap_id: Option<String>,
     /// Formatted datetime string (ISO 8601).
     pub timestamp: DateTime<Utc>,
     /// Slot coordinates for cursor
@@ -337,5 +340,44 @@ mod tests {
         let item: TradeHistoryItem = serde_json::from_value(json).unwrap();
 
         assert_eq!(item.fill_id, None);
+    }
+
+    #[test]
+    fn test_deserialize_trade_history_item_parent_twap_id() {
+        let mut json = json!({
+            "userId": 1,
+            "traderId": 2,
+            "traderPdaIndex": 0,
+            "subaccountIndex": 0,
+            "marketSymbol": "SOL-PERP",
+            "signature": "5PRu7zP_mnhT5c",
+            "timestamp": "2026-04-21T12:00:00Z",
+            "slot": 377700000,
+            "slotIndex": 2442,
+            "eventIndex": 0,
+            "instructionIndex": 4,
+            "instructionType": "PlaceMarketOrder",
+            "baseLotsBefore": "0",
+            "baseLotsAfter": "1",
+            "baseLotsDelta": "1",
+            "virtualQuoteLotsBefore": "0",
+            "virtualQuoteLotsAfter": "150000",
+            "virtualQuoteLotsDelta": "150000",
+            "price": "150",
+            "realizedPnl": "1",
+            "fees": "0.1",
+            "liquidity": "taker",
+            "orderSequenceNumber": null,
+            "splineSequenceNumber": null,
+            "tradeType": "market",
+            "parentTwapId": "twap-account:42"
+        });
+
+        let item: TradeHistoryItem = serde_json::from_value(json.clone()).unwrap();
+        assert_eq!(item.parent_twap_id.as_deref(), Some("twap-account:42"));
+
+        json.as_object_mut().unwrap().remove("parentTwapId");
+        let item: TradeHistoryItem = serde_json::from_value(json).unwrap();
+        assert_eq!(item.parent_twap_id, None);
     }
 }
