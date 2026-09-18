@@ -3,6 +3,24 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.2 - 2026-09-18
+
+Source Phoenix commit: `888c5453b1f7394ab1b2f4a26d1ce24eee06a0dd`
+
+### Summary
+
+- Released `phoenix-rise` 0.6.2, bumping all Rise Rust crates (`sdk`, `accounts`, `api`, `core`, `events`, `ix`, `math`, `types`, `litesvm-test`, `cli`) from 0.6.0.
+- Fixed a bug in `accounts`'s spline collection active-region slicing: the region count was previously added to the start offset instead of used as the slice's end index, which could return more (or different) regions than intended.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- Spline collection consumers that read active tick regions will see corrected slice results after this update; if your code compensated for the previous slicing behavior, re-verify it against 0.6.2.
+- Update all `phoenix-rise-*` crate dependencies to `0.6.2` together — this is a single shared workspace version bump, not independent per-crate releases.
+
 ## v0.6.0 - 2026-09-18
 
 Source Phoenix commit: `e9a7915d9161e5dae5057f91a2a507cc2e528939`
