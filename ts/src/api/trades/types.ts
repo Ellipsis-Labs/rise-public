@@ -1,5 +1,7 @@
 import z from "zod";
 
+import { ParentTwapIdSchema } from "@/api/utils/parentTwapId";
+
 const toNumber = (value: unknown, fieldName: string): number => {
   if (typeof value === "number") return value;
   if (typeof value === "string") {
@@ -581,6 +583,7 @@ export interface TradeHistoryV2Item {
   marketSymbol: string;
   signature: string | null;
   fillId: string | null;
+  parentTwapId: string | null;
   timestamp: number;
   slot: number;
   slotIndex: number;
@@ -611,6 +614,7 @@ const RawTradeHistoryV2ItemSchema = z
     marketSymbol: z.string(),
     signature: z.string().nullable().optional(),
     fillId: z.string().nullable().optional(),
+    parentTwapId: ParentTwapIdSchema.nullable().optional(),
     timestamp: z.union([z.number(), z.string()]),
     slot: z.union([z.number(), z.string()]),
     slotIndex: z.union([z.number(), z.string()]),
@@ -657,6 +661,7 @@ export const TradeHistoryV2ItemSchema: z.ZodType<TradeHistoryV2Item> =
     ),
     signature: raw.signature ?? null,
     fillId: raw.fillId ?? null,
+    parentTwapId: raw.parentTwapId ?? null,
     timestamp: toNumber(raw.timestamp, "tradeHistoryV2Item.timestamp"),
     slot: toNumber(raw.slot, "tradeHistoryV2Item.slot"),
     slotIndex: toNumber(raw.slotIndex, "tradeHistoryV2Item.slotIndex"),
