@@ -182,11 +182,17 @@ impl BasisPoints {
     /// Apply basis points to a QuoteLots value, returning the result
     /// For example: 5000 basis points (50%) of 1000 QuoteLots = 500 QuoteLots
     pub fn apply_to_quote_lots(&self, value: QuoteLots) -> Option<QuoteLots> {
-        let result = value
-            .as_inner()
-            .checked_mul(self.as_inner())?
-            .checked_div(Self::DENOMINATOR)?;
-        QuoteLots::new_checked(result).ok()
+        if let Some(numerator) = value.as_inner().checked_mul(self.as_inner()) {
+            return QuoteLots::new_checked(numerator / Self::DENOMINATOR).ok();
+        }
+
+        // The quotient can fit even when the intermediate product does not.
+        // Match the on-chain floor operation across the full QuoteLots range.
+        let numerator = u128::from(value.as_inner()) * u128::from(self.as_inner());
+        let result = numerator / u128::from(Self::DENOMINATOR);
+        u64::try_from(result)
+            .ok()
+            .and_then(|result| QuoteLots::new_checked(result).ok())
     }
 
     /// Apply basis points to a QuoteLots value with ceiling division
@@ -620,6 +626,36 @@ mod tests {
         assert_eq!(
             i56_turbofish.unwrap().to_signed_quote_lots(),
             SignedQuoteLots::new(-999)
+        );
+    }
+}
+
+#[cfg(test)]
+mod basis_points_floor_tests {
+    use super::{BasisPoints, QuoteLots};
+
+    #[test]
+    fn basis_points_floor_handles_large_intermediate_products() {
+        assert_eq!(
+            BasisPoints::new(8000).apply_to_quote_lots(QuoteLots::new(4_294_967_295_000_000)),
+            Some(QuoteLots::new(3_435_973_836_000_000))
+        );
+        assert_eq!(
+            BasisPoints::new(10_000).apply_to_quote_lots(QuoteLots::new(u64::MAX)),
+            Some(QuoteLots::new(u64::MAX))
+        );
+        assert_eq!(
+            BasisPoints::new(5000).apply_to_quote_lots(QuoteLots::new(u64::MAX)),
+            Some(QuoteLots::new(u64::MAX / 2))
+        );
+        assert_eq!(
+            BasisPoints::new(0).apply_to_quote_lots(QuoteLots::new(u64::MAX)),
+            Some(QuoteLots::new(0))
+        );
+        // Constructors can carry unchecked values: final overflow stays an error.
+        assert_eq!(
+            BasisPoints::new(u64::MAX).apply_to_quote_lots(QuoteLots::new(u64::MAX)),
+            None
         );
     }
 }
