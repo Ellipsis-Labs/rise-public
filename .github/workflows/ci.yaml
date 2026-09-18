@@ -93,10 +93,10 @@ jobs:
       - uses: astral-sh/setup-uv@v7
 
       - name: Install Rust toolchain
-        run: rustup toolchain install 1.91.1 --profile minimal
+        run: rustup toolchain install 1.93.1 --profile minimal
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@nextest
 
       - name: Check Rust workspace
-        run: uv run --script scripts/rust_publish.py ci --toolchain 1.91.1
+        run: uv run --script scripts/rust_publish.py ci --toolchain 1.93.1
