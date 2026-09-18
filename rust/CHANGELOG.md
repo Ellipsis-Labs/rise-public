@@ -3,6 +3,27 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.5.7 - 2026-09-18
+
+Source Phoenix commit: `9ea8a32688dff1ca9f6ce869c52f022b07c94257`
+
+```markdown
+### Summary
+
+- `MarketPublicMetadata` (types) gained a `classifications` field (`Vec<String>`) for tagging markets, e.g. `"pre-ipo"`, `"new-listing"`; the exchange cache (api) now surfaces it alongside existing metadata.
+- `TradeHistoryDelta` and `TradeHistoryItem` (types) gained a `parent_twap_id` field for correlating fills that belong to the same parent TWAP order.
+- Shared Rust package version bumped 0.5.6 → 0.5.7; no functional changes to build/workspace configuration.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- Both new fields are additive and optional: `classifications` defaults to an empty array and `parentTwapId` defaults to `None`, and neither is emitted in serialized JSON when empty/absent, so existing serializers/deserializers continue to work unchanged.
+- When populated, expect `classifications: string[]` on market metadata responses and `parentTwapId: string` on trade history entries (camelCase on the wire).
+```
+
 ## v0.5.6 - 2026-09-15
 
 Source Phoenix commit: `cdd5303fea774b0609f2402dee4e387dbf90714a`

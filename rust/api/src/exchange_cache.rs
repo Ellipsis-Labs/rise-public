@@ -918,6 +918,7 @@ mod tests {
             name: Some(name.to_string()),
             description: Some("Solana perpetual market".to_string()),
             search_aliases: vec!["SOL".to_string()],
+            classifications: vec!["pre-ipo".to_string(), "new-listing".to_string()],
             logo_uri: Some("https://example.com/sol.png".to_string()),
             coin_gecko_id: Some("solana".to_string()),
             coin_market_cap_id: Some(5426),
@@ -1020,6 +1021,13 @@ mod tests {
             Some(12)
         );
         assert_eq!(cache.market_metadata("sol-perp"), Some(&metadata));
+        assert_eq!(
+            cache
+                .market_metadata("sol-perp")
+                .expect("market metadata")
+                .classifications,
+            ["pre-ipo", "new-listing"]
+        );
         assert_eq!(cache.market_metadata_by_asset_id(1), Some(&metadata));
         assert_eq!(
             cache.market_metadata_by_pubkey("sol-market"),
