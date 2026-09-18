@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.28 - 2026-09-18
+
+Source Phoenix commit: `b1a3b8f6bfce1a9e6fb77465d77dc82b3879e065`
+
+### Summary
+
+- Spot collateral margin valuation (`margin/compute.ts`, `margin/liquidation.ts`) now treats zero-balance spot collateral as a no-op: it skips market-params/index-price lookups entirely and contributes nothing to margin or liquidation-price calculations.
+- For nonzero-balance spot collateral, margin valuation now requires an explicit index price (`indexPriceTicks` on the input or the market params) and throws if none is available, instead of silently falling back to the market's mark price.
+- `buildPlaceStopLoss`/`buildCancelStopLoss` and their related client methods, request/response types, and instruction builders are now marked `@deprecated` in favor of the conditional-order builders (`buildPlacePositionConditionalOrder`, `buildCancelConditionalOrder`); the README now points consumers at the new APIs.
+
+### Breaking Changes
+
+- `computeSubaccountMarginFromInputs` / `computeSubaccountLiquidationPricesFromInputs` (via `createMarginCalculator`) now throw when a spot collateral has a nonzero balance but no resolvable `indexPriceTicks`, where previously they silently fell back to the pricing market's mark price. Callers relying on the mark-price fallback must supply an explicit index price.
+
+### Consumer Notes
+
+- Zero-balance spot collateral entries no longer require a matching entry in `marketsBySymbol`/`markets` — they're now valued as zero without a lookup, so a previously-thrown "Missing market params" error for empty spot balances will no longer occur.
+- Stop-loss builders/clients/types (`buildPlaceStopLoss`, `buildCancelStopLoss`, `placeStopLossOrder`, `cancelStopLossOrder`, `TpSlOrderConfig`, `PlaceStopLossOrderRequest`, `CancelStopLossOrderRequest`, and related `ixBuilders`) remain functional but are deprecated; migrate to the conditional-order APIs when convenient.
+- `SpotCollateralMarginInput.indexPriceTicks` doc comment updated to reflect that a nonzero balance without an index price fails valuation, rather than defaulting to the mark price.
+
 ## v0.5.26 - 2026-09-18
 
 Source Phoenix commit: `0068e7b92afaceb98ab8a55f88f2909f1bcfabdf`

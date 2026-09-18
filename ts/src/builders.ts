@@ -491,6 +491,7 @@ export const uncrossCrank = async (
 ): Promise<Signature> =>
   sendBuiltInstruction(client, buildUncrossCrank(params, client), options);
 
+/** @deprecated Legacy stop-loss account. Use {@link buildCancelConditionalOrder}. */
 export const buildCancelStopLoss = async (
   params: {
     authority: Authority;
@@ -787,6 +788,7 @@ export const placePostOnlyOrder = async (
     options
   );
 
+/** @deprecated Legacy stop-loss account. Use {@link buildPlacePositionConditionalOrder}. */
 export const buildPlaceStopLoss = async (
   params: {
     authority: Authority;

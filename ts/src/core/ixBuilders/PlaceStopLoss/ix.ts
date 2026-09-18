@@ -16,6 +16,7 @@ import type {
   PlaceStopLossParams,
 } from "./types";
 
+/** @deprecated Legacy stop-loss instruction. Use `buildPlacePositionConditionalOrderIx`. */
 export const buildPlaceStopLossIx = (
   params: PlaceStopLossParams
 ): PlaceStopLossIx => {

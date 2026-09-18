@@ -233,6 +233,7 @@ export const PlaceIsolatedOrderEnhancedResponseSchema: z.ZodType<PlaceIsolatedOr
       estimatedLiquidationPriceUsd: raw.estimatedLiquidationPriceUsd ?? null,
     }));
 
+/** @deprecated Legacy stop-loss config. Use conditional-order triggers (`greaterTrigger` / `lessTrigger`). */
 export interface TpSlOrderConfig {
   takeProfitTriggerPrice?: number | null;
   takeProfitTriggerPriceInTicks?: number | null;
@@ -284,6 +285,7 @@ const TpSlOrderConfigObjectSchema = z.object({
 export const TpSlOrderConfigSchema: z.ZodType<TpSlOrderConfig> =
   TpSlOrderConfigObjectSchema;
 
+/** @deprecated Use {@link PlacePositionConditionalOrderRequest}. */
 export interface PlaceStopLossOrderRequest extends TpSlOrderConfig {
   authority: string;
   positionAuthority?: string | null;
@@ -318,6 +320,7 @@ export type CancelStopLossOrderExecutionDirection =
 export const CancelStopLossOrderExecutionDirectionSchema: z.ZodType<CancelStopLossOrderExecutionDirection> =
   z.enum(["greater_than", "less_than"]);
 
+/** @deprecated Use {@link CancelConditionalOrderRequest}. */
 export interface CancelStopLossOrderRequest {
   authority: string;
   positionAuthority?: string | null;
@@ -500,6 +503,7 @@ export interface PlaceIsolatedLimitOrderRequest {
   skipTransferToParent?: boolean;
   flightBuilderAuthority?: string;
   flightFeeCollectorTrader?: string;
+  /** @deprecated Legacy stop-loss protection. Use `greaterTrigger` / `lessTrigger` or the `*WithConditionals` requests. */
   tpSl?: TpSlOrderConfig;
 }
 
@@ -599,6 +603,7 @@ export interface PlaceIsolatedMarketOrderRequest {
   skipTransferToParent?: boolean;
   flightBuilderAuthority?: string;
   flightFeeCollectorTrader?: string;
+  /** @deprecated Legacy stop-loss protection. Use `greaterTrigger` / `lessTrigger` or the `*WithConditionals` requests. */
   tpSl?: TpSlOrderConfig;
   /** Full-position v2 protection; cannot be combined with tpSl. */
   greaterTrigger?: ConditionalTriggerRequest;

@@ -194,6 +194,7 @@ export class V1OrdersClient {
     ).map(toInstruction);
   }
 
+  /** @deprecated Legacy stop-loss endpoint. Use {@link placePositionConditionalOrder}. */
   async placeStopLossOrder(
     request: PlaceStopLossOrderRequest
   ): Promise<InstructionsWithAccountsAndData[]> {
@@ -211,6 +212,7 @@ export class V1OrdersClient {
     ).map(toInstruction);
   }
 
+  /** @deprecated Legacy stop-loss endpoint. Use {@link cancelConditionalOrder}. */
   async cancelStopLossOrder(
     request: CancelStopLossOrderRequest
   ): Promise<InstructionsWithAccountsAndData[]> {
