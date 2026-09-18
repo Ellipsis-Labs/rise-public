@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ExchangeCacheSequenceError,
   ExchangeWireMsgSchema,
+  MarketPublicMetadataSchema,
   createPhoenixExchangeCache,
   createPhoenixExchangeCacheStore,
   projectExchangeMarket,
@@ -25,6 +26,29 @@ const buildRiskActionPriceValidityRules = (
   Array.from({ length: 8 }, () =>
     Array.from({ length: 4 }, () => Array.from({ length: 8 }, () => fill))
   );
+
+describe("MarketPublicMetadataSchema classifications", () => {
+  it("accepts backward-compatible missing and null values", () => {
+    expect(
+      MarketPublicMetadataSchema.parse({}).classifications
+    ).toBeUndefined();
+    expect(
+      MarketPublicMetadataSchema.parse({ classifications: null })
+        .classifications
+    ).toBeNull();
+    expect(
+      MarketPublicMetadataSchema.parse({
+        classifications: ["pre-ipo", "new-listing"],
+      }).classifications
+    ).toEqual(["pre-ipo", "new-listing"]);
+  });
+
+  it("rejects invalid wire values", () => {
+    expect(() =>
+      MarketPublicMetadataSchema.parse({ classifications: "pre-ipo" })
+    ).toThrow();
+  });
+});
 
 const buildSnapshot = (
   slot: bigint,
@@ -402,6 +426,7 @@ const sampleMarketMetadata = (name = "Solana Perp"): MarketPublicMetadata => ({
   name,
   description: "Solana perpetual market",
   searchAliases: ["SOL"],
+  classifications: [],
   logoUri: "https://example.com/sol.png",
   coinGeckoId: "solana",
   coinMarketCapId: 5426,
@@ -687,6 +712,32 @@ describe("exchange cache", () => {
     expect(store.marketMetadataByAssetId(1)).toEqual(aliasUpdatedMetadata);
     expect(store.marketMetadataByPubkey("sol-market")).toEqual(
       aliasUpdatedMetadata
+    );
+
+    const metadataBeforeClassificationDelta = store.marketMetadata("sol-perp");
+    const classificationUpdatedMetadata = {
+      ...aliasUpdatedMetadata,
+      classifications: ["pre-ipo", "new-listing"],
+    };
+    const parsedClassificationDelta = ExchangeWireMsgSchema.parse(
+      buildMarketMetadataDelta(14n, 4n, 2, classificationUpdatedMetadata)
+    );
+    if (parsedClassificationDelta.messageType !== "delta") {
+      throw new Error("expected parsed classification metadata delta");
+    }
+    store.applyDelta(parsedClassificationDelta);
+    expect(store.marketMetadata("sol-perp")?.classifications).toEqual([
+      "pre-ipo",
+      "new-listing",
+    ]);
+    expect(store.marketMetadata("sol-perp")).not.toBe(
+      metadataBeforeClassificationDelta
+    );
+    expect(store.marketMetadataByAssetId(1)).toEqual(
+      classificationUpdatedMetadata
+    );
+    expect(store.marketMetadataByPubkey("sol-market")).toEqual(
+      classificationUpdatedMetadata
     );
     expect(store.marketByAssetId(1)?.symbol).toBe("SOL-PERP");
     expect(store.marketByPubkey("sol-market")?.symbol).toBe("SOL-PERP");

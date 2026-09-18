@@ -3,6 +3,24 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.26 - 2026-09-18
+
+Source Phoenix commit: `0068e7b92afaceb98ab8a55f88f2909f1bcfabdf`
+
+### Summary
+
+- Added an optional `classifications` field (nullable string array) to `MarketPublicMetadata`, exposed via `MarketPublicMetadataSchema` and reflected in exchange snapshot/delta comparisons in the exchange cache store.
+- Added an optional `parentTwapId` field to trader-state WebSocket trade history deltas (`TraderStateTradeHistoryDelta`) and to `TradeHistoryV2Item`, backed by a new shared `ParentTwapIdSchema` export (`ts/src/api/utils/parentTwapId.ts`).
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `classifications` is optional/nullable and omitted values remain backward compatible; no consumer changes required unless you want to read the new field (e.g. `"pre-ipo"`, `"new-listing"`).
+- `parentTwapId` is optional/nullable on trade history records, but if present it must be a non-empty string — empty-string values will now fail schema validation.
+
 ## v0.5.25 - 2026-09-15
 
 Source Phoenix commit: `cdd5303fea774b0609f2402dee4e387dbf90714a`

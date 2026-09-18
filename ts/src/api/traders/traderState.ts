@@ -1,5 +1,7 @@
 import z from "zod";
 
+import { ParentTwapIdSchema } from "@/api/utils/parentTwapId";
+
 import { TraderCapabilitiesSchema, type TraderCapabilities } from "./types";
 
 const numericBigint = (field: string) =>
@@ -185,6 +187,7 @@ export interface TraderStateTradeHistoryDelta {
   instructionType: string;
   tradeType: "limit" | "market" | "liquidation" | "adl";
   fillId?: string | null;
+  parentTwapId?: string | null;
   baseQtyBefore: string;
   baseQtyAfter: string;
   size: string;
@@ -493,6 +496,7 @@ const TraderStateTradeHistoryDeltaSchema: z.ZodType<TraderStateTradeHistoryDelta
     instructionType: z.string(),
     tradeType: z.enum(["limit", "market", "liquidation", "adl"]),
     fillId: z.string().nullable().optional().default(null),
+    parentTwapId: ParentTwapIdSchema.nullable().optional().default(null),
     baseQtyBefore: z.string(),
     baseQtyAfter: z.string(),
     size: z.string(),

@@ -252,6 +252,7 @@ const sameMarketPublicMetadata = (
     (left?.name ?? null) === (right?.name ?? null) &&
     (left?.description ?? null) === (right?.description ?? null) &&
     sameStringArray(left?.searchAliases, right?.searchAliases) &&
+    sameStringArray(left?.classifications, right?.classifications) &&
     (left?.logoUri ?? null) === (right?.logoUri ?? null) &&
     (left?.coinGeckoId ?? null) === (right?.coinGeckoId ?? null) &&
     (left?.coinMarketCapId ?? null) === (right?.coinMarketCapId ?? null) &&

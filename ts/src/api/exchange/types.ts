@@ -270,6 +270,7 @@ export interface MarketPublicMetadata {
   name?: string | null;
   description?: string | null;
   searchAliases?: string[] | null;
+  classifications?: string[] | null;
   logoUri?: string | null;
   coinGeckoId?: string | null;
   coinMarketCapId?: number | null;
@@ -285,6 +286,7 @@ export const MarketPublicMetadataSchema: z.ZodType<MarketPublicMetadata> =
     name: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
     searchAliases: z.array(z.string()).nullable().optional(),
+    classifications: z.array(z.string()).nullable().optional(),
     logoUri: z.string().nullable().optional(),
     coinGeckoId: z.string().nullable().optional(),
     coinMarketCapId: z.number().nullable().optional(),

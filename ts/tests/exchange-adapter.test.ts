@@ -214,7 +214,7 @@ describe("exchange adapter", () => {
     abort.abort();
   });
 
-  it("accepts search aliases in strict snapshots and metadata deltas", async () => {
+  it("accepts classifications in strict snapshots and metadata deltas", async () => {
     const { ws, subscriptions } = createFakeWs();
     const adapter = createExchangeAdapter(ws, undefined, true);
     const abort = new AbortController();
@@ -229,7 +229,10 @@ describe("exchange adapter", () => {
       ...payload,
       markets: payload.markets.map((market) => ({
         ...market,
-        metadata: { searchAliases: ["XAU"] },
+        metadata: {
+          searchAliases: ["XAU"],
+          classifications: ["pre-ipo", "new-listing"],
+        },
       })),
     });
 
@@ -238,6 +241,10 @@ describe("exchange adapter", () => {
       throw new Error("expected exchange snapshot");
     }
     expect(snapshot.value.markets[0]?.metadata?.searchAliases).toEqual(["XAU"]);
+    expect(snapshot.value.markets[0]?.metadata?.classifications).toEqual([
+      "pre-ipo",
+      "new-listing",
+    ]);
 
     const nextDelta = iterator.next();
     subscription?.onMessage({
@@ -251,7 +258,10 @@ describe("exchange adapter", () => {
         {
           kind: "marketMetadataUpdated",
           symbol: "GOLD",
-          metadata: { searchAliases: ["XAU"] },
+          metadata: {
+            searchAliases: ["XAU"],
+            classifications: ["pre-ipo"],
+          },
         },
       ],
     });
@@ -263,7 +273,10 @@ describe("exchange adapter", () => {
     expect(delta.value.ops[0]).toMatchObject({
       kind: "marketMetadataUpdated",
       symbol: "GOLD",
-      metadata: { searchAliases: ["XAU"] },
+      metadata: {
+        searchAliases: ["XAU"],
+        classifications: ["pre-ipo"],
+      },
     });
 
     abort.abort();
