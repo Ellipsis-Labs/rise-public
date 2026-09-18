@@ -435,9 +435,23 @@ fn active_regions(
     num_regions: u64,
 ) -> &[TickRegion] {
     let start = usize::try_from(offset).unwrap_or(SPLINE_REGION_CAPACITY);
-    let len = usize::try_from(num_regions).unwrap_or(SPLINE_REGION_CAPACITY);
-    let end = start.saturating_add(len).min(SPLINE_REGION_CAPACITY);
+    let end = usize::try_from(num_regions).unwrap_or(SPLINE_REGION_CAPACITY);
     regions.get(start..end).unwrap_or(&[])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn active_regions_treats_num_regions_as_end_index() {
+        let regions = [TickRegion::zeroed(); SPLINE_REGION_CAPACITY];
+
+        let active = active_regions(&regions, 6, 7);
+
+        assert_eq!(active.len(), 1);
+        assert!(std::ptr::eq(&active[0], &regions[6]));
+    }
 }
 
 #[cfg(feature = "serde")]

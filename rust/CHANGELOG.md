@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.3 - 2026-09-18
+
+Source Phoenix commit: `43aba601e5ce668b168aff936d48a55aafa81985`
+
+### Summary
+
+- Bump shared Rise Rust workspace version `0.6.0` → `0.6.3` across all `phoenix-rise*` crates (`accounts`, `math`, `sdk`, `api`, `core`, `ix`, `types`, etc.)
+- `math` spot collateral valuation now requires an explicit index price for nonzero balances instead of silently falling back to the perp mark price; zero-balance positions short-circuit to a zero valuation
+- `math::TraderPortfolioMargin::portfolio_value()` now includes `unsettled_funding` in the total, which was previously omitted
+- Fixed `BasisPoints::apply_to_quote_lots` to correctly floor-divide large intermediate products that previously overflowed `u64` and returned `None` instead of a valid result
+- Fixed an off-by-range bug in `accounts` spline region selection where the region count was mishandled, which could include regions outside the intended window
+
+### Breaking Changes
+
+- `SpotCollateralInput` with a nonzero balance and no (or zero) `index_price` now returns a valuation error instead of falling back to the perp mark price — callers must supply a valid index price for any nonzero balance
+- `TraderPortfolioMargin::portfolio_value()` output changes for any portfolio with nonzero `unsettled_funding`, since it is now folded into the total
+
+### Consumer Notes
+
+- Audit any code constructing `SpotCollateralInput` to always pass a valid `index_price` for nonzero balances; omitting it now surfaces as an explicit valuation error rather than silently using the mark price
+- If you were separately adding `unsettled_funding` on top of `portfolio_value()`, remove that — it's now included and would otherwise double-count
+- `apply_to_quote_lots` now returns correct floored results for very large `QuoteLots` values near `u64::MAX`; if you had a fallback for its previous `None` in that range, it may no longer be needed
+
 ## v0.6.0 - 2026-09-18
 
 Source Phoenix commit: `e9a7915d9161e5dae5057f91a2a507cc2e528939`
