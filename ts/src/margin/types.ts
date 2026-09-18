@@ -131,8 +131,7 @@ export interface SpotCollateralMarginInput {
   pricingMarketSymbol?: string;
   /**
    * Valuation price in ticks of the pricing market. Defaults to the pricing
-   * market's mark price (on-chain uses the index price; supply it here when
-   * available).
+   * market's index price. A nonzero balance without an index price fails valuation.
    */
   indexPriceTicks?: string;
   /** Global balance cap in native units — the discount curve's right endpoint. */

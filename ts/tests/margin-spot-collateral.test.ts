@@ -38,6 +38,7 @@ const solMarketParams: MarketParams = {
 const solSpotInput = {
   assetIndex: 4294901760,
   symbol: "SOL",
+  indexPriceTicks: "5000",
   balance: "2000000000", // 2 SOL
   decimals: 9,
   maxGlobalBalance: "10000000000", // 10 SOL
@@ -47,6 +48,73 @@ const solSpotInput = {
 
 describe("margin spot collateral valuation", () => {
   const calculator = createMarginCalculator([solMarketParams]);
+
+  it("requires an index only for funded SOL, never the mark", () => {
+    for (const indexPriceTicks of [undefined, "0"]) {
+      expect(() =>
+        calculator.computeSubaccountMarginFromInputs({
+          subaccountIndex: 0,
+          collateralBalanceQuoteLots: "0",
+          markets: [],
+          spotCollaterals: [{ ...solSpotInput, indexPriceTicks }],
+        })
+      ).toThrow(/index/i);
+    }
+    const empty = createMarginCalculator([]).computeSubaccountMarginFromInputs({
+      subaccountIndex: 0,
+      collateralBalanceQuoteLots: "1000000",
+      markets: [],
+      spotCollaterals: [
+        { ...solSpotInput, balance: "0", indexPriceTicks: undefined },
+      ],
+    });
+    expect(empty.margin.effectiveCollateralQuoteLots).toBe("1000000");
+  });
+
+  it.each([0, 1])(
+    "ignores zero SOL collateral during liquidation for subaccount %i",
+    (subaccountIndex) => {
+      const inputs = {
+        subaccountIndex,
+        collateralBalanceQuoteLots: "10000000",
+        markets: [
+          {
+            symbol: "SOL",
+            position: {
+              basePositionLots: "1000",
+              virtualQuotePositionLots: "-50000000",
+              entryPriceTicks: "5000",
+              unsettledFundingQuoteLots: "0",
+              accumulatedFundingQuoteLots: "0",
+            },
+          },
+        ],
+      };
+      const baseline =
+        calculator.computeSubaccountLiquidationPricesFromInputs(inputs);
+      expect(baseline.positions[0]?.liquidationPriceTicks).toBe("4020");
+      for (const indexPriceTicks of ["5000", undefined]) {
+        const withZeroSpot = {
+          ...inputs,
+          spotCollaterals: [
+            {
+              ...solSpotInput,
+              balance: "0",
+              indexPriceTicks,
+            },
+          ],
+        };
+        expect(
+          calculator.computeSubaccountLiquidationPricesFromInputs(withZeroSpot)
+        ).toEqual(baseline);
+        const projected = computeSubaccountProjectedLiquidationFromMargin(
+          calculator.computeSubaccountMarginFromInputs(withZeroSpot),
+          calculator.markets
+        );
+        expect(projected.positions[0]?.liquidationPriceTicks).toBe("4020");
+      }
+    }
+  );
 
   it("adds discounted spot to effective collateral and notional to portfolio value", () => {
     const margin = calculator.computeSubaccountMarginFromInputs({
@@ -156,6 +224,7 @@ describe("margin spot collateral valuation", () => {
           4294901760: {
             assetIndex: 4294901760,
             decimals: 9,
+            indexPriceTicks: "5000",
             maxGlobalBalance: "10000000000",
             minMarginDiscountBps: 500,
             maxMarginDiscountBps: 2000,
@@ -174,6 +243,7 @@ describe("margin spot collateral valuation", () => {
       [
         {
           ...solMarketParams,
+          indexPriceTicks: "5000",
           riskFactors: {
             ...solMarketParams.riskFactors,
             maintenanceMarginFactorBps: "5000",

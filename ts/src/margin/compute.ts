@@ -437,23 +437,37 @@ const valueSpotCollateral = (
   marketsBySymbol: NormalizedMarketParamsBySymbol
 ): SpotCollateralMarginResult => {
   const pricingSymbol = spot.pricingMarketSymbol ?? spot.symbol;
+  const balance = requireNonNegativeBigInt(
+    spot.balance,
+    `Spot collateral balance for ${spot.symbol} must be non-negative`
+  );
+  if (balance === 0n) {
+    return {
+      assetIndex: spot.assetIndex,
+      symbol: spot.symbol,
+      pricingMarketSymbol: pricingSymbol,
+      balance: "0",
+      nativeUnitsPerBaseLot: "0",
+      retainedBps: "0",
+      notionalQuoteLots: "0",
+      discountedQuoteLots: "0",
+    };
+  }
   const marketParams = marketsBySymbol[pricingSymbol];
   if (!marketParams) {
     throw new Error(
       `Missing market params for spot collateral pricing market ${pricingSymbol}`
     );
   }
-  const balance = requireNonNegativeBigInt(
-    spot.balance,
-    `Spot collateral balance for ${spot.symbol} must be non-negative`
+  const indexPrice =
+    spot.indexPriceTicks ?? marketParams.indexPriceTicks?.toString();
+  if (indexPrice === undefined) {
+    throw new Error(`Missing index price for spot collateral ${spot.symbol}`);
+  }
+  const priceTicks = requirePositiveBigInt(
+    indexPrice,
+    `Spot collateral indexPriceTicks for ${spot.symbol} must be positive`
   );
-  const priceTicks =
-    spot.indexPriceTicks !== undefined
-      ? requirePositiveBigInt(
-          spot.indexPriceTicks,
-          `Spot collateral indexPriceTicks for ${spot.symbol} must be positive`
-        )
-      : marketParams.markPriceTicks;
 
   const price = spotCollateralPrice(
     { decimals: spot.decimals },
