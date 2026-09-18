@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.4 - 2026-09-18
+
+Source Phoenix commit: `b1a3b8f6bfce1a9e6fb77465d77dc82b3879e065`
+
+### Summary
+
+- Legacy stop-loss API surface (`api` HTTP client/routes, `ix` instruction builders, `cli` trade subcommands, `core` bracket-leg conversions and tx-builder methods, and related `types` request/config structs) is now marked `#[deprecated]` in favor of the conditional-order flow.
+- `math`: fixed `TraderPortfolioMargin::portfolio_value()` to include unsettled funding in the computed value.
+- `math`: fixed `BasisPoints::apply_to_quote_lots` to avoid spurious failures when the intermediate product overflows `u64` but the final basis-points result still fits.
+- `math`: spot collateral valuation no longer silently falls back to a market's mark price when no index price is supplied.
+
+### Breaking Changes
+
+- `math`: computing margin for a nonzero-balance spot collateral (`SpotCollateralInput`) with `index_price: None` now returns a valuation error instead of falling back to the pricing market's mark price. Zero-balance entries are unaffected. Callers must supply an explicit index price for any funded spot collateral.
+- `math`: `TraderPortfolioMargin::portfolio_value()` now adds `margin.unsettled_funding` into the returned value, changing the computed result for any portfolio with nonzero unsettled funding.
+
+### Consumer Notes
+
+- Migrate off `place_stop_loss_order` / `cancel_stop_loss_order` (`api`), `create_place_stop_loss_ix` / `create_cancel_stop_loss_ix` (`ix`), `BracketLegOrders::{to_tp_sl_config, try_to_tp_sl_config, try_to_tp_sl_config_for_side}` (`core`), and `PhoenixTxBuilder::{build_cancel_bracket_leg, build_cancel_bracket_leg_from_account, build_stop_loss_orders}` (`core`) toward the conditional-order equivalents (`place_position_conditional_order`, `cancel_conditional_order`, `create_place_position_conditional_order_ix`, `create_cancel_conditional_order_ix`, `place_position_bracket_order`).
+- The `cli` `trade place-stop-loss` / `trade cancel-stop-loss` subcommands are deprecated; prefer the conditional-order equivalents.
+- `types`: `TpSlOrderConfig`, `PlaceStopLossOrderRequest`, `CancelStopLossOrderRequest`, and the `tp_sl` field on isolated order requests are deprecated; prefer `greater_trigger` / `less_trigger` or the `*_with_conditionals` requests.
+- If you build `SpotCollateralInput` with a nonzero balance, set `index_price` explicitly — margin computation now errors instead of defaulting to the mark price.
+
 ## v0.6.2 - 2026-09-18
 
 Source Phoenix commit: `888c5453b1f7394ab1b2f4a26d1ce24eee06a0dd`

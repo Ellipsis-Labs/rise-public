@@ -279,6 +279,11 @@ struct PlaceStopLossData {
 }
 
 /// Create a legacy place-stop-loss instruction.
+#[deprecated(
+    since = "0.6.4",
+    note = "legacy stop-loss account; use \
+            conditional_order::create_place_position_conditional_order_ix"
+)]
 pub fn create_place_stop_loss_ix(
     params: PlaceStopLossParams,
 ) -> Result<Instruction, PhoenixIxError> {
@@ -344,6 +349,7 @@ fn build_accounts(params: &PlaceStopLossParams) -> Vec<AccountMeta> {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
 

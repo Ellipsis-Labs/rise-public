@@ -3,6 +3,7 @@
 //! Run with:
 //!   cargo run -p phoenix-rise --example cancel_stop_loss --features
 //! solana-keypair -- SOL less_than
+#![allow(deprecated)]
 
 use std::env;
 

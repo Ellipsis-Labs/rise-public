@@ -17,7 +17,9 @@ use crate::util::{parse_pubkey, read_wallet_keypair};
 pub enum TradeCommand {
     IsolatedMarket(IsolatedMarketArgs),
     IsolatedLimit(IsolatedLimitArgs),
+    /// Deprecated: legacy stop-loss orders. Prefer conditional orders.
     PlaceStopLoss(PlaceStopLossArgs),
+    /// Deprecated: legacy stop-loss orders. Prefer conditional orders.
     CancelStopLoss(CancelStopLossArgs),
 }
 
@@ -280,6 +282,7 @@ async fn isolated_limit(args: IsolatedLimitArgs, ctx: &CommandCtx) -> Result<(),
     }
 }
 
+#[allow(deprecated)]
 async fn place_stop_loss(args: PlaceStopLossArgs, ctx: &CommandCtx) -> Result<(), Box<dyn Error>> {
     let client = ctx.http_client()?;
     let request = PlaceStopLossOrderRequest {
@@ -313,6 +316,7 @@ async fn place_stop_loss(args: PlaceStopLossArgs, ctx: &CommandCtx) -> Result<()
     print_instruction_bundle(request, None, ixs, ctx)
 }
 
+#[allow(deprecated)]
 async fn cancel_stop_loss(
     args: CancelStopLossArgs,
     ctx: &CommandCtx,
