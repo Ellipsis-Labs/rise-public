@@ -96,9 +96,9 @@ pub struct SpotCollateralInput {
     pub balance: u64,
     /// Native-unit decimals of the asset (9 for SOL).
     pub decimals: u8,
-    /// Valuation price in ticks of the pricing market. `None` uses the
-    /// pricing market's mark price (on-chain uses the index price; supply it
-    /// when available).
+    /// Index price in ticks of the pricing market. Required for nonzero
+    /// balances; a missing price returns a valuation error, never the perp
+    /// mark price.
     pub index_price: Option<Ticks>,
     /// Global balance cap in native units — the discount curve's right
     /// endpoint.
@@ -2294,6 +2294,18 @@ fn value_spot_collateral(
     spot: &SpotCollateralInput,
     provider: &impl PerpMetadataProvider,
 ) -> Result<SpotCollateralMargin, PhoenixStateError> {
+    if spot.balance == 0 {
+        return Ok(SpotCollateralMargin {
+            asset_index: spot.asset_index,
+            symbol: spot.symbol.clone(),
+            pricing_market_symbol: spot.pricing_market_symbol.clone(),
+            balance: 0,
+            native_units_per_base_lot: 0,
+            retained_bps: BasisPoints::ZERO,
+            notional: QuoteLots::ZERO,
+            discounted: QuoteLots::ZERO,
+        });
+    }
     let metadata = provider
         .get_perp_metadata(&spot.pricing_market_symbol)
         .ok_or_else(|| PhoenixStateError::MarketNotFound {
@@ -2318,7 +2330,8 @@ fn value_spot_collateral(
     };
     let (price, native_units_per_base_lot) = spot_collateral_price(
         &params,
-        spot.index_price.unwrap_or(metadata.mark_price),
+        spot.index_price
+            .ok_or_else(|| valuation_error("missing index price"))?,
         metadata.tick_size(),
         metadata.base_lot_decimals(),
     )
@@ -2398,6 +2411,7 @@ impl TraderPortfolioMargin {
     pub fn portfolio_value(&self) -> SignedQuoteLots {
         self.quote_lot_collateral
             + self.margin.unrealized_pnl
+            + self.margin.unsettled_funding
             + SignedQuoteLots::new(self.spot_collateral_notional().as_inner() as i64)
     }
 
@@ -2546,11 +2560,51 @@ mod tests {
             pricing_market_symbol: "SOL".to_string(),
             balance,
             decimals: 9,
-            index_price: None,
+            index_price: Some(Ticks::new(5_000)),
             max_global_balance: 10_000_000_000, // 10 SOL
             min_margin_discount_bps: 500,
             max_margin_discount_bps: 2_000,
         }
+    }
+
+    #[test]
+    fn portfolio_value_includes_unsettled_funding() {
+        let mut margin = TraderPortfolioMargin::default();
+        margin.quote_lot_collateral = SignedQuoteLots::new(100);
+        margin.margin.unrealized_pnl = SignedQuoteLots::new(20);
+        for funding in [-10, 10] {
+            margin.margin.unsettled_funding = SignedQuoteLots::new(funding);
+            assert_eq!(
+                margin.portfolio_value(),
+                SignedQuoteLots::new(120 + funding)
+            );
+        }
+    }
+
+    #[test]
+    fn funded_sol_requires_index_price_but_zero_balance_does_not() {
+        let markets = sol_spot_pricing_market();
+        for index_price in [None, Some(Ticks::ZERO)] {
+            let mut spot = sol_spot_input(1_000_000_000);
+            spot.index_price = index_price;
+            let portfolio = TraderPortfolio::builder().spot_collateral(spot).build();
+            assert!(portfolio.compute_margin(&markets).is_err());
+        }
+        let mut spot = sol_spot_input(0);
+        spot.index_price = None;
+        let empty = TraderPortfolio::builder().spot_collateral(spot).build();
+        assert!(
+            empty
+                .compute_margin(&HashMap::<String, PerpAssetMetadata>::new())
+                .is_ok()
+        );
+        let mut spot = sol_spot_input(1_000_000_000);
+        spot.index_price = Some(Ticks::new(6_000));
+        let portfolio = TraderPortfolio::builder().spot_collateral(spot).build();
+        assert_eq!(
+            portfolio.compute_margin(&markets).unwrap().spot_collaterals[0].notional,
+            QuoteLots::new(60_000_000)
+        );
     }
 
     #[test]
