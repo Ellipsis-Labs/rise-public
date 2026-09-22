@@ -91,6 +91,8 @@ pub struct TraderStateSubaccountSnapshot {
     pub orders: Vec<TraderStateLimitOrderEvent>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub splines: Vec<TraderStateSplineSnapshot>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub triggers: Vec<TraderStateTriggerSnapshot>,
 }
 
 /// Row-level delta set for a specific subaccount.
@@ -113,6 +115,8 @@ pub struct TraderStateSubaccountDelta {
     pub orders: Vec<TraderStateLimitOrderEvent>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub splines: Vec<TraderStateSplineDelta>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub triggers: Vec<TraderStateTriggerDelta>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trade_history: Vec<TradeHistoryDelta>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -147,6 +151,10 @@ pub struct TraderStatePositionRow {
     pub take_profit_triggers: Vec<TraderStateTakeProfitTrigger>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub stop_loss_triggers: Vec<TraderStateStopLossTrigger>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub conditional_take_profit_triggers: Vec<TraderStateConditionalTakeProfitTrigger>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub conditional_stop_loss_triggers: Vec<TraderStateConditionalStopLossTrigger>,
 }
 
 /// Trigger configuration for TP/SL orders.
@@ -193,6 +201,88 @@ pub struct TraderStateTakeProfitTrigger {
     pub take_profit_id: String,
     pub trigger: TraderStateTrigger,
     pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraderStateConditionalTrigger {
+    /// Base trigger configuration.
+    #[serde(flatten)]
+    pub trigger: TraderStateTrigger,
+    /// Attached order sequence number when present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attached_order_sequence_number: Option<String>,
+    /// Max trigger size in base lots.
+    pub max_size_lots: String,
+    /// Remaining fillable trigger size in base lots.
+    pub fillable_size_lots: String,
+    /// Filled trigger size in base lots.
+    pub filled_size_lots: String,
+    /// Whether trigger sizing uses a percentage of margin.
+    pub use_percent: bool,
+    /// Percentage used when `use_percent` is true.
+    pub percent: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraderStateConditionalStopLossTrigger {
+    /// Conditional stop-loss trigger identifier.
+    pub conditional_stop_loss_id: String,
+    /// Trigger configuration and conditional metadata.
+    pub trigger: TraderStateConditionalTrigger,
+    /// Trigger status.
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraderStateConditionalTakeProfitTrigger {
+    /// Conditional take-profit trigger identifier.
+    pub conditional_take_profit_id: String,
+    /// Trigger configuration and conditional metadata.
+    pub trigger: TraderStateConditionalTrigger,
+    /// Trigger status.
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraderStateTriggerSnapshot {
+    /// Market symbol for this trigger group.
+    pub symbol: String,
+    /// Trigger rows for the symbol.
+    #[serde(flatten)]
+    pub triggers: TraderStateTriggerRow,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraderStateTriggerRow {
+    /// Configured take-profit triggers.
+    #[serde(default)]
+    pub take_profit_triggers: Vec<TraderStateTakeProfitTrigger>,
+    /// Configured stop-loss triggers.
+    #[serde(default)]
+    pub stop_loss_triggers: Vec<TraderStateStopLossTrigger>,
+    /// Configured conditional take-profit triggers.
+    #[serde(default)]
+    pub conditional_take_profit_triggers: Vec<TraderStateConditionalTakeProfitTrigger>,
+    /// Configured conditional stop-loss triggers.
+    #[serde(default)]
+    pub conditional_stop_loss_triggers: Vec<TraderStateConditionalStopLossTrigger>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraderStateTriggerDelta {
+    /// Market symbol for this trigger delta.
+    pub symbol: String,
+    /// Row-level change kind.
+    pub change: TraderStateRowChangeKind,
+    /// Updated trigger row; absent when closed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub triggers: Option<TraderStateTriggerRow>,
 }
 
 // ============================================================================
