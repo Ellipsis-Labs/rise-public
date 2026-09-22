@@ -3,6 +3,27 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.3 - 2026-09-22
+
+Source Phoenix commit: `43aba601e5ce668b168aff936d48a55aafa81985`
+
+### Summary
+
+- `math`: `portfolio_value()` now includes `unsettled_funding` in the computed portfolio value, alongside quote-lot collateral, unrealized PnL, and spot collateral notional.
+- `math`: Zero-balance spot collateral positions are now valued as zero without requiring a pricing-market metadata lookup.
+- `math`: Fixed `BasisPoints::apply_to_quote_lots` to no longer spuriously return `None` when the intermediate `u64` product overflows but the final floored quotient would fit — it now falls back to a `u128` computation to match on-chain floor semantics across the full `QuoteLots` range.
+
+### Breaking Changes
+
+- `math`: `SpotCollateralInput.index_price = None` no longer falls back to the pricing market's mark price for nonzero balances. Callers must now supply an explicit index price for any nonzero spot collateral balance; a missing price returns a valuation error instead of silently using the mark price.
+- `math`: `TraderPortfolioMargin::portfolio_value()` now factors in `unsettled_funding`, changing the numeric result for portfolios with nonzero unsettled funding compared to `0.6.2`.
+
+### Consumer Notes
+
+- If you were relying on `index_price: None` to use the market mark price for spot collateral valuation, pass the index price explicitly going forward — the fallback is gone and omitting it now errors for nonzero balances.
+- Recheck any downstream code that compares or asserts on `portfolio_value()` output, since it now includes unsettled funding.
+- No public API signatures changed beyond the version bump (`0.6.2` -> `0.6.3` across all Rise Rust crates); this is a behavioral/patch-level update.
+
 ## v0.6.2 - 2026-09-18
 
 Source Phoenix commit: `888c5453b1f7394ab1b2f4a26d1ce24eee06a0dd`
