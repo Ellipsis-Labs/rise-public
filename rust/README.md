@@ -336,3 +336,15 @@ signature. The fee-payer keypair path defaults to
 `~/.config/solana/id.json` and can be overridden with
 `--fee-payer-keypair-path`. The `--trader-authority` argument is optional and
 defaults to the fee payer's public key when omitted.
+
+### Trader-state triggers
+
+`SubaccountState::triggers` holds the canonical trigger rows keyed by market,
+including markets without an open position. Each row exposes legacy TP/SL and
+advanced conditional TP/SL, including attached order sequence, sizing, fill
+progress, and percentage sizing. Snapshots replace this map; deltas update or
+remove individual markets. Position rows also retain the compatibility trigger
+fields returned by the API. Missing lists in older payloads default to empty.
+
+When constructing `Position`, `TraderStatePositionRow`, or trader-state subaccount
+snapshot/delta structs directly, initialize the new trigger fields as well.

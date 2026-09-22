@@ -57,6 +57,8 @@ fn make_position_row(base_lots: i64, entry_price: &str) -> TraderStatePositionRo
         accumulated_funding_quote_lots: "0".to_string(),
         take_profit_triggers: vec![],
         stop_loss_triggers: vec![],
+        conditional_take_profit_triggers: vec![],
+        conditional_stop_loss_triggers: vec![],
     }
 }
 
@@ -72,6 +74,7 @@ fn test_apply_snapshot() {
         maker_fee_override_multiplier: 0.9,
         taker_fee_override_multiplier: 1.1,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            triggers: vec![],
             subaccount_index: 0,
             sequence: 100,
             collateral: "1000".to_string(),
@@ -126,6 +129,7 @@ fn test_apply_delta_updates_position() {
         maker_fee_override_multiplier: 1.0,
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            triggers: vec![],
             subaccount_index: 0,
             sequence: 100,
             collateral: "1000".to_string(),
@@ -151,6 +155,7 @@ fn test_apply_delta_updates_position() {
     // Now apply a delta that updates the position
     let delta = TraderStateDelta {
         deltas: vec![TraderStateSubaccountDelta {
+            triggers: vec![],
             subaccount_index: 0,
             sequence: 101,
             collateral: "1050".to_string(),
@@ -199,6 +204,7 @@ fn test_apply_delta_closes_position() {
         maker_fee_override_multiplier: 1.0,
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            triggers: vec![],
             subaccount_index: 0,
             sequence: 100,
             collateral: "1000".to_string(),
@@ -226,6 +232,7 @@ fn test_apply_delta_closes_position() {
     // Apply delta that closes the position
     let delta = TraderStateDelta {
         deltas: vec![TraderStateSubaccountDelta {
+            triggers: vec![],
             subaccount_index: 0,
             sequence: 101,
             collateral: "1100".to_string(),
@@ -268,6 +275,7 @@ fn test_stale_delta_ignored() {
         maker_fee_override_multiplier: 1.0,
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            triggers: vec![],
             subaccount_index: 0,
             sequence: 100,
             collateral: "1000".to_string(),
@@ -290,6 +298,7 @@ fn test_stale_delta_ignored() {
     // Try to apply a stale delta with sequence 99
     let delta = TraderStateDelta {
         deltas: vec![TraderStateSubaccountDelta {
+            triggers: vec![],
             subaccount_index: 0,
             sequence: 99, // Stale!
             collateral: "999".to_string(),
@@ -330,6 +339,7 @@ fn test_multiple_subaccounts() {
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![
             TraderStateSubaccountSnapshot {
+                triggers: vec![],
                 subaccount_index: 0,
                 sequence: 100,
                 collateral: "1000".to_string(),
@@ -341,6 +351,7 @@ fn test_multiple_subaccounts() {
                 splines: vec![],
             },
             TraderStateSubaccountSnapshot {
+                triggers: vec![],
                 subaccount_index: 1,
                 sequence: 50,
                 collateral: "500".to_string(),
@@ -383,6 +394,7 @@ fn test_cooldown_status_snapshot_and_delta() {
         maker_fee_override_multiplier: 1.0,
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            triggers: vec![],
             subaccount_index: 0,
             sequence: 100,
             collateral: "1000".to_string(),
@@ -413,6 +425,7 @@ fn test_cooldown_status_snapshot_and_delta() {
     // Missing cooldown_status in delta should preserve existing value.
     let delta_preserve = TraderStateDelta {
         deltas: vec![TraderStateSubaccountDelta {
+            triggers: vec![],
             subaccount_index: 0,
             sequence: 101,
             collateral: "1100".to_string(),
@@ -441,6 +454,7 @@ fn test_cooldown_status_snapshot_and_delta() {
     // Present cooldown_status in delta should replace existing value.
     let delta_update = TraderStateDelta {
         deltas: vec![TraderStateSubaccountDelta {
+            triggers: vec![],
             subaccount_index: 0,
             sequence: 102,
             collateral: "1200".to_string(),
@@ -504,6 +518,7 @@ fn trader_state_cache_preserves_triggers_and_conditional_order_metadata() {
         maker_fee_override_multiplier: 1.0,
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            triggers: vec![],
             subaccount_index: 0,
             sequence: 100,
             collateral: "1000".to_string(),
@@ -564,6 +579,7 @@ fn isolated_subaccount_selection_is_deterministic() {
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![
             TraderStateSubaccountSnapshot {
+                triggers: vec![],
                 subaccount_index: 5,
                 sequence: 100,
                 collateral: "10".to_string(),
@@ -578,6 +594,7 @@ fn isolated_subaccount_selection_is_deterministic() {
                 splines: vec![],
             },
             TraderStateSubaccountSnapshot {
+                triggers: vec![],
                 subaccount_index: 2,
                 sequence: 100,
                 collateral: "10".to_string(),
@@ -592,6 +609,7 @@ fn isolated_subaccount_selection_is_deterministic() {
                 splines: vec![],
             },
             TraderStateSubaccountSnapshot {
+                triggers: vec![],
                 subaccount_index: 4,
                 sequence: 100,
                 collateral: "500".to_string(),
@@ -628,6 +646,7 @@ fn isolated_empty_subaccount_ties_choose_lowest_index() {
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![
             TraderStateSubaccountSnapshot {
+                triggers: vec![],
                 subaccount_index: 7,
                 sequence: 100,
                 collateral: "500".to_string(),
@@ -639,6 +658,7 @@ fn isolated_empty_subaccount_ties_choose_lowest_index() {
                 splines: vec![],
             },
             TraderStateSubaccountSnapshot {
+                triggers: vec![],
                 subaccount_index: 4,
                 sequence: 100,
                 collateral: "500".to_string(),
@@ -681,6 +701,8 @@ fn trader_position_conversion_preserves_sequence_and_accumulated_funding() {
         accumulated_funding_quote_lots: row.accumulated_funding_quote_lots.parse().unwrap(),
         take_profit_triggers: vec![],
         stop_loss_triggers: vec![],
+        conditional_take_profit_triggers: vec![],
+        conditional_stop_loss_triggers: vec![],
     };
 
     let margin_position = position.to_trader_position();
@@ -688,5 +710,118 @@ fn trader_position_conversion_preserves_sequence_and_accumulated_funding() {
     assert_eq!(
         SignedQuoteLots::from(margin_position.accumulated_funding_for_active_position).as_inner(),
         -456
+    );
+}
+
+#[test]
+fn advanced_triggers_survive_wire_decoding_and_cache_updates() {
+    use serde_json::json;
+    let key = TraderKey::new(Pubkey::new_unique());
+    let mut trader = Trader::new(key.clone());
+    let trigger = json!({
+        "triggerPriceTicks": "1400", "executionPriceTicks": "1390",
+        "side": "ask", "kind": "ioc", "attachedOrderSequenceNumber": "18446744073709551615",
+        "maxSizeLots": "100", "fillableSizeLots": "75", "filledSizeLots": "25",
+        "usePercent": true, "percent": 50
+    });
+    let rows = json!({
+        "takeProfitTriggers": [], "stopLossTriggers": [],
+        "conditionalTakeProfitTriggers": [{"conditionalTakeProfitId": "ctp-1", "trigger": trigger, "status": "open"}],
+        "conditionalStopLossTriggers": [{"conditionalStopLossId": "csl-1", "trigger": trigger, "status": "open"}]
+    });
+    let mut position = serde_json::to_value(make_position_row(100, "150.25")).unwrap();
+    position
+        .as_object_mut()
+        .unwrap()
+        .extend(rows.as_object().unwrap().clone());
+    position["symbol"] = json!("SOL");
+    let mut canonical = rows.clone();
+    canonical["symbol"] = json!("BTC"); // Triggers can exist without a position.
+    let snapshot = json!({
+        "authority": key.authority_string(), "traderPdaIndex": 0, "slot": 1,
+        "messageType": "snapshot", "version": 1, "capabilities": make_capabilities(),
+        "makerFeeOverrideMultiplier": 1.0, "takerFeeOverrideMultiplier": 1.0,
+        "subaccounts": [{"subaccountIndex": 0, "sequence": 1, "collateral": "0",
+            "positions": [position], "triggers": [canonical]}]
+    });
+    let message: TraderStateServerMessage = serde_json::from_value(snapshot).unwrap();
+    trader.apply_update(&message);
+    let sub = trader.subaccount(0).unwrap();
+    let pos = &sub.positions["SOL"];
+    assert_eq!(
+        serde_json::to_value(&pos.conditional_take_profit_triggers).unwrap(),
+        rows["conditionalTakeProfitTriggers"]
+    );
+    assert_eq!(
+        serde_json::to_value(&pos.conditional_stop_loss_triggers).unwrap(),
+        rows["conditionalStopLossTriggers"]
+    );
+    assert_eq!(serde_json::to_value(&sub.triggers["BTC"]).unwrap(), rows);
+    assert!(!sub.positions.contains_key("BTC"));
+
+    let delta = |sequence, changes| {
+        serde_json::from_value::<TraderStateServerMessage>(json!({
+            "authority": key.authority_string(), "traderPdaIndex": 0, "slot": sequence,
+            "messageType": "delta", "deltas": [{"subaccountIndex": 0, "sequence": sequence,
+                "collateral": "0", "triggers": changes}]
+        }))
+        .unwrap()
+    };
+    trader.apply_update(&delta(2, json!([])));
+    assert!(trader.subaccount(0).unwrap().triggers.contains_key("BTC"));
+    let mut updated = rows.clone();
+    updated["conditionalStopLossTriggers"][0]["trigger"]["fillableSizeLots"] = json!("50");
+    updated["conditionalTakeProfitTriggers"][0]["trigger"]
+        .as_object_mut()
+        .unwrap()
+        .remove("attachedOrderSequenceNumber");
+    trader.apply_update(&delta(
+        3,
+        json!([{"symbol": "BTC", "change": "updated", "triggers": updated}]),
+    ));
+    assert_eq!(
+        serde_json::to_value(&trader.subaccount(0).unwrap().triggers["BTC"]).unwrap(),
+        updated
+    );
+    trader.apply_update(&delta(2, json!([{"symbol": "BTC", "change": "closed"}])));
+    assert!(trader.subaccount(0).unwrap().triggers.contains_key("BTC"));
+    trader.apply_update(&delta(4, json!([{"symbol": "BTC", "change": "closed"}])));
+    assert!(trader.subaccount(0).unwrap().triggers.is_empty());
+
+    // Position compatibility fields are replaced by position deltas too.
+    let mut position_update = serde_json::to_value(delta(5, json!([]))).unwrap();
+    position_update["deltas"][0]["positions"] = json!([{
+        "symbol": "SOL", "change": "updated", "position": make_position_row(50, "150.25")
+    }]);
+    trader.apply_update(&serde_json::from_value(position_update).unwrap());
+    let pos = &trader.subaccount(0).unwrap().positions["SOL"];
+    assert!(pos.conditional_take_profit_triggers.is_empty());
+    assert!(pos.conditional_stop_loss_triggers.is_empty());
+    trader.apply_update(&message);
+    assert!(!trader.subaccount(0).unwrap().triggers.is_empty());
+
+    // A replacement snapshot lacking the new optional fields clears old state.
+    let mut legacy = serde_json::to_value(message).unwrap();
+    legacy["subaccounts"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("triggers");
+    let row = legacy["subaccounts"][0]["positions"][0]
+        .as_object_mut()
+        .unwrap();
+    row.remove("conditionalTakeProfitTriggers");
+    row.remove("conditionalStopLossTriggers");
+    trader.apply_update(&serde_json::from_value(legacy).unwrap());
+    let sub = trader.subaccount(0).unwrap();
+    assert!(sub.triggers.is_empty());
+    assert!(
+        sub.positions["SOL"]
+            .conditional_take_profit_triggers
+            .is_empty()
+    );
+    assert!(
+        sub.positions["SOL"]
+            .conditional_stop_loss_triggers
+            .is_empty()
     );
 }

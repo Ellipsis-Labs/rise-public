@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.5 - 2026-09-22
+
+Source Phoenix commit: `084d5bebe3936d01d73cd183e65c9126c4aa0ea6`
+
+### Summary
+
+- Adds canonical trigger tracking (`triggers`) to trader-state subaccounts, keyed by market symbol, covering markets that have triggers configured but no open position.
+- Introduces new `sdk`/`types` trigger types: `TraderStateConditionalTrigger`, `TraderStateConditionalTakeProfitTrigger`, `TraderStateConditionalStopLossTrigger`, `TraderStateTriggerRow`, `TraderStateTriggerSnapshot`, and `TraderStateTriggerDelta`, exposing attached order sequence number, max/fillable/filled size in lots, and percent-based sizing for advanced conditional TP/SL.
+- `Position` and `TraderStatePositionRow` gain `conditional_take_profit_triggers` / `conditional_stop_loss_triggers` fields alongside the existing legacy TP/SL trigger fields, for compatibility on position rows.
+- `cli` `ws` command now prints per-market trigger rows in both JSON and human output.
+- Shared Rust release version bump across `sdk`, `api`, `core`, `ix`, `math`, `types`, `accounts`, `events`, `cli`, and `litesvm-test` components: `0.6.4` -> `0.6.5`.
+
+### Breaking Changes
+
+- `Position`, `TraderStatePositionRow`, `TraderStateSubaccountSnapshot`, and `TraderStateSubaccountDelta` each gain new public fields (`conditional_take_profit_triggers`, `conditional_stop_loss_triggers`, and/or `triggers`). Any consumer constructing these structs directly via struct literals (rather than via provided constructors/deserialization) must add the new fields to compile.
+- On the wire, missing `triggers`/conditional trigger fields on incoming snapshot/delta/position payloads default to empty, so existing deserialization is not broken; this only affects direct struct construction in Rust code.
+
+### Consumer Notes
+
+- New trigger fields deserialize with `#[serde(default)]`, so older server payloads without `triggers` or conditional trigger arrays continue to decode fine, with those collections defaulting to empty.
+- `SubaccountState::triggers` is a `HashMap<String, TraderStateTriggerRow>`; snapshots fully replace this map, while deltas use `TraderStateRowChangeKind::Updated`/`Closed` to update or remove individual market entries — apply the same replace/patch semantics you already use for positions and splines.
+- Position-level `conditional_take_profit_triggers`/`conditional_stop_loss_triggers` are compatibility fields returned alongside the canonical `triggers` map; prefer the canonical map for markets that may have triggers without an open position.
+
 ## v0.6.4 - 2026-09-22
 
 Source Phoenix commit: `b1a3b8f6bfce1a9e6fb77465d77dc82b3879e065`
