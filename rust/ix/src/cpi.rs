@@ -3177,6 +3177,7 @@ pub mod hawkeye {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use solana_pubkey::Pubkey;
 

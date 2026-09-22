@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use std::collections::BTreeMap;
 
 /// Build all shared instruction builders and output JSON with hex-encoded data.

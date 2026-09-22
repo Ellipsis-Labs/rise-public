@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.4 - 2026-09-22
+
+Source Phoenix commit: `b1a3b8f6bfce1a9e6fb77465d77dc82b3879e065`
+
+### Summary
+
+- 0.6.4 deprecates the legacy stop-loss instruction/API flow across the shared Rust workspace (`sdk`, `api`, `ix`, `core`, `cli`, `types`) in favor of conditional orders.
+- `PhoenixHttpClient`/`OrdersClient` `place_stop_loss_order` and `cancel_stop_loss_order`, the `ix` crate's `create_place_stop_loss_ix`/`create_cancel_stop_loss_ix`, and `PhoenixTxBuilder::build_stop_loss_orders`/`build_cancel_bracket_leg`/`build_cancel_bracket_leg_from_account` are now marked `#[deprecated]`; use the conditional-order builders (`create_place_position_conditional_order_ix`, `create_cancel_conditional_order_ix`, `place_position_bracket_order`) instead.
+- `BracketLegOrders::to_tp_sl_config` / `try_to_tp_sl_config` / `try_to_tp_sl_config_for_side` are deprecated in favor of `place_position_bracket_order` or the `*_with_conditionals` requests.
+- `types::TpSlOrderConfig`, `PlaceStopLossOrderRequest`, `CancelStopLossOrderRequest`, and the `tp_sl` field on the isolated order request types are now documented as deprecated, pointing to the conditional-order request types.
+- CLI `trade place-stop-loss` / `trade cancel-stop-loss` subcommands are documented as deprecated; no behavior change.
+
+### Breaking Changes
+
+- None identified in the synced diff. All changes are additive `#[deprecated]`/doc annotations; existing signatures, fields, and wire formats are unchanged.
+
+### Consumer Notes
+
+- Existing calls to the stop-loss APIs continue to work but will now emit Rust deprecation warnings; add `#[allow(deprecated)]` at call sites if you need to silence these before migrating.
+- Migrate to the conditional-order flow: `buildPlacePositionConditionalOrder`/`buildCancelConditionalOrder` (or `place_position_conditional_order`/`cancel_conditional_order` in Rust), and prefer `place_position_bracket_order` or the `*_with_conditionals` request variants over `TpSlOrderConfig`.
+- No functional or wire-format changes in this release — safe to bump the dependency without code changes, though you should plan the deprecated-API migration before the legacy stop-loss path is removed in a future release.
+
 ## v0.6.3 - 2026-09-22
 
 Source Phoenix commit: `43aba601e5ce668b168aff936d48a55aafa81985`
