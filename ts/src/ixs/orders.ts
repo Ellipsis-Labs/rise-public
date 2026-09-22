@@ -233,6 +233,7 @@ export const buildUncrossCrankIxResolved = (
       params.matchLimit === undefined ? 100n : BigInt(params.matchLimit),
   });
 
+/** @deprecated Legacy stop-loss instruction. Use `buildPlacePositionConditionalOrderIx`. */
 export const buildPlaceStopLossIxResolved = (
   params: BuildPlaceStopLossIxResolvedInput
 ): PlaceStopLossIx =>

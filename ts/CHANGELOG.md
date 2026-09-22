@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.28 - 2026-09-22
+
+Source Phoenix commit: `b1a3b8f6bfce1a9e6fb77465d77dc82b3879e065`
+
+### Summary
+
+- Marked the legacy stop-loss API surface as `@deprecated` in favor of the newer conditional-order APIs, with no change to runtime behavior.
+- Deprecated items span the `V1OrdersClient` (`placeStopLossOrder`, `cancelStopLossOrder`), request/config types (`TpSlOrderConfig`, `PlaceStopLossOrderRequest`, `CancelStopLossOrderRequest`, the `tpSl` field on isolated limit/market order requests), instruction builders (`buildPlaceStopLoss`, `buildCancelStopLoss`, `buildPlaceStopLossIx`, `buildCancelStopLossIx`, their resolved variants), and the `PhoenixIxClient` interface methods `buildCancelStopLoss` / `buildPlaceStopLoss`.
+- Each deprecation notice points to its conditional-order replacement (e.g. `placePositionConditionalOrder`, `cancelConditionalOrder`, `greaterTrigger`/`lessTrigger`).
+- Package version bumped to `0.5.28`.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- No runtime or type-shape changes — this release only adds `@deprecated` JSDoc annotations, which may surface new editor/IDE warnings or lint errors (e.g. `no-deprecated`) if you use the legacy stop-loss APIs.
+- Plan a migration to the conditional-order APIs referenced in each deprecation notice, as the legacy stop-loss surface is expected to be removed in a future release.
+
 ## v0.5.27 - 2026-09-22
 
 Source Phoenix commit: `43aba601e5ce668b168aff936d48a55aafa81985`
