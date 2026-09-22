@@ -27,6 +27,7 @@ import type {
   ResolvedSyncParentToChildIxInput,
 } from "./types";
 
+/** @deprecated Legacy stop-loss instruction. Use `buildCancelConditionalOrderIx`. */
 export const buildCancelStopLossIxResolved = (
   params: ResolvedCancelStopLossIxInput
 ): CancelStopLossIx =>

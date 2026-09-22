@@ -679,6 +679,7 @@ export interface PhoenixIxClient {
   ): Promise<CancelOrdersByIdIx>;
   buildCancelUpTo(params: ClientCancelUpToInput): Promise<CancelUpToIx>;
   buildUncrossCrank(params: ClientUncrossCrankInput): Promise<UncrossCrankIx>;
+  /** @deprecated Legacy stop-loss account. Use the top-level `buildCancelConditionalOrder`. */
   buildCancelStopLoss(
     params: ClientCancelStopLossInput
   ): Promise<CancelStopLossIx>;
@@ -740,6 +741,7 @@ export interface PhoenixIxClient {
   ): Promise<TransferCollateralChildToParentIx>;
   buildEmberDeposit(params: ClientDepositInput): Promise<EmberDepositIx>;
   buildEmberWithdraw(params: ClientWithdrawInput): Promise<EmberWithdrawIx>;
+  /** @deprecated Legacy stop-loss account. Use {@link buildPlacePositionConditionalOrder}. */
   buildPlaceStopLoss(
     params: ClientPlaceStopLossInput
   ): Promise<PlaceStopLossIx>;

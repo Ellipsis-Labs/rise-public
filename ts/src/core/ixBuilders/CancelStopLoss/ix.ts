@@ -14,6 +14,7 @@ import type {
   CancelStopLossParams,
 } from "./types";
 
+/** @deprecated Legacy stop-loss instruction. Use `buildCancelConditionalOrderIx`. */
 export const buildCancelStopLossIx = (
   params: CancelStopLossParams
 ): CancelStopLossIx => {
