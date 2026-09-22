@@ -567,6 +567,7 @@ const spotCollateralValueAtTicks = (
   let total = 0n;
   const priceQuoteLotsPerBaseLot = ticks * tickSize;
   for (const spot of spotCollaterals) {
+    if (toBigInt(spot.balance) === 0n) continue;
     if (spot.pricingMarketSymbol === targetMarketSymbol) {
       const nativeUnitsPerBaseLot = toBigInt(spot.nativeUnitsPerBaseLot);
       if (nativeUnitsPerBaseLot === 0n) {
