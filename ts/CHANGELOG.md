@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.27 - 2026-09-22
+
+Source Phoenix commit: `43aba601e5ce668b168aff936d48a55aafa81985`
+
+### Summary
+
+- Spot collateral valuation now requires an index price whenever the collateral balance is nonzero, and no longer falls back to the pricing market's mark price.
+- Zero-balance spot collateral entries are now valued as zero directly, without requiring matching market params or an index price.
+- Liquidation price calculations skip zero-balance spot collateral entries entirely.
+
+### Breaking Changes
+
+- `valueSpotCollateral` (via `computeSubaccountMarginFromInputs`) now throws `Missing index price for spot collateral <symbol>` when a nonzero-balance spot collateral has no `indexPriceTicks` and no matching market's `indexPriceTicks`. Previously this silently fell back to the market's mark price. Consumers passing spot collateral without `indexPriceTicks` must now supply one whenever the balance can be nonzero.
+- `SpotCollateralMarginInput.indexPriceTicks` no longer defaults to the pricing market's mark price; its doc comment now states a nonzero balance without an index price fails valuation.
+
+### Consumer Notes
+
+- If you rely on mark-price fallback for spot collateral valuation, switch to explicitly passing `indexPriceTicks` (or ensure the market params include `indexPriceTicks`) before upgrading.
+- Zero-balance spot collateral entries can now be passed without `indexPriceTicks` or matching market params — useful for representing "no position" placeholders without extra guarding logic.
+
 ## v0.5.26 - 2026-09-18
 
 Source Phoenix commit: `0068e7b92afaceb98ab8a55f88f2909f1bcfabdf`
