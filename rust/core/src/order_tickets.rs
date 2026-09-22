@@ -635,6 +635,11 @@ impl BracketLegOrders {
     /// This is a lossy, infallible conversion for callers that already know
     /// the shared server-side order kind is representable. Prefer the `try_*`
     /// variants when converting bracket defaults.
+    #[deprecated(
+        since = "0.6.4",
+        note = "legacy tp_sl request config; use place_position_bracket_order or the \
+                *_with_conditionals requests"
+    )]
     pub fn to_tp_sl_config(&self) -> TpSlOrderConfig {
         TpSlOrderConfig {
             take_profit_trigger_price: self.take_profit.as_ref().map(|leg| leg.price),
@@ -662,6 +667,11 @@ impl BracketLegOrders {
     /// a shared TP/SL size model. IOC default/slippage-based execution prices
     /// require the primary order side and are rejected here; use
     /// [`Self::try_to_tp_sl_config_for_side`] instead.
+    #[deprecated(
+        since = "0.6.4",
+        note = "legacy tp_sl request config; use place_position_bracket_order or the \
+                *_with_conditionals requests"
+    )]
     pub fn try_to_tp_sl_config(&self) -> Result<TpSlOrderConfig, String> {
         if self.has_explicit_sizes() {
             return Err(
@@ -698,6 +708,11 @@ impl BracketLegOrders {
     /// prices from the primary order side. Server-side TP/SL config supports
     /// one shared order kind, so mixed defaults (TP limit, SL IOC) are rejected
     /// here instead of being silently downgraded.
+    #[deprecated(
+        since = "0.6.4",
+        note = "legacy tp_sl request config; use place_position_bracket_order or the \
+                *_with_conditionals requests"
+    )]
     pub fn try_to_tp_sl_config_for_side(
         &self,
         primary_side: Side,

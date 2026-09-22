@@ -21,6 +21,10 @@ pub struct ApiInstructionResponse {
 }
 
 /// TP/SL configuration shared across isolated order endpoints.
+///
+/// Deprecated: legacy stop-loss flow. Prefer conditional orders
+/// (`PlacePositionConditionalOrderRequest`, `CancelConditionalOrderRequest`,
+/// or the `*_with_conditionals` requests).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TpSlOrderConfig {
@@ -49,6 +53,10 @@ pub struct TpSlOrderConfig {
 }
 
 /// Request payload for `/v1/ix/place-stop-loss-order`.
+///
+/// Deprecated: legacy stop-loss flow. Prefer conditional orders
+/// (`PlacePositionConditionalOrderRequest`, `CancelConditionalOrderRequest`,
+/// or the `*_with_conditionals` requests).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaceStopLossOrderRequest {
@@ -81,6 +89,11 @@ pub enum StopLossExecutionDirection {
 }
 
 /// Request payload for `/v1/ix/cancel-stop-loss-order`.
+/// Request payload for `/v1/ix/cancel-stop-loss-order`.
+///
+/// Deprecated: legacy stop-loss flow. Prefer conditional orders
+/// (`PlacePositionConditionalOrderRequest`, `CancelConditionalOrderRequest`,
+/// or the `*_with_conditionals` requests).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelStopLossOrderRequest {
@@ -229,6 +242,8 @@ pub struct PlaceIsolatedLimitOrderRequest {
     pub flight_builder_authority: Option<String>,
     #[serde(default)]
     pub flight_fee_collector_trader: Option<String>,
+    /// Deprecated: legacy stop-loss protection. Prefer `greater_trigger` /
+    /// `less_trigger` or the `*_with_conditionals` requests.
     #[serde(default)]
     pub tp_sl: Option<TpSlOrderConfig>,
 }
@@ -315,6 +330,8 @@ pub struct PlaceIsolatedMarketOrderRequest {
     pub flight_builder_authority: Option<String>,
     #[serde(default)]
     pub flight_fee_collector_trader: Option<String>,
+    /// Deprecated: legacy stop-loss protection. Prefer `greater_trigger` /
+    /// `less_trigger` or the `*_with_conditionals` requests.
     #[serde(default)]
     pub tp_sl: Option<TpSlOrderConfig>,
 }
@@ -357,6 +374,8 @@ pub struct PlaceIsolatedMarketOrderV2Request {
     pub flight_builder_authority: Option<String>,
     #[serde(default)]
     pub flight_fee_collector_trader: Option<String>,
+    /// Deprecated: legacy stop-loss protection. Prefer `greater_trigger` /
+    /// `less_trigger` or the `*_with_conditionals` requests.
     #[serde(default)]
     pub tp_sl: Option<TpSlOrderConfig>,
     /// Trigger when price exceeds the threshold. Requires sizePercent: 100;

@@ -31,6 +31,7 @@ use solana_transaction::Transaction;
 const RPC_ENDPOINT: &str = "https://api.mainnet-beta.solana.com";
 
 #[tokio::main]
+#[allow(deprecated)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
 

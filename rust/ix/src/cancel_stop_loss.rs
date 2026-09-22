@@ -113,6 +113,10 @@ impl CancelStopLossParamsBuilder {
 }
 
 /// Create a cancel stop loss instruction.
+#[deprecated(
+    since = "0.6.4",
+    note = "legacy stop-loss account; use conditional_order::create_cancel_conditional_order_ix"
+)]
 pub fn create_cancel_stop_loss_ix(
     params: CancelStopLossParams,
 ) -> Result<Instruction, PhoenixIxError> {
@@ -158,6 +162,7 @@ fn build_accounts(params: &CancelStopLossParams) -> Result<Vec<AccountMeta>, Pho
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
 
