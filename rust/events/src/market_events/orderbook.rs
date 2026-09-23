@@ -91,8 +91,8 @@ pub struct OrderRejectedEvent {
 }
 impl OrderRejectedEvent {
     pub fn reason_str(&self) -> String {
-        // Reasons are stored in a fixed-width buffer padded with NUL bytes; slice up to
-        // the first padding byte
+        // Reasons are stored in a fixed-width buffer padded with NUL bytes;
+        // slice up to the first padding byte
         let len = self
             .reason
             .iter()

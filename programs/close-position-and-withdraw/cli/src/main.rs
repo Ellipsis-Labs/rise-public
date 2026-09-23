@@ -405,7 +405,7 @@ impl Config {
                     args.common.trader_pda_index,
                     args.common.trader_subaccount_index,
                     Command::Close {
-                        symbol: args.symbol.to_ascii_uppercase(),
+                        symbol: args.symbol,
                         use_builders: args.use_builders,
                     },
                 ),

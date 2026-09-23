@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.6 - 2026-09-23
+
+Source Phoenix commit: `fb668c205addd8ab46faf23f335c4e092d2340c1`
+
+### Summary
+
+- Market symbol handling across `api`, `sdk`, `cli`, and `types` moved from forcing all symbols to uppercase to resolving/preserving the exchange's actual canonical casing (motivated by mixed-case markets like `kBONK`). `ExchangeView::get_market` and `PhoenixMetadata` now do exact-match-then-case-insensitive-fallback lookups, and the HTTP client gained an async canonical-symbol resolver used by the `candles`, `funding`, and `markets` routes.
+- WebSocket subscription routing (`SubscriptionKey::routing_key`, `ws_client`) now de-dupes case-insensitively while preserving the requested/canonical case in wire payloads (e.g. `marketStatsV2`, legacy market-stats events) instead of always uppercasing.
+- CLI commands (`api`, `export`, `ws`, `trade`, `rpc`) no longer uppercase symbol arguments locally; symbols pass through as typed and are resolved against exchange metadata instead.
+- Combined patch bump to `0.6.6` across `math`, `ix`, `core`, `events`, `litesvm-test`, and `sdk`/`api` components; these otherwise only received comment/formatting cleanups, no functional API changes.
+
+### Breaking Changes
+
+- Code relying on the SDK always uppercasing symbols (e.g. passing `"sol"` and getting back `"SOL"` in REST paths, WS payloads, or `PhoenixMetadata`/`ExchangeView` lookups) will now see the exchange's real canonical case instead.
+- Case-insensitive symbol resolution is no longer guaranteed to succeed: if a symbol matches multiple entries case-insensitively (ambiguous casing) in the exchange market list, `ExchangeView::get_market` and the HTTP client's canonical resolution now return `None`/leave the symbol unresolved rather than always matching an uppercase form.
+- `PhoenixSubscription::market`, `SubscriptionKey::market`/`market_stats_v2`, and CLI symbol arguments no longer normalize case before use — consumers that depended on implicit uppercasing must canonicalize symbols themselves or rely on the new resolution helpers.
+
+### Consumer Notes
+
+- If all your market symbols are already uppercase-only, behavior is effectively unchanged.
+- Prefer resolving symbols via `PhoenixMetadata::get_market`/`ExchangeView::get_market` or the HTTP client's canonical-symbol resolution rather than assuming a fixed case convention.
+- No published crate's MSRV, edition, or public struct/enum shape changed in this release; the `rust-version`/`edition` bump under `programs/close-position-and-withdraw` is an internal example program, not part of the published `phoenix-rise` crates.
+
 ## v0.6.5 - 2026-09-22
 
 Source Phoenix commit: `084d5bebe3936d01d73cd183e65c9126c4aa0ea6`

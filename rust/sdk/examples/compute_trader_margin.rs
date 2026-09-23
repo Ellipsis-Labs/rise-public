@@ -146,8 +146,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("[2/5] Preparing market metadata...");
 
     // Build PhoenixMetadata with cached calculators for all markets
-    // Note: PerpAssetMetadata will be populated once we receive mark prices from
-    // WebSocket
+    // Note: PerpAssetMetadata will be populated once we receive mark prices
+    // from WebSocket
     let mut metadata = PhoenixMetadata::new(exchange);
 
     println!(

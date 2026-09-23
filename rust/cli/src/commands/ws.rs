@@ -226,8 +226,7 @@ pub async fn run(cmd: WsCommand, ctx: &CommandCtx) -> Result<(), Box<dyn Error>>
             print_json(&ServerMessage::AllMids(message), ctx.output)?;
         }
         WsCommand::FundingRate { symbol, listen } => {
-            let (mut rx, _handle) =
-                client.subscribe_to_funding_rate(symbol.to_ascii_uppercase())?;
+            let (mut rx, _handle) = client.subscribe_to_funding_rate(symbol)?;
             let (message, _) = recv_last_or_timeout(&mut rx, &listen, "fundingRate").await?;
             print_json(&ServerMessage::FundingRate(message), ctx.output)?;
         }
@@ -236,20 +235,18 @@ pub async fn run(cmd: WsCommand, ctx: &CommandCtx) -> Result<(), Box<dyn Error>>
             bypass_execution_band,
             listen,
         } => {
-            let (mut rx, _handle) = client.subscribe_to_orderbook_with_options(
-                symbol.to_ascii_uppercase(),
-                bypass_execution_band,
-            )?;
+            let (mut rx, _handle) =
+                client.subscribe_to_orderbook_with_options(symbol, bypass_execution_band)?;
             let (message, _) = recv_last_or_timeout(&mut rx, &listen, "orderbook").await?;
             print_json(&ServerMessage::Orderbook(message), ctx.output)?;
         }
         WsCommand::Market { symbol, listen } => {
-            let (mut rx, _handle) = client.subscribe_to_market(symbol.to_ascii_uppercase())?;
+            let (mut rx, _handle) = client.subscribe_to_market(symbol)?;
             let (message, _) = recv_last_or_timeout(&mut rx, &listen, "market").await?;
             print_json(&ServerMessage::Market(message), ctx.output)?;
         }
         WsCommand::Trades { symbol, listen } => {
-            let (mut rx, _handle) = client.subscribe_to_trades(symbol.to_ascii_uppercase())?;
+            let (mut rx, _handle) = client.subscribe_to_trades(symbol)?;
             let (message, _) = recv_last_or_timeout(&mut rx, &listen, "trades").await?;
             print_json(&ServerMessage::Trades(message), ctx.output)?;
         }
@@ -260,8 +257,7 @@ pub async fn run(cmd: WsCommand, ctx: &CommandCtx) -> Result<(), Box<dyn Error>>
         } => {
             let timeframe = Timeframe::from_str(&timeframe)
                 .map_err(|e| format!("invalid timeframe '{timeframe}': {e}"))?;
-            let (mut rx, _handle) =
-                client.subscribe_to_candles(symbol.to_ascii_uppercase(), timeframe)?;
+            let (mut rx, _handle) = client.subscribe_to_candles(symbol, timeframe)?;
             let (message, _) = recv_last_or_timeout(&mut rx, &listen, "candles").await?;
             print_json(&ServerMessage::Candles(message), ctx.output)?;
         }

@@ -1186,8 +1186,8 @@ impl<'a> PhoenixTxBuilder<'a> {
         let create_phoenix_ata_ix =
             create_associated_token_account_idempotent_ix(authority, authority, canonical_mint)?;
 
-        // 2. SPL Token Approve instruction (delegate Ember state to spend Phoenix
-        //    tokens)
+        // 2. SPL Token Approve instruction (delegate Ember state to spend
+        //    Phoenix tokens)
         let approve_params = SplApproveParams::builder()
             .source(trader_phoenix_ata)
             .delegate(get_ember_state_address()?)
@@ -2136,7 +2136,7 @@ impl<'a> PhoenixTxBuilder<'a> {
     fn reject_isolated_only(&self, symbol: &str) -> Result<(), PhoenixTxBuilderError> {
         if self.metadata.is_isolated_only(symbol) {
             return Err(PhoenixTxBuilderError::IsolatedOnlyMarket(
-                symbol.to_ascii_uppercase(),
+                symbol.to_string(),
             ));
         }
         Ok(())

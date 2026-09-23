@@ -341,13 +341,21 @@ fn decode_perp_asset(
     let address = parse_pubkey(perp_asset_map)?;
     let account = client.get_account(&address)?;
     let map = account_views::PerpAssetMap::try_from_account_bytes(&account.data)?;
-    let symbol = symbol.to_ascii_uppercase();
-    let entry = map
-        .find_by_symbol(&symbol)?
+    let mut entry = map.find_by_symbol(symbol)?;
+    if entry.is_none() {
+        for candidate in map.iter() {
+            let candidate = candidate?;
+            if candidate.symbol.as_str().eq_ignore_ascii_case(symbol) {
+                entry = Some(candidate);
+                break;
+            }
+        }
+    }
+    let entry = entry
         .ok_or_else(|| format!("symbol {symbol} not found in PerpAssetMap account {address}"))?;
     let response = PerpAssetMetadataOutput {
         perp_asset_map: address.to_string(),
-        symbol,
+        symbol: entry.symbol.as_str().to_string(),
         metadata: entry.metadata,
     };
     print_json(&response, ctx.output)

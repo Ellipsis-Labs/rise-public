@@ -39,6 +39,33 @@ pub enum SubscriptionKey {
 }
 
 impl SubscriptionKey {
+    pub(crate) fn routing_key(&self) -> Self {
+        match self {
+            Self::FundingRate { symbol } => Self::funding_rate(symbol.to_ascii_lowercase()),
+            Self::Orderbook {
+                symbol,
+                bypass_execution_band,
+            } => Self::orderbook_with_options(symbol.to_ascii_lowercase(), *bypass_execution_band),
+            Self::Market { symbol } => Self::market(symbol.to_ascii_lowercase()),
+            Self::Trades { symbol } => Self::trades(symbol.to_ascii_lowercase()),
+            Self::Candles { symbol, timeframe } => {
+                Self::candles(symbol.to_ascii_lowercase(), *timeframe)
+            }
+            Self::MarketStatsV2 { symbols } => Self::MarketStatsV2 {
+                symbols: symbols.as_ref().map(|symbols| {
+                    let mut symbols = symbols
+                        .iter()
+                        .map(|symbol| symbol.to_ascii_lowercase())
+                        .collect::<Vec<_>>();
+                    symbols.sort_unstable();
+                    symbols.dedup();
+                    symbols
+                }),
+            },
+            _ => self.clone(),
+        }
+    }
+
     pub fn all_mids() -> Self {
         Self::AllMids
     }
@@ -98,7 +125,7 @@ impl SubscriptionKey {
     pub fn market_stats_v2(symbols: Option<Vec<String>>) -> Self {
         let symbols = symbols.map(|mut symbols| {
             for symbol in &mut symbols {
-                *symbol = symbol.trim().to_ascii_uppercase();
+                *symbol = symbol.trim().to_string();
             }
             symbols.sort_unstable();
             symbols.dedup();

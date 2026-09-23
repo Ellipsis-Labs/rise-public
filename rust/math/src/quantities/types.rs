@@ -652,7 +652,8 @@ mod basis_points_floor_tests {
             BasisPoints::new(0).apply_to_quote_lots(QuoteLots::new(u64::MAX)),
             Some(QuoteLots::new(0))
         );
-        // Constructors can carry unchecked values: final overflow stays an error.
+        // Constructors can carry unchecked values: final overflow stays an
+        // error.
         assert_eq!(
             BasisPoints::new(u64::MAX).apply_to_quote_lots(QuoteLots::new(u64::MAX)),
             None

@@ -3,6 +3,7 @@
 //! This module provides a client for making HTTP requests to the Phoenix API
 //! to fetch exchange configuration and market data.
 
+use std::collections::HashMap;
 use std::future::Future;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
@@ -297,6 +298,24 @@ fn monotonic_ms() -> u64 {
     u64::try_from(millis).unwrap_or(u64::MAX)
 }
 
+fn unique_market_symbol<'a>(
+    requested: &str,
+    symbols: impl IntoIterator<Item = &'a str>,
+) -> Option<&'a str> {
+    let mut matched = None;
+    let mut ambiguous = false;
+    for symbol in symbols {
+        if symbol == requested {
+            return Some(symbol);
+        }
+        if symbol.eq_ignore_ascii_case(requested) {
+            ambiguous |= matched.is_some();
+            matched = Some(symbol);
+        }
+    }
+    if ambiguous { None } else { matched }
+}
+
 /// Shared HTTP transport used by all resource sub-clients.
 #[derive(Clone)]
 pub(crate) struct HttpClientInner {
@@ -305,9 +324,35 @@ pub(crate) struct HttpClientInner {
     pub rate_limit_retry: RateLimitRetryConfig,
     pub rate_limit_cooldown_config: RateLimitCooldownConfig,
     rate_limit_cooldown: Arc<RateLimitCooldown>,
+    market_symbols: Arc<tokio::sync::RwLock<HashMap<String, String>>>,
 }
 
 impl HttpClientInner {
+    pub async fn canonical_market_symbol(&self, symbol: &str) -> String {
+        let key = symbol.to_string();
+        if let Some(canonical) = self.market_symbols.read().await.get(&key) {
+            return canonical.clone();
+        }
+
+        if let Ok(markets) = self
+            .get_json::<Vec<ExchangeMarketConfig>>("/v1/view/exchange/markets")
+            .await
+        {
+            if let Some(canonical) =
+                unique_market_symbol(symbol, markets.iter().map(|market| market.symbol.as_str()))
+            {
+                let canonical = canonical.to_string();
+                self.market_symbols
+                    .write()
+                    .await
+                    .insert(key, canonical.clone());
+                return canonical;
+            }
+        }
+
+        key
+    }
+
     pub async fn get_json<T: DeserializeOwned>(&self, path: &str) -> Result<T, PhoenixHttpError> {
         self.execute_with_rate_limit_retry(true, || self.transport.get_json_typed(path))
             .await
@@ -618,6 +663,7 @@ impl PhoenixHttpClientBuilder {
                 rate_limit_retry: self.rate_limit_retry,
                 rate_limit_cooldown_config,
                 rate_limit_cooldown: Arc::new(RateLimitCooldown::default()),
+                market_symbols: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
             },
         })
     }
@@ -1459,6 +1505,29 @@ mod tests {
     use reqwest::StatusCode;
 
     use super::*;
+
+    #[test]
+    fn market_symbol_resolution_uses_canonical_case() {
+        let symbols = ["SOL", "BTC", "kBONK"];
+        for (requested, expected) in [
+            ("sol", "SOL"),
+            ("Sol", "SOL"),
+            ("btc", "BTC"),
+            ("kBONK", "kBONK"),
+            ("kbonk", "kBONK"),
+            ("KBONK", "kBONK"),
+        ] {
+            assert_eq!(
+                unique_market_symbol(requested, symbols.iter().copied()),
+                Some(expected)
+            );
+        }
+        assert_eq!(unique_market_symbol("kbonk", ["kBONK", "KBONK"]), None);
+        assert_eq!(
+            unique_market_symbol("kBONK", ["KBONK", "kBONK"]),
+            Some("kBONK")
+        );
+    }
 
     #[test]
     fn test_client_creation() {

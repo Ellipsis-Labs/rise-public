@@ -219,7 +219,8 @@ fn build_accounts(params: &TransferCollateralParams) -> Vec<AccountMeta> {
     accounts.push(AccountMeta::readonly(*PHOENIX_PROGRAM_ID));
     // 2. PHOENIX_LOG_AUTHORITY (readonly)
     accounts.push(AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY));
-    // 3. global_configuration (readonly — differs from deposit which is writable)
+    // 3. global_configuration (readonly — differs from deposit which is
+    //    writable)
     accounts.push(AccountMeta::readonly(*PHOENIX_GLOBAL_CONFIGURATION));
     // 4. trader (readonly signer)
     accounts.push(AccountMeta::readonly_signer(params.trader()));

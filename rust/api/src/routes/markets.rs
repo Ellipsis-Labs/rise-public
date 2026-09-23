@@ -17,9 +17,9 @@ impl MarketsClient<'_> {
     }
 
     pub async fn get_market(&self, symbol: &str) -> Result<ExchangeMarketConfig, PhoenixHttpError> {
-        let symbol_upper = symbol.to_ascii_uppercase();
+        let symbol = self.http.canonical_market_symbol(symbol).await;
         self.http
-            .get_json(&format!("/v1/view/exchange/market/{}", symbol_upper))
+            .get_json(&format!("/v1/view/exchange/market/{}", symbol))
             .await
     }
 
@@ -33,10 +33,10 @@ impl MarketsClient<'_> {
             include_splines: bool,
         }
 
-        let symbol_upper = symbol.to_ascii_uppercase();
+        let symbol = self.http.canonical_market_symbol(symbol).await;
         self.http
             .get_json_with_query(
-                &format!("/v1/view/orderbook/{}", symbol_upper),
+                &format!("/v1/view/orderbook/{}", symbol),
                 &Query { include_splines },
             )
             .await
@@ -46,11 +46,11 @@ impl MarketsClient<'_> {
         &self,
         symbol: &str,
     ) -> Result<NextMarketCalendarTransition, PhoenixHttpError> {
-        let symbol_upper = symbol.to_ascii_uppercase();
+        let symbol = self.http.canonical_market_symbol(symbol).await;
         self.http
             .get_json(&format!(
                 "/v1/market/{}/next-market-calendar-transition",
-                symbol_upper
+                symbol
             ))
             .await
     }
@@ -67,9 +67,9 @@ impl MarketsClient<'_> {
         &self,
         symbol: &str,
     ) -> Result<MarketCalendarResponse, PhoenixHttpError> {
-        let symbol_upper = symbol.to_ascii_uppercase();
+        let symbol = self.http.canonical_market_symbol(symbol).await;
         self.http
-            .get_json(&format!("/v1/market/{}/market-calendar", symbol_upper))
+            .get_json(&format!("/v1/market/{}/market-calendar", symbol))
             .await
     }
 
@@ -83,9 +83,9 @@ impl MarketsClient<'_> {
         &self,
         symbol: &str,
     ) -> Result<MarkPriceResponse, PhoenixHttpError> {
-        let symbol_upper = symbol.to_ascii_uppercase();
+        let symbol = self.http.canonical_market_symbol(symbol).await;
         self.http
-            .get_json(&format!("/v1/market/{}/mark-price", symbol_upper))
+            .get_json(&format!("/v1/market/{}/mark-price", symbol))
             .await
     }
 }

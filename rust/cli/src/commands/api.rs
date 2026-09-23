@@ -218,10 +218,7 @@ async fn run_request(cmd: ApiCommand, ctx: &CommandCtx) -> Result<(), Box<dyn Er
         }
         ApiCommand::Markets => print_json(&client.get_markets().await?, ctx.output)?,
         ApiCommand::Market { symbol } => {
-            print_json(
-                &client.get_market(&symbol.to_ascii_uppercase()).await?,
-                ctx.output,
-            )?;
+            print_json(&client.get_market(&symbol).await?, ctx.output)?;
         }
         ApiCommand::Orderbook {
             symbol,
@@ -230,19 +227,13 @@ async fn run_request(cmd: ApiCommand, ctx: &CommandCtx) -> Result<(), Box<dyn Er
             print_json(
                 &client
                     .markets()
-                    .get_orderbook(&symbol.to_ascii_uppercase(), include_splines)
+                    .get_orderbook(&symbol, include_splines)
                     .await?,
                 ctx.output,
             )?;
         }
         ApiCommand::MarkPrice { symbol } => {
-            print_json(
-                &client
-                    .markets()
-                    .get_mark_price(&symbol.to_ascii_uppercase())
-                    .await?,
-                ctx.output,
-            )?;
+            print_json(&client.markets().get_mark_price(&symbol).await?, ctx.output)?;
         }
         ApiCommand::MarketCalendar { symbol } => {
             print_json(&client.get_market_calendar(&symbol).await?, ctx.output)?;
@@ -332,7 +323,7 @@ async fn run_request(cmd: ApiCommand, ctx: &CommandCtx) -> Result<(), Box<dyn Er
             let authority = parse_pubkey(&authority)?;
             let mut params = FundingHistoryQueryParams::new().with_pda_index(pda_index);
             if let Some(value) = symbol {
-                params = params.with_symbol(value.to_ascii_uppercase());
+                params = params.with_symbol(value);
             }
             if let Some(value) = start_time {
                 params = params.with_start_time(value);
@@ -361,7 +352,7 @@ async fn run_request(cmd: ApiCommand, ctx: &CommandCtx) -> Result<(), Box<dyn Er
             let authority = parse_pubkey(&authority)?;
             let mut params = FundingHourlyQuery::new();
             if let Some(value) = symbol {
-                params = params.with_symbol(value.to_ascii_uppercase());
+                params = params.with_symbol(value);
             }
             if let Some(value) = pda_index {
                 params = params.with_trader_pda_index(value);
@@ -397,7 +388,7 @@ async fn run_request(cmd: ApiCommand, ctx: &CommandCtx) -> Result<(), Box<dyn Er
             }
             print_json(
                 &client
-                    .get_market_funding_rate_history(&symbol.to_ascii_uppercase(), params)
+                    .get_market_funding_rate_history(&symbol, params)
                     .await?,
                 ctx.output,
             )?;
@@ -416,7 +407,7 @@ async fn run_request(cmd: ApiCommand, ctx: &CommandCtx) -> Result<(), Box<dyn Er
                 params = params.with_pda_index(value);
             }
             if let Some(value) = market_symbol {
-                params = params.with_market_symbol(value.to_ascii_uppercase());
+                params = params.with_market_symbol(value);
             }
             if let Some(value) = cursor {
                 params = params.with_cursor(value);
@@ -438,7 +429,7 @@ async fn run_request(cmd: ApiCommand, ctx: &CommandCtx) -> Result<(), Box<dyn Er
         } => {
             let timeframe = Timeframe::from_str(&timeframe)
                 .map_err(|e| format!("invalid timeframe '{timeframe}': {e}"))?;
-            let mut params = CandlesQueryParams::new(symbol.to_ascii_uppercase(), timeframe);
+            let mut params = CandlesQueryParams::new(symbol, timeframe);
             if let Some(value) = start_time {
                 params = params.with_start_time(value);
             }
@@ -460,7 +451,7 @@ async fn run_request(cmd: ApiCommand, ctx: &CommandCtx) -> Result<(), Box<dyn Er
             let authority = parse_pubkey(&authority)?;
             let mut params = TradeHistoryQueryParams::new().with_pda_index(pda_index);
             if let Some(value) = market_symbol {
-                params = params.with_market_symbol(value.to_ascii_uppercase());
+                params = params.with_market_symbol(value);
             }
             if let Some(value) = limit {
                 params = params.with_limit(value);
@@ -487,7 +478,7 @@ async fn run_request(cmd: ApiCommand, ctx: &CommandCtx) -> Result<(), Box<dyn Er
                 params = params.with_subaccount_index(value);
             }
             if let Some(value) = symbol {
-                params = params.with_symbol(value.to_ascii_uppercase());
+                params = params.with_symbol(value);
             }
             if let Some(value) = limit {
                 params = params.with_limit(value);

@@ -640,8 +640,8 @@ mod tests {
         let ix = create_place_multi_limit_order_ix(params).unwrap();
 
         assert_eq!(ix.program_id, *PHOENIX_PROGRAM_ID);
-        // 2 log + 4 base + 1 global trader index + 1 active trader buffer + 2 market =
-        // 10
+        // 2 log + 4 base + 1 global trader index + 1 active trader buffer + 2
+        // market = 10
         assert_eq!(ix.accounts.len(), 10);
         assert_eq!(
             &ix.data[..8],

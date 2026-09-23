@@ -183,7 +183,8 @@ mod tests {
         let ix = create_cancel_stop_loss_ix(params).unwrap();
 
         assert_eq!(ix.program_id, *PHOENIX_PROGRAM_ID);
-        // 2 log + 6 (global_config, funder, trader, authority, stop_loss, system) = 8
+        // 2 log + 6 (global_config, funder, trader, authority, stop_loss,
+        // system) = 8
         assert_eq!(ix.accounts.len(), 8);
         assert_eq!(
             &ix.data[..8],

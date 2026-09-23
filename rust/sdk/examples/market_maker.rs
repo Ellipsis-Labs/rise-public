@@ -241,7 +241,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
-    let symbol = args[1].to_ascii_uppercase();
+    let symbol = args[1].clone();
     let order_size_lots: u64 = args[2].parse()?;
     let max_position_lots: i64 = args[3].parse()?;
 

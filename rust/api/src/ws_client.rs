@@ -550,8 +550,8 @@ impl PhoenixWSClient {
     /// Subscribe to one batched market-stats snapshot per server refresh.
     ///
     /// Pass `None` for all markets, or `Some` with one or more symbols. Symbols
-    /// are normalized before subscription so equivalent filters share one wire
-    /// subscription. Drop the handle to unsubscribe.
+    /// retain their case on the wire. Equivalent filters share one subscription
+    /// locally. Drop the handle to unsubscribe.
     pub fn subscribe_to_market_stats_v2(
         &self,
         symbols: Option<Vec<String>>,
@@ -1008,6 +1008,7 @@ impl PhoenixWSClient {
                             control_msg = control_rx.recv() => {
                                 match control_msg {
                                     Some(ControlMessage::Subscribe { key, request, subscriber, subscriber_id }) => {
+                                        let key = key.routing_key();
                                         // Get or create the inner HashMap for this key
                                         let key_subscribers = subscribers.entry(key.clone()).or_default();
 
@@ -1032,6 +1033,7 @@ impl PhoenixWSClient {
                                         }
                                     }
                                     Some(ControlMessage::Unsubscribe { key, subscriber_id }) => {
+                                        let key = key.routing_key();
                                         // Remove this specific subscriber
                                         let should_unsubscribe = if let Some(key_subscribers) = subscribers.get_mut(&key) {
                                             key_subscribers.remove(&subscriber_id);
@@ -1250,7 +1252,7 @@ impl PhoenixWSClient {
     ) where
         F: Fn(&Subscriber) -> bool,
     {
-        if let Some(key_subscribers) = subscribers.get(key) {
+        if let Some(key_subscribers) = subscribers.get(&key.routing_key()) {
             for (id, subscriber) in key_subscribers {
                 if try_send(subscriber) {
                     debug!("Subscriber {} channel closed for {:?}", id, key);
@@ -1551,15 +1553,32 @@ mod tests {
     }
 
     #[test]
-    fn market_stats_v2_symbols_are_canonicalized() {
+    fn market_subscription_keys_route_all_case_variants() {
+        let expected = SubscriptionKey::market("kBONK".to_string()).routing_key();
+        for symbol in ["kBONK", "kbonk", "KBONK"] {
+            assert_eq!(
+                SubscriptionKey::market(symbol.to_string()).routing_key(),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn market_stats_v2_symbols_preserve_wire_case() {
+        let key = SubscriptionKey::market_stats_v2(Some(vec![
+            " kBONK ".to_string(),
+            "SOL-PERP".to_string(),
+        ]));
         assert_eq!(
+            key.market_stats_v2_symbols(),
+            Some(["SOL-PERP".to_string(), "kBONK".to_string()].as_slice())
+        );
+        assert_eq!(
+            key.routing_key(),
             SubscriptionKey::market_stats_v2(Some(vec![
-                " sol-perp ".to_string(),
-                "BTC-PERP".to_string(),
-                "SOL-PERP".to_string(),
+                "kbonk".to_string(),
+                "sol-perp".to_string(),
             ]))
-            .market_stats_v2_symbols(),
-            Some(["BTC-PERP".to_string(), "SOL-PERP".to_string()].as_slice())
         );
         assert!(matches!(
             validate_market_stats_v2_symbols(&Some(Vec::new())),
@@ -1602,7 +1621,7 @@ mod tests {
         let (all_tx, mut all_rx) = mpsc::unbounded_channel();
         let mut subscribers = HashMap::new();
         subscribers.insert(
-            SubscriptionKey::market_stats_v2(Some(vec!["SOL-PERP".to_string()])),
+            SubscriptionKey::market_stats_v2(Some(vec!["KBONK".to_string()])).routing_key(),
             HashMap::from([
                 (1, Subscriber::MarketStatsV2(filtered_tx)),
                 (3, Subscriber::MarketStats(legacy_tx)),
@@ -1615,9 +1634,9 @@ mod tests {
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
         let json = serde_json::to_vec(&json!({
             "channel": "marketStatsV2",
-            "symbols": ["SOL-PERP"],
+            "symbols": ["kBONK"],
             "stats": [{
-                "symbol": "SOL-PERP",
+                "symbol": "kBONK",
                 "timestamp": 1,
                 "openInterest": 2.0,
                 "markPrice": 3.0,
@@ -1638,11 +1657,11 @@ mod tests {
         let update = filtered_rx
             .try_recv()
             .expect("filtered subscriber should receive the batch");
-        assert_eq!(update.stats[0].symbol, "SOL-PERP");
+        assert_eq!(update.stats[0].symbol, "kBONK");
         let legacy_update = legacy_rx
             .try_recv()
             .expect("legacy subscriber should receive the adapted V2 entry");
-        assert_eq!(legacy_update.symbol, "SOL-PERP");
+        assert_eq!(legacy_update.symbol, "kBONK");
         assert_eq!(legacy_update.mark_price, 3.0);
         assert_eq!(legacy_update.mid_price, 3.5);
         assert!(all_rx.try_recv().is_err());
