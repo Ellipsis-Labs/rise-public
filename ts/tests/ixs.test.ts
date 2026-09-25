@@ -286,6 +286,7 @@ describe("twap raw ix builders", () => {
     const decoded = getPlaceTwapOrderDecoder().decode(ix.data);
     expect(decoded.cooldownSlots).toBe(12n);
     expect(decoded.nChildOrders).toBe(3n);
+    expect(decoded.nDustOrders).toBe(0n);
     expect(decoded.childOrderMaxSlippageBps).toBe(25n);
     expect(decoded.childOrderMinPriceInTicks).toBeNull();
     expect(decoded.childOrderMaxPriceInTicks).toBe(ticks(60_000n));
@@ -295,6 +296,7 @@ describe("twap raw ix builders", () => {
     expect(decoded.childOrderPacket).toEqual({
       ...twapChildOrderPacket,
       dustOrderSize: baseLots(0n),
+      nDustOrders: 0n,
     });
     expect(decoded.dustOrderSize).toBeNull();
 
@@ -306,6 +308,7 @@ describe("twap raw ix builders", () => {
     expect(decodeTwapIocOrderPacket(packetBytes)).toEqual({
       ...twapChildOrderPacket,
       dustOrderSize: baseLots(0n),
+      nDustOrders: 0n,
     });
   });
 
@@ -390,16 +393,17 @@ describe("twap raw ix builders", () => {
   });
 });
 
-describe("twap dust order size", () => {
+describe("twap dust orders", () => {
   // Pinned to the on-chain layout const-asserted in
   // programs/flicker-lib/src/accounts/twap.rs:
-  // IOC_ORDER_PACKET_DUST_ORDER_SIZE_OFFSET == 104, packet size == 152.
+  // Dust size offset == 104, dust count offset == 112, packet size == 152.
   const DUST_ORDER_SIZE_OFFSET = 104;
 
-  it("encodes dust order size at byte offset 104 of the 152-byte packet", () => {
+  it("encodes dust size and count at the fixed packet offsets", () => {
     const packetBytes = encodeTwapIocOrderPacket(
       twapChildOrderPacket,
-      0x0102_0304_0506_0708n
+      0x0102_0304_0506_0708n,
+      0x1112_1314_1516_1718n
     );
 
     expect(packetBytes.length).toBe(TWAP_IOC_ORDER_PACKET_BYTE_LENGTH);
@@ -408,44 +412,121 @@ describe("twap dust order size", () => {
         packetBytes.slice(DUST_ORDER_SIZE_OFFSET, DUST_ORDER_SIZE_OFFSET + 8)
       )
     ).toEqual([0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]);
+    expect(bytes(packetBytes.slice(112, 120))).toEqual([
+      0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
+    ]);
+    expect(decodeTwapIocOrderPacket(packetBytes).nDustOrders).toBe(
+      0x1112_1314_1516_1718n
+    );
     // Remaining reserved tail stays zero-filled.
-    expect(bytes(packetBytes.slice(DUST_ORDER_SIZE_OFFSET + 8))).toEqual(
-      Array.from({ length: 40 }, () => 0)
+    expect(bytes(packetBytes.slice(120))).toEqual(
+      Array.from({ length: 32 }, () => 0)
     );
     // Zero dust matches the legacy all-zero tail byte-for-byte.
     expect(bytes(encodeTwapIocOrderPacket(twapChildOrderPacket))).toEqual(
-      bytes(encodeTwapIocOrderPacket(twapChildOrderPacket, 0n))
+      bytes(encodeTwapIocOrderPacket(twapChildOrderPacket, 0n, 0n))
     );
   });
 
-  it("round-trips dust through place TWAP order encode/decode", () => {
-    const ix = buildPlaceTwapOrderIx({
-      ...twapAddresses,
-      twapAccount: "twap-account" as never,
-      authority: "trader-authority" as never,
-      cooldownSlots: 12n,
-      nChildOrders: 3n,
-      childOrderMaxSlippageBps: 25n,
-      childOrderPacket: twapChildOrderPacket,
-      dustOrderSize: baseLots(300n),
-      orderAccounts: [
-        accountMeta("order-phoenix-program", AccountRole.READONLY),
-      ],
-    });
+  it.each([
+    [3n, 1n],
+    [3n, 2n],
+    [3n, 3n],
+    [1n, 1n],
+  ])(
+    "round-trips %s regular children and %s dust orders",
+    (nChildOrders, nDustOrders) => {
+      const ix = buildPlaceTwapOrderIx({
+        ...twapAddresses,
+        twapAccount: "twap-account" as never,
+        authority: "trader-authority" as never,
+        cooldownSlots: 12n,
+        nChildOrders,
+        nDustOrders,
+        childOrderMaxSlippageBps: 25n,
+        childOrderPacket: twapChildOrderPacket,
+        dustOrderSize: baseLots(300n),
+        orderAccounts: [
+          accountMeta("order-phoenix-program", AccountRole.READONLY),
+        ],
+      });
 
-    const decoded = getPlaceTwapOrderDecoder().decode(ix.data);
-    expect(decoded.dustOrderSize).toBe(baseLots(300n));
-    expect(decoded.childOrderPacket.dustOrderSize).toBe(baseLots(300n));
-  });
+      const decoded = getPlaceTwapOrderDecoder().decode(ix.data);
+      expect(decoded.nChildOrders).toBe(nChildOrders);
+      expect(decoded.nDustOrders).toBe(nDustOrders);
+      expect(decoded.dustOrderSize).toBe(baseLots(300n));
+      expect(decoded.childOrderPacket).toMatchObject({
+        dustOrderSize: baseLots(300n),
+        nDustOrders,
+      });
+    }
+  );
 
-  it("rejects dust order size with a single child order", () => {
+  it.each([
+    [1n, 2n],
+    [3n, -1n],
+  ])(
+    "rejects %s regular children with %s dust orders",
+    (nChildOrders, nDustOrders) => {
+      expect(() =>
+        buildPlaceTwapOrderIx({
+          ...twapAddresses,
+          twapAccount: "twap-account" as never,
+          authority: "trader-authority" as never,
+          cooldownSlots: 12n,
+          nChildOrders,
+          nDustOrders,
+          childOrderMaxSlippageBps: 25n,
+          childOrderPacket: twapChildOrderPacket,
+          dustOrderSize: baseLots(300n),
+          orderAccounts: [
+            accountMeta("order-phoenix-program", AccountRole.READONLY),
+          ],
+        })
+      ).toThrow("Dust order count must be between 0 and the child order count");
+    }
+  );
+
+  it.each([
+    [undefined, "Dust orders require a nonzero dust order size"],
+    [null, "Dust orders require a nonzero dust order size"],
+    [baseLots(0n), "Dust orders require a nonzero dust order size"],
+    [
+      twapChildOrderPacket.numBaseLots,
+      "Dust order size must be less than the child order size",
+    ],
+    [
+      baseLots(twapChildOrderPacket.numBaseLots + 1n),
+      "Dust order size must be less than the child order size",
+    ],
+  ])("rejects invalid dust size %s", (dustOrderSize, message) => {
     expect(() =>
       buildPlaceTwapOrderIx({
         ...twapAddresses,
         twapAccount: "twap-account" as never,
         authority: "trader-authority" as never,
         cooldownSlots: 12n,
-        nChildOrders: 1n,
+        nChildOrders: 3n,
+        nDustOrders: 1n,
+        childOrderMaxSlippageBps: 25n,
+        childOrderPacket: twapChildOrderPacket,
+        dustOrderSize,
+        orderAccounts: [
+          accountMeta("order-phoenix-program", AccountRole.READONLY),
+        ],
+      })
+    ).toThrow(message);
+  });
+
+  it("rejects a total order count that overflows u64", () => {
+    expect(() =>
+      buildPlaceTwapOrderIx({
+        ...twapAddresses,
+        twapAccount: "twap-account" as never,
+        authority: "trader-authority" as never,
+        cooldownSlots: 12n,
+        nChildOrders: (1n << 64n) - 1n,
+        nDustOrders: 1n,
         childOrderMaxSlippageBps: 25n,
         childOrderPacket: twapChildOrderPacket,
         dustOrderSize: baseLots(300n),
@@ -453,30 +534,7 @@ describe("twap dust order size", () => {
           accountMeta("order-phoenix-program", AccountRole.READONLY),
         ],
       })
-    ).toThrow("Dust order size requires at least 2 child orders");
-  });
-
-  it("rejects dust order size at or above the child order size", () => {
-    for (const dust of [
-      twapChildOrderPacket.numBaseLots,
-      baseLots(twapChildOrderPacket.numBaseLots + 1n),
-    ]) {
-      expect(() =>
-        buildPlaceTwapOrderIx({
-          ...twapAddresses,
-          twapAccount: "twap-account" as never,
-          authority: "trader-authority" as never,
-          cooldownSlots: 12n,
-          nChildOrders: 3n,
-          childOrderMaxSlippageBps: 25n,
-          childOrderPacket: twapChildOrderPacket,
-          dustOrderSize: dust,
-          orderAccounts: [
-            accountMeta("order-phoenix-program", AccountRole.READONLY),
-          ],
-        })
-      ).toThrow("Dust order size must be less than the child order size");
-    }
+    ).toThrow("Total order count exceeds u64");
   });
 });
 

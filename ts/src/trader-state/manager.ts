@@ -1094,6 +1094,7 @@ class PhoenixTraderStateResourceImpl implements PhoenixTraderStateResource {
 
     this.streamPromise = this.runStreamLoop().finally(() => {
       this.streamPromise = null;
+      this.ensureStreamLoop();
     });
   }
 

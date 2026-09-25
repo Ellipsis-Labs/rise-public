@@ -209,6 +209,37 @@ const riskFactorBpsToMarginBps = (value: number, field: string): string => {
   return rounded.toString();
 };
 
+const getMarketPrice = (
+  prices: Record<string, number | string | null> | undefined,
+  symbol: string
+): number | string | null | undefined => {
+  if (!prices) return undefined;
+  if (Object.hasOwn(prices, symbol)) return prices[symbol];
+
+  const lookup = symbol.trim().toLowerCase();
+  const matches = Object.keys(prices).filter(
+    (key) => key.trim().toLowerCase() === lookup
+  );
+  if (matches.length > 1) {
+    throw new Error(
+      `Ambiguous price aliases for ${symbol}: ${matches.join(", ")}`
+    );
+  }
+  return matches[0] === undefined ? undefined : prices[matches[0]];
+};
+
+const pricesForMarkets = (
+  markets: MarketSummary[],
+  prices: Record<string, number | string | null>
+): Record<string, number | string | null> => {
+  const canonicalPrices: Record<string, number | string | null> = {};
+  for (const market of markets) {
+    const price = getMarketPrice(prices, market.symbol);
+    if (price !== undefined) canonicalPrices[market.symbol] = price;
+  }
+  return canonicalPrices;
+};
+
 export const buildMarketParamsFromSummary = (
   market: MarketSummary,
   markPriceUsd: number | string | null | undefined,
@@ -227,18 +258,14 @@ export const buildMarketParamsFromSummary = (
     }
   }
 
+  const indexPrice = getMarketPrice(opts?.indexPricesBySymbol, market.symbol);
   return {
     symbol: market.symbol,
     assetId: market.assetId,
     markPriceTicks: priceUsdToTicks(markPriceUsd, market.units),
-    ...(opts?.indexPricesBySymbol?.[String(market.symbol)] == null
+    ...(indexPrice == null
       ? {}
-      : {
-          indexPriceTicks: priceUsdToTicks(
-            opts.indexPricesBySymbol[String(market.symbol)]!,
-            market.units
-          ),
-        }),
+      : { indexPriceTicks: priceUsdToTicks(indexPrice, market.units) }),
     tickSize: market.units.tickSizeInQuoteLotsPerBaseLot.toString(),
     baseLotDecimals: market.units.baseLotsDecimals,
     leverageTiers: market.leverageTiers.map((tier) => ({
@@ -286,7 +313,7 @@ export const buildMarketParamsBySymbol = (
     const symbol = String(market.symbol);
     const params = buildMarketParamsFromSummary(
       market,
-      markPricesBySymbol[symbol],
+      getMarketPrice(markPricesBySymbol, symbol),
       opts
     );
     if (!params) {
@@ -391,6 +418,7 @@ export class MarginMarketParamsStore<
   private refreshPromise: Promise<MarginMarketParamsSnapshot> | null = null;
   private lastSnapshot: MarginMarketParamsSnapshot | null = null;
   private lastMarkets: MarketSummary[] | null = null;
+  private lastMarkPrices: Record<string, number | string | null> = {};
   private lastIndexPrices: Record<string, number | string | null> = {};
   private lastSpotCollaterals: SpotCollateralParams[] = [];
   private listeners = new Set<(snapshot: MarginMarketParamsSnapshot) => void>();
@@ -450,6 +478,11 @@ export class MarginMarketParamsStore<
     return this.refreshPromise;
   }
 
+  /**
+   * Merge partial prices under canonical market symbols. Exact keys take
+   * precedence; ambiguous aliases are rejected. Explicit null follows
+   * missingPriceBehavior.
+   */
   updateMarkPrices(
     markPricesBySymbol: Record<string, number | string | null>
   ): void {
@@ -457,14 +490,19 @@ export class MarginMarketParamsStore<
       throw new Error("Market summaries have not been loaded yet");
     }
 
+    const nextPrices = {
+      ...this.lastMarkPrices,
+      ...pricesForMarkets(this.lastMarkets, markPricesBySymbol),
+    };
     const paramsBySymbol = buildMarketParamsBySymbol(
       this.lastMarkets,
-      markPricesBySymbol,
+      nextPrices,
       {
         missingPriceBehavior: this.missingPriceBehavior,
         indexPricesBySymbol: this.lastIndexPrices,
       }
     );
+    this.lastMarkPrices = nextPrices;
     this.updateSnapshot(
       paramsBySymbol,
       this.lastSpotCollaterals,
@@ -528,20 +566,20 @@ export class MarginMarketParamsStore<
           Promise.resolve<CollateralAssetsResponse>({ assets: [] }),
       ]);
 
-    this.lastMarkets = markets;
-    this.lastIndexPrices = indexPricesBySymbol;
-    this.lastSpotCollaterals = spotCollateralParamsFromAssets(
+    const nextSpotCollaterals = spotCollateralParamsFromAssets(
       spotCollaterals,
       new Map(markets.map((market) => [market.assetId, String(market.symbol)]))
     );
-    const paramsBySymbol = buildMarketParamsBySymbol(
-      markets,
-      markPricesBySymbol,
-      {
-        missingPriceBehavior: this.missingPriceBehavior,
-        indexPricesBySymbol,
-      }
-    );
+    const nextMarkPrices = pricesForMarkets(markets, markPricesBySymbol);
+    const nextIndexPrices = pricesForMarkets(markets, indexPricesBySymbol);
+    const paramsBySymbol = buildMarketParamsBySymbol(markets, nextMarkPrices, {
+      missingPriceBehavior: this.missingPriceBehavior,
+      indexPricesBySymbol: nextIndexPrices,
+    });
+    this.lastMarkets = markets;
+    this.lastMarkPrices = nextMarkPrices;
+    this.lastIndexPrices = nextIndexPrices;
+    this.lastSpotCollaterals = nextSpotCollaterals;
     return this.updateSnapshot(
       paramsBySymbol,
       this.lastSpotCollaterals,

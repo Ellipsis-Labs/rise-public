@@ -251,6 +251,7 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
     createResourceRegistry<PhoenixMarketDataResource>();
 
   private active = false;
+  private streamGeneration = 0;
   private startPromise: Promise<void> | null = null;
   private allMidsTask: Promise<void> | null = null;
   private allMidsAbort: AbortController | null = null;
@@ -335,6 +336,7 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
     if (!this.lifecycle.close()) {
       return;
     }
+    this.stopStreams();
     for (const resource of Array.from(this.resources.values())) {
       resource.close();
     }
@@ -419,6 +421,7 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
 
   private stopStreams(): void {
     this.active = false;
+    this.streamGeneration += 1;
 
     this.allMidsAbort?.abort();
     this.allMidsAbort = null;
@@ -626,11 +629,16 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
       return;
     }
 
+    const generation = this.streamGeneration;
     this.allMidsTask = (async () => {
       await runRetryLoop({
-        shouldContinue: () => this.active && !this.lifecycle.isClosed(),
+        shouldContinue: () =>
+          generation === this.streamGeneration &&
+          this.active &&
+          !this.lifecycle.isClosed(),
         backoffMs: this.config.resyncBackoffMs ?? DEFAULT_RESYNC_BACKOFF_MS,
         onController: (controller) => {
+          if (generation !== this.streamGeneration) return;
           this.allMidsAbort = controller;
         },
         stream: (signal) => this.config.allMids!(signal),
@@ -652,6 +660,7 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
         },
       });
     })().finally(() => {
+      if (generation !== this.streamGeneration) return;
       this.streamConnections.allMids = false;
       this.updateConnectivity(null);
       this.allMidsTask = null;
@@ -664,11 +673,16 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
       return;
     }
 
+    const generation = this.streamGeneration;
     this.marketStatsTask = (async () => {
       await runRetryLoop({
-        shouldContinue: () => this.active && !this.lifecycle.isClosed(),
+        shouldContinue: () =>
+          generation === this.streamGeneration &&
+          this.active &&
+          !this.lifecycle.isClosed(),
         backoffMs: this.config.resyncBackoffMs ?? DEFAULT_RESYNC_BACKOFF_MS,
         onController: (controller) => {
+          if (generation !== this.streamGeneration) return;
           this.marketStatsAbort = controller;
         },
         stream: (signal) => this.config.marketStats!(undefined, signal),
@@ -690,6 +704,7 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
         },
       });
     })().finally(() => {
+      if (generation !== this.streamGeneration) return;
       this.streamConnections.marketStats = false;
       this.updateConnectivity(null);
       this.marketStatsTask = null;
@@ -719,11 +734,16 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
       return;
     }
 
+    const generation = this.streamGeneration;
     const task = (async () => {
       await runRetryLoop({
-        shouldContinue: () => this.active && !this.lifecycle.isClosed(),
+        shouldContinue: () =>
+          generation === this.streamGeneration &&
+          this.active &&
+          !this.lifecycle.isClosed(),
         backoffMs: this.config.resyncBackoffMs ?? DEFAULT_RESYNC_BACKOFF_MS,
         onController: (controller) => {
+          if (generation !== this.streamGeneration) return;
           if (controller) {
             this.markPriceAborts.set(normalized, controller);
           } else {
@@ -753,6 +773,7 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
         },
       });
     })().finally(() => {
+      if (generation !== this.streamGeneration) return;
       this.streamConnections.markPrices.delete(normalized);
       this.updateConnectivity(null);
       this.markPriceTasks.delete(normalized);

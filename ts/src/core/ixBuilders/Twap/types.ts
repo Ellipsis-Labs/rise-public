@@ -41,11 +41,12 @@ export interface TwapIocOrderPacketData {
   orderFlags: OrderFlags;
   cancelExisting: boolean;
   /**
-   * Size of the final child order in base lots; zero disables dust handling.
-   * When set, every child trades `numBaseLots` except the last, which trades
-   * exactly this amount. Byte offset 104 of the fixed 152-byte packet.
+   * Size of each dust order in base lots, strictly less than `numBaseLots`.
+   * Byte offset 104 of the fixed 152-byte packet.
    */
   dustOrderSize: BaseLots;
+  /** Explicit dust count. Zero with nonzero dustOrderSize uses one final legacy dust order. */
+  nDustOrders: bigint;
 }
 
 export interface CreateTwapAccountData {
@@ -54,12 +55,15 @@ export interface CreateTwapAccountData {
 
 export interface PlaceTwapOrderData {
   cooldownSlots: bigint;
+  /** Regular child count for explicit dust; total execution count for legacy dust. */
   nChildOrders: bigint;
+  /** Explicit dust count, at most nChildOrders. Defaults to zero; nonzero dustOrderSize then uses legacy final-child dust. */
+  nDustOrders?: bigint;
   childOrderMaxSlippageBps: bigint | number;
   childOrderMinPriceInTicks?: Ticks | null;
   childOrderMaxPriceInTicks?: Ticks | null;
   childOrderPacket: ImmediateOrCancelOrderPacket;
-  /** Final-child dust size in base lots; omit or null for no dust child. */
+  /** Size of each dust order in base lots; required and positive when nDustOrders > 0. */
   dustOrderSize?: BaseLots | null;
   childOrderCollateralQuoteLotsToTransfer?: QuoteLots | null;
   lastValidSlot?: bigint | null;
@@ -87,15 +91,17 @@ export interface PlaceTwapOrderParams
   twapAccount: TwapAccountAddress;
   authority: Authority;
   cooldownSlots: bigint;
+  /** Regular child count for explicit dust; total execution count for legacy dust. */
   nChildOrders: bigint;
+  /** Explicit dust count, at most nChildOrders. Defaults to zero; nonzero dustOrderSize then uses legacy final-child dust. */
+  nDustOrders?: bigint;
   childOrderMaxSlippageBps: bigint | number;
   childOrderMinPriceInTicks?: Ticks | null;
   childOrderMaxPriceInTicks?: Ticks | null;
   childOrderPacket: ImmediateOrCancelOrderPacket;
   /**
-   * Final-child dust size in base lots. When set, requires at least two child
-   * orders and must be strictly less than the child order size. Omit or null
-   * for equal-sized children.
+   * Size of each dust order in base lots, strictly less than the child order
+   * size. Required and positive when nDustOrders > 0.
    */
   dustOrderSize?: BaseLots | null;
   childOrderCollateralQuoteLotsToTransfer?: QuoteLots | null;

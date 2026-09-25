@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.31 - 2026-09-25
+
+Source Phoenix commit: `a698c95f16a657ce6a8a2e1f5a4bec469e9cc273`
+
+### Summary
+
+- TWAP dust handling now supports an explicit `nDustOrders` count alongside `dustOrderSize`, instead of only a single final-child dust order, and is encoded/decoded on the `PlaceTwapOrder` instruction and `TwapIocOrderPacketData`.
+- `MarginMarketParamsStore.updateMarkPrices` now merges partial price updates onto previously known prices instead of requiring a full price map every call, and mark/index price lookups match symbols case-insensitively (rejecting ambiguous aliases).
+- Fixed the market data client so `close()` reliably stops in-flight streams and stale retry loops are not revived after `reconnect()`.
+- Fixed orderbook and trader-state resource subscriptions so they restart correctly after being released and re-retained.
+
+### Breaking Changes
+
+- `TwapIocOrderPacketData` gains a required `nDustOrders: bigint` field; code that constructs this object directly (rather than via `encodeTwapIocOrderPacket`/the decoders) must add it. The packet's reserved tail shrank from 40 to 32 bytes to make room for it.
+- TWAP dust validation changed: the old "at least 2 child orders" requirement is gone, replaced by `nDustOrders` needing to be between 0 and `nChildOrders`; a nonzero `dustOrderSize` must now always be strictly less than the child order size, and `nDustOrders > 0` requires a nonzero `dustOrderSize`.
+- `MarginMarketParamsStore.updateMarkPrices` no longer fully replaces the store's known mark prices on each call — it merges the given partial update with previously known prices. Consumers relying on omitted symbols being treated as missing (per `missingPriceBehavior`) on every call will now see the last known price retained instead.
+
+### Consumer Notes
+
+- `getPlaceTwapOrderDecoder()` and `decodeTwapIocOrderPacket()` output now both include the new `nDustOrders` field.
+- Existing TWAP calls that only set `dustOrderSize` (no `nDustOrders`) keep the legacy single-final-child-dust behavior and still encode byte-for-byte identically when dust is disabled.
+- Mark/index price lookups now fall back to a case-insensitive, whitespace-trimmed symbol match when no exact key exists, and throw if that fallback is ambiguous across multiple keys in the provided price map.
+
 ## v0.5.30 - 2026-09-25
 
 Source Phoenix commit: `4c5553d3365a7f72273dfe4a67fe7240f3f42951`

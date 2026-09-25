@@ -239,7 +239,8 @@ const expectZeroes = (
 
 export const encodeTwapIocOrderPacket = (
   packet: ImmediateOrCancelOrderPacket,
-  dustOrderSize: bigint | number = 0n
+  dustOrderSize: bigint | number = 0n,
+  nDustOrders: bigint | number = 0n
 ): Uint8Array =>
   concat(
     u64(TWAP_IOC_ORDER_PACKET_DISCRIMINANT, "iocDiscriminant"),
@@ -258,10 +259,10 @@ export const encodeTwapIocOrderPacket = (
     u8(Number(packet.orderFlags), "orderFlags"),
     u8(packet.cancelExisting ? 1 : 0, "cancelExisting"),
     zeroes(6),
-    // Byte offset 104: dust_order_size, carved out of the packet's previously
-    // reserved tail (zero means no dust child, matching old serializations).
+    // Dust size and count occupy bytes 104..120 of the fixed-size packet.
     u64(dustOrderSize, "dustOrderSize"),
-    zeroes(40)
+    u64(nDustOrders, "nDustOrders"),
+    zeroes(32)
   );
 
 export const decodeTwapIocOrderPacket = (
@@ -320,8 +321,10 @@ export const decodeTwapIocOrderPacket = (
   cursor += 6;
   const [dustOrderSize, dustOrderSizeOffset] = readU64(byteArray, cursor);
   cursor = dustOrderSizeOffset;
-  expectZeroes(byteArray, cursor, 40, "reserved");
-  cursor += 40;
+  const [nDustOrders, dustOrdersOffset] = readU64(byteArray, cursor);
+  cursor = dustOrdersOffset;
+  expectZeroes(byteArray, cursor, 32, "reserved");
+  cursor += 32;
   if (cursor !== endOffset) throw new Error("Invalid TWAP IOC packet length");
 
   return {
@@ -343,6 +346,7 @@ export const decodeTwapIocOrderPacket = (
     orderFlags: orderFlags as TwapIocOrderPacketData["orderFlags"],
     cancelExisting: cancelExisting === 1,
     dustOrderSize: baseLots(dustOrderSize),
+    nDustOrders,
   };
 };
 
@@ -405,7 +409,8 @@ export const getPlaceTwapOrderEncoder =
         ),
         encodeTwapIocOrderPacket(
           value.childOrderPacket,
-          value.dustOrderSize ?? 0n
+          value.dustOrderSize ?? 0n,
+          value.nDustOrders ?? 0n
         ),
         optionNonZeroU64(
           value.childOrderCollateralQuoteLotsToTransfer,
@@ -478,6 +483,7 @@ export const getPlaceTwapOrderDecoder =
       return {
         cooldownSlots,
         nChildOrders,
+        nDustOrders: childOrderPacket.nDustOrders,
         childOrderMaxSlippageBps,
         childOrderMinPriceInTicks:
           childOrderMinPriceInTicks === null
