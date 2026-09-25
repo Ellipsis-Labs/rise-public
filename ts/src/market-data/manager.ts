@@ -29,7 +29,15 @@ const EMPTY_MARKETS_BY_SYMBOL: Readonly<Record<string, PhoenixMarketDataRow>> =
 const EMPTY_RECENT_CHANGES: readonly PhoenixMarketDataChange[] = [];
 const RESOURCE_KEY_PREFIX = "marketData:";
 
-const normalizeSymbol = (symbol: string): string => symbol.trim().toUpperCase();
+const normalizeSymbol = (symbol: string): string => symbol.trim().toLowerCase();
+
+const findRowSymbol = (
+  state: PhoenixMarketDataStoreState,
+  symbol: string
+): string | undefined =>
+  state.symbols.find(
+    (candidate) => normalizeSymbol(candidate) === normalizeSymbol(symbol)
+  );
 
 const sortSymbols = (symbols: Iterable<string>): readonly string[] =>
   Array.from(symbols).sort((left, right) => left.localeCompare(right));
@@ -115,18 +123,24 @@ const createResourceKey = (symbol: string): string =>
 
 const createResourceState = (
   symbol: string,
+  requestedSymbol: string,
   state: PhoenixMarketDataStoreState
-): PhoenixMarketDataResourceState => ({
-  key: createResourceKey(symbol),
-  symbol,
-  status: state.status,
-  row: state.marketsBySymbol[symbol],
-});
+): PhoenixMarketDataResourceState => {
+  const rowSymbol = findRowSymbol(state, symbol);
+  const row = rowSymbol ? state.marketsBySymbol[rowSymbol] : undefined;
+  return {
+    key: createResourceKey(symbol),
+    symbol: row?.symbol ?? requestedSymbol,
+    status: state.status,
+    row,
+  };
+};
 
 class PhoenixMarketDataResourceImpl implements PhoenixMarketDataResource {
   readonly key: string;
-  readonly symbol: string;
   readonly store;
+  private readonly lookupSymbol: string;
+  private readonly requestedSymbol: string;
 
   private parentUnsubscribe: (() => void) | null = null;
   private parentRelease: (() => void) | null = null;
@@ -147,13 +161,22 @@ class PhoenixMarketDataResourceImpl implements PhoenixMarketDataResource {
     private readonly parent: PhoenixMarketData,
     private readonly disposeFromManager: () => void
   ) {
-    this.symbol = normalizeSymbol(symbol);
-    this.key = createResourceKey(this.symbol);
+    this.lookupSymbol = normalizeSymbol(symbol);
+    this.requestedSymbol = symbol.trim();
+    this.key = createResourceKey(this.lookupSymbol);
     this.store = createStore<PhoenixMarketDataResourceState>(() =>
-      createResourceState(this.symbol, this.parent.snapshot())
+      createResourceState(
+        this.lookupSymbol,
+        this.requestedSymbol,
+        this.parent.snapshot()
+      )
     );
     this.parentUnsubscribe = this.parent.store.subscribe((state) => {
-      const next = createResourceState(this.symbol, state);
+      const next = createResourceState(
+        this.lookupSymbol,
+        this.requestedSymbol,
+        state
+      );
       this.store.setState((previous) => {
         if (previous.status === next.status && previous.row === next.row) {
           return previous;
@@ -162,6 +185,10 @@ class PhoenixMarketDataResourceImpl implements PhoenixMarketDataResource {
         return next;
       });
     });
+  }
+
+  get symbol(): string {
+    return this.store.getState().symbol;
   }
 
   retain(): () => void {
@@ -272,7 +299,9 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
   }
 
   market(symbol: string): PhoenixMarketDataRow | undefined {
-    return this.store.getState().marketsBySymbol[normalizeSymbol(symbol)];
+    const state = this.store.getState();
+    const rowSymbol = findRowSymbol(state, symbol);
+    return rowSymbol ? state.marketsBySymbol[rowSymbol] : undefined;
   }
 
   resource(symbol: string): PhoenixMarketDataResource {
@@ -287,7 +316,7 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
     return this.resources.getOrCreate(
       key,
       () =>
-        new PhoenixMarketDataResourceImpl(normalized, this, () => {
+        new PhoenixMarketDataResourceImpl(symbol, this, () => {
           this.resources.delete(key);
         })
     );
@@ -465,9 +494,14 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
   }
 
   private ensureRowsForSymbols(symbols: readonly string[]): void {
-    const normalizedSymbols = sortSymbols(
-      symbols.map((symbol) => normalizeSymbol(symbol)).filter(Boolean)
-    );
+    const canonicalByKey = new Map<string, string>();
+    for (const symbol of symbols) {
+      const key = normalizeSymbol(symbol);
+      if (key && !canonicalByKey.has(key)) {
+        canonicalByKey.set(key, symbol.trim());
+      }
+    }
+    const canonicalSymbols = sortSymbols(canonicalByKey.values());
 
     this.store.setState((state) => {
       const marketsBySymbol: Record<string, PhoenixMarketDataRow> = {
@@ -475,16 +509,26 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
       };
       let changed = false;
 
-      for (const symbol of normalizedSymbols) {
-        if (marketsBySymbol[symbol]) {
+      for (const symbol of canonicalSymbols) {
+        const key = normalizeSymbol(symbol);
+        const previousKey = Object.keys(marketsBySymbol).find(
+          (candidate) => normalizeSymbol(candidate) === key
+        );
+        const previous = previousKey ? marketsBySymbol[previousKey] : undefined;
+        if (previous?.symbol === symbol) {
           continue;
         }
-        marketsBySymbol[symbol] = createEmptyRow(symbol);
+        if (previousKey) {
+          delete marketsBySymbol[previousKey];
+        }
+        marketsBySymbol[symbol] = previous
+          ? { ...previous, symbol }
+          : createEmptyRow(symbol);
         changed = true;
       }
 
       const nextSymbols =
-        normalizedSymbols.length > 0 ? normalizedSymbols : state.symbols;
+        canonicalSymbols.length > 0 ? canonicalSymbols : state.symbols;
 
       if (!changed && sameStringArray(state.symbols, nextSymbols)) {
         return state;
@@ -511,14 +555,29 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
     }
 
     this.store.setState((state) => {
-      const previous =
-        state.marketsBySymbol[normalized] ?? createEmptyRow(normalized);
+      const existingSymbol = findRowSymbol(state, symbol);
+      const canonical =
+        this.config.exchange?.market(symbol)?.symbol ??
+        existingSymbol ??
+        symbol.trim();
+      const previous = existingSymbol
+        ? (state.marketsBySymbol[existingSymbol] ?? createEmptyRow(canonical))
+        : createEmptyRow(canonical);
       const { row: nextRow, change } = buildNext(previous);
-      const stableRow = preserveRowReference(previous, nextRow);
-      const hadSymbol = state.marketsBySymbol[normalized] !== undefined;
+      const stableRow = preserveRowReference(previous, {
+        ...nextRow,
+        symbol: canonical,
+      });
+      const hadSymbol = existingSymbol !== undefined;
       const symbols = hadSymbol
-        ? state.symbols
-        : sortSymbols([...state.symbols, normalized]);
+        ? existingSymbol === canonical
+          ? state.symbols
+          : sortSymbols(
+              state.symbols.map((item) =>
+                item === existingSymbol ? canonical : item
+              )
+            )
+        : sortSymbols([...state.symbols, canonical]);
 
       if (
         hadSymbol &&
@@ -529,13 +588,19 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
         return state;
       }
 
-      const marketsBySymbol =
-        hadSymbol && stableRow === previous
-          ? state.marketsBySymbol
-          : {
-              ...state.marketsBySymbol,
-              [normalized]: stableRow,
-            };
+      let marketsBySymbol = state.marketsBySymbol;
+      if (
+        !hadSymbol ||
+        stableRow !== previous ||
+        existingSymbol !== canonical
+      ) {
+        const next = { ...state.marketsBySymbol };
+        if (existingSymbol && existingSymbol !== canonical) {
+          delete next[existingSymbol];
+        }
+        next[canonical] = stableRow;
+        marketsBySymbol = next;
+      }
 
       const recentChanges =
         change === null
@@ -665,7 +730,11 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
             this.markPriceAborts.delete(normalized);
           }
         },
-        stream: (signal) => this.config.markPrice!(normalized, signal),
+        stream: (signal) =>
+          this.config.markPrice!(
+            this.config.exchange?.market(normalized)?.symbol ?? symbol,
+            signal
+          ),
         onMessage: (update) => {
           this.streamConnections.markPrices.add(normalized);
           this.updateConnectivity(null);
@@ -708,9 +777,10 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
       return;
     }
 
-    this.ensureRowsForSymbols(
-      sortSymbols(new Set([...this.exchangeSymbols, ...symbols]))
-    );
+    this.ensureRowsForSymbols([
+      ...this.exchangeSymbols,
+      ...Object.keys(update.mids),
+    ]);
 
     const receivedAtMs = Date.now();
     const changedSymbols: string[] = [];
@@ -722,7 +792,9 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
       let changed = false;
 
       for (const symbol of symbols) {
-        const previous = marketsBySymbol[symbol] ?? createEmptyRow(symbol);
+        const canonical = findRowSymbol(state, symbol) ?? symbol;
+        const previous =
+          marketsBySymbol[canonical] ?? createEmptyRow(canonical);
         const next = preserveRowReference(previous, {
           ...previous,
           mid: midsBySymbol.get(symbol) ?? previous.mid,
@@ -734,8 +806,8 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
           continue;
         }
 
-        marketsBySymbol[symbol] = next;
-        changedSymbols.push(symbol);
+        marketsBySymbol[canonical] = next;
+        changedSymbols.push(canonical);
         changed = true;
       }
 
@@ -747,7 +819,10 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
         receivedAtMs,
         source: "allMids",
         raw: update,
-        symbol: changedSymbols.length === 1 ? changedSymbols[0] : null,
+        symbol:
+          changedSymbols.length === 1
+            ? (marketsBySymbol[changedSymbols[0]]?.symbol ?? null)
+            : null,
         slot: update.slot,
         slotIndex: update.slotIndex,
         changedFields: ["mid"],

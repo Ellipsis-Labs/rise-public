@@ -105,6 +105,28 @@ const createPushPort = () => {
 };
 
 describe("createPhoenixTraderStateManager", () => {
+  it("keeps on-chain position symbols while accepting case-insensitive lookups", async () => {
+    const response = createSnapshotResponse();
+    response.snapshot.subaccounts[0].positions[0].symbol = "kBONK";
+    const manager = createPhoenixTraderStateManager({
+      api: { getTraderStateSnapshot: async () => response },
+    });
+    const resource = manager.resource({
+      authority: "authority-1",
+      traderPdaIndex: 0,
+    });
+    await resource.ready();
+    expect(resource.subaccount(0)?.positionSymbols).toEqual(["kBONK"]);
+    expect(
+      Object.keys(resource.subaccount(0)?.positionsBySymbol ?? {})
+    ).toEqual(["kBONK"]);
+    expect(resource.position(0, "KBONK")?.symbol).toBe("kBONK");
+    expect(resource.snapshot()?.subaccounts[0]?.positions[0]?.symbol).toBe(
+      "kBONK"
+    );
+    manager.close();
+  });
+
   it("bootstraps a trader resource from the HTTP snapshot", async () => {
     const manager = createPhoenixTraderStateManager({
       api: {

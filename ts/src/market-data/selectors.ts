@@ -7,10 +7,10 @@ import type {
   PhoenixMarketDataStoreState,
 } from "./types";
 
-const normalizeSymbol = (symbol: string): string => symbol.trim().toUpperCase();
+const normalizeSymbol = (symbol: string): string => symbol.trim().toLowerCase();
 
 const normalizeSelectedSymbol = (symbol: string | null): string | null =>
-  symbol ? normalizeSymbol(symbol) : null;
+  symbol ? symbol.trim() : null;
 
 const projectedMarketDataStateCache = new WeakMap<
   PhoenixMarketDataStoreState,
@@ -41,23 +41,26 @@ export const projectPhoenixMarketDataSelectionState = (
   state: PhoenixMarketDataStoreState,
   symbol: string | null
 ): PhoenixMarketDataSelectionState => {
-  const normalizedSymbol = normalizeSelectedSymbol(symbol);
+  const normalizedSymbol = symbol ? normalizeSymbol(symbol) : null;
   const cachedBySymbol = projectedMarketDataStateCache.get(state);
   const cached = cachedBySymbol?.get(normalizedSymbol);
   if (cached) {
     return cached;
   }
 
-  const row = normalizedSymbol
-    ? (state.marketsBySymbol[normalizedSymbol] ?? null)
-    : null;
+  const rowSymbol = state.symbols.find(
+    (candidate) => normalizeSymbol(candidate) === normalizedSymbol
+  );
+  const row = rowSymbol ? (state.marketsBySymbol[rowSymbol] ?? null) : null;
   const projected: PhoenixMarketDataSelectionState = {
-    symbol: normalizedSymbol,
+    symbol: row?.symbol ?? normalizeSelectedSymbol(symbol),
     row,
     markPrice: row?.markPrice ?? null,
     midPrice: row?.mid ?? null,
     latestChange:
-      normalizedSymbol && state.latestChange?.symbol === normalizedSymbol
+      normalizedSymbol &&
+      state.latestChange?.symbol &&
+      normalizeSymbol(state.latestChange.symbol) === normalizedSymbol
         ? state.latestChange
         : null,
     status: state.status,
@@ -76,7 +79,7 @@ export const projectPhoenixMarketDataSelectionState = (
 export const selectPhoenixMarketDataRow =
   (symbol: string) =>
   (state: PhoenixMarketDataStoreState): PhoenixMarketDataRow | null =>
-    state.marketsBySymbol[normalizeSymbol(symbol)] ?? null;
+    projectPhoenixMarketDataSelectionState(state, symbol).row;
 
 export const selectMarketDataRow =
   (symbol: string) =>
@@ -86,12 +89,12 @@ export const selectMarketDataRow =
 export const selectPhoenixMarkPrice =
   (symbol: string) =>
   (state: PhoenixMarketDataStoreState): number | null =>
-    state.marketsBySymbol[normalizeSymbol(symbol)]?.markPrice ?? null;
+    projectPhoenixMarketDataSelectionState(state, symbol).markPrice;
 
 export const selectPhoenixMidPrice =
   (symbol: string) =>
   (state: PhoenixMarketDataStoreState): number | null =>
-    state.marketsBySymbol[normalizeSymbol(symbol)]?.mid ?? null;
+    projectPhoenixMarketDataSelectionState(state, symbol).midPrice;
 
 export const createPhoenixMarketDataSelection = (
   marketData: PhoenixMarketData,
@@ -121,7 +124,7 @@ export const createPhoenixMarketDataSelection = (
 
   const selection: PhoenixMarketDataSelection = {
     store,
-    symbol: () => currentSymbol,
+    symbol: () => store.getState().symbol,
     row: () => store.getState().row,
     set: (symbol) => {
       if (closed) {

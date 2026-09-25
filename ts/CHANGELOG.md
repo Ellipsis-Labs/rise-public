@@ -3,6 +3,27 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.29 - 2026-09-25
+
+Source Phoenix commit: `fb668c205addd8ab46faf23f335c4e092d2340c1`
+
+### Summary
+
+- Market symbol handling switched from forcing `UPPERCASE` everywhere to case-insensitive lookups that preserve the exchange's canonical symbol casing (e.g. `kBONK` instead of `KBONK`). This touches the exchange cache, market-data, orderbook, and trader-state managers/selectors, as well as all WebSocket adapter/plugin subscription routing.
+- `GlobalConfiguration` gains a new decoded field, `pendingWithdrawThrottleReplenishment: QuoteLots`, carved out of previously reserved padding.
+- Version bump to `0.5.29`.
+
+### Breaking Changes
+
+- WebSocket subscription/routing keys are now lowercase-normalized instead of uppercase (e.g. `l2Book:SOL-PERP` → `l2Book:sol-perp`, `orderbook:SOL-PERP:bypassExecutionBand` → `orderbook:sol-perp:bypassExecutionBand`, `marketStatsV2:["SOL-PERP"]` → `marketStatsV2:["sol-perp"]`). Any code matching against these exact key strings must update to lowercase.
+- Symbols returned from `market()`, `.symbol` getters, orderbook/market-data resources, and selectors now reflect the exchange's canonical casing rather than being forced to uppercase — code that assumed all returned symbols were uppercase (e.g. strict `===` comparisons) can break even though lookups themselves remain case-insensitive.
+- `GlobalConfiguration` decoding now produces a new required field `pendingWithdrawThrottleReplenishment: QuoteLots`, taken from what was previously reserved padding (`_padding1` shrank from 22 to 21 `u64` slots). Code that constructs `GlobalConfiguration` objects by hand (rather than decoding) needs to supply this field.
+
+### Consumer Notes
+
+- Symbol-keyed lookups (`market(symbol)`, `position(subaccount, symbol)`, `orders(...)`, `triggers(...)`, etc.) continue to accept any casing, so most call sites are unaffected — only code that inspects or compares the returned `symbol` string, or that hardcodes WS routing keys, needs review.
+- If you cache or persist symbols keyed by the old uppercase convention, re-derive keys from the SDK's returned `symbol` values going forward.
+
 ## v0.5.28 - 2026-09-22
 
 Source Phoenix commit: `b1a3b8f6bfce1a9e6fb77465d77dc82b3879e065`

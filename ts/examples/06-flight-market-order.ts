@@ -68,7 +68,7 @@ const parseSide = (value: string): Side => {
   throw new Error(`Invalid side '${value}', expected bid|ask`);
 };
 
-const normalizeSymbol = (symbol: string) => symbol.trim().toUpperCase();
+const normalizeSymbol = (symbol: string) => symbol.trim().toLowerCase();
 
 const resolveMarketSymbol = (
   availableSymbols: readonly string[],
@@ -80,7 +80,7 @@ const resolveMarketSymbol = (
   );
   if (exact) return exact;
   const perp = availableSymbols.find(
-    (symbol) => normalizeSymbol(symbol) === `${normalized}-PERP`
+    (symbol) => normalizeSymbol(symbol) === `${normalized}-perp`
   );
   if (perp) return perp;
   throw new Error(

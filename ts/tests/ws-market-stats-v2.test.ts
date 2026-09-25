@@ -92,21 +92,34 @@ describe("marketStatsV2 websocket adapter", () => {
       },
       {
         type: "subscribe",
-        subscription: { channel: "marketStatsV2", symbols: ["SOL-PERP"] },
+        subscription: { channel: "marketStatsV2", symbols: ["sol-perp"] },
       },
       {
         type: "subscribe",
         subscription: {
           channel: "marketStatsV2",
-          symbols: ["BTC-PERP", "SOL-PERP"],
+          symbols: ["SOL-PERP", "btc-perp"],
         },
       },
     ]);
     expect(subscriptions.map(({ options }) => options?.routingKey)).toEqual([
       "marketStatsV2",
-      'marketStatsV2:["SOL-PERP"]',
-      'marketStatsV2:["BTC-PERP","SOL-PERP"]',
+      'marketStatsV2:["sol-perp"]',
+      'marketStatsV2:["btc-perp","sol-perp"]',
     ]);
+  });
+
+  it("keeps mixed-case symbols on the wire while routing case variants together", () => {
+    const { ws, subscriptions } = createMockWsClient();
+    createMarketStatsV2Adapter(ws)("kBONK");
+
+    expect(subscriptions[0]!.subMsg).toEqual({
+      type: "subscribe",
+      subscription: { channel: "marketStatsV2", symbols: ["kBONK"] },
+    });
+    expect(subscriptions[0]!.options?.routingKey).toBe(
+      buildMarketStatsV2RoutingKey("KBONK")
+    );
   });
 
   it("rejects an empty symbol list", () => {

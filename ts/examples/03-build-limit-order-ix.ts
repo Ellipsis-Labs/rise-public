@@ -11,7 +11,7 @@ const DEFAULT_EXAMPLE_AUTHORITY = "11111111111111111111111111111111";
 const authority = process.argv[2] ?? DEFAULT_EXAMPLE_AUTHORITY;
 const requestedSymbol = process.argv[3] ?? "SOL";
 
-const normalizeSymbol = (symbol: string) => symbol.trim().toUpperCase();
+const normalizeSymbol = (symbol: string) => symbol.trim().toLowerCase();
 
 const resolveMarketSymbol = (
   availableSymbols: readonly string[],
@@ -27,7 +27,7 @@ const resolveMarketSymbol = (
   }
 
   const perp = availableSymbols.find(
-    (symbol) => normalizeSymbol(symbol) === `${normalized}-PERP`
+    (symbol) => normalizeSymbol(symbol) === `${normalized}-perp`
   );
   if (perp) {
     return perp;

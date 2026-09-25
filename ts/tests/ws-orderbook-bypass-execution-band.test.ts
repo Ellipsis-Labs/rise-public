@@ -67,7 +67,7 @@ describe("orderbook bypassExecutionBand subscriptions", () => {
 
     const subscription = findSubscription(
       mock.subscriptions,
-      "l2Book:SOL-PERP:bypassExecutionBand"
+      "l2Book:sol-perp:bypassExecutionBand"
     );
     expect(subscription?.subMsg).toEqual({
       type: "subscribe",
@@ -87,7 +87,7 @@ describe("orderbook bypassExecutionBand subscriptions", () => {
 
     const subscription = findSubscription(
       mock.subscriptions,
-      "l2Book:SOL-PERP"
+      "l2Book:sol-perp"
     );
     expect(subscription?.subMsg).toEqual({
       type: "subscribe",
@@ -108,7 +108,7 @@ describe("orderbook bypassExecutionBand subscriptions", () => {
 
     const subscription = findSubscription(
       mock.subscriptions,
-      "l2Book:SOL-PERP"
+      "l2Book:sol-perp"
     );
     expect(subscription?.subMsg).toEqual({
       type: "subscribe",
@@ -127,7 +127,7 @@ describe("orderbook bypassExecutionBand subscriptions", () => {
 
     const subscription = findSubscription(
       mock.subscriptions,
-      "orderbook:SOL-PERP:bypassExecutionBand"
+      "orderbook:sol-perp:bypassExecutionBand"
     );
     expect(subscription?.subMsg).toEqual({
       type: "subscribe",
@@ -147,7 +147,7 @@ describe("orderbook bypassExecutionBand subscriptions", () => {
 
     const subscription = findSubscription(
       mock.subscriptions,
-      "orderbook:SOL-PERP"
+      "orderbook:sol-perp"
     );
     expect(subscription?.subMsg).toEqual({
       type: "subscribe",
@@ -164,7 +164,7 @@ describe("orderbook bypassExecutionBand subscriptions", () => {
     const orderbookPlugin = createOrderbookPlugin();
 
     expect(l2BookPlugin.getKey({ channel: "l2Book", coin: "SOL-PERP" })).toBe(
-      "l2Book:SOL-PERP"
+      "l2Book:sol-perp"
     );
     expect(
       l2BookPlugin.getKey({
@@ -172,17 +172,17 @@ describe("orderbook bypassExecutionBand subscriptions", () => {
         coin: "SOL-PERP",
         bypassExecutionBand: true,
       })
-    ).toBe("l2Book:SOL-PERP:bypassExecutionBand");
+    ).toBe("l2Book:sol-perp:bypassExecutionBand");
 
     expect(
       orderbookPlugin.getKey({ channel: "orderbook", symbol: "SOL-PERP" })
-    ).toBe("orderbook:SOL-PERP");
+    ).toBe("orderbook:sol-perp");
     expect(
       orderbookPlugin.getKey({
         channel: "orderbook",
         symbol: "SOL-PERP",
         bypassExecutionBand: true,
       })
-    ).toBe("orderbook:SOL-PERP:bypassExecutionBand");
+    ).toBe("orderbook:sol-perp:bypassExecutionBand");
   });
 });

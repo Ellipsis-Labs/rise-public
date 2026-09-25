@@ -1,3 +1,4 @@
+import { marketSymbolKey } from "../_utils/marketSymbol";
 import { createUpdateStream, normalizeTimestamp } from "@/ws/adapters/_utils";
 import { handleError } from "@/ws/errorHandling/ErrorSystem";
 import {
@@ -21,8 +22,8 @@ export const buildL2BookSubscriptionKey = (
   bypassExecutionBand?: boolean
 ): string => {
   return bypassExecutionBand
-    ? `l2Book:${coin}:bypassExecutionBand`
-    : `l2Book:${coin}`;
+    ? `l2Book:${marketSymbolKey(coin)}:bypassExecutionBand`
+    : `l2Book:${marketSymbolKey(coin)}`;
 };
 
 export const createL2BookAdapter = (
@@ -55,7 +56,7 @@ export const createL2BookAdapter = (
           : { bypassExecutionBand: options.bypassExecutionBand }),
       }),
       processMessage: async (message, [market], context) => {
-        if (message.coin !== market) {
+        if (marketSymbolKey(message.coin) !== marketSymbolKey(market)) {
           const error = createWrongMarketError(market, message.coin, {
             operation: "l2_book_validation",
             subscriptionKey: context.subscriptionKey,

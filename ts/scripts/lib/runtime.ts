@@ -114,7 +114,7 @@ export const readKeypairBytes = (path: string): Uint8Array => {
 export const loadKeypairSigner = async (path: string): Promise<LocalSigner> =>
   createKeyPairSignerFromBytes(readKeypairBytes(path));
 
-export const normalizeSymbol = (symbol: string) => symbol.trim().toUpperCase();
+export const normalizeSymbol = (symbol: string) => symbol.trim().toLowerCase();
 
 export const resolveMarketSymbol = (
   availableSymbols: readonly string[],
@@ -130,7 +130,7 @@ export const resolveMarketSymbol = (
   }
 
   const perp = availableSymbols.find(
-    (symbol) => normalizeSymbol(symbol) === `${normalized}-PERP`
+    (symbol) => normalizeSymbol(symbol) === `${normalized}-perp`
   );
   if (perp) {
     return perp;

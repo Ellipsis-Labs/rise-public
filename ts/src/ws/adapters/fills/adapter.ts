@@ -1,3 +1,4 @@
+import { marketSymbolKey } from "../_utils/marketSymbol";
 import { createUpdateStream, normalizeTimestamp } from "@/ws/adapters/_utils";
 import { handleError } from "@/ws/errorHandling/ErrorSystem";
 import { createInvalidTimestampError } from "@/ws/errorHandling/errors";
@@ -33,7 +34,8 @@ export const createFillsAdapter = (
     {
       channel: "fills",
       schema,
-      buildKey: (symbol?: string) => (symbol ? `fills:${symbol}` : "fills"),
+      buildKey: (symbol?: string) =>
+        symbol ? `fills:${marketSymbolKey(symbol)}` : "fills",
       buildSubParams: (symbol?: string) =>
         symbol ? { marketSymbol: symbol } : {},
       processMessage: (message, [symbol]) => {
@@ -44,7 +46,11 @@ export const createFillsAdapter = (
           if (!parsed.success) continue;
 
           const fillData = parsed.data;
-          if (symbol && fillData.marketSymbol !== symbol) continue;
+          if (
+            symbol &&
+            marketSymbolKey(fillData.marketSymbol) !== marketSymbolKey(symbol)
+          )
+            continue;
 
           const baseQty = Number.parseFloat(fillData.baseQty);
           const quoteQty = Number.parseFloat(fillData.quoteQty);

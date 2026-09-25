@@ -20,10 +20,10 @@ const normalizePriceDecimalsForDisplay = (decimals: number): number => {
   return normalized === 1 ? 2 : normalized;
 };
 
-const normalizeSymbol = (symbol: string): string => symbol.trim().toUpperCase();
+const normalizeSymbol = (symbol: string): string => symbol.trim().toLowerCase();
 
 const normalizeSelectedSymbol = (symbol: string | null): string | null =>
-  symbol ? normalizeSymbol(symbol) : null;
+  symbol ? symbol.trim() : null;
 
 const getPriceDecimalsFromLotTickSize = (params: {
   baseLotsDecimals: number;
@@ -108,26 +108,30 @@ export const projectPhoenixExchangeMarketState = (
   state: PhoenixExchangeStoreState,
   symbol: string | null
 ): PhoenixExchangeMarketState => {
-  const normalizedSymbol = normalizeSelectedSymbol(symbol);
+  const normalizedSymbol = symbol ? normalizeSymbol(symbol) : null;
   const cachedBySymbol = projectedMarketStateCache.get(state);
   const cached = cachedBySymbol?.get(normalizedSymbol);
   if (cached) {
     return cached;
   }
 
+  const marketSymbol = state.marketSymbols.find(
+    (candidate) => normalizeSymbol(candidate) === normalizedSymbol
+  );
+  const market = marketSymbol
+    ? (state.marketsBySymbol[marketSymbol] ?? null)
+    : null;
   const projected: PhoenixExchangeMarketState = {
-    symbol: normalizedSymbol,
-    market: normalizedSymbol
-      ? (state.marketsBySymbol[normalizedSymbol] ?? null)
+    symbol: market?.symbol ?? normalizeSelectedSymbol(symbol),
+    market,
+    metadata: marketSymbol
+      ? (state.marketMetadataBySymbol[marketSymbol] ?? null)
       : null,
-    metadata: normalizedSymbol
-      ? (state.marketMetadataBySymbol[normalizedSymbol] ?? null)
+    status: marketSymbol
+      ? (state.marketStatusBySymbol[marketSymbol] ?? null)
       : null,
-    status: normalizedSymbol
-      ? (state.marketStatusBySymbol[normalizedSymbol] ?? null)
-      : null,
-    latestChange: normalizedSymbol
-      ? (state.latestChangeBySymbol[normalizedSymbol] ?? null)
+    latestChange: marketSymbol
+      ? (state.latestChangeBySymbol[marketSymbol] ?? null)
       : null,
     health: state.health,
     source: state.source,
@@ -146,22 +150,22 @@ export const projectPhoenixExchangeMarketState = (
 export const selectPhoenixExchangeMarket =
   (symbol: string) =>
   (state: PhoenixExchangeStoreState): ExchangeMarketSnapshot | null =>
-    state.marketsBySymbol[normalizeSymbol(symbol)] ?? null;
+    projectPhoenixExchangeMarketState(state, symbol).market;
 
 export const selectPhoenixExchangeMarketStatus =
   (symbol: string) =>
   (state: PhoenixExchangeStoreState): ExchangeMarketStatusSummary | null =>
-    state.marketStatusBySymbol[normalizeSymbol(symbol)] ?? null;
+    projectPhoenixExchangeMarketState(state, symbol).status;
 
 export const selectPhoenixExchangeMarketMetadata =
   (symbol: string) =>
   (state: PhoenixExchangeStoreState): MarketPublicMetadata | null =>
-    state.marketMetadataBySymbol[normalizeSymbol(symbol)] ?? null;
+    projectPhoenixExchangeMarketState(state, symbol).metadata;
 
 export const selectPhoenixExchangeMarketChange =
   (symbol: string) =>
   (state: PhoenixExchangeStoreState): ExchangeRelevantChange | null =>
-    state.latestChangeBySymbol[normalizeSymbol(symbol)] ?? null;
+    projectPhoenixExchangeMarketState(state, symbol).latestChange;
 
 export const selectPhoenixExchangeMarketState =
   (symbol: string | null) =>
@@ -241,7 +245,7 @@ export const createPhoenixExchangeMarketSelection = (
 
   const selection: PhoenixExchangeMarketSelection = {
     store,
-    symbol: () => currentSymbol,
+    symbol: () => store.getState().symbol,
     market: () => store.getState().market,
     set: (symbol) => {
       if (closed) {

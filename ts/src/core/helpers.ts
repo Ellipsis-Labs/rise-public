@@ -342,7 +342,7 @@ export const getMarketMetadataForSymbol = async (
   });
 
   const assetMetadata = perpAssetMap.metadata.entries.find(
-    ({ key }) => key.toUpperCase() === symbol.toUpperCase()
+    ({ key }) => key.toLowerCase() === symbol.toLowerCase()
   )?.value;
   if (!assetMetadata) {
     throw new Error(`Market for symbol '${symbol}' not found in PerpAssetMap`);

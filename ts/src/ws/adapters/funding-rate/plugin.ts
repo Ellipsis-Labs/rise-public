@@ -1,3 +1,4 @@
+import { marketSymbolKey } from "../_utils/marketSymbol";
 import type { Subscription } from "@/ws/types";
 import type { MessageHandlerPlugin } from "@/ws/plugins/types";
 import { getStringField } from "../_utils/messageUtils";
@@ -12,7 +13,7 @@ export const createFundingRatePlugin = (): MessageHandlerPlugin => ({
     if (!symbol) {
       throw new Error("Invalid FundingRate message: missing symbol");
     }
-    return `fundingRate:${symbol}`;
+    return `fundingRate:${marketSymbolKey(symbol)}`;
   },
   handle: async (
     message: unknown,
@@ -23,6 +24,6 @@ export const createFundingRatePlugin = (): MessageHandlerPlugin => ({
       throw new Error("Invalid FundingRate message: missing symbol");
     }
 
-    registry.get(`fundingRate:${symbol}`)?.onMsg(message);
+    registry.get(`fundingRate:${marketSymbolKey(symbol)}`)?.onMsg(message);
   },
 });
