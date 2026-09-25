@@ -92,11 +92,45 @@ const waitUntil = async (predicate: () => boolean): Promise<void> => {
 };
 
 describe("orderbook manager", () => {
+  it("preserves the backend symbol spelling in snapshots and updates", async () => {
+    const { queues, l2Book } = createL2BookPort();
+    const manager = createPhoenixOrderbookManager({
+      api: {
+        getOrderbook: async () => ({
+          symbol: "kBONK",
+          slot: 1,
+          timestamp: 1_700_000_000,
+          bids: [],
+          asks: [],
+        }),
+      },
+      l2Book,
+    });
+    const resource = manager.resource("KBONK");
+    expect(resource.symbol).toBe("KBONK");
+    const release = resource.retain();
+    expect((await resource.ready())?.symbol).toBe("kBONK");
+    expect(resource.symbol).toBe("kBONK");
+    expect(resource.store.getState().symbol).toBe("kBONK");
+    await waitUntil(() => queues.length > 0);
+    queues.at(-1)!.push({
+      market: "kBONK",
+      ts: 1_700_000_500,
+      slot: 2n,
+      bids: [],
+      asks: [],
+    });
+    await waitUntil(() => resource.snapshot()?.slot === 2n);
+    expect(resource.snapshot()?.symbol).toBe("kBONK");
+    release();
+    manager.close();
+  });
+
   it("bootstraps a resource from the HTTP snapshot and exposes derived state", async () => {
     const manager = createPhoenixOrderbookManager({
       api: {
-        getOrderbook: async (symbol) => ({
-          symbol,
+        getOrderbook: async () => ({
+          symbol: "SOL-PERP",
           slot: 1,
           timestamp: 1_700_000_000,
           bids: [[100, 2]],
@@ -205,8 +239,8 @@ describe("orderbook manager", () => {
     const release = bypassed.retain();
 
     expect(filtered).not.toBe(bypassed);
-    expect(filtered.key).toBe("orderbook:SOL-PERP");
-    expect(bypassed.key).toBe("orderbook:SOL-PERP:bypassExecutionBand");
+    expect(filtered.key).toBe("orderbook:sol-perp");
+    expect(bypassed.key).toBe("orderbook:sol-perp:bypassExecutionBand");
     expect(manager.peek("SOL-PERP")).toBe(filtered);
     expect(manager.peek("SOL-PERP", { bypassExecutionBand: true })).toBe(
       bypassed

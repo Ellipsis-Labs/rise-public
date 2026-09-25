@@ -1,3 +1,4 @@
+import { marketSymbolKey } from "../_utils/marketSymbol";
 import { createUpdateStream } from "@/ws/adapters/_utils";
 import { handleError } from "@/ws/errorHandling/ErrorSystem";
 import { createWrongSymbolError } from "@/ws/errorHandling/errors";
@@ -21,8 +22,8 @@ export const buildOrderbookSubscriptionKey = (
   bypassExecutionBand?: boolean
 ): string => {
   return bypassExecutionBand
-    ? `orderbook:${symbol}:bypassExecutionBand`
-    : `orderbook:${symbol}`;
+    ? `orderbook:${marketSymbolKey(symbol)}:bypassExecutionBand`
+    : `orderbook:${marketSymbolKey(symbol)}`;
 };
 
 export const createOrderbookAdapter = (
@@ -54,7 +55,7 @@ export const createOrderbookAdapter = (
           : { bypassExecutionBand: options.bypassExecutionBand }),
       }),
       processMessage: async (message, [symbol], context) => {
-        if (message.symbol !== symbol) {
+        if (marketSymbolKey(message.symbol) !== marketSymbolKey(symbol)) {
           const error = createWrongSymbolError(symbol, message.symbol, {
             operation: "orderbook_snapshot_validation",
             subscriptionKey: context.subscriptionKey,

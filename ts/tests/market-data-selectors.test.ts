@@ -104,7 +104,9 @@ describe("market-data selectors", () => {
       status: () => store.getState().status,
       snapshot: () => store.getState(),
       market: (symbol) =>
-        store.getState().marketsBySymbol[symbol.toUpperCase()],
+        Object.values(store.getState().marketsBySymbol).find(
+          (market) => market.symbol.toLowerCase() === symbol.toLowerCase()
+        ),
       reconnect: vi.fn(),
       close: vi.fn(),
     };

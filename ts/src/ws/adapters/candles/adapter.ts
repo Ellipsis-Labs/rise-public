@@ -1,3 +1,4 @@
+import { marketSymbolKey } from "../_utils/marketSymbol";
 import type { WsClient } from "@/ws/types";
 import { createUpdateStream, normalizeTimestamp } from "@/ws/adapters/_utils";
 import { handleError } from "@/ws/errorHandling/ErrorSystem";
@@ -37,13 +38,16 @@ export const createCandlesAdapter = (
       channel: "candles",
       schema,
       buildKey: (symbol: string, timeframe: string) =>
-        `candles:${symbol}:${timeframe}`,
+        `candles:${marketSymbolKey(symbol)}:${timeframe}`,
       buildSubParams: (symbol: string, timeframe: string) => ({
         symbol,
         timeframe,
       }),
       processMessage: async (m, [symbol, timeframe], context) => {
-        if (m.symbol !== symbol || m.timeframe !== timeframe) {
+        if (
+          marketSymbolKey(m.symbol) !== marketSymbolKey(symbol) ||
+          m.timeframe !== timeframe
+        ) {
           const error = createWrongSymbolError(
             `${symbol}:${timeframe}`,
             `${m.symbol}:${m.timeframe}`,

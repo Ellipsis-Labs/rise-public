@@ -1,3 +1,4 @@
+import { marketSymbolKey } from "../_utils/marketSymbol";
 import type { Subscription } from "@/ws/types";
 import type { MessageHandlerPlugin } from "@/ws/plugins/types";
 import { getStringField } from "../_utils/messageUtils";
@@ -16,7 +17,7 @@ export const createCandlesPlugin = (): MessageHandlerPlugin => ({
     if (!symbol || !timeframe) {
       throw new Error("Invalid Candle message: missing symbol/timeframe");
     }
-    return `candles:${symbol}:${timeframe}`;
+    return `candles:${marketSymbolKey(symbol)}:${timeframe}`;
   },
   handle: async (
     message: unknown,
@@ -27,7 +28,7 @@ export const createCandlesPlugin = (): MessageHandlerPlugin => ({
     if (!symbol || !timeframe) {
       throw new Error("Invalid Candle message: missing symbol/timeframe");
     }
-    const key = `candles:${symbol}:${timeframe}`;
+    const key = `candles:${marketSymbolKey(symbol)}:${timeframe}`;
     const sub = registry.get(key);
     sub?.onMsg(message);
   },

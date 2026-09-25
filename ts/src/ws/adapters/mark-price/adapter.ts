@@ -1,3 +1,4 @@
+import { marketSymbolKey } from "../_utils/marketSymbol";
 import { createUpdateStream } from "@/ws/adapters/_utils";
 import type { WsClient } from "@/ws/types";
 import { applyStrictModeRecursive } from "@/ws/zodStrictMode";
@@ -29,7 +30,7 @@ export const createMarkPriceAdapter = (
     {
       channel: "markPrice",
       schema,
-      buildKey: (symbol: string) => `markPrice:${symbol}`,
+      buildKey: (symbol: string) => `markPrice:${marketSymbolKey(symbol)}`,
       buildSubParams: (symbol: string) => ({ symbol }),
       processMessage: (m) => ({
         symbol: m.symbol,

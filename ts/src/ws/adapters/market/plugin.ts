@@ -1,3 +1,4 @@
+import { marketSymbolKey } from "../_utils/marketSymbol";
 import type { Subscription } from "@/ws/types";
 import type { MessageHandlerPlugin } from "@/ws/plugins/types";
 import { getStringField } from "../_utils/messageUtils";
@@ -12,7 +13,7 @@ export const createMarketPlugin = (): MessageHandlerPlugin => ({
     if (!symbol) {
       throw new Error("Invalid Market message: missing symbol");
     }
-    return `market:${symbol}`;
+    return `market:${marketSymbolKey(symbol)}`;
   },
   handle: async (
     message: unknown,
@@ -23,6 +24,6 @@ export const createMarketPlugin = (): MessageHandlerPlugin => ({
       throw new Error("Invalid Market message: missing symbol");
     }
 
-    registry.get(`market:${symbol}`)?.onMsg(message);
+    registry.get(`market:${marketSymbolKey(symbol)}`)?.onMsg(message);
   },
 });

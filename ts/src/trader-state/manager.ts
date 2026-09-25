@@ -68,7 +68,15 @@ const getTraderStateStoreKey = (
   traderPdaIndex: number | undefined
 ) => `trader:${authority.trim()}:${normalizeTraderPdaIndex(traderPdaIndex)}`;
 
-const normalizeSymbol = (symbol: string) => symbol.toUpperCase();
+const normalizeSymbol = (symbol: string) => symbol.toLowerCase();
+
+const findSymbolKey = <T>(
+  bySymbol: Readonly<Record<string, T>>,
+  symbol: string
+) =>
+  Object.keys(bySymbol).find(
+    (key) => normalizeSymbol(key) === normalizeSymbol(symbol)
+  );
 
 const sameNumberArray = (left: readonly number[], right: readonly number[]) =>
   left.length === right.length &&
@@ -129,13 +137,19 @@ const applySymbolCollectionDeltas = <TDelta, TValue>(params: {
   };
 
   for (const delta of params.deltas) {
-    const symbol = normalizeSymbol(params.getSymbol(delta));
-    const next = params.applyDelta(delta, bySymbol[symbol]);
+    const symbol = params.getSymbol(delta);
+    const previousKey = findSymbolKey(bySymbol, symbol);
+    const next = params.applyDelta(
+      delta,
+      previousKey ? bySymbol[previousKey] : undefined
+    );
     if (next === SKIP_SYMBOL_DELTA) {
       continue;
     }
+    if (previousKey) {
+      delete bySymbol[previousKey];
+    }
     if (next === null) {
-      delete bySymbol[symbol];
       continue;
     }
     bySymbol[symbol] = next;
@@ -273,7 +287,7 @@ const buildSubaccountSnapshotFromState = (
   const orders = state.orderSymbols.map((symbol) => {
     const bucket = state.ordersBySymbol[symbol];
     return {
-      symbol,
+      symbol: bucket.symbol,
       orders: bucket.orderSequenceNumbers.map((orderSequenceNumber) =>
         cloneOrder(bucket.ordersBySequence[orderSequenceNumber])
       ),
@@ -310,35 +324,45 @@ const buildSubaccountStateFromSnapshot = (
 ): TraderStateSubaccountState => {
   const positionsBySymbol: Record<string, TraderStatePositionSnapshot> = {};
   for (const position of snapshot.positions) {
-    positionsBySymbol[normalizeSymbol(position.symbol)] =
-      clonePosition(position);
+    positionsBySymbol[position.symbol] = clonePosition(position);
   }
-  const positionSymbols = sortedSymbols(Object.keys(positionsBySymbol));
+  const positionSymbols = sortedSymbols(
+    Object.values(positionsBySymbol).map((position) => position.symbol)
+  );
 
   const ordersBySymbol: Record<string, TraderStateOrderBucket> = {};
   for (const orderEvent of snapshot.orders) {
-    const symbol = normalizeSymbol(orderEvent.symbol);
-    ordersBySymbol[symbol] = buildOrderBucket(symbol, orderEvent.orders ?? []);
+    const symbol = orderEvent.symbol;
+    ordersBySymbol[symbol] = buildOrderBucket(
+      orderEvent.symbol,
+      orderEvent.orders ?? []
+    );
   }
-  const orderSymbols = sortedSymbols(Object.keys(ordersBySymbol));
+  const orderSymbols = sortedSymbols(
+    Object.values(ordersBySymbol).map((bucket) => bucket.symbol)
+  );
 
   const splinesBySymbol: Record<string, TraderStateSplineBucket> = {};
   for (const spline of snapshot.splines) {
-    const symbol = normalizeSymbol(spline.symbol);
+    const symbol = spline.symbol;
     const existing = splinesBySymbol[symbol];
     const nextSplines = existing
       ? existing.splineKeys.map((key) => existing.splinesByKey[key])
       : [];
     nextSplines.push(spline);
-    splinesBySymbol[symbol] = buildSplineBucket(symbol, nextSplines);
+    splinesBySymbol[symbol] = buildSplineBucket(spline.symbol, nextSplines);
   }
-  const splineSymbols = sortedSymbols(Object.keys(splinesBySymbol));
+  const splineSymbols = sortedSymbols(
+    Object.values(splinesBySymbol).map((bucket) => bucket.symbol)
+  );
 
   const triggersBySymbol: Record<string, TraderStateTriggerSnapshot> = {};
   for (const trigger of snapshot.triggers) {
-    triggersBySymbol[normalizeSymbol(trigger.symbol)] = cloneTriggers(trigger);
+    triggersBySymbol[trigger.symbol] = cloneTriggers(trigger);
   }
-  const triggerSymbols = sortedSymbols(Object.keys(triggersBySymbol));
+  const triggerSymbols = sortedSymbols(
+    Object.values(triggersBySymbol).map((trigger) => trigger.symbol)
+  );
 
   const nextSnapshot = {
     ...snapshot,
@@ -459,7 +483,10 @@ const applyPositionDeltas = (
 
   return {
     positionsBySymbol: bySymbol,
-    positionSymbols: symbols,
+    positionSymbols: reuseSortedStringKeys(
+      current.positionSymbols,
+      symbols.map((key) => bySymbol[key].symbol)
+    ),
   };
 };
 
@@ -479,7 +506,6 @@ const applyOrderDeltas = (
     deltas,
     getSymbol: (delta) => delta.symbol,
     applyDelta: (event, currentBucket) => {
-      const symbol = normalizeSymbol(event.symbol);
       const ordersBySequence = {
         ...(currentBucket?.ordersBySequence ?? {}),
       };
@@ -497,7 +523,7 @@ const applyOrderDeltas = (
       }
 
       return {
-        symbol,
+        symbol: event.symbol,
         orderSequenceNumbers: reuseSortedStringKeys(
           currentBucket?.orderSequenceNumbers ?? [],
           Object.keys(ordersBySequence),
@@ -510,7 +536,10 @@ const applyOrderDeltas = (
 
   return {
     ordersBySymbol: bySymbol,
-    orderSymbols: symbols,
+    orderSymbols: reuseSortedStringKeys(
+      current.orderSymbols,
+      symbols.map((key) => bySymbol[key].symbol)
+    ),
   };
 };
 
@@ -527,7 +556,6 @@ const applySplineDeltas = (
     deltas,
     getSymbol: (delta) => delta.symbol,
     applyDelta: (delta, currentBucket) => {
-      const symbol = normalizeSymbol(delta.symbol);
       const splinesByKey = {
         ...(currentBucket?.splinesByKey ?? {}),
       };
@@ -557,7 +585,7 @@ const applySplineDeltas = (
       }
 
       return {
-        symbol,
+        symbol: delta.symbol,
         splineKeys: reuseSortedStringKeys(
           currentBucket?.splineKeys ?? [],
           Object.keys(splinesByKey)
@@ -569,7 +597,10 @@ const applySplineDeltas = (
 
   return {
     splinesBySymbol: bySymbol,
-    splineSymbols: symbols,
+    splineSymbols: reuseSortedStringKeys(
+      current.splineSymbols,
+      symbols.map((key) => bySymbol[key].symbol)
+    ),
   };
 };
 
@@ -601,7 +632,10 @@ const applyTriggerDeltas = (
 
   return {
     triggersBySymbol: bySymbol,
-    triggerSymbols: symbols,
+    triggerSymbols: reuseSortedStringKeys(
+      current.triggerSymbols,
+      symbols.map((key) => bySymbol[key].symbol)
+    ),
   };
 };
 
@@ -931,7 +965,8 @@ class PhoenixTraderStateResourceImpl implements PhoenixTraderStateResource {
   ): TraderStatePositionSnapshot | null {
     const subaccount = this.subaccount(subaccountIndex);
     if (!subaccount) return null;
-    return subaccount.positionsBySymbol[normalizeSymbol(symbol)] ?? null;
+    const key = findSymbolKey(subaccount.positionsBySymbol, symbol);
+    return key ? subaccount.positionsBySymbol[key] : null;
   }
 
   orders(
@@ -940,7 +975,8 @@ class PhoenixTraderStateResourceImpl implements PhoenixTraderStateResource {
   ): readonly TraderStateMarketLimitOrderRow[] {
     const subaccount = this.subaccount(subaccountIndex);
     if (!subaccount) return EMPTY_ORDERS;
-    const bucket = subaccount.ordersBySymbol[normalizeSymbol(symbol)];
+    const key = findSymbolKey(subaccount.ordersBySymbol, symbol);
+    const bucket = key ? subaccount.ordersBySymbol[key] : undefined;
     if (!bucket) return EMPTY_ORDERS;
     return bucket.orderSequenceNumbers.map(
       (orderSequenceNumber) => bucket.ordersBySequence[orderSequenceNumber]
@@ -954,11 +990,11 @@ class PhoenixTraderStateResourceImpl implements PhoenixTraderStateResource {
   ): TraderStateMarketLimitOrderRow | null {
     const subaccount = this.subaccount(subaccountIndex);
     if (!subaccount) return null;
-    return (
-      subaccount.ordersBySymbol[normalizeSymbol(symbol)]?.ordersBySequence[
-        orderSequenceNumber
-      ] ?? null
-    );
+    const key = findSymbolKey(subaccount.ordersBySymbol, symbol);
+    return key
+      ? (subaccount.ordersBySymbol[key].ordersBySequence[orderSequenceNumber] ??
+          null)
+      : null;
   }
 
   triggers(
@@ -967,7 +1003,8 @@ class PhoenixTraderStateResourceImpl implements PhoenixTraderStateResource {
   ): TraderStateTriggerSnapshot | null {
     const subaccount = this.subaccount(subaccountIndex);
     if (!subaccount) return null;
-    return subaccount.triggersBySymbol[normalizeSymbol(symbol)] ?? null;
+    const key = findSymbolKey(subaccount.triggersBySymbol, symbol);
+    return key ? subaccount.triggersBySymbol[key] : null;
   }
 
   lastMessage(): TraderStateServerMessage | null {

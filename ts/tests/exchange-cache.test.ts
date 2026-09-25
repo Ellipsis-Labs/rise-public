@@ -601,6 +601,19 @@ const healthReasons = (
     .map((event) => event.reason);
 
 describe("exchange cache", () => {
+  it("keeps market symbols in the spelling returned by the exchange", () => {
+    const snapshot = buildSnapshot(1n, 0, [{ symbol: "kBONK" }]);
+    const store = createPhoenixExchangeCacheStore(snapshot);
+    const state = store.store.getState();
+    expect(state.marketSymbols).toContain("kBONK");
+    expect(state.marketSymbols).not.toContain("KBONK");
+    expect(state.activeMarketSymbols).toContain("kBONK");
+    expect(store.market("KBONK")?.symbol).toBe("kBONK");
+    expect(projectPhoenixExchangeMarketState(state, "kbonk").symbol).toBe(
+      "kBONK"
+    );
+  });
+
   it("exposes first-class per-symbol selectors and projections", () => {
     const metadata = sampleMarketMetadata();
     const snapshot = buildSnapshot(1n, 0);

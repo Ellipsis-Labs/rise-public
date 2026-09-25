@@ -85,7 +85,7 @@ const DEFAULT_SOURCE_STATE: PhoenixExchangeMetadataSourceState = {
   fallbackAvailable: false,
 };
 
-const normalizeSymbol = (symbol: string): string => symbol.toUpperCase();
+const normalizeSymbol = (symbol: string): string => symbol.toLowerCase();
 
 const cloneBand = (
   band: ExchangeWsMarketPriceBand | null | undefined
@@ -276,8 +276,7 @@ const buildIndexedSnapshot = (
 ): IndexedSnapshot => {
   const normalized = normalizeSnapshot(snapshot);
   for (const market of normalized.markets) {
-    const symbol = normalizeSymbol(market.symbol);
-    const previousMetadata = previous?.marketMetadataBySymbol[symbol];
+    const previousMetadata = previous?.marketMetadataBySymbol[market.symbol];
     if (
       market.metadata &&
       previousMetadata &&
@@ -302,7 +301,7 @@ const buildIndexedSnapshot = (
   const closedSymbols: string[] = [];
 
   for (const market of frozen.markets) {
-    const symbol = normalizeSymbol(market.symbol);
+    const symbol = market.symbol;
     marketsBySymbol[symbol] = market;
     marketsByAssetId[market.assetId] = market;
     marketsByPubkey[market.marketPubkey] = market;
@@ -314,11 +313,11 @@ const buildIndexedSnapshot = (
     const summary = buildMarketStatusSummary(market);
     marketStatusBySymbol[symbol] = summary;
     if (summary.isActive) {
-      activeSymbols.push(symbol);
+      activeSymbols.push(market.symbol);
     } else if (summary.isClosed) {
-      closedSymbols.push(symbol);
+      closedSymbols.push(market.symbol);
     } else {
-      gatedSymbols.push(symbol);
+      gatedSymbols.push(market.symbol);
     }
   }
 
@@ -330,7 +329,7 @@ const buildIndexedSnapshot = (
     marketMetadataBySymbol,
     marketMetadataByAssetId,
     marketMetadataByPubkey,
-    marketSymbols: sortSymbols(Object.keys(marketsBySymbol)),
+    marketSymbols: sortSymbols(frozen.markets.map((market) => market.symbol)),
     activeMarketSymbols: sortSymbols(activeSymbols),
     gatedMarketSymbols: sortSymbols(gatedSymbols),
     closedMarketSymbols: sortSymbols(closedSymbols),
@@ -477,7 +476,11 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
   }
 
   market(symbol: string): ExchangeMarketSnapshot | undefined {
-    return this.store.getState().marketsBySymbol[normalizeSymbol(symbol)];
+    return this.store
+      .getState()
+      .snapshot?.markets.find(
+        (market) => normalizeSymbol(market.symbol) === normalizeSymbol(symbol)
+      );
   }
 
   marketByAssetId(assetId: number): ExchangeMarketSnapshot | undefined {
@@ -489,9 +492,7 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
   }
 
   marketMetadata(symbol: string): MarketPublicMetadata | null | undefined {
-    return this.store.getState().marketMetadataBySymbol[
-      normalizeSymbol(symbol)
-    ];
+    return this.market(symbol)?.metadata;
   }
 
   marketMetadataByAssetId(
@@ -508,7 +509,7 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
 
   instructionContext(symbol: string): ExchangeInstructionContext | undefined {
     const state = this.store.getState();
-    const market = state.marketsBySymbol[normalizeSymbol(symbol)];
+    const market = this.market(symbol);
     if (!market || !state.snapshot) return undefined;
     return {
       exchange: state.snapshot.exchange,

@@ -1,3 +1,4 @@
+import { marketSymbolKey } from "../_utils/marketSymbol";
 import type { Subscription } from "@/ws/types";
 import type { MessageHandlerPlugin } from "@/ws/plugins/types";
 import { getStringField, isRecord } from "@/ws/adapters/_utils/messageUtils";
@@ -17,7 +18,7 @@ export const createFillsPlugin = (): MessageHandlerPlugin => ({
     if (!symbol) {
       throw new Error("Invalid Fills message: missing symbol");
     }
-    return `fills:${symbol}`;
+    return `fills:${marketSymbolKey(symbol)}`;
   },
   handle: async (
     message: unknown,
@@ -28,7 +29,7 @@ export const createFillsPlugin = (): MessageHandlerPlugin => ({
       throw new Error("Invalid Fills message: missing symbol or fills array");
     }
 
-    registry.get(`fills:${symbol}`)?.onMsg(message);
+    registry.get(`fills:${marketSymbolKey(symbol)}`)?.onMsg(message);
     registry.get("fills")?.onMsg(message);
   },
 });

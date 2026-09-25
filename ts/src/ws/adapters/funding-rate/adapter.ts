@@ -1,3 +1,4 @@
+import { marketSymbolKey } from "../_utils/marketSymbol";
 import { createUpdateStream } from "@/ws/adapters/_utils";
 import { handleError } from "@/ws/errorHandling/ErrorSystem";
 import { createWrongSymbolError } from "@/ws/errorHandling/errors";
@@ -34,10 +35,10 @@ export const createFundingRateAdapter = (
     {
       channel: "fundingRate",
       schema,
-      buildKey: (symbol: string) => `fundingRate:${symbol}`,
+      buildKey: (symbol: string) => `fundingRate:${marketSymbolKey(symbol)}`,
       buildSubParams: (symbol: string) => ({ symbol }),
       processMessage: async (message, [symbol], context) => {
-        if (message.symbol !== symbol) {
+        if (marketSymbolKey(message.symbol) !== marketSymbolKey(symbol)) {
           const error = createWrongSymbolError(symbol, message.symbol, {
             operation: "funding_rate_validation",
             subscriptionKey: context.subscriptionKey,

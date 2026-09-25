@@ -667,10 +667,10 @@ export const emitExchangeDiffEvents = (params: {
   }
 
   const currentMarkets = new Map(
-    current.markets.map((market) => [market.symbol.toUpperCase(), market])
+    current.markets.map((market) => [market.symbol.toLowerCase(), market])
   );
   const nextMarkets = new Map(
-    next.markets.map((market) => [market.symbol.toUpperCase(), market])
+    next.markets.map((market) => [market.symbol.toLowerCase(), market])
   );
 
   for (const [symbolKey, market] of nextMarkets) {

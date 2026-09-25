@@ -8,7 +8,11 @@ import type {
   MarkPriceUpdate,
   MarketStatsUpdate,
 } from "@/index";
-import { createPhoenixMarketData, selectMarketDataRow } from "@/index";
+import {
+  createPhoenixMarketData,
+  createPhoenixMarketDataSelection,
+  selectMarketDataRow,
+} from "@/index";
 
 const buildSnapshot = (): ExchangeSnapshotView => ({
   version: 1,
@@ -195,11 +199,16 @@ const createExchangeStub = (): PhoenixExchangeMetadata => {
     ready: async () => snapshot,
     health: () => "bootstrapped",
     snapshot: () => snapshot,
-    market: (symbol) => marketsBySymbol[symbol.toUpperCase()],
+    market: (symbol) =>
+      Object.values(marketsBySymbol).find(
+        (market) => market.symbol.toLowerCase() === symbol.toLowerCase()
+      ),
     marketByAssetId: (assetId) => marketsByAssetId[assetId],
     marketByPubkey: (pubkey) => marketsByPubkey[pubkey],
     instructionContext: (symbol) => {
-      const market = marketsBySymbol[symbol.toUpperCase()];
+      const market = Object.values(marketsBySymbol).find(
+        (candidate) => candidate.symbol.toLowerCase() === symbol.toLowerCase()
+      );
       return market ? { exchange: snapshot.exchange, market } : undefined;
     },
     source: () => ({
@@ -274,7 +283,7 @@ const createMarkPricePort = () => {
   const calls: string[] = [];
 
   const getStream = (symbol: string) => {
-    const normalized = symbol.toUpperCase();
+    const normalized = symbol.toLowerCase();
     const existing = streams.get(normalized);
     if (existing) {
       return existing;
@@ -295,8 +304,8 @@ const createMarkPricePort = () => {
   };
 
   const port = (symbol: string, signal?: AbortSignal) => {
-    const normalized = symbol.toUpperCase();
-    calls.push(normalized);
+    const normalized = symbol.toLowerCase();
+    calls.push(symbol);
     const stream = getStream(normalized);
 
     const queue = {
@@ -348,6 +357,37 @@ const waitUntil = async (
 };
 
 describe("createPhoenixMarketData", () => {
+  it("keeps mixed-case symbols from market data updates", async () => {
+    const allMids = createGlobalPort<AllMidsUpdate>();
+    const exchange = createExchangeStub();
+    exchange.store.setState((state) => ({
+      ...state,
+      marketSymbols: ["kBONK"],
+    }));
+    const marketData = createPhoenixMarketData({
+      exchange,
+      allMids: allMids.port,
+    });
+    const release = marketData.retain();
+    await marketData.ready();
+    allMids.push({ mids: { KBONK: 1 }, slot: 1n, slotIndex: 0 });
+    await waitUntil(
+      () => marketData.market("KBONK")?.mid === 1,
+      "mixed-case market data was not received"
+    );
+    expect(marketData.snapshot().symbols).toEqual(["kBONK"]);
+    expect(marketData.market("kbonk")?.symbol).toBe("kBONK");
+    expect(marketData.snapshot().latestChange?.symbol).toBe("kBONK");
+    const resource = marketData.resource("KBONK");
+    expect(resource.symbol).toBe("kBONK");
+    const selection = createPhoenixMarketDataSelection(marketData, "KBONK");
+    expect(selection.symbol()).toBe("kBONK");
+    expect(selection.store.getState().latestChange?.symbol).toBe("kBONK");
+    selection.close();
+    release();
+    marketData.close();
+  });
+
   it("seeds symbols from exchange metadata and merges market data streams", async () => {
     const allMids = createGlobalPort<AllMidsUpdate>();
     const marketStats = createGlobalPort<MarketStatsUpdate>();

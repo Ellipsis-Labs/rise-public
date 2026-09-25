@@ -28,6 +28,7 @@
       "riskAuthority": "11111111111111111111111111111111",
       "rootAuthority": "11111111111111111111111111111111"
     },
+    "pendingWithdrawThrottleReplenishment": "0",
     "perpAssetMapKey": "2nHGAaEw3D5dd4hVueaUNoygkQFmoeKqRQWnSPqSMFUC",
     "quoteDecimals": 6,
     "totalQuoteLotFees": "9009939069",

@@ -37,4 +37,5 @@ export interface GlobalConfiguration {
    */
   nativeSolSpotMetadata: SpotCollateralMetadata;
   acknowledgedRestartSlot: bigint;
+  pendingWithdrawThrottleReplenishment: QuoteLots;
 }

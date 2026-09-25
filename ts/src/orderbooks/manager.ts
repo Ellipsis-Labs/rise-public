@@ -25,10 +25,11 @@ const DEFAULT_RESYNC_BACKOFF_MS = 1_000;
 
 const EMPTY_LEVELS: readonly PhoenixOrderbookLevel[] = [];
 
-const normalizeSymbol = (symbol: string) => symbol.trim().toUpperCase();
+const normalizeSymbol = (symbol: string) => symbol.trim().toLowerCase();
 
 type NormalizedOrderbookRequest = {
   symbol: string;
+  wireSymbol: string;
   bypassExecutionBand: boolean;
   requestOptions?: PhoenixOrderbookRequestOptions;
 };
@@ -49,6 +50,7 @@ const normalizeOrderbookRequest = (
   const symbol = normalizeSymbol(request.symbol);
   return {
     symbol,
+    wireSymbol: request.symbol.trim(),
     bypassExecutionBand: request.bypassExecutionBand === true,
     requestOptions: toRequestOptions(request.bypassExecutionBand),
   };
@@ -213,7 +215,7 @@ const createInitialStoreState = (
 
 class PhoenixOrderbookResourceImpl implements PhoenixOrderbookResource {
   readonly key: string;
-  readonly symbol: string;
+  private readonly wireSymbol: string;
   readonly bypassExecutionBand: boolean;
   readonly store;
 
@@ -238,13 +240,21 @@ class PhoenixOrderbookResourceImpl implements PhoenixOrderbookResource {
     private readonly config: PhoenixOrderbookManagerConfig,
     private readonly disposeFromManager: () => void
   ) {
-    this.symbol = request.symbol;
+    this.wireSymbol = request.wireSymbol;
     this.bypassExecutionBand = request.bypassExecutionBand;
     this.requestOptions = request.requestOptions;
     this.key = getOrderbookStoreKey(request);
     this.store = createStore<PhoenixOrderbookStoreState>(() =>
-      createInitialStoreState(this.key, this.symbol, this.bypassExecutionBand)
+      createInitialStoreState(
+        this.key,
+        this.wireSymbol,
+        this.bypassExecutionBand
+      )
     );
+  }
+
+  get symbol(): string {
+    return this.store.getState().book?.symbol ?? this.wireSymbol;
   }
 
   retain(): () => void {
@@ -359,7 +369,7 @@ class PhoenixOrderbookResourceImpl implements PhoenixOrderbookResource {
         this.streamAbort = controller;
       },
       stream: (signal) =>
-        this.config.l2Book!(this.symbol, this.requestOptions, signal),
+        this.config.l2Book!(this.wireSymbol, this.requestOptions, signal),
       onMessage: (update) => {
         this.applyBookFromUpdate(update, "live");
       },
@@ -402,6 +412,7 @@ class PhoenixOrderbookResourceImpl implements PhoenixOrderbookResource {
     this.store.setState(
       {
         ...current,
+        symbol: book.symbol,
         status: {
           health,
           isConnected: health === "live",
@@ -428,7 +439,7 @@ class PhoenixOrderbookResourceImpl implements PhoenixOrderbookResource {
     snapshot: PhoenixOrderbookBootstrapSnapshot
   ): PhoenixOrderbookSnapshot {
     const book = buildBook({
-      symbol: normalizeSymbol(snapshot.symbol || this.symbol),
+      symbol: snapshot.symbol || this.wireSymbol,
       bypassExecutionBand: this.bypassExecutionBand,
       slot:
         snapshot.slot === null || snapshot.slot === undefined
@@ -448,7 +459,7 @@ class PhoenixOrderbookResourceImpl implements PhoenixOrderbookResource {
     health: PhoenixOrderbookHealth
   ): PhoenixOrderbookSnapshot {
     const book = buildBook({
-      symbol: normalizeSymbol(update.market || this.symbol),
+      symbol: update.market || this.wireSymbol,
       bypassExecutionBand: this.bypassExecutionBand,
       slot: update.slot ?? null,
       timestampMs: toTimestampMs(update.ts),
@@ -501,7 +512,7 @@ class PhoenixOrderbookResourceImpl implements PhoenixOrderbookResource {
     );
 
     this.bootstrapPromise = this.config.api
-      .getOrderbook(this.symbol, this.requestOptions)
+      .getOrderbook(this.wireSymbol, this.requestOptions)
       .then((response) => {
         const snapshot = this.applyBookFromBootstrap(response);
         this.ensureStreamLoop();

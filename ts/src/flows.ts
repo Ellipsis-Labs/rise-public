@@ -796,7 +796,7 @@ const resolveMarketMetadata = async (
   let marketAccount: MarketAddress | undefined;
 
   for (const { key, value } of perpAssetMap.metadata.entries) {
-    if (key.toUpperCase() !== marketSymbol.toUpperCase()) {
+    if (key.toLowerCase() !== marketSymbol.toLowerCase()) {
       continue;
     }
     assetId = Number(value.staticMarketParams.assetId);
