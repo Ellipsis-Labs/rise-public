@@ -360,6 +360,39 @@ describe("raw account parsing", () => {
     TEST_TIMEOUT_MS
   );
 
+  it("skips spot collateral collection slots in PerpAssetMap", () => {
+    // Layout: 8 discriminant + 16 sequence number + 2 numAssets + 6 padding,
+    // then the short-map header (slotsUsed u32, tombstones u32, capacity u64)
+    // and 1584-byte (16-byte key + 1568-byte value) entries.
+    const SLOTS_USED_OFFSET = 32;
+    const ENTRIES_OFFSET = 48;
+    const ENTRY_LEN = 1584;
+    const ASSET_MAP_VARIANT_SPOT = 1;
+
+    const bytes = loadMockBytes("perp_asset_map.json");
+    const expected = decodePerpAssetMap(bytes);
+    const slotsUsed = new DataView(
+      bytes.buffer,
+      bytes.byteOffset,
+      bytes.byteLength
+    ).getUint32(SLOTS_USED_OFFSET, true);
+
+    // Append an active slot tagged as a spot collateral collection, the way
+    // the first spot asset registration does on chain.
+    const entryOffset = ENTRIES_OFFSET + slotsUsed * ENTRY_LEN;
+    bytes.set(new TextEncoder().encode(`SPOT-${slotsUsed}`), entryOffset);
+    bytes[entryOffset + ENTRY_LEN - 1] = ASSET_MAP_VARIANT_SPOT;
+    writeU32LE(bytes, SLOTS_USED_OFFSET, slotsUsed + 1);
+
+    const decoded = decodePerpAssetMap(bytes);
+    expect(decoded.metadata.entries).toEqual(expected.metadata.entries);
+    expect(decoded.metadata.len).toBe(expected.metadata.len);
+    expect(decoded.numAssets).toBe(expected.numAssets);
+    expect(
+      decoded.metadata.entries.some(({ key }) => key.startsWith("SPOT-"))
+    ).toBe(false);
+  });
+
   it(
     "decodes Trader fixtures",
     () => {

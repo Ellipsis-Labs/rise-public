@@ -243,7 +243,7 @@ describe("generated SDK fixtures", () => {
       "sdk-instruction-fixtures.json"
     );
     expect(fixture.schemaVersion).toBe(1);
-    expect(fixture.instructions).toHaveLength(119);
+    expect(fixture.instructions).toHaveLength(117);
 
     for (const instruction of fixture.instructions) {
       const discriminant = sha2_const(instruction.preimage);

@@ -71,7 +71,6 @@ import {
 import { buildPlacePostOnlyOrderIx } from "./core/ixBuilders/PlacePostOnlyOrder";
 import {
   chunkScaleLevelsForTx,
-  MAX_SCALE_ORDERS,
   MAX_SCALE_SET_ID,
   scaleLevelsToMultipleOrderPacket,
   scaleLevelsToMultipleOrderPacketV2,
@@ -1194,9 +1193,9 @@ export const buildPlaceMarketOrderFlow = async (
  * funds the child, places the ladder, then sweeps the child back to the parent.
  * The register/sync/fund setup lands in the first batch and the sweep in the
  * last, so a single-batch ladder is fully atomic. Larger isolated ladders may
- * span several batches (like cross) up to the {@link MAX_SCALE_ORDERS} per-side
- * cap; batches are NOT atomic across transactions, so a mid-batch failure can
- * leave a partial ladder and collateral funded-but-not-yet-swept. Callers that
+ * span several batches (like cross); batches are NOT atomic across
+ * transactions, so a mid-batch failure can leave a partial ladder and
+ * collateral funded-but-not-yet-swept. Callers that
  * need atomicity should keep isolated ladders to a single batch (size the order
  * count to `maxOrdersPerTx`).
  *
@@ -1250,11 +1249,6 @@ export const buildPlaceMultiLimitOrderFlow = async (
   const placeableLevels = levels.filter((level) => level.sizeBaseLots > 0);
   if (placeableLevels.length === 0) {
     throw new Error("Scale order has no levels with positive size");
-  }
-  if (placeableLevels.length > MAX_SCALE_ORDERS) {
-    throw new Error(
-      `Scale order side may have at most ${MAX_SCALE_ORDERS} orders; got ${placeableLevels.length}`
-    );
   }
 
   const { perpAssetMapKey, arenaAddresses, globalTraderIndexAddresses } =
@@ -1378,7 +1372,7 @@ export const buildPlaceMultiLimitOrderFlow = async (
   // otherwise reject every batch after the first.
   if (hasScaleSetId && chunks.length > 1 && !continuationOptIn) {
     throw new Error(
-      `A scaleSetId cannot span transactions; got ${chunks.length} chunks for ${placeableLevels.length} orders. Raise maxOrdersPerTx (capped at ${MAX_SCALE_ORDERS}) or reduce the order count so the ladder fits one transaction, or pass scaleSetContinuation: true to opt in (requires an upgraded program).`
+      `A scaleSetId cannot span transactions; got ${chunks.length} chunks for ${placeableLevels.length} orders. Raise maxOrdersPerTx or reduce the order count so the ladder fits one transaction, or pass scaleSetContinuation: true to opt in (requires an upgraded program).`
     );
   }
 
