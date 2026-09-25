@@ -362,6 +362,7 @@ export {
   type ActiveTraderView,
   ActiveTraderViewSchema,
   type HistoricalValuesRequest,
+  type PnlValuesRequest,
   type MarketPositionSnapshot,
   MarketPositionSnapshotSchema,
   type SpotCollateralValue,

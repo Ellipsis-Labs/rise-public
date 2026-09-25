@@ -3,6 +3,24 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.33 - 2026-09-25
+
+Source Phoenix commit: `753ef9222464d261902edd20ddd988a5d763821f`
+
+### Summary
+
+- Added a new `PnlValuesRequest` type for `getTraderPnl` and `getTraderPnlValues`, making `resolution` optional. When omitted, the server clamps the window to the account's creation time and picks the finest resolution that fits `limit` points.
+- Exported `PnlValuesRequest` from the public API schemas entry point.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `getTraderPnl` and `getTraderPnlValues` now accept `PnlValuesRequest` instead of `HistoricalValuesRequest`; existing calls that pass `resolution` continue to work unchanged.
+- You can now omit `resolution` when requesting trader PnL history and let the server pick an appropriate resolution automatically.
+
 ## v0.5.32 - 2026-09-25
 
 Source Phoenix commit: `a7a82ea1228fb52ad23501993b513a1226516de3`

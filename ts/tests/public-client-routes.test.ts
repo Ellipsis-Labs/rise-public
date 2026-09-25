@@ -922,7 +922,6 @@ describe("public client route mapping", () => {
       limit: 400,
     });
     const traderPnl = await traders.getTraderPnlValues("trader-pubkey", {
-      resolution: "1h",
       limit: 10,
     });
     await candles.getCandles("SOL", {
@@ -1130,7 +1129,7 @@ describe("public client route mapping", () => {
       {
         method: "GET",
         endpoint: "/v1/traders/trader-pubkey/pnl",
-        params: { resolution: "1h", limit: 10 },
+        params: { limit: 10 },
         body: undefined,
       },
       {
