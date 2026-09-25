@@ -101,6 +101,7 @@ export const buildPlaceTwapOrderIx = (
   const data = getPlaceTwapOrderEncoder().encode({
     cooldownSlots: params.cooldownSlots,
     nChildOrders: params.nChildOrders,
+    nDustOrders: params.nDustOrders,
     childOrderMaxSlippageBps: params.childOrderMaxSlippageBps,
     childOrderMinPriceInTicks: params.childOrderMinPriceInTicks,
     childOrderMaxPriceInTicks: params.childOrderMaxPriceInTicks,
@@ -337,17 +338,24 @@ const validatePlaceTwapOrder = (params: PlaceTwapOrderParams) => {
   if (!params.childOrderPacket) {
     throw new Error("Child order packet is required");
   }
+  const nDustOrders = params.nDustOrders ?? 0n;
+  if (nDustOrders < 0n || nDustOrders > params.nChildOrders) {
+    throw new Error(
+      "Dust order count must be between 0 and the child order count"
+    );
+  }
+  if (params.nChildOrders + nDustOrders > (1n << 64n) - 1n) {
+    throw new Error("Total order count exceeds u64");
+  }
   const dustOrderSize = params.dustOrderSize ?? 0n;
   if (dustOrderSize < 0n) {
     throw new Error("Dust order size must be non-negative");
   }
-  if (dustOrderSize > 0n) {
-    if (params.nChildOrders < 2n) {
-      throw new Error("Dust order size requires at least 2 child orders");
-    }
-    if (dustOrderSize >= params.childOrderPacket.numBaseLots) {
-      throw new Error("Dust order size must be less than the child order size");
-    }
+  if (nDustOrders > 0n && dustOrderSize === 0n) {
+    throw new Error("Dust orders require a nonzero dust order size");
+  }
+  if (dustOrderSize >= params.childOrderPacket.numBaseLots) {
+    throw new Error("Dust order size must be less than the child order size");
   }
 };
 

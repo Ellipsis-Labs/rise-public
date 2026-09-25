@@ -355,6 +355,7 @@ class PhoenixOrderbookResourceImpl implements PhoenixOrderbookResource {
 
     this.streamPromise = this.runStreamLoop().finally(() => {
       this.streamPromise = null;
+      this.ensureStreamLoop();
     });
   }
 
