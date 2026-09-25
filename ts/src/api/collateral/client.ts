@@ -5,10 +5,15 @@ import type {
   CollateralAssetsResponse,
   CollateralHistoryRequest,
   CollateralHistoryResponse,
+  CollateralHistoryV2Request,
+  CollateralHistoryV2Response,
+  CollateralTotalsResponse,
 } from "./types";
 import {
   CollateralAssetsResponseSchema,
   CollateralHistoryResponseSchema,
+  CollateralHistoryV2ResponseSchema,
+  CollateralTotalsResponseSchema,
 } from "./types";
 
 const buildCollateralHistoryQuery = (
@@ -35,6 +40,16 @@ export class V1CollateralClient {
       this.http,
       "/v1/collateral/assets",
       CollateralAssetsResponseSchema
+    );
+  }
+
+  async getUserCollateralTotals(
+    userPubkey: string
+  ): Promise<CollateralTotalsResponse> {
+    return get(
+      this.http,
+      `/v1/users/${encodeURIComponent(userPubkey)}/collateral-totals`,
+      CollateralTotalsResponseSchema
     );
   }
 
@@ -70,6 +85,45 @@ export class V1CollateralClient {
       this.http,
       `/v1/traders/${encodeURIComponent(traderPubkey)}/collateral-history`,
       CollateralHistoryResponseSchema,
+      { params: buildCollateralHistoryQuery(request) }
+    );
+  }
+
+  /** Mixed history across quote and spot collateral assets. */
+  async getUserCollateralHistoryV2(
+    userPubkey: string,
+    request: Omit<CollateralHistoryV2Request, "pdaIndex">
+  ): Promise<CollateralHistoryV2Response> {
+    return get(
+      this.http,
+      `/v1/users/${encodeURIComponent(userPubkey)}/collateral-history-v2`,
+      CollateralHistoryV2ResponseSchema,
+      { params: buildCollateralHistoryQuery(request) }
+    );
+  }
+
+  /** Mixed history across quote and spot collateral assets. */
+  async getTraderCollateralHistoryV2(
+    authority: string,
+    request: CollateralHistoryV2Request
+  ): Promise<CollateralHistoryV2Response> {
+    return get(
+      this.http,
+      `/v1/trader/${encodeURIComponent(authority)}/collateral-history-v2`,
+      CollateralHistoryV2ResponseSchema,
+      { params: buildCollateralHistoryQuery(request) }
+    );
+  }
+
+  /** Mixed history across quote and spot collateral assets. */
+  async getTraderPdaCollateralHistoryV2(
+    traderPubkey: string,
+    request: Omit<CollateralHistoryV2Request, "pdaIndex">
+  ): Promise<CollateralHistoryV2Response> {
+    return get(
+      this.http,
+      `/v1/traders/${encodeURIComponent(traderPubkey)}/collateral-history-v2`,
+      CollateralHistoryV2ResponseSchema,
       { params: buildCollateralHistoryQuery(request) }
     );
   }

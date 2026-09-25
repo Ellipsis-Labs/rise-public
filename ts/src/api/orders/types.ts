@@ -212,6 +212,105 @@ export const ApiInstructionResponseSchema: z.ZodType<ApiInstructionResponse> =
     programId: z.string(),
   });
 
+export interface TwapChildOrderParams {
+  /** Total size across all regular and dust executions, in base lots. */
+  numBaseLots?: number | null;
+  /** Total size across all regular and dust executions, in base units. */
+  quantity?: number | null;
+  maxSlippageBps?: number;
+  minPriceInTicks?: number | null;
+  maxPriceInTicks?: number | null;
+  /**
+   * Size of each dust execution in base lots, smaller than the regular child
+   * size. Required and positive when nDustOrders is positive.
+   * With an omitted or zero count, a positive size pins the final child
+   * (childOrders >= 2), an omitted size derives a final dust child for uneven
+   * totals, and zero requires an equal split.
+   */
+  dustOrderSize?: number | null;
+}
+
+export const TwapChildOrderParamsSchema: z.ZodType<TwapChildOrderParams> =
+  z.object({
+    numBaseLots: z.number().int().nonnegative().nullable().optional(),
+    quantity: z.number().nullable().optional(),
+    maxSlippageBps: z.number().int().nonnegative().optional(),
+    minPriceInTicks: z.number().int().nonnegative().nullable().optional(),
+    maxPriceInTicks: z.number().int().nonnegative().nullable().optional(),
+    dustOrderSize: z.number().int().nonnegative().nullable().optional(),
+  });
+
+export interface IsolatedTwapOrderParams {
+  /** Quote collateral transferred before each child order, in quote lots. */
+  childOrderCollateralQuoteLotsToTransfer?: number | null;
+  /** Upfront quote collateral transfer, in quote lots. */
+  transferAmount?: number;
+  /** Upfront spot transfers, keyed by uppercase symbol, in each asset's smallest native unit. */
+  transferSpotCollateralAmounts?: Record<string, number>;
+  allowCrossAndIsolatedForAsset?: boolean | null;
+}
+
+export const IsolatedTwapOrderParamsSchema: z.ZodType<IsolatedTwapOrderParams> =
+  z.object({
+    childOrderCollateralQuoteLotsToTransfer: z
+      .number()
+      .int()
+      .nonnegative()
+      .nullable()
+      .optional(),
+    transferAmount: z.number().int().nonnegative().optional(),
+    transferSpotCollateralAmounts: z
+      .record(z.string(), z.number().int().nonnegative())
+      .optional(),
+    allowCrossAndIsolatedForAsset: z.boolean().nullable().optional(),
+  });
+
+/** Request payload for POST /v1/ix/place-twap-order. */
+export interface PlaceTwapOrderRequest {
+  authority: string;
+  symbol: string;
+  side: string;
+  traderPdaIndex?: number | null;
+  cooldownSlots: number;
+  /**
+   * Total execution count when nDustOrders is omitted or zero;
+   * regular execution count when nDustOrders is positive.
+   */
+  childOrders: number;
+  /**
+   * Additional dust executions, at most childOrders. A positive count
+   * requires childOrderParams.dustOrderSize > 0. Omitted or zero preserves
+   * legacy sizing, including an optional final dust child.
+   */
+  nDustOrders?: number | null;
+  childOrderParams?: TwapChildOrderParams;
+  marginType?: "cross" | "isolated";
+  isolatedTWAPOrderParams?: IsolatedTwapOrderParams | null;
+  feePayer?: string | null;
+  isReduceOnly?: boolean | null;
+  clientOrderId?: string | null;
+  lastValidSlot?: number | null;
+}
+
+export const PlaceTwapOrderRequestSchema: z.ZodType<PlaceTwapOrderRequest> =
+  z.object({
+    authority: z.string(),
+    symbol: z.string(),
+    side: z.string(),
+    traderPdaIndex: z.number().int().min(0).max(255).nullable().optional(),
+    cooldownSlots: z.number().int().nonnegative(),
+    childOrders: z.number().int().nonnegative(),
+    nDustOrders: z.number().int().nonnegative().nullable().optional(),
+    childOrderParams: TwapChildOrderParamsSchema.optional(),
+    marginType: z.enum(["cross", "isolated"]).optional(),
+    isolatedTWAPOrderParams:
+      IsolatedTwapOrderParamsSchema.nullable().optional(),
+    feePayer: z.string().nullable().optional(),
+    isReduceOnly: z.boolean().nullable().optional(),
+    clientOrderId: z.string().nullable().optional(),
+    lastValidSlot: z.number().int().nonnegative().nullable().optional(),
+  });
+
 export interface PlaceIsolatedOrderEnhancedResponse {
   instructions: ApiInstructionResponse[];
   estimatedLiquidationPriceUsd: number | null;
