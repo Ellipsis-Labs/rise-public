@@ -49,6 +49,66 @@ export const CollateralAssetMetadataSchema: z.ZodType<CollateralAssetMetadata> =
 export const CollateralAssetsResponseSchema: z.ZodType<CollateralAssetsResponse> =
   z.object({ assets: z.array(CollateralAssetMetadataSchema) });
 
+// Native-unit quantities are i64 on the wire; JSON parsing rounds anything
+// past 2^53 - 1, so reject those instead of returning a wrong value.
+const nativeAmountSchema = z.number().int().refine(Number.isSafeInteger, {
+  message: "Expected safe integer",
+});
+
+// ---------------------------------------------------------------------------
+// Collateral Totals Types
+// ---------------------------------------------------------------------------
+
+export interface CollateralFlowTotal {
+  /** Native units of the asset, as a positive magnitude. */
+  amount: number;
+  /** USD value, each event valued at its event-time price. */
+  value: number;
+}
+
+export interface CollateralAssetTotals {
+  assetIndex: number;
+  symbol: string;
+  decimals: number;
+  deposited: CollateralFlowTotal;
+  withdrawn: CollateralFlowTotal;
+}
+
+/**
+ * Lifetime deposit and withdrawal totals for a user across all subaccounts
+ * and collateral assets. Transfers, swaps and liquidations are excluded.
+ */
+export interface CollateralTotalsResponse {
+  /** USD; sum of `assets[].deposited.value`. */
+  totalDeposited: number;
+  /** USD; sum of `assets[].withdrawn.value`. */
+  totalWithdrawn: number;
+  /** Only assets with at least one deposit or withdrawal appear. */
+  assets: CollateralAssetTotals[];
+}
+
+export const CollateralFlowTotalSchema: z.ZodType<CollateralFlowTotal> =
+  z.object({
+    amount: nativeAmountSchema.nonnegative(),
+    value: z.number(),
+  });
+
+export const CollateralAssetTotalsSchema: z.ZodType<CollateralAssetTotals> =
+  z.object({
+    assetIndex: z.number().int().nonnegative(),
+    symbol: z.string(),
+    decimals: z.number().int().nonnegative(),
+    deposited: CollateralFlowTotalSchema,
+    withdrawn: CollateralFlowTotalSchema,
+  });
+
+export const CollateralTotalsResponseSchema: z.ZodType<CollateralTotalsResponse> =
+  z.object({
+    totalDeposited: z.number(),
+    totalWithdrawn: z.number(),
+    assets: z.array(CollateralAssetTotalsSchema),
+  });
+
 // ---------------------------------------------------------------------------
 // Collateral History Types
 // ---------------------------------------------------------------------------
@@ -178,3 +238,89 @@ export const CollateralHistoryResponseSchema: z.ZodType<CollateralHistoryRespons
     prevCursor: raw.prevCursor ?? null,
     hasMore: requireField(raw.hasMore, "collateralHistory.hasMore"),
   }));
+
+// ---------------------------------------------------------------------------
+// Mixed (multi-asset) Collateral History Types
+// ---------------------------------------------------------------------------
+
+/** The server requires `limit` on the mixed history endpoints. */
+export type CollateralHistoryV2Request = Omit<
+  CollateralHistoryRequest,
+  "limit"
+> & {
+  limit: number;
+};
+
+export type CollateralEventCategory =
+  | "deposit"
+  | "withdrawal"
+  | "transfer"
+  | "swap"
+  | "liquidation";
+
+export interface CollateralEventV2 {
+  slot: number;
+  slotIndex: number;
+  eventIndex: number;
+  traderPdaIndex: number;
+  traderSubaccountIndex: number;
+  assetIndex: number;
+  symbol: string;
+  category: CollateralEventCategory;
+  /** Signed native units of the asset; outflows are negative. */
+  amount: number;
+  /** Balance after this event, native units of the asset. */
+  balanceAfter: number;
+  /** Uncounted native units beyond `amount`; zero for quote events. */
+  excess: number;
+  signature?: string;
+  /** Unix milliseconds. */
+  timestamp: number;
+}
+
+export interface CollateralHistoryV2Response {
+  /** Newest first. */
+  data: CollateralEventV2[];
+  nextCursor: string | null;
+  prevCursor: string | null;
+  hasMore: boolean;
+}
+
+export const CollateralEventV2Schema: z.ZodType<CollateralEventV2> = z.object({
+  slot: z.number().int(),
+  slotIndex: z.number().int(),
+  eventIndex: z.number().int(),
+  traderPdaIndex: z.number().int(),
+  traderSubaccountIndex: z.number().int(),
+  assetIndex: z.number().int().nonnegative(),
+  symbol: z.string(),
+  category: z.enum([
+    "deposit",
+    "withdrawal",
+    "transfer",
+    "swap",
+    "liquidation",
+  ]),
+  amount: nativeAmountSchema,
+  balanceAfter: nativeAmountSchema,
+  excess: nativeAmountSchema,
+  signature: z.string().optional(),
+  timestamp: z
+    .union([z.number(), z.string()])
+    .transform((value) => toNumber(value, "collateralEventV2.timestamp")),
+});
+
+export const CollateralHistoryV2ResponseSchema: z.ZodType<CollateralHistoryV2Response> =
+  z
+    .object({
+      data: z.array(CollateralEventV2Schema),
+      nextCursor: z.string().nullable().optional(),
+      prevCursor: z.string().nullable().optional(),
+      hasMore: z.boolean(),
+    })
+    .transform((raw) => ({
+      data: raw.data,
+      nextCursor: raw.nextCursor ?? null,
+      prevCursor: raw.prevCursor ?? null,
+      hasMore: raw.hasMore,
+    }));

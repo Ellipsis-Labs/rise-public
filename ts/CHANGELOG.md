@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.32 - 2026-09-25
+
+Source Phoenix commit: `a7a82ea1228fb52ad23501993b513a1226516de3`
+
+### Summary
+
+- Added `getUserCollateralTotals`, returning lifetime per-asset deposit/withdrawal totals (`CollateralTotalsResponse`, `CollateralAssetTotals`, `CollateralFlowTotal`).
+- Added mixed-asset collateral history v2 endpoints (`getUserCollateralHistoryV2`, `getTraderCollateralHistoryV2`, `getTraderPdaCollateralHistoryV2`) covering both quote and spot collateral assets, with new `CollateralEventV2` / `CollateralHistoryV2Request` / `CollateralHistoryV2Response` types.
+- Added TWAP order request types and schemas (`PlaceTwapOrderRequest`, `TwapChildOrderParams`, `IsolatedTwapOrderParams`), supporting configurable dust-order sizing and isolated-margin collateral transfers.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- The v2 collateral history endpoints require an explicit `limit` param, unlike the optional `limit` on v1 history calls.
+- Native-unit quantities (`amount`, `balanceAfter`, `excess`, and totals `amount`) are now validated as safe integers; values beyond `2^53 - 1` throw instead of being silently rounded.
+- `nDustOrders` on `PlaceTwapOrderRequest` is opt-in: omitted or `0` preserves prior sizing behavior, while a positive count requires `childOrderParams.dustOrderSize > 0`.
+
 ## v0.5.31 - 2026-09-25
 
 Source Phoenix commit: `a698c95f16a657ce6a8a2e1f5a4bec469e9cc273`
