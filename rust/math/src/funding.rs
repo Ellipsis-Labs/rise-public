@@ -70,8 +70,8 @@ impl FundingCalculator {
         if period_i128 == 0 {
             return 0.0;
         }
-        // Project using high-precision floats to preserve sub-lot values, but clamp
-        // using the i128 max to match on-chain bounds exactly.
+        // Project using high-precision floats to preserve sub-lot values, but
+        // clamp using the i128 max to match on-chain bounds exactly.
         let projected_f = acc_i128 as f64 / period_i128 as f64; // quote lots per base lot
         let max_rate = self.max_funding_rate_per_interval.as_inner() as f64;
         let clamped = projected_f.clamp(-max_rate, max_rate);
@@ -83,14 +83,14 @@ impl FundingCalculator {
         }
         let base_lots_per_base_unit = 10f64.powi(self.base_lot_decimals as i32);
 
-        // (SignedQuoteLots / BaseLot) * (BaseLots / BaseUnit) / (QuoteLots / QuoteUnit)
-        // = SignedQuoteUnits / BaseUnit
+        // (SignedQuoteLots / BaseLot) * (BaseLots / BaseUnit) / (QuoteLots /
+        // QuoteUnit) = SignedQuoteUnits / BaseUnit
         let funding_quote_units_per_base_unit =
             (clamped / quote_lots_per_quote_unit) * base_lots_per_base_unit;
 
         // Percentage of notional.
-        // (SignedQuoteUnits / BaseUnit) / (QuoteUnits / BaseUnit) * 100 = Percent of
-        // Notional
+        // (SignedQuoteUnits / BaseUnit) / (QuoteUnits / BaseUnit) * 100 =
+        // Percent of Notional
         (funding_quote_units_per_base_unit / mark_price) * 100.0
     }
 
@@ -106,8 +106,8 @@ impl FundingCalculator {
         let seconds_per_year = 31_536_000.0; // 365 days
         let intervals_per_year = seconds_per_year / interval;
 
-        // interval_rate_percentage already reflects (interval/period), so we only need
-        // intervals_per_year here.
+        // interval_rate_percentage already reflects (interval/period), so we
+        // only need intervals_per_year here.
         interval_rate_percentage * intervals_per_year
     }
 }

@@ -73,7 +73,7 @@ impl PhoenixSubscription {
     /// Create a market bundle subscription with default options.
     pub fn market(symbol: impl Into<String>) -> Self {
         Self::Market {
-            symbol: symbol.into().to_ascii_uppercase(),
+            symbol: symbol.into(),
             candle_timeframes: Vec::new(),
             include_trades: false,
         }

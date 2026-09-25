@@ -345,7 +345,7 @@ async fn fetch_trade_history(
     let mut cursor = None;
     let mut pages_fetched = 0;
     let mut exhausted = false;
-    let market_symbol = args.market_symbol.map(|symbol| symbol.to_ascii_uppercase());
+    let market_symbol = args.market_symbol;
 
     while can_fetch_more(pages_fetched, args.max_pages, data.len(), args.max_items) {
         let mut params = TradeHistoryQueryParams::new()
@@ -406,7 +406,7 @@ async fn fetch_order_history(
     let mut cursor = None;
     let mut pages_fetched = 0;
     let mut exhausted = false;
-    let market_symbol = args.market_symbol.map(|symbol| symbol.to_ascii_uppercase());
+    let market_symbol = args.market_symbol;
 
     while can_fetch_more(pages_fetched, args.max_pages, data.len(), args.max_items) {
         let mut params = OrderHistoryQueryParams::new(page_limit).with_pda_index(args.pda_index);
@@ -465,7 +465,7 @@ async fn fetch_funding_history(
     let mut cursor = None;
     let mut pages_fetched = 0;
     let mut exhausted = false;
-    let symbol = args.symbol.map(|symbol| symbol.to_ascii_uppercase());
+    let symbol = args.symbol;
 
     while can_fetch_more(pages_fetched, args.max_pages, data.len(), args.max_items) {
         let mut params = FundingHistoryQueryParams::new()
@@ -534,7 +534,7 @@ async fn fetch_liquidation_history(
     let mut cursor = None;
     let mut pages_fetched = 0;
     let mut exhausted = false;
-    let symbol = args.symbol.map(|symbol| symbol.to_ascii_uppercase());
+    let symbol = args.symbol;
 
     while can_fetch_more(pages_fetched, args.max_pages, data.len(), args.max_items) {
         let mut params = UserLiquidationHistoryQueryParams::new().with_pda_index(args.pda_index);
@@ -598,7 +598,7 @@ async fn fetch_candles(
     let timeframe = Timeframe::from_str(&args.timeframe)
         .map_err(|e| format!("invalid timeframe '{}': {e}", args.timeframe))?;
     let timeframe_ms = timeframe.as_seconds().saturating_mul(1_000).max(1);
-    let symbol = args.symbol.to_ascii_uppercase();
+    let symbol = args.symbol;
     let client = ctx.http_client()?;
 
     let mut candles_by_time = BTreeMap::new();

@@ -165,7 +165,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     for symbol in config.subscriptions.funding_rate {
-        let symbol = symbol.to_ascii_uppercase();
         let (rx, handle) = client.subscribe_to_funding_rate(symbol)?;
         _handles.push(handle);
         configured_streams += 1;
@@ -173,7 +172,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     for symbol in config.subscriptions.orderbook {
-        let symbol = symbol.to_ascii_uppercase();
         let (rx, handle) = client.subscribe_to_orderbook(symbol)?;
         _handles.push(handle);
         configured_streams += 1;
@@ -181,7 +179,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     for symbol in config.subscriptions.market {
-        let symbol = symbol.to_ascii_uppercase();
         let (rx, handle) = client.subscribe_to_market(symbol)?;
         _handles.push(handle);
         configured_streams += 1;
@@ -189,7 +186,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     for symbol in config.subscriptions.trades {
-        let symbol = symbol.to_ascii_uppercase();
         let (rx, handle) = client.subscribe_to_trades(symbol)?;
         _handles.push(handle);
         configured_streams += 1;
@@ -197,7 +193,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     for sub in config.subscriptions.candles {
-        let symbol = sub.symbol.to_ascii_uppercase();
+        let symbol = sub.symbol;
         let timeframe: Timeframe = sub.timeframe.parse().map_err(|e| {
             format!(
                 "invalid timeframe '{}' for {}: {}",

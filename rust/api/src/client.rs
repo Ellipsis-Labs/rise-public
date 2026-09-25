@@ -632,7 +632,10 @@ impl PhoenixClient {
                 candle_timeframes,
                 include_trades,
             } => {
-                let symbol = symbol.to_ascii_uppercase();
+                let symbol = metadata
+                    .get_market(symbol)
+                    .map(|market| market.symbol.clone())
+                    .unwrap_or_else(|| symbol.clone());
 
                 dependencies.insert(SubscriptionKey::market(symbol.clone()));
                 dependencies.insert(SubscriptionKey::orderbook(symbol.clone()));
@@ -661,12 +664,16 @@ impl PhoenixClient {
                     }
                 } else {
                     for symbol in market_symbols {
-                        dependencies.insert(SubscriptionKey::market(symbol.to_ascii_uppercase()));
+                        let symbol = metadata
+                            .get_market(symbol)
+                            .map(|market| market.symbol.clone())
+                            .unwrap_or_else(|| symbol.clone());
+                        dependencies.insert(SubscriptionKey::market(symbol));
                     }
                 }
 
                 for symbol in metadata.collateral_pricing_symbols() {
-                    dependencies.insert(SubscriptionKey::market(symbol.to_ascii_uppercase()));
+                    dependencies.insert(SubscriptionKey::market(symbol.to_string()));
                 }
             }
         }
@@ -685,7 +692,7 @@ impl PhoenixClient {
     ) -> Vec<SubscriptionKey> {
         let pricing_dependencies = metadata
             .collateral_pricing_symbols()
-            .map(|symbol| SubscriptionKey::market(symbol.to_ascii_uppercase()))
+            .map(|symbol| SubscriptionKey::market(symbol.to_string()))
             .collect::<Vec<_>>();
         let mut activated = Vec::new();
 

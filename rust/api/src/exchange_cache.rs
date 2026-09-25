@@ -675,7 +675,7 @@ fn sort_markets(markets: &mut [ExchangeMarketSnapshot]) {
 }
 
 fn normalize_symbol(symbol: &str) -> String {
-    symbol.to_ascii_uppercase()
+    symbol.to_ascii_lowercase()
 }
 
 #[cfg(test)]

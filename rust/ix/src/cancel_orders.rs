@@ -750,8 +750,8 @@ mod tests {
         let ix = create_cancel_orders_by_id_ix(params).unwrap();
 
         assert_eq!(ix.program_id, *PHOENIX_PROGRAM_ID);
-        // 2 log accounts + 4 base accounts + 1 global trader index + 1 active trader
-        // buffer + 2 market accounts = 10
+        // 2 log accounts + 4 base accounts + 1 global trader index + 1 active
+        // trader buffer + 2 market accounts = 10
         assert_eq!(ix.accounts.len(), 10);
         // Data should start with discriminant
         assert_eq!(

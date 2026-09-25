@@ -1,8 +1,8 @@
 [package]
-edition      = "2021"
+edition      = "2024"
 name         = "rise-close-position-and-withdraw"
 publish      = false
-rust-version = "1.84.0"
+rust-version = "1.85.0"
 version      = "0.1.0"
 
 [lib]

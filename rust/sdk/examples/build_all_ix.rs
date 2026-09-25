@@ -595,7 +595,8 @@ fn main() {
         );
     }
 
-    // 25. Flight client wrapper for deterministic Flight-supported instructions.
+    // 25. Flight client wrapper for deterministic Flight-supported
+    //     instructions.
     {
         let flight_client = PhoenixFlightClient::new(pubkeys[9], 0, 0);
 
@@ -1022,8 +1023,8 @@ fn main() {
         );
     }
 
-    // 34. Flight ProxyInstruction wrapping PlaceMarketOrderDelegated signed by a
-    //     secondary position authority (distinct delegate wallet plus a fixed
+    // 34. Flight ProxyInstruction wrapping PlaceMarketOrderDelegated signed by
+    //     a secondary position authority (distinct delegate wallet plus a fixed
     //     permission account), with the collateral-transfer tail appended via
     //     `root_authority`.
     {
@@ -1069,10 +1070,10 @@ fn main() {
         );
     }
 
-    // 35. Flight ProxyInstruction wrapping a plain PlaceMarketOrder whose trader
-    //     wallet is the trader's position authority (the delegate signs; the trader
-    //     account is derived from the owner), with the collateral-transfer tail
-    //     appended via `root_authority`.
+    // 35. Flight ProxyInstruction wrapping a plain PlaceMarketOrder whose
+    //     trader wallet is the trader's position authority (the delegate signs;
+    //     the trader account is derived from the owner), with the
+    //     collateral-transfer tail appended via `root_authority`.
     {
         let market_order = MarketOrderParams::builder()
             .trader(pubkeys[9])

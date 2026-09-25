@@ -25,7 +25,7 @@ impl CandlesClient<'_> {
     {
         let mut params = params.into();
         normalize_candles_v2_query(&mut params);
-        let symbol = params.symbol().to_ascii_uppercase();
+        let symbol = self.http.canonical_market_symbol(params.symbol()).await;
         self.http
             .get_json_with_query(&format!("/v1/candles_v2/{symbol}"), &params)
             .await
@@ -39,7 +39,7 @@ impl CandlesClient<'_> {
         &self,
         params: CandlesQueryParams,
     ) -> Result<Vec<ApiCandle>, PhoenixHttpError> {
-        let symbol = params.symbol.to_ascii_uppercase();
+        let symbol = self.http.canonical_market_symbol(&params.symbol).await;
         self.http
             .get_json_with_query(&format!("/v1/candles/{symbol}"), &params)
             .await

@@ -201,8 +201,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!();
     }
 
-    // Fetch authority-scoped history and analytics (if AUTHORITY_PUBKEY env var is
-    // set)
+    // Fetch authority-scoped history and analytics (if AUTHORITY_PUBKEY env var
+    // is set)
     if let Ok(pubkey_str) = std::env::var("AUTHORITY_PUBKEY") {
         let authority = pubkey_str.parse()?;
 

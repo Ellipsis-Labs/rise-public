@@ -109,25 +109,28 @@ impl PhoenixMetadata {
     }
 
     pub fn is_isolated_only(&self, symbol: &str) -> bool {
-        self.isolated_only_markets
-            .contains(&symbol.to_ascii_uppercase())
+        self.get_market(symbol)
+            .is_some_and(|market| self.isolated_only_markets.contains(&market.symbol))
     }
 
     pub fn get_market_calculator(&self, symbol: &str) -> Option<&MarketCalculator> {
-        self.market_calculators.get(&symbol.to_ascii_uppercase())
+        self.get_market(symbol)
+            .and_then(|market| self.market_calculators.get(&market.symbol))
     }
 
     pub fn get_perp_asset_metadata(&self, symbol: &str) -> Option<&PerpAssetMetadata> {
-        self.perp_asset_metadata.get(&symbol.to_ascii_uppercase())
+        self.get_market(symbol)
+            .and_then(|market| self.perp_asset_metadata.get(&market.symbol))
     }
 
     pub fn get_perp_asset_metadata_mut(&mut self, symbol: &str) -> Option<&mut PerpAssetMetadata> {
-        self.perp_asset_metadata
-            .get_mut(&symbol.to_ascii_uppercase())
+        let symbol = &self.exchange.get_market(symbol)?.symbol;
+        self.perp_asset_metadata.get_mut(symbol)
     }
 
     pub fn get_index_price(&self, symbol: &str) -> Option<Ticks> {
-        self.index_prices.get(&symbol.to_ascii_uppercase()).copied()
+        self.get_market(symbol)
+            .and_then(|market| self.index_prices.get(&market.symbol).copied())
     }
 
     pub fn all_perp_asset_metadata(&self) -> &HashMap<String, PerpAssetMetadata> {
@@ -153,12 +156,11 @@ impl PhoenixMetadata {
     }
 
     pub fn apply_market_stats(&mut self, stats: &MarketStatsUpdate) -> Result<(), String> {
-        let symbol = stats.symbol.to_ascii_uppercase();
-
         let config = self
             .exchange
-            .get_market(&symbol)
-            .ok_or_else(|| format!("Unknown symbol: {}", symbol))?;
+            .get_market(&stats.symbol)
+            .ok_or_else(|| format!("Unknown symbol: {}", stats.symbol))?;
+        let symbol = config.symbol.clone();
         let calc = self
             .market_calculators
             .get(&symbol)
@@ -182,8 +184,7 @@ impl PhoenixMetadata {
     }
 
     pub fn has_perp_asset_metadata(&self, symbol: &str) -> bool {
-        self.perp_asset_metadata
-            .contains_key(&symbol.to_ascii_uppercase())
+        self.get_perp_asset_metadata(symbol).is_some()
     }
 
     pub fn initialized_market_count(&self) -> usize {
@@ -439,6 +440,33 @@ mod tests {
                 .into_iter()
                 .collect(),
         }
+    }
+
+    #[test]
+    fn mixed_case_market_metadata_uses_canonical_symbol() {
+        let mut exchange = exchange_view();
+        let mut market = market_config();
+        market.symbol = "kBONK".to_string();
+        market.isolated_only = true;
+        exchange.markets.insert(market.symbol.clone(), market);
+        let mut metadata = PhoenixMetadata::new(exchange);
+
+        for symbol in ["kBONK", "kbonk", "KBONK"] {
+            assert_eq!(metadata.get_market(symbol).unwrap().symbol, "kBONK");
+            assert!(metadata.get_market_calculator(symbol).is_some());
+            assert!(metadata.is_isolated_only(symbol));
+        }
+
+        let mut stats = market_stats();
+        stats.symbol = "KBONK".to_string();
+        metadata.apply_market_stats(&stats).unwrap();
+        for symbol in ["kBONK", "kbonk", "KBONK"] {
+            assert!(metadata.has_perp_asset_metadata(symbol));
+            assert!(metadata.get_perp_asset_metadata_mut(symbol).is_some());
+            assert!(metadata.get_index_price(symbol).is_some());
+        }
+        assert!(metadata.perp_asset_metadata.contains_key("kBONK"));
+        assert!(!metadata.perp_asset_metadata.contains_key("KBONK"));
     }
 
     #[test]

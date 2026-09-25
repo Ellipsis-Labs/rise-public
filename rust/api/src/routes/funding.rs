@@ -62,7 +62,7 @@ impl FundingClient<'_> {
         symbol: &str,
         params: FundingRateHistoryQuery,
     ) -> Result<FundingRateHistoryResponse, PhoenixHttpError> {
-        let symbol = symbol.trim().to_ascii_uppercase();
+        let symbol = self.http.canonical_market_symbol(symbol.trim()).await;
         self.http
             .get_json_with_query(&format!("/v1/funding/{}/rates", symbol), &params)
             .await

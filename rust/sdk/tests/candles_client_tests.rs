@@ -4,7 +4,10 @@ use axum::extract::{OriginalUri, State};
 use axum::routing::get;
 use axum::{Json, Router};
 use phoenix_rise::api::PhoenixHttpClient;
-use phoenix_rise::types::prelude::{CandlesQueryParams, CandlesV2InitialQueryParams, Timeframe};
+use phoenix_rise::types::prelude::{
+    CandlesQueryParams, CandlesV2InitialQueryParams, ExchangeMarketConfig, ExchangeRiskFactors,
+    MarketStatus, Timeframe,
+};
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
 
@@ -60,6 +63,7 @@ async fn candles_v2_initial_requests_default_to_one_thousand_bars() {
 
 async fn spawn_test_server(state: TestState) -> (String, tokio::task::JoinHandle<()>) {
     let app = Router::new()
+        .route("/v1/view/exchange/markets", get(markets_handler))
         .route("/v1/candles/SOL", get(legacy_candles_handler))
         .route("/v1/candles_v2/SOL", get(candles_v2_handler))
         .with_state(state);
@@ -71,6 +75,30 @@ async fn spawn_test_server(state: TestState) -> (String, tokio::task::JoinHandle
     });
 
     (format!("http://{addr}"), server)
+}
+
+async fn markets_handler() -> Json<Vec<ExchangeMarketConfig>> {
+    Json(vec![ExchangeMarketConfig {
+        symbol: "SOL".to_string(),
+        asset_id: 0,
+        market_status: MarketStatus::Active,
+        metadata: None,
+        market_pubkey: "market".to_string(),
+        spline_pubkey: "spline".to_string(),
+        tick_size: 1,
+        base_lots_decimals: 0,
+        taker_fee: 0.0,
+        maker_fee: 0.0,
+        leverage_tiers: vec![],
+        risk_factors: ExchangeRiskFactors::default(),
+        funding_interval_seconds: 1,
+        funding_period_seconds: 1,
+        max_funding_rate_per_interval: 0.0,
+        open_interest_cap_base_lots: 0_u64.into(),
+        max_liquidation_size_base_lots: 0_u64.into(),
+        isolated_only: false,
+        stats_snapshot: None,
+    }])
 }
 
 async fn legacy_candles_handler(

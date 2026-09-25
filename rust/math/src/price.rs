@@ -190,8 +190,8 @@ pub fn dynamic_price_decimals(value: f64) -> u8 {
     }
 
     if value >= 1.0 {
-        // Large prices: reduce decimals as magnitude grows, but keep at least 4 to
-        // avoid under-reporting precision for high-value assets.
+        // Large prices: reduce decimals as magnitude grows, but keep at least 4
+        // to avoid under-reporting precision for high-value assets.
         let floor_log = value.log10().floor() as i32;
         let decimals = 6 - floor_log - 1;
         return decimals.clamp(4, 6) as u8;
@@ -316,7 +316,8 @@ mod tests {
         assert_eq!(p.expo, 12);
         assert_eq!(p.value, 9_706_000);
 
-        // Convert to ticks for a 1-quote-lot tick, base lot decimals 0, quote_dec=6
+        // Convert to ticks for a 1-quote-lot tick, base lot decimals 0,
+        // quote_dec=6
         let ticks = p.to_ticks_wrapped(1, 0, 6).unwrap();
         assert_eq!(ticks.as_inner(), 9);
 

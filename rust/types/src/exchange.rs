@@ -303,7 +303,15 @@ pub struct ExchangeView {
 impl ExchangeView {
     /// Get market configuration by symbol (case-insensitive).
     pub fn get_market(&self, symbol: &str) -> Option<&ExchangeMarketConfig> {
-        self.markets.get(&symbol.to_ascii_uppercase())
+        if let Some(market) = self.markets.get(symbol) {
+            return Some(market);
+        }
+        let mut matches = self
+            .markets
+            .values()
+            .filter(|market| market.symbol.eq_ignore_ascii_case(symbol));
+        let market = matches.next()?;
+        matches.next().is_none().then_some(market)
     }
 }
 
@@ -458,6 +466,9 @@ mod tests {
                 stats_snapshot: None,
             },
         );
+        let mut mixed_case = markets["SOL"].clone();
+        mixed_case.symbol = "kBONK".to_string();
+        markets.insert(mixed_case.symbol.clone(), mixed_case);
 
         let view = ExchangeView {
             keys: ExchangeKeysView {
@@ -488,6 +499,9 @@ mod tests {
         assert!(view.get_market("SOL").is_some());
         assert!(view.get_market("sol").is_some());
         assert!(view.get_market("Sol").is_some());
+        for symbol in ["kBONK", "kbonk", "KBONK"] {
+            assert_eq!(view.get_market(symbol).unwrap().symbol, "kBONK");
+        }
         assert!(view.get_market("BTC").is_none());
     }
 }

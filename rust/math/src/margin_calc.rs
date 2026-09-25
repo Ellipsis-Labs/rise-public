@@ -214,10 +214,10 @@ fn initial_margin_for_asset_internal(
     _risk_action: RiskAction,
 ) -> Result<QuoteLots, MarginError> {
     // Early return if no positions AND no resting limit orders (reduce-only
-    // included). This fixes the bug where traders with closed positions couldn't
-    // withdraw due to margin calculations being performed on zero positions.
-    // Reduce-only orders are included in the guard because they still reserve
-    // adverse-fill-loss margin below.
+    // included). This fixes the bug where traders with closed positions
+    // couldn't withdraw due to margin calculations being performed on zero
+    // positions. Reduce-only orders are included in the guard because they
+    // still reserve adverse-fill-loss margin below.
     if position_state.base_lot_position.is_zero()
         && limit_order_state.total_bid_base_lots().is_zero()
         && limit_order_state.total_ask_base_lots().is_zero()
@@ -442,9 +442,9 @@ fn margin_increase_for_asks_internal(
     existing_position_margin_offset: QuoteLots,
     bypass_risk_factor: bool,
 ) -> Result<QuoteLots, MathError> {
-    // If ask_size - position - |position| <= 0, the order reduces risk → no margin.
-    // Otherwise: total_exposure = |position - ask_size|, and margin is
-    // (total_margin(total_exposure) - existing_position_margin) *
+    // If ask_size - position - |position| <= 0, the order reduces risk → no
+    // margin. Otherwise: total_exposure = |position - ask_size|, and margin
+    // is (total_margin(total_exposure) - existing_position_margin) *
     // risk_factor(total_exposure)
     let new_exposure_signed = ask_size
         .checked_sub(position)
@@ -646,7 +646,8 @@ mod tests {
         let metadata = fill_loss_test_metadata();
         let position = position_at(5); // long 5 lots
 
-        // Reduce-only ask of 1_000 lots at 50 ticks (limit price 500 < mark 1000).
+        // Reduce-only ask of 1_000 lots at 50 ticks (limit price 500 < mark
+        // 1000).
         let orders = vec![reduce_only_order(Side::Ask, 50, 1_000)];
         let state = LimitOrder::aggregate_margin_state(&orders, position.base_lot_position);
 
@@ -655,7 +656,8 @@ mod tests {
 
         let margin = initial_margin_for_asset(&metadata, &position, &state, RiskAction::View)
             .expect("margin");
-        // position margin ceil(1000 * 5 / 10) = 500, plus fill loss 5 * 500 = 2_500.
+        // position margin ceil(1000 * 5 / 10) = 500, plus fill loss 5 * 500 =
+        // 2_500.
         assert_eq!(margin, QuoteLots::new(3_000));
     }
 
@@ -678,7 +680,8 @@ mod tests {
 
         let margin = initial_margin_for_asset(&metadata, &position, &state, RiskAction::View)
             .expect("margin");
-        // Only the position margin ceil(1000 * 5 / 10) = 500; no fill-loss reserve.
+        // Only the position margin ceil(1000 * 5 / 10) = 500; no fill-loss
+        // reserve.
         assert_eq!(margin, QuoteLots::new(500));
     }
 
@@ -700,8 +703,8 @@ mod tests {
 
         let margin = initial_margin_for_asset(&metadata, &position, &state, RiskAction::View)
             .expect("margin");
-        // position margin ceil(1000 * 10 / 10) = 1_000, plus fill loss 10 * 1000 =
-        // 10_000.
+        // position margin ceil(1000 * 10 / 10) = 1_000, plus fill loss 10 *
+        // 1000 = 10_000.
         assert_eq!(margin, QuoteLots::new(11_000));
     }
 }

@@ -389,7 +389,8 @@ mod tests {
     #[test]
     #[should_panic(expected = "Underflow in add operation")]
     fn test_add_signed_panic_compatibility() {
-        // Test that the old Add implementation still panics for backward compatibility
+        // Test that the old Add implementation still panics for backward
+        // compatibility
         let unsigned = QuoteLots::new(50);
         let large_negative = SignedQuoteLots::new(-100);
         let _ = unsigned + large_negative; // Should panic
@@ -568,8 +569,8 @@ mod tests {
 
         // Should handle i64::MIN correctly using unsigned_abs()
         let result = base.saturating_add_signed(signed_lots);
-        // i64::MIN has absolute value of 2^63, which will saturate when subtracting
-        // from 1000
+        // i64::MIN has absolute value of 2^63, which will saturate when
+        // subtracting from 1000
         assert_eq!(result, QuoteLots::new(0));
 
         // Test with normal negative value
@@ -672,7 +673,8 @@ mod tests {
         );
 
         // Test that an artificially large value (beyond i64::MAX) would fail.
-        // This verifies the check exists even though valid BaseLots can't reach this.
+        // This verifies the check exists even though valid BaseLots can't reach
+        // this.
         let overflow = BaseLots::new(i64::MAX as u64 + 1);
         assert_eq!(overflow.checked_as_signed(), Err(MathError::Overflow));
     }
