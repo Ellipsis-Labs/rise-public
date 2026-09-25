@@ -5,6 +5,7 @@ import type { TraderStateSnapshotResponse } from "./traderState";
 import type {
   HistoricalValuesRequest,
   PnlDataPoint,
+  PnlValuesRequest,
   PortfolioValueDataPoint,
   TimeWeightedReturnsRequest,
   TimeWeightedReturnsResponse,
@@ -24,12 +25,11 @@ import {
 import { TraderStateSnapshotResponseSchema } from "./traderState";
 
 const buildHistoricalValuesQuery = (
-  request: HistoricalValuesRequest
+  request: PnlValuesRequest
 ): Record<string, ParamValue> => {
-  const params: Record<string, ParamValue> = {
-    resolution: request.resolution,
-  };
+  const params: Record<string, ParamValue> = {};
 
+  if (request.resolution !== undefined) params.resolution = request.resolution;
   if (request.startTime !== undefined) params.startTime = request.startTime;
   if (request.endTime !== undefined) params.endTime = request.endTime;
   if (request.limit !== undefined) params.limit = request.limit;
@@ -69,7 +69,7 @@ export class V1TradersClient {
 
   async getTraderPnl(
     authority: string,
-    request: HistoricalValuesRequest
+    request: PnlValuesRequest
   ): Promise<PnlDataPoint[]> {
     return get(
       this.http,
@@ -105,7 +105,7 @@ export class V1TradersClient {
 
   async getTraderPnlValues(
     traderPubkey: string,
-    request: HistoricalValuesRequest
+    request: PnlValuesRequest
   ): Promise<PnlDataPoint[]> {
     return get(
       this.http,

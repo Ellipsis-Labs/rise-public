@@ -92,6 +92,18 @@ export interface HistoricalValuesRequest {
   includeLatest?: boolean;
 }
 
+/**
+ * PnL history request. When `resolution` is omitted the server clamps the
+ * window to the account's creation and picks the finest resolution that fits
+ * `limit` points.
+ */
+export interface PnlValuesRequest extends Omit<
+  HistoricalValuesRequest,
+  "resolution"
+> {
+  resolution?: string;
+}
+
 export type TimeWeightedReturnsResolution =
   | "5m"
   | "15m"
