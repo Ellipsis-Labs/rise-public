@@ -614,26 +614,6 @@
     {
       "program": "phoenix-eternal",
       "enumName": "PhoenixInstruction",
-      "instructionName": "SetMultiArenaAdditionalNodesWatermark",
-      "snakeCaseName": "set_multi_arena_additional_nodes_watermark",
-      "preimage": "global:set_multi_arena_additional_nodes_watermark",
-      "tag": "10636802067590479084",
-      "discriminatorHex": "ecfcded01f839d93",
-      "discriminatorBase64": "7Pze0B+DnZM="
-    },
-    {
-      "program": "phoenix-eternal",
-      "enumName": "PhoenixInstruction",
-      "instructionName": "SetMultiArenaNumNodesPerArena",
-      "snakeCaseName": "set_multi_arena_num_nodes_per_arena",
-      "preimage": "global:set_multi_arena_num_nodes_per_arena",
-      "tag": "9510621986879026267",
-      "discriminatorHex": "5bb4f1c04e84fc83",
-      "discriminatorBase64": "W7TxwE6E/IM="
-    },
-    {
-      "program": "phoenix-eternal",
-      "enumName": "PhoenixInstruction",
       "instructionName": "RemoveOracle",
       "snakeCaseName": "remove_oracle",
       "preimage": "global:remove_oracle",

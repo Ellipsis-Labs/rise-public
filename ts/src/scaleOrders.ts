@@ -14,13 +14,11 @@ import {
 } from "@/primitives/OrderPacket";
 
 /**
- * Bounds for the number of sub-orders in a scale (multi-limit) order. The
- * on-chain matching engine allows at most 64 resting limit orders per trader
- * per market per side (`MAX_LIMIT_ORDERS`); a scale batch is one-sided, so the
- * order count is capped there.
+ * Minimum number of sub-orders in a scale (multi-limit) order. There is no
+ * upper bound here — callers are responsible for keeping the order count
+ * within whatever on-chain and transaction-size limits apply.
  */
 export const MIN_SCALE_ORDERS = 2;
-export const MAX_SCALE_ORDERS = 64;
 
 /** Distribution bias slider range (maps to the `-100% … +100%` UI). */
 export const MIN_SCALE_BIAS = -1;
@@ -138,7 +136,6 @@ export interface ScaleOrderLevel {
 }
 
 export type ScaleOrderWarningCode =
-  | "ORDER_COUNT_EXCEEDS_MAX"
   | "INSUFFICIENT_SIZE_FOR_COUNT"
   | "LEVELS_MERGED_DUPLICATE_TICK"
   | "INVALID_PRICE_RANGE"
@@ -158,7 +155,7 @@ export interface ScaleOrderPreview {
   requestedOrderCount: number;
   /** Number of levels actually produced (after clamp / merge / drop). */
   effectiveOrderCount: number;
-  /** `min(64, floor(totalBaseLots / minBaseLotsPerOrder))`. */
+  /** `floor(totalBaseLots / minBaseLotsPerOrder)`. */
   maxOrderCountForSize: number;
   /** How many distinct ticks the price range can support. */
   distinctTickCount: number;
@@ -198,10 +195,7 @@ export const clampScaleOrderCount = (count: number): number => {
   if (!Number.isFinite(count)) {
     return MIN_SCALE_ORDERS;
   }
-  return Math.max(
-    MIN_SCALE_ORDERS,
-    Math.min(MAX_SCALE_ORDERS, Math.floor(count))
-  );
+  return Math.max(MIN_SCALE_ORDERS, Math.floor(count));
 };
 
 const marketParamsOf = (input: ScaleOrderInput): OrderPacketMarketParams => ({
@@ -334,9 +328,7 @@ export const previewScaleOrder = (
   }
 
   const maxOrderCountForSize =
-    totalBaseLots <= 0
-      ? 0
-      : Math.min(MAX_SCALE_ORDERS, Math.floor(totalBaseLots / minPerOrder));
+    totalBaseLots <= 0 ? 0 : Math.floor(totalBaseLots / minPerOrder);
 
   const invalid = (distinctTickCount = 0): ScaleOrderPreview => ({
     levels: [],
@@ -360,13 +352,6 @@ export const previewScaleOrder = (
     1,
     Number(upperSnap.priceInTicks - lowerSnap.priceInTicks) + 1
   );
-
-  if (requestedOrderCount > MAX_SCALE_ORDERS) {
-    warnings.push({
-      code: "ORDER_COUNT_EXCEEDS_MAX",
-      message: `Requested ${requestedOrderCount} orders exceeds the on-chain limit of ${MAX_SCALE_ORDERS} per side; clamped to at most ${MAX_SCALE_ORDERS} (the effective count may be reduced further by available size and tick spacing).`,
-    });
-  }
 
   let count = clampScaleOrderCount(requestedOrderCount);
   if (count > maxOrderCountForSize) {
@@ -484,8 +469,7 @@ export const computeScaleOrderLevels = (
 /**
  * Map computed levels + a {@link Side} into a one-sided {@link MultipleOrderPacket}.
  * `Side.Bid` populates `bids`; `Side.Ask` populates `asks`. Zero-size levels are
- * skipped. Throws if more than {@link MAX_SCALE_ORDERS} orders are supplied (the
- * on-chain per-side cap) — split with {@link chunkScaleLevelsForTx} first.
+ * skipped.
  */
 export const scaleLevelsToMultipleOrderPacket = (
   levels: ScaleOrderLevel[],
@@ -505,9 +489,7 @@ export const scaleLevelsToMultipleOrderPacket = (
  * Map computed levels + a {@link Side} into a one-sided {@link MultipleOrderPacketV2}.
  * `Side.Bid` populates `bids`; `Side.Ask` populates `asks`. Zero-size levels are
  * skipped. Fans packet-level `slide`/`reduceOnly` into every leg's flags byte
- * and maps `lastValidSlot: null` to the `0` wire sentinel. Throws if more than
- * {@link MAX_SCALE_ORDERS} orders are supplied (the on-chain per-side cap) —
- * split with {@link chunkScaleLevelsForTx} first.
+ * and maps `lastValidSlot: null` to the `0` wire sentinel.
  */
 export const scaleLevelsToMultipleOrderPacketV2 = (
   levels: ScaleOrderLevel[],
@@ -562,12 +544,6 @@ const levelsToSideOrders = <TOrder>(
     .filter((level) => level.sizeBaseLots > 0)
     .map(makeOrder);
 
-  if (orders.length > MAX_SCALE_ORDERS) {
-    throw new Error(
-      `A scale order side may have at most ${MAX_SCALE_ORDERS} orders; got ${orders.length}. Use chunkScaleLevelsForTx to split across transactions.`
-    );
-  }
-
   return {
     bids: side === Side.Bid ? orders : [],
     asks: side === Side.Ask ? orders : [],
@@ -575,10 +551,10 @@ const levelsToSideOrders = <TOrder>(
 };
 
 /**
- * Partition levels into transaction-sized chunks (each at most `maxOrdersPerTx`,
- * never above {@link MAX_SCALE_ORDERS}). Pure and deterministic; preserves the
- * input order. A large ladder cannot fit one transaction, so the caller turns
- * each chunk into its own `place_multi_limit_order` transaction.
+ * Partition levels into transaction-sized chunks (each at most `maxOrdersPerTx`).
+ * Pure and deterministic; preserves the input order. A large ladder cannot fit
+ * one transaction, so the caller turns each chunk into its own
+ * `place_multi_limit_order` transaction.
  *
  * `usesV2Instruction` selects the smaller {@link DEFAULT_MAX_ORDERS_PER_TX_V2}
  * default; an explicit `maxOrdersPerTx` always wins.
@@ -594,7 +570,7 @@ export const chunkScaleLevelsForTx = (
   const requested = Number.isFinite(requestedRaw)
     ? Math.floor(requestedRaw)
     : fallback;
-  const max = Math.max(1, Math.min(MAX_SCALE_ORDERS, requested));
+  const max = Math.max(1, requested);
   const chunks: ScaleOrderLevel[][] = [];
   for (let i = 0; i < levels.length; i += max) {
     chunks.push(levels.slice(i, i + max));
@@ -618,9 +594,8 @@ export type ScaleSetCancelableOrderRow = Pick<
  * Pure filter: convert the rows tagged `scaleSetId` (1-255) into
  * {@link CancelId}s for `buildCancelOrdersByIdIxResolved`, preserving input
  * order. An empty result means the set already left the book — skip the
- * cancel (the builder throws on an empty list). A two-sided set can reach
- * 2 * {@link MAX_SCALE_ORDERS} = 128 ids, above the builder's 100-id cap:
- * split larger results across instructions.
+ * cancel (the builder throws on an empty list). Results above the builder's
+ * 100-id cap must be split across instructions.
  */
 export const cancelIdsForScaleSet = (
   rows: readonly ScaleSetCancelableOrderRow[],

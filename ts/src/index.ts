@@ -20,7 +20,6 @@ export {
 } from "./orderPackets";
 export {
   MIN_SCALE_ORDERS,
-  MAX_SCALE_ORDERS,
   MIN_SCALE_BIAS,
   MAX_SCALE_BIAS,
   MAX_SCALE_SET_ID,

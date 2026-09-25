@@ -1,5 +1,4 @@
 import {
-  MAX_SCALE_ORDERS,
   MAX_SCALE_SET_ID,
   MIN_SCALE_ORDERS,
   SCALE_SET_CONTINUATION_BIT,
@@ -53,9 +52,8 @@ describe("clampScaleBias", () => {
 });
 
 describe("clampScaleOrderCount", () => {
-  it("clamps to [2, MAX] and floors", () => {
+  it("clamps to the minimum and floors", () => {
     expect(clampScaleOrderCount(1)).toBe(MIN_SCALE_ORDERS);
-    expect(clampScaleOrderCount(1000)).toBe(MAX_SCALE_ORDERS);
     expect(clampScaleOrderCount(4.9)).toBe(4);
   });
 });
@@ -207,12 +205,6 @@ describe("computeScaleOrderLevels", () => {
       levels[0].sizeBaseLots
     );
   });
-
-  it("clamps order count to the max and conserves total", () => {
-    const levels = computeScaleOrderLevels({ ...baseInput, orderCount: 1000 });
-    expect(levels).toHaveLength(MAX_SCALE_ORDERS);
-    expect(sumLots(levels)).toBe(1000);
-  });
 });
 
 describe("nearest-tick snapping", () => {
@@ -325,15 +317,6 @@ describe("ticksToUsdWithMarketParams", () => {
 });
 
 describe("previewScaleOrder", () => {
-  it("warns and clamps when the requested count exceeds the max", () => {
-    const preview = previewScaleOrder({ ...baseInput, orderCount: 1000 });
-    expect(preview.requestedOrderCount).toBe(1000);
-    expect(preview.effectiveOrderCount).toBe(MAX_SCALE_ORDERS);
-    expect(
-      preview.warnings.some((w) => w.code === "ORDER_COUNT_EXCEEDS_MAX")
-    ).toBe(true);
-  });
-
   it("reports max order count for the given size and clamps", () => {
     const preview = previewScaleOrder({
       ...baseInput,
@@ -414,20 +397,6 @@ describe("scaleLevelsToMultipleOrderPacket", () => {
     const packet = scaleLevelsToMultipleOrderPacket(withZero, Side.Bid);
     expect(packet.bids).toHaveLength(levels.length);
   });
-
-  it("throws when more than the per-side cap is supplied", () => {
-    const tooMany: ScaleOrderLevel[] = Array.from(
-      { length: MAX_SCALE_ORDERS + 1 },
-      (_, i) => ({
-        index: i,
-        priceUsd: 100 + i,
-        priceInTicks: BigInt(100000 + i),
-        sizeBaseLots: 1,
-        sizeUnits: 0.001,
-      })
-    );
-    expect(() => scaleLevelsToMultipleOrderPacket(tooMany, Side.Bid)).toThrow();
-  });
 });
 
 describe("scaleLevelsToMultipleOrderPacketV2", () => {
@@ -479,22 +448,6 @@ describe("scaleLevelsToMultipleOrderPacketV2", () => {
     expect(packet.bids).toHaveLength(levels.length);
   });
 
-  it("throws when more than the per-side cap is supplied", () => {
-    const tooMany: ScaleOrderLevel[] = Array.from(
-      { length: MAX_SCALE_ORDERS + 1 },
-      (_, i) => ({
-        index: i,
-        priceUsd: 100 + i,
-        priceInTicks: BigInt(100000 + i),
-        sizeBaseLots: 1,
-        sizeUnits: 0.001,
-      })
-    );
-    expect(() =>
-      scaleLevelsToMultipleOrderPacketV2(tooMany, Side.Bid)
-    ).toThrow();
-  });
-
   it("stamps the continuation bit when scaleSetContinuation is set", () => {
     const packet = scaleLevelsToMultipleOrderPacketV2(levels, Side.Bid, {
       scaleSetId: 7,
@@ -543,12 +496,6 @@ describe("chunkScaleLevelsForTx", () => {
     expect(chunks.flat()).toEqual(levels);
   });
 
-  it("never exceeds the on-chain per-side cap even with a large request", () => {
-    const chunks = chunkScaleLevelsForTx(levels, { maxOrdersPerTx: 1000 });
-    expect(chunks).toHaveLength(1);
-    expect(chunks[0].length).toBeLessThanOrEqual(MAX_SCALE_ORDERS);
-  });
-
   it("uses the smaller V2 default for V2 batches", () => {
     expect(DEFAULT_MAX_ORDERS_PER_TX_V2).toBeLessThan(
       DEFAULT_MAX_ORDERS_PER_TX
@@ -560,7 +507,7 @@ describe("chunkScaleLevelsForTx", () => {
     ).toEqual([
       DEFAULT_MAX_ORDERS_PER_TX_V2,
       DEFAULT_MAX_ORDERS_PER_TX_V2,
-      MAX_SCALE_ORDERS - 2 * DEFAULT_MAX_ORDERS_PER_TX_V2,
+      levels.length - 2 * DEFAULT_MAX_ORDERS_PER_TX_V2,
     ]);
     expect(chunkScaleLevelsForTx(levels).map((c) => c.length)[0]).toEqual(
       DEFAULT_MAX_ORDERS_PER_TX

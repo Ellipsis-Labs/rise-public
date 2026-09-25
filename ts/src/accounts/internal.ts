@@ -907,11 +907,17 @@ export const getAssetFlagsDecoder = (): Decoder<AssetFlags> =>
 const getOptionalTicksDecoder = (): Decoder<Ticks | null> =>
   transformDecoder(getTicksDecoder(), (value) => (value === 0n ? null : value));
 
+/** Final byte of every asset-map slot: 0 = perp market, 1 = spot collateral
+ * collection. Perp entries written before the tag existed carry zeroed
+ * padding here, which reads as perp. */
+const ASSET_MAP_VARIANT_PERP = 0;
+
 interface PerpAssetMetadataInternal extends PerpAssetMetadata {
   shortMapMetadata: {
     indexNum: number;
     isTombstoned: number;
   };
+  assetMapVariant: number;
 }
 
 const getPerpAssetMetadataInternalDecoder =
@@ -946,7 +952,9 @@ const getPerpAssetMetadataInternalDecoder =
         ["lastIndexExpiryTimestamp", getU64Decoder()],
         ["commoditiesAfterHoursRadiusBps", getU16Decoder()],
         ["_padding4a", getFixedArrayDecoder(getU8Decoder, 6)],
-        ["_padding4", getFixedArrayDecoder(getU64Decoder, 9)],
+        ["_padding4", getFixedArrayDecoder(getU64Decoder, 8)],
+        ["_padding5", getFixedArrayDecoder(getU8Decoder, 7)],
+        ["assetMapVariant", getU8Decoder()],
       ]),
       ({
         _padding0,
@@ -955,6 +963,7 @@ const getPerpAssetMetadataInternalDecoder =
         _padding3,
         _padding4a,
         _padding4,
+        _padding5,
         _paddingFlags,
         ...metadata
       }): PerpAssetMetadataInternal => metadata
@@ -963,7 +972,8 @@ const getPerpAssetMetadataInternalDecoder =
 export const getPerpAssetMetadataDecoder = (): Decoder<PerpAssetMetadata> =>
   transformDecoder(
     getPerpAssetMetadataInternalDecoder(),
-    ({ shortMapMetadata, ...metadata }): PerpAssetMetadata => metadata
+    ({ shortMapMetadata, assetMapVariant, ...metadata }): PerpAssetMetadata =>
+      metadata
   );
 
 export const getPerpAssetMapMetadataEntriesDecoder = (): Decoder<
@@ -987,13 +997,20 @@ export const getPerpAssetMapMetadataEntriesDecoder = (): Decoder<
       ],
     ]),
     (raw) => {
+      // Spot collateral collections share the map under a different variant
+      // tag; only active perp slots are perp asset metadata.
       const entries = raw.data
         .slice(0, raw.slotsUsed)
-        .filter((entry) => entry.value.shortMapMetadata.isTombstoned === 0)
+        .filter(
+          (entry) =>
+            entry.value.shortMapMetadata.isTombstoned === 0 &&
+            entry.value.assetMapVariant === ASSET_MAP_VARIANT_PERP
+        )
         .map((entry) => ({
           key: entry.key,
           value: (() => {
-            const { shortMapMetadata, ...metadata } = entry.value;
+            const { shortMapMetadata, assetMapVariant, ...metadata } =
+              entry.value;
             return metadata;
           })(),
         }));

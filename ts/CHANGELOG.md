@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.30 - 2026-09-25
+
+Source Phoenix commit: `4c5553d3365a7f72273dfe4a67fe7240f3f42951`
+
+### Summary
+
+- `getPerpAssetMapMetadataEntriesDecoder` / `getPerpAssetMetadataDecoder` now tag-filter perp asset map slots, excluding spot collateral collection entries that previously could be intermixed with perp market metadata.
+- Removed the SDK-side 64-order cap (`MAX_SCALE_ORDERS`) from scale-order helpers — `clampScaleOrderCount`, `previewScaleOrder`, `scaleLevelsToMultipleOrderPacket`/`V2`, `chunkScaleLevelsForTx`, and `buildPlaceMultiLimitOrderFlow` no longer clamp, warn, or throw at 64 orders per side.
+- Instruction fixtures dropped two retired Phoenix instructions (`SetMultiArenaAdditionalNodesWatermark`, `SetMultiArenaNumNodesPerArena`).
+
+### Breaking Changes
+
+- `MAX_SCALE_ORDERS` is no longer exported from `@ellipsis-labs/rise`. Consumers importing it must supply their own limit.
+- `ScaleOrderWarningCode` no longer includes the `"ORDER_COUNT_EXCEEDS_MAX"` variant; `previewScaleOrder` no longer emits that warning.
+- `clampScaleOrderCount`, `scaleLevelsToMultipleOrderPacket`, `scaleLevelsToMultipleOrderPacketV2`, and `buildPlaceMultiLimitOrderFlow` no longer reject or clamp ladders above 64 orders per side — any code relying on that guard for validation must add its own check.
+- `chunkScaleLevelsForTx` no longer caps `maxOrdersPerTx` at 64, so a large explicit value now yields larger chunks than before.
+
+### Consumer Notes
+
+- If you relied on the SDK enforcing the 64-order-per-side on-chain limit, add an explicit check before calling the scale-order builders or the multi-limit-order flow.
+- Decoded `PerpAssetMap` results now contain perp market entries only; drop any existing workaround that filtered out spot collateral entries yourself.
+
 ## v0.5.29 - 2026-09-25
 
 Source Phoenix commit: `fb668c205addd8ab46faf23f335c4e092d2340c1`
