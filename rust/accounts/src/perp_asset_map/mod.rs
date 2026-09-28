@@ -16,8 +16,9 @@ mod price;
 mod symbol;
 
 pub use metadata::{
-    AssetFlags, FundingAccumulator, LeverageTier, OpenInterestParams, PerpAssetMetadata,
-    PerpAssetMetadataEntry, RiskParams, StaticMarketParams, TransferFeeTier,
+    ASSET_MAP_VARIANT_PERP, ASSET_MAP_VARIANT_SPOT, AssetFlags, FundingAccumulator, LeverageTier,
+    OpenInterestParams, PerpAssetMetadata, PerpAssetMetadataEntry, RiskParams, StaticMarketParams,
+    TransferFeeTier,
 };
 pub use price::{
     BookPriceComponent, MarkPrice, OracleData, OracleParameters, PerpPriceComponent,
@@ -142,10 +143,12 @@ impl<'a> PerpAssetMap<'a> {
         self.capacity
     }
 
-    /// Iterate active metadata slots in account order.
+    /// Iterate active perp metadata slots in account order.
     ///
-    /// Tombstoned slots are skipped. Use [`PerpAssetMetadata::map_index`] on
-    /// returned entries when callers need stable map indexes.
+    /// Tombstoned slots and spot collateral collections (which share the map
+    /// under a different variant tag) are skipped. Use
+    /// [`PerpAssetMetadata::map_index`] on returned entries when callers need
+    /// stable map indexes.
     #[inline(always)]
     pub fn iter(&self) -> PerpAssetMapIter<'a> {
         let entries_start = PERP_ASSET_MAP_HEADER_LEN;
@@ -207,7 +210,7 @@ impl<'a> Iterator for PerpAssetMapIter<'a> {
                 Err(error) => return Some(Err(error)),
             };
             let metadata = PerpAssetMetadata::new(value.metadata);
-            if metadata.is_active() {
+            if metadata.is_active() && metadata.is_perp() {
                 return Some(Ok(PerpAssetMetadataEntry { symbol, metadata }));
             }
         }

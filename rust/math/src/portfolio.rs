@@ -2284,8 +2284,8 @@ fn rebuild_limit_order_state(
 }
 
 /// Values one spot collateral asset the way the on-chain RiskView does
-/// (program-core/exchange/src/risk_view/mod.rs `notional_native_sol_balance` +
-/// `discounted_native_sol_collateral`): the balance is priced per base lot
+/// (program-core/exchange/src/risk_view/mod.rs `notional_spot_balance` +
+/// `discounted_spot_collateral`): the balance is priced per base lot
 /// with truncating dust handling, and the margin discount interpolates
 /// linearly from `min_margin_discount_bps` at zero balance to
 /// `max_margin_discount_bps` at the global cap, evaluated at the trader's own

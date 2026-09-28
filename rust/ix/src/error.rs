@@ -117,6 +117,18 @@ pub enum PhoenixIxError {
     #[error("Invalid TWAP optional field {field} (must be greater than 0 when set)")]
     InvalidTwapOptionalU64 { field: &'static str },
 
+    #[error(
+        "TWAP dust order size must be less than the child order size and nonzero when dust orders \
+         are requested"
+    )]
+    InvalidTwapDustOrderSize,
+
+    #[error(
+        "TWAP child count must be positive, dust count must not exceed it, and their sum must fit \
+         in u64"
+    )]
+    InvalidTwapOrderCounts,
+
     #[error("Invalid scale_set_id {scale_set_id} (must be 0, or 1..=127 for a tagged ladder)")]
     InvalidScaleSetId { scale_set_id: u8 },
 

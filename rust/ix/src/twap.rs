@@ -92,6 +92,13 @@ pub struct TwapIocOrderPacket {
     last_valid_slot: Option<u64>,
     order_flags: OrderFlags,
     cancel_existing: bool,
+    /// Size of each dust order, strictly less than `num_base_lots`.
+    #[cfg_attr(feature = "serde", serde(default))]
+    dust_order_size: u64,
+    /// Explicit dust count. Zero with a nonzero dust size uses one final legacy
+    /// dust order.
+    #[cfg_attr(feature = "serde", serde(default))]
+    n_dust_orders: u64,
 }
 
 impl TwapIocOrderPacket {
@@ -146,6 +153,14 @@ impl TwapIocOrderPacket {
     pub fn cancel_existing(&self) -> bool {
         self.cancel_existing
     }
+
+    pub fn dust_order_size(&self) -> u64 {
+        self.dust_order_size
+    }
+
+    pub fn n_dust_orders(&self) -> u64 {
+        self.n_dust_orders
+    }
 }
 
 /// Builder for [`TwapIocOrderPacket`].
@@ -163,6 +178,8 @@ pub struct TwapIocOrderPacketBuilder {
     last_valid_slot: Option<u64>,
     order_flags: Option<OrderFlags>,
     cancel_existing: Option<bool>,
+    dust_order_size: u64,
+    n_dust_orders: u64,
 }
 
 impl TwapIocOrderPacketBuilder {
@@ -230,18 +247,39 @@ impl TwapIocOrderPacketBuilder {
         self
     }
 
+    /// Set the size of each dust order. Defaults to zero.
+    pub fn dust_order_size(mut self, dust_order_size: u64) -> Self {
+        self.dust_order_size = dust_order_size;
+        self
+    }
+
+    /// Set the number of dust orders following all regular children. Defaults
+    /// to zero, which uses one final legacy dust order if the dust size is
+    /// nonzero.
+    pub fn n_dust_orders(mut self, n_dust_orders: u64) -> Self {
+        self.n_dust_orders = n_dust_orders;
+        self
+    }
+
     pub fn build(self) -> Result<TwapIocOrderPacket, PhoenixIxError> {
         validate_optional_nonzero("price_in_ticks", self.price_in_ticks)?;
         validate_optional_nonzero("num_quote_lots", self.num_quote_lots)?;
         validate_optional_nonzero("match_limit", self.match_limit)?;
         validate_optional_nonzero("last_valid_slot", self.last_valid_slot)?;
 
+        let num_base_lots = self
+            .num_base_lots
+            .ok_or(PhoenixIxError::MissingField("num_base_lots"))?;
+        if self.dust_order_size >= num_base_lots
+            || (self.n_dust_orders > 0 && self.dust_order_size == 0)
+        {
+            return Err(PhoenixIxError::InvalidTwapDustOrderSize);
+        }
+
         Ok(TwapIocOrderPacket {
             side: self.side.ok_or(PhoenixIxError::MissingField("side"))?,
             price_in_ticks: self.price_in_ticks,
-            num_base_lots: self
-                .num_base_lots
-                .ok_or(PhoenixIxError::MissingField("num_base_lots"))?,
+            num_base_lots,
             num_quote_lots: self.num_quote_lots,
             min_base_lots_to_fill: self.min_base_lots_to_fill.unwrap_or(0),
             min_quote_lots_to_fill: self.min_quote_lots_to_fill.unwrap_or(0),
@@ -251,6 +289,8 @@ impl TwapIocOrderPacketBuilder {
             last_valid_slot: self.last_valid_slot,
             order_flags: self.order_flags.unwrap_or(OrderFlags::None),
             cancel_existing: self.cancel_existing.unwrap_or(false),
+            dust_order_size: self.dust_order_size,
+            n_dust_orders: self.n_dust_orders,
         })
     }
 }
@@ -418,6 +458,8 @@ pub struct PlaceTwapOrderParams {
     #[cfg_attr(feature = "serde", serde(with = "crate::serde_helpers::pubkey"))]
     flicker_program_id: Pubkey,
     cooldown_slots: u64,
+    /// Regular child count for explicit dust; total execution count for legacy
+    /// dust.
     n_child_orders: u64,
     child_order_max_slippage_bps: u64,
     child_order_min_price_in_ticks: Option<u64>,
@@ -628,6 +670,21 @@ impl PlaceTwapOrderParamsBuilder {
             self.child_order_collateral_quote_lots_to_transfer,
         )?;
 
+        let n_child_orders = self
+            .n_child_orders
+            .ok_or(PhoenixIxError::MissingField("n_child_orders"))?;
+        let child_order_packet = self
+            .child_order_packet
+            .ok_or(PhoenixIxError::MissingField("child_order_packet"))?;
+        if n_child_orders == 0
+            || child_order_packet.n_dust_orders() > n_child_orders
+            || n_child_orders
+                .checked_add(child_order_packet.n_dust_orders())
+                .is_none()
+        {
+            return Err(PhoenixIxError::InvalidTwapOrderCounts);
+        }
+
         let phoenix_program_id = self.phoenix_program_id.unwrap_or(*PHOENIX_PROGRAM_ID);
         Ok(PlaceTwapOrderParams {
             twap_global_state: match self.twap_global_state {
@@ -650,17 +707,13 @@ impl PlaceTwapOrderParamsBuilder {
             cooldown_slots: self
                 .cooldown_slots
                 .ok_or(PhoenixIxError::MissingField("cooldown_slots"))?,
-            n_child_orders: self
-                .n_child_orders
-                .ok_or(PhoenixIxError::MissingField("n_child_orders"))?,
+            n_child_orders,
             child_order_max_slippage_bps: self
                 .child_order_max_slippage_bps
                 .ok_or(PhoenixIxError::MissingField("child_order_max_slippage_bps"))?,
             child_order_min_price_in_ticks: self.child_order_min_price_in_ticks,
             child_order_max_price_in_ticks: self.child_order_max_price_in_ticks,
-            child_order_packet: self
-                .child_order_packet
-                .ok_or(PhoenixIxError::MissingField("child_order_packet"))?,
+            child_order_packet,
             child_order_collateral_quote_lots_to_transfer: self
                 .child_order_collateral_quote_lots_to_transfer,
             last_valid_slot: self.last_valid_slot,
@@ -1191,7 +1244,9 @@ pub fn encode_twap_ioc_order_packet(
     push_u8(&mut data, packet.order_flags() as u8);
     push_u8(&mut data, u8::from(packet.cancel_existing()));
     data.extend_from_slice(&[0; 6]);
-    data.extend_from_slice(&[0; 48]);
+    push_u64(&mut data, packet.dust_order_size());
+    push_u64(&mut data, packet.n_dust_orders());
+    data.extend_from_slice(&[0; 32]);
     debug_assert_eq!(data.len(), TWAP_IOC_ORDER_PACKET_LEN);
     Ok(data)
 }
@@ -1339,6 +1394,105 @@ mod tests {
         assert_eq!(data[96], OrderFlags::ReduceOnly as u8);
         assert_eq!(data[97], 1);
         assert!(data[104..].iter().all(|byte| *byte == 0));
+    }
+
+    #[test]
+    fn encodes_twap_dust_orders_without_changing_regular_child_count() {
+        for (n_child_orders, n_dust_orders) in [(3, 0), (3, 1), (3, 2), (3, 3), (1, 1)] {
+            let dust_order_size = if n_dust_orders == 0 { 0 } else { 300 };
+            let child_order_packet = TwapIocOrderPacket::builder()
+                .side(Side::Bid)
+                .num_base_lots(1_000)
+                .dust_order_size(dust_order_size)
+                .n_dust_orders(n_dust_orders)
+                .build()
+                .unwrap();
+            let params = PlaceTwapOrderParams::builder()
+                .twap_account(Pubkey::new_unique())
+                .authority(Pubkey::new_unique())
+                .cooldown_slots(10)
+                .n_child_orders(n_child_orders)
+                .child_order_max_slippage_bps(25)
+                .child_order_packet(child_order_packet)
+                .order_accounts(vec![AccountMeta::readonly(Pubkey::new_unique())])
+                .build()
+                .unwrap();
+            let ix = create_place_twap_order_ix(params).unwrap();
+
+            assert_eq!(
+                u64::from_le_bytes(ix.data[16..24].try_into().unwrap()),
+                n_child_orders
+            );
+            // Two absent optional prices place the 152-byte packet at byte 34.
+            let packet_bytes = &ix.data[34..34 + TWAP_IOC_ORDER_PACKET_LEN];
+            assert_eq!(
+                u64::from_le_bytes(packet_bytes[104..112].try_into().unwrap()),
+                dust_order_size
+            );
+            assert_eq!(
+                u64::from_le_bytes(packet_bytes[112..120].try_into().unwrap()),
+                n_dust_orders
+            );
+            assert!(packet_bytes[120..].iter().all(|byte| *byte == 0));
+            assert_eq!(ix.data.len(), 34 + TWAP_IOC_ORDER_PACKET_LEN + 3);
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_twap_dust_sizes() {
+        for dust_order_size in [0, 1_000, 1_001] {
+            let err = TwapIocOrderPacket::builder()
+                .side(Side::Bid)
+                .num_base_lots(1_000)
+                .dust_order_size(dust_order_size)
+                .n_dust_orders(1)
+                .build()
+                .unwrap_err();
+            assert!(matches!(err, PhoenixIxError::InvalidTwapDustOrderSize));
+        }
+    }
+
+    #[test]
+    fn rejects_excessive_or_overflowing_twap_dust_counts() {
+        for (n_child_orders, n_dust_orders) in [(0, 0), (1, 2), (3, 4), (u64::MAX, 1)] {
+            let child_order_packet = TwapIocOrderPacket::builder()
+                .side(Side::Bid)
+                .num_base_lots(1_000)
+                .dust_order_size(300)
+                .n_dust_orders(n_dust_orders)
+                .build()
+                .unwrap();
+            let err = PlaceTwapOrderParams::builder()
+                .twap_account(Pubkey::new_unique())
+                .authority(Pubkey::new_unique())
+                .cooldown_slots(10)
+                .n_child_orders(n_child_orders)
+                .child_order_max_slippage_bps(25)
+                .child_order_packet(child_order_packet)
+                .order_accounts(vec![AccountMeta::readonly(Pubkey::new_unique())])
+                .build()
+                .unwrap_err();
+            assert!(matches!(err, PhoenixIxError::InvalidTwapOrderCounts));
+        }
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn deserializes_twap_packets_without_dust_fields_as_zero_dust() {
+        let packet = TwapIocOrderPacket::builder()
+            .side(Side::Bid)
+            .num_base_lots(1_000)
+            .build()
+            .unwrap();
+        let mut json = serde_json::to_value(packet).unwrap();
+        let fields = json.as_object_mut().unwrap();
+        fields.remove("dust_order_size");
+        fields.remove("n_dust_orders");
+
+        let decoded: TwapIocOrderPacket = serde_json::from_value(json).unwrap();
+        assert_eq!(decoded.dust_order_size(), 0);
+        assert_eq!(decoded.n_dust_orders(), 0);
+        assert_eq!(decoded, packet);
     }
 
     #[test]

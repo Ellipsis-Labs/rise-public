@@ -23,23 +23,19 @@ serde = [
 ]
 
 [dependencies]
-borsh = { workspace = true }
-bs58 = { workspace = true, optional = true }
-bytemuck = { workspace = true }
+borsh             = { workspace = true }
+bs58              = { workspace = true, optional = true }
+bytemuck          = { workspace = true }
 phoenix-rise-math = { workspace = true }
-serde = { workspace = true, optional = true }
+serde             = { workspace = true, optional = true }
 sha2-const-stable = { workspace = true }
-solana-pubkey = { version = "~3.0", default-features = false, features = [
-  "curve25519",
-] }
-thiserror = { workspace = true }
+solana-pubkey     = { workspace = true }
+thiserror         = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
-solana-pubkey = { version = "~3.0", default-features = false, features = [
-  "curve25519",
-  "rand",
-] }
+# Test-only `rand` feature for `Pubkey::new_unique`.
+solana-pubkey = { workspace = true, features = ["rand"] }
 
 [lints.rust.unexpected_cfgs]
 check-cfg = ['cfg(target_os, values("solana"))']

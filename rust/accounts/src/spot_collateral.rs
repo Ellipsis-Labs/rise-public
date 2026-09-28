@@ -28,11 +28,6 @@ pub const SPOT_COLLATERAL_FLAG_IS_ACTIVE: u8 = 1 << 0;
 /// [`SpotCollateralMetadata::perp_asset_index_raw`] points at a real perp
 /// asset, whose index price values this collateral.
 pub const SPOT_COLLATERAL_FLAG_HAS_PERP_ASSET: u8 = 1 << 1;
-/// Exchange-wide kill switch for `SwapNative` signed by a position authority.
-/// Traders carry an independent opt-out on
-/// [`crate::trader::preferences::TRADER_PREFERENCE_DISABLE_POSITION_AUTHORITY_SWAP`],
-/// which is a *different bit position* — do not share a constant.
-pub const SPOT_COLLATERAL_FLAG_DISABLE_POSITION_AUTHORITY_SWAP: u8 = 1 << 2;
 
 /// Per-asset configuration and global usage tracking for a spot collateral
 /// asset.
@@ -172,13 +167,6 @@ impl SpotCollateralMetadata {
         self.flags & SPOT_COLLATERAL_FLAG_HAS_PERP_ASSET != 0
     }
 
-    /// Whether the exchange-wide kill switch for position-authority
-    /// `SwapNative` is set.
-    #[inline(always)]
-    pub const fn position_authority_swap_disabled(&self) -> bool {
-        self.flags & SPOT_COLLATERAL_FLAG_DISABLE_POSITION_AUTHORITY_SWAP != 0
-    }
-
     /// Raw perp asset index, meaningful only when [`Self::has_perp_asset`].
     #[inline(always)]
     pub const fn perp_asset_index_raw(&self) -> u32 {
@@ -247,10 +235,6 @@ impl serde::Serialize for SpotCollateralMetadata {
         state.serialize_field("flags", &self.flags())?;
         state.serialize_field("is_active", &self.is_active())?;
         state.serialize_field("has_perp_asset", &self.has_perp_asset())?;
-        state.serialize_field(
-            "position_authority_swap_disabled",
-            &self.position_authority_swap_disabled(),
-        )?;
         state.end()
     }
 }
@@ -267,13 +251,10 @@ mod tests {
 
     #[test]
     fn flag_accessors_decode_independently() {
-        let metadata = metadata_with_flags(
-            SPOT_COLLATERAL_FLAG_IS_ACTIVE | SPOT_COLLATERAL_FLAG_DISABLE_POSITION_AUTHORITY_SWAP,
-        );
+        let metadata = metadata_with_flags(SPOT_COLLATERAL_FLAG_IS_ACTIVE);
 
         assert!(metadata.is_active());
         assert!(!metadata.has_perp_asset());
-        assert!(metadata.position_authority_swap_disabled());
     }
 
     #[test]

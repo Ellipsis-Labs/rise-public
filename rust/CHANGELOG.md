@@ -3,6 +3,31 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.7 - 2026-09-28
+
+Source Phoenix commit: `61d16d073d0b2b9be7b0737a3dacf9b1773de7bd`
+
+### Summary
+
+- Adds TWAP dust-order support (`ix`, `types`): child orders can now be split into a smaller trailing "dust" tranche via `TwapIocOrderPacketBuilder::dust_order_size`/`n_dust_orders`, with new validation errors and a matching `PlaceTwapOrderRequest`/`TwapChildOrderParams`/`IsolatedTwapOrderParams`/`TwapMarginType` request shape exported from `types`.
+- `accounts` gains explicit perp-vs-spot tagging for asset-map slots (`PerpAssetMetadata::is_perp()`, `asset_map_variant()`, `ASSET_MAP_VARIANT_PERP`/`ASSET_MAP_VARIANT_SPOT`), and `events::SpotCollateralFlow` gains a `Liquidation` variant for SPL spot liquidation debits.
+- Removes the exchange-wide `disable_position_authority_swap` kill switch on spot collateral (`accounts`, `events`); only the trader's own preference bit now gates position-authority `SwapNative`.
+- Removes the unused `SetMultiArenaAdditionalNodesWatermark`/`SetMultiArenaNumNodesPerArena` instruction discriminants (`ix`).
+- Workspace dependency specs for `solana-*` crates and `borsh` switch from tilde (`~`) to caret pins, allowing newer compatible minor versions to resolve.
+
+### Breaking Changes
+
+- Removed `SPOT_COLLATERAL_FLAG_DISABLE_POSITION_AUTHORITY_SWAP`, `SpotCollateralMetadata::position_authority_swap_disabled()` (both `accounts` and `events` crates), and the corresponding field on the owned FFI view. Code checking this flag must remove the check; the exchange-wide gate no longer exists, only the trader preference bit does.
+- Removed `PhoenixInstruction::SetMultiArenaAdditionalNodesWatermark` and `PhoenixInstruction::SetMultiArenaNumNodesPerArena` enum variants (`ix`). Any matches on `PhoenixInstruction::ALL` or exhaustive matches over the enum need updating.
+- `PerpAssetMap::iter()` now also skips slots tagged as spot-collateral (`ASSET_MAP_VARIANT_SPOT`), not just tombstoned ones. Consumers that relied on `iter()` returning every non-tombstoned slot as perp metadata will see fewer entries once spot-collateral variants are written into the map.
+- `solana-*` and `borsh` dependency requirements in `rust/Cargo.toml` moved from tilde (`~x.y`) to caret (`x.y`) pins, so downstream builds may now resolve newer minor versions of these transitive dependencies than before.
+
+### Consumer Notes
+
+- `TwapIocOrderPacket`'s wire encoding now uses 16 of the previously-reserved padding bytes for `dust_order_size`/`n_dust_orders`; packets built or deserialized without these fields default to zero dust, preserving prior behavior.
+- New `PlaceTwapOrderParamsBuilder` validation returns `PhoenixIxError::InvalidTwapDustOrderSize` / `InvalidTwapOrderCounts` for malformed dust configurations.
+- New `SpotCollateralFlow::Withdraw` doc coverage now includes `WithdrawSpot` in addition to `WithdrawNativeSol`.
+
 ## v0.6.6 - 2026-09-23
 
 Source Phoenix commit: `fb668c205addd8ab46faf23f335c4e092d2340c1`
