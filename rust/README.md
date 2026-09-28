@@ -209,7 +209,8 @@ variant instead of the builder's registered fee.
 - Account lifecycle: `register_trader.rs`, `create_ata.rs`, `spl_approve.rs`
 - Ember conversions: `ember_deposit.rs`, `ember_withdraw.rs`
 - Flight-specific builders: `flight/register_builder.rs`,
-  `flight/update_fee.rs`, and proxy helpers
+  `flight/update_fee.rs`, `flight/set_onboarder_signer.rs`,
+  `flight/onboard_trader.rs`, and proxy helpers
 - Hawkeye view instructions and return-data decoding: `hawkeye.rs`
 
 ### `math/src/`

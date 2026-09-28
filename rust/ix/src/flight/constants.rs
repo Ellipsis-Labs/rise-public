@@ -7,6 +7,7 @@ pub const FLIGHT_PROGRAM_ID: Pubkey =
     solana_pubkey::pubkey!("F1ightu9cujFYo34k9CabifLrJT8qzfDVM2Q7BqhJn2W");
 
 const COLLATERAL_TRANSFER_AUTHORITY_SEED: &[u8] = b"collateral_transfer_authority";
+const TRADER_ONBOARDING_AUTHORITY_SEED: &[u8] = b"trader_onboarding_authority";
 
 pub fn flight_register_builder_discriminant() -> [u8; 8] {
     FlightInstruction::RegisterBuilder.discriminant()
@@ -77,6 +78,32 @@ pub fn get_flight_authorized_collateral_transfer_permission_address(
 ) -> Result<Pubkey, PhoenixIxError> {
     let collateral_transfer_authority = get_flight_collateral_transfer_authority_address()?;
     get_permission_address(root_authority, &collateral_transfer_authority)
+}
+
+/// Derives Flight's trader-onboarding signer PDA.
+///
+/// Seeds: ["trader_onboarding_authority", PHOENIX_PROGRAM_ID] against Flight
+/// program.
+pub fn get_flight_trader_onboarding_authority_address() -> Result<Pubkey, PhoenixIxError> {
+    derive_program_address(
+        &[
+            TRADER_ONBOARDING_AUTHORITY_SEED,
+            PHOENIX_PROGRAM_ID.as_ref(),
+        ],
+        &FLIGHT_PROGRAM_ID,
+    )
+}
+
+/// Derives the onboarding PDA's permission under `parent_authority` (risk or
+/// market).
+///
+/// Seeds: ["permission", parent_authority, onboarding_authority] against
+/// Phoenix.
+pub fn get_flight_trader_onboarding_permission_address(
+    parent_authority: &Pubkey,
+) -> Result<Pubkey, PhoenixIxError> {
+    let onboarding_authority = get_flight_trader_onboarding_authority_address()?;
+    get_permission_address(parent_authority, &onboarding_authority)
 }
 
 fn derive_program_address(seeds: &[&[u8]], program_id: &Pubkey) -> Result<Pubkey, PhoenixIxError> {

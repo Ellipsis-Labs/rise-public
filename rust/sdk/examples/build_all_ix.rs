@@ -532,6 +532,38 @@ fn main() {
         results.insert("UpdateFee".to_string(), hex_encode(&ix.data));
     }
 
+    // 22a. Flight SetOnboarderSigner
+    {
+        let params = SetOnboarderSignerParams::builder()
+            .builder_authority(pubkeys[0])
+            .signer(pubkeys[1])
+            .build()
+            .unwrap();
+
+        let ix = create_set_onboarder_signer_ix(params).unwrap();
+        results.insert("SetOnboarderSigner".to_string(), hex_encode(&ix.data));
+    }
+
+    // 22b. Flight OnboardTrader
+    {
+        let params = OnboardTraderParams::builder()
+            .builder_authority(pubkeys[0])
+            .onboarder_signer(pubkeys[1])
+            .payer(pubkeys[2])
+            .trader_wallet(pubkeys[3])
+            .risk_authority(pubkeys[4])
+            .market_authority(pubkeys[5])
+            .max_positions(128)
+            .trader_preference_bits(0)
+            .global_trader_index(vec2(6, 7))
+            .active_trader_buffer(vec2(8, 9))
+            .build()
+            .unwrap();
+
+        let ix = create_onboard_trader_ix(params).unwrap();
+        results.insert("OnboardTrader".to_string(), hex_encode(&ix.data));
+    }
+
     // 23. Flight ProxyInstruction (wrapping a deterministic PlaceLimitOrder)
     {
         let inner_params = LimitOrderParams::builder()

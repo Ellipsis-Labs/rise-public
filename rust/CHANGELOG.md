@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.9 - 2026-09-28
+
+Source Phoenix commit: `fdaeef82f69e2b6672f7aba6eb8d8fc1755f13a6`
+
+### Summary
+
+- Adds Flight onboarding instruction builders to `ix` (and the `sdk` re-exports): `create_set_onboarder_signer_ix` (with `SetOnboarderSignerParams`) sets a builder's onboarder signer, and `create_onboard_trader_ix` (with `OnboardTraderParams`) onboards a trader from the builder's own backend, co-signed by the onboarder key.
+- Adds PDA helpers `get_flight_trader_onboarding_authority_address` and `get_flight_trader_onboarding_permission_address`.
+- Adds `UpdateBuilderOnboarding`, `SetOnboarderSigner` and `OnboardTrader` to `FlightInstruction`, with matching entries in the SDK instruction fixtures.
+- `cli`: adds a `flight set-onboarder-signer` command. `flight view` now also shows the builder's onboarder signer, remaining onboardings, and maker and taker fee discounts.
+- The workspace version moves from 0.6.8 to 0.6.9 across all Rise crates. READMEs document the new builders.
+
+### Breaking Changes
+
+- `FlightInstruction` gains three new variants (`ALL.len()` goes from 9 to 12). Downstream code that matches on it exhaustively will need new arms.
+
+### Consumer Notes
+
+- `create_onboard_trader_ix` requires non-empty `global_trader_index` and `active_trader_buffer`. `build()` returns `EmptyGlobalTraderIndex` or `EmptyActiveTraderBuffer` otherwise.
+- The onboarding transaction needs two signers: the onboarder signer and the payer. The builder authority is a signer only for `set_onboarder_signer`.
+- `flight view` now reads the extended builder-state layout, with the onboarder fields at byte offsets 88–129. Accounts that don't have those bytes will fail to decode.
+
 ## v0.6.8 - 2026-09-28
 
 Source Phoenix commit: `65e3246ec6c43bc24dc33cbfba075dfd8d561134`
