@@ -21,7 +21,7 @@ pinocchio-pubkey = "0.3.0"
 proc-macro-crate = "=3.4.0"
 sha2 = "0.10"
 sha2-const-stable = "0.1"
-solana-pubkey = { version = "~3.0", features = ["curve25519"] }
+solana-pubkey = { version = "4.2", features = ["curve25519"] }
 toml_parser = "=1.0.6"
 zeroize = "=1.8.2"
 
@@ -34,7 +34,7 @@ solana-compute-budget-interface = "~3.0"
 solana-instruction = { version = "~3.4", default-features = false, features = [
   "std",
 ] }
-solana-pubkey = { version = "~3.0", features = ["curve25519"] }
+solana-pubkey = { version = "4.2", features = ["curve25519"] }
 
 [profile.ci]
 inherits = "dev"

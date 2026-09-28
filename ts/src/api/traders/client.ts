@@ -1,3 +1,5 @@
+import type { TwapOrdersQueryParams, TwapSnapshot } from "./twap";
+import { TwapSnapshotSchema } from "./twap";
 import type { HttpTransport } from "@/http/transport";
 import type { ParamValue } from "@/http/transport";
 import { get } from "@/http/transport";
@@ -45,6 +47,19 @@ const buildHistoricalValuesQuery = (
 
 export class V1TradersClient {
   constructor(private http: HttpTransport) {}
+
+  /** Returns the trader's TWAP accounts, including dust execution parameters. */
+  async getTwap(
+    authority: string,
+    request?: TwapOrdersQueryParams
+  ): Promise<TwapSnapshot> {
+    return get(
+      this.http,
+      `/v1/trader/${encodeURIComponent(authority)}/twap`,
+      TwapSnapshotSchema,
+      { params: request ? { ...request } : undefined }
+    );
+  }
 
   async getTrader(pubkey: string): Promise<TraderView> {
     return get(this.http, `/v1/view/trader/${pubkey}`, TraderViewSchema);

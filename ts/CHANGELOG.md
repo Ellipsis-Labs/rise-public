@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.34 - 2026-09-28
+
+Source Phoenix commit: `65e3246ec6c43bc24dc33cbfba075dfd8d561134`
+
+### Summary
+
+- Adds `V1TradersClient.getTwap(authority, params?)`, which calls `GET /v1/trader/{authority}/twap` and returns a validated `TwapSnapshot`. The optional filters are `traderPdaIndex` (defaults to 0 on the server), `traderSubaccountIndex` and `assetId`.
+- Adds new public exports for the TWAP read API: `TwapSnapshot`, `TwapAccountSnapshot`, `TwapOrderSnapshot`, `TwapOrdersQueryParams`, and the matching Zod schemas `TwapSnapshotSchema`, `TwapAccountSnapshotSchema` and `TwapOrderSnapshotSchema`. They are available from the package root and the API schema exports.
+- TWAP order snapshots now report dust execution parameters. `nDustOrders` is the number of additional dust executions, and `dustOrderSize` is the size of each one in base lots (or `null`). `nChildOrders` counts all executions, dust included.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `nDustOrders` and `dustOrderSize` are optional, so snapshots from older servers that omit them still parse. Treat a missing or `0` `nDustOrders` as "no additional dust executions". `0` can also mean dust from the legacy final child order.
+- Accounts with no active TWAP order have no `order` field.
+- Sizes and cumulative fills are in lots. Numeric fields are typed as `number`, not string or bigint.
+
 ## v0.5.33 - 2026-09-25
 
 Source Phoenix commit: `753ef9222464d261902edd20ddd988a5d763821f`

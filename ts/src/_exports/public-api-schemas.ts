@@ -505,3 +505,13 @@ export {
   type TraderStateTradeHistoryDelta,
   type TraderStateTriggerSnapshot,
 } from "../ws/adapters/trader-state/wire";
+
+export {
+  type TwapOrderSnapshot,
+  TwapOrderSnapshotSchema,
+  type TwapAccountSnapshot,
+  TwapAccountSnapshotSchema,
+  type TwapSnapshot,
+  TwapSnapshotSchema,
+  type TwapOrdersQueryParams,
+} from "../api/traders/twap";
