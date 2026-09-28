@@ -544,6 +544,32 @@ try {
     results["UpdateFee"] = hexEncode(ix.data);
   }
 
+  // 22a. Flight SetOnboarderSigner
+  {
+    const ix = await flight.buildSetOnboarderSignerIx({
+      builderAuthority: p(0),
+      signer: p(1),
+    });
+    results["SetOnboarderSigner"] = hexEncode(ix.data);
+  }
+
+  // 22b. Flight OnboardTrader
+  {
+    const ix = await flight.buildOnboardTraderIx({
+      builderAuthority: p(0),
+      onboarderSigner: p(1),
+      payer: p(2),
+      traderWallet: p(3),
+      riskAuthority: p(4),
+      marketAuthority: p(5),
+      maxPositions: 128,
+      traderPreferenceBits: 0,
+      globalTraderIndex: vec2(6, 7),
+      activeTraderBuffer: vec2(8, 9),
+    });
+    results["OnboardTrader"] = hexEncode(ix.data);
+  }
+
   // 23. Flight ProxyInstruction (wrapping a deterministic PlaceLimitOrder)
   {
     const inner = buildPlaceLimitOrderIx({

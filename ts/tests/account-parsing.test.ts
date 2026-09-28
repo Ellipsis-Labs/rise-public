@@ -752,6 +752,10 @@ describe("raw account parsing", () => {
       status: "1",
       isActive: true,
       feeBps: "8",
+      onboarderSignerPubkey: "11111111111111111111111111111111",
+      onboarderNumOnboardingRemaining: "0",
+      onboarderMakerFeeDiscount: 0,
+      onboarderTakerFeeDiscount: 0,
     });
   });
 });

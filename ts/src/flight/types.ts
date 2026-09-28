@@ -12,3 +12,11 @@ export type FlightAuthorizedCollateralTransferPermissionAddress = Branded<
   Address,
   "FlightAuthorizedCollateralTransferPermission"
 >;
+export type FlightTraderOnboardingAuthorityAddress = Branded<
+  Address,
+  "FlightTraderOnboardingAuthority"
+>;
+export type FlightTraderOnboardingPermissionAddress = Branded<
+  Address,
+  "FlightTraderOnboardingPermission"
+>;

@@ -6,12 +6,15 @@ import {
   BUILDER_STATE_SEED,
   COLLATERAL_TRANSFER_AUTHORITY_SEED,
   GLOBAL_STATE_SEED,
+  TRADER_ONBOARDING_AUTHORITY_SEED,
 } from "./core/constants";
 import type {
   FlightBuilderStateAddress,
   FlightCollateralTransferAuthorityAddress,
   FlightAuthorizedCollateralTransferPermissionAddress,
   FlightGlobalStateAddress,
+  FlightTraderOnboardingAuthorityAddress,
+  FlightTraderOnboardingPermissionAddress,
 } from "./types";
 
 export const getFlightGlobalStateAddress = async (
@@ -74,4 +77,37 @@ export const getFlightAuthorizedCollateralTransferPermissionAddress = async (
   });
 
   return pda as FlightAuthorizedCollateralTransferPermissionAddress;
+};
+
+export const getFlightTraderOnboardingAuthorityAddress = async (
+  phoenixProgramAddress: PhoenixProgramAddress = getPhoenixProgramAddress()
+): Promise<FlightTraderOnboardingAuthorityAddress> => {
+  const [pda] = await getProgramDerivedAddress({
+    programAddress: FLIGHT_PROGRAM_ADDRESS,
+    seeds: [
+      TRADER_ONBOARDING_AUTHORITY_SEED,
+      getBase58Encoder().encode(phoenixProgramAddress),
+    ],
+  });
+
+  return pda as FlightTraderOnboardingAuthorityAddress;
+};
+
+export const getFlightTraderOnboardingPermissionAddress = async (
+  parentAuthority: Authority,
+  phoenixProgramAddress: PhoenixProgramAddress = getPhoenixProgramAddress()
+): Promise<FlightTraderOnboardingPermissionAddress> => {
+  const onboardingAuthority = await getFlightTraderOnboardingAuthorityAddress(
+    phoenixProgramAddress
+  );
+  const [pda] = await getProgramDerivedAddress({
+    programAddress: phoenixProgramAddress,
+    seeds: [
+      "permission",
+      getBase58Encoder().encode(parentAuthority),
+      getBase58Encoder().encode(onboardingAuthority),
+    ],
+  });
+
+  return pda as FlightTraderOnboardingPermissionAddress;
 };
