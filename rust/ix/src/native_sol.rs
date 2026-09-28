@@ -1376,15 +1376,12 @@ impl SwapNativeParamsBuilder {
 /// and the venue instructions are entirely caller-supplied. A position
 /// authority you do not control can therefore route a delegator's collateral
 /// through a venue of its choosing, bounded only by `min_amount_out`. Two
-/// independent opt-outs gate that path, and either one makes such a swap fail
-/// with error **7101 `PositionAuthoritySwapDisabled`**:
-///
-/// - the exchange-wide `disable_position_authority_swap` flag on the spot
-///   collateral configuration; and
-/// - the trader's own `disable_position_authority_swap` preference bit.
+/// The trader's own `disable_position_authority_swap` preference bit gates
+/// that path, making such a swap fail with error **7101
+/// `PositionAuthoritySwapDisabled`**.
 ///
 /// Swaps signed by the trader's wallet are never gated. Use
-/// `phoenix_rise_accounts` to check both flags before building the
+/// `phoenix_rise_accounts` to check the preference bit before building the
 /// instruction.
 ///
 /// A [`SwapDirection::Buy`] additionally honors the deposit cooldown and is

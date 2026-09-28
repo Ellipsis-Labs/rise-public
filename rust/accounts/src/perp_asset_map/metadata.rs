@@ -131,8 +131,18 @@ pub(super) struct PerpAssetMetadataLayout {
     last_known_index_price: Ticks,
     last_index_expiry_timestamp: u64,
     commodities_after_hours_radius_bps: BasisPoints,
-    _padding4: [u64; 9],
+    _padding4: [u64; 8],
+    _padding5: [u8; 7],
+    /// Final byte of every asset-map slot: [`ASSET_MAP_VARIANT_PERP`] or
+    /// [`ASSET_MAP_VARIANT_SPOT`]. Perp entries written before the tag
+    /// existed carry zeroed padding here, which reads as PERP.
+    asset_map_variant: u8,
 }
+
+/// Asset-map slot variant tag for a perp market.
+pub const ASSET_MAP_VARIANT_PERP: u8 = 0;
+/// Asset-map slot variant tag for a spot collateral collection.
+pub const ASSET_MAP_VARIANT_SPOT: u8 = 1;
 
 /// View over one PerpAssetMap metadata slot.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -165,6 +175,19 @@ impl PerpAssetMetadata {
     #[inline(always)]
     pub fn is_active(&self) -> bool {
         !self.is_tombstoned()
+    }
+
+    /// Raw variant tag of the underlying asset-map slot.
+    #[inline(always)]
+    pub fn asset_map_variant(&self) -> u8 {
+        self.layout.asset_map_variant
+    }
+
+    /// Whether the slot holds perp market metadata. Spot collateral
+    /// collections share the map and must not be read as perp metadata.
+    #[inline(always)]
+    pub fn is_perp(&self) -> bool {
+        self.asset_map_variant() == ASSET_MAP_VARIANT_PERP
     }
 
     #[inline(always)]

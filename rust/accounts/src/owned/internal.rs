@@ -172,7 +172,6 @@ pub struct SpotCollateralMetadata {
     pub flags: u8,
     pub is_active: bool,
     pub has_perp_asset: bool,
-    pub position_authority_swap_disabled: bool,
 }
 
 impl From<&crate::spot_collateral::SpotCollateralMetadata> for SpotCollateralMetadata {
@@ -194,7 +193,6 @@ impl From<&crate::spot_collateral::SpotCollateralMetadata> for SpotCollateralMet
             flags: value.flags(),
             is_active: value.is_active(),
             has_perp_asset: value.has_perp_asset(),
-            position_authority_swap_disabled: value.position_authority_swap_disabled(),
         }
     }
 }

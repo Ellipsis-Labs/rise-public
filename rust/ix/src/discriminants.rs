@@ -322,8 +322,6 @@ define_instruction_discriminants! {
         Log => "log",
         InitializeArena => "initialize_arena",
         RemoveEmptyArena => "remove_empty_arena",
-        SetMultiArenaAdditionalNodesWatermark => "set_multi_arena_additional_nodes_watermark",
-        SetMultiArenaNumNodesPerArena => "set_multi_arena_num_nodes_per_arena",
         RemoveOracle => "remove_oracle",
         RemoveAllOracles => "remove_all_oracles",
         CreatePermission => "create_permission",

@@ -80,12 +80,13 @@ pub mod prelude {
     };
     pub use super::ix::{
         ApiAccountMeta, ApiInstructionResponse, CancelConditionalOrderRequest,
-        CancelStopLossOrderRequest, ConditionalTriggerRequest,
+        CancelStopLossOrderRequest, ConditionalTriggerRequest, IsolatedTwapOrderParams,
         PlaceAttachedConditionalOrderRequest, PlaceIsolatedLimitOrderEnhancedResponse,
         PlaceIsolatedLimitOrderRequest, PlaceIsolatedLimitOrderWithConditionalsRequest,
         PlaceIsolatedMarketOrderEnhancedResponse, PlaceIsolatedMarketOrderRequest,
         PlaceIsolatedMarketOrderV2Request, PlacePositionConditionalOrderRequest,
-        PlaceStopLossOrderRequest, StopLossExecutionDirection, TpSlOrderConfig,
+        PlaceStopLossOrderRequest, PlaceTwapOrderRequest, StopLossExecutionDirection,
+        TpSlOrderConfig, TwapChildOrderParams, TwapMarginType,
     };
     pub use super::js_safe_ints::{JsSafeI64, JsSafeU64};
     pub use super::l2book::{L2Book, PriceLevel};

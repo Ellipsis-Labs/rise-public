@@ -26,10 +26,15 @@ pub enum SpotCollateralFlow {
     Swap,
     /// The credit or debit leg of a trader-to-trader transfer.
     Transfer,
-    /// A `WithdrawNativeSol`, including the privileged self-CPI legs of a swap
-    /// sell and a liquidation seizure. Tell those apart at read time via
-    /// `is_self_cpi` and any co-emitted [`SpotCollateralLiquidatedEvent`].
+    /// A `WithdrawNativeSol` or `WithdrawSpot`, including the privileged
+    /// native-SOL self-CPI legs of a swap sell and a liquidation seizure. Tell
+    /// those apart at read time via `is_self_cpi` and any co-emitted
+    /// [`SpotCollateralLiquidatedEvent`].
     Withdraw,
+    /// The debit leg of an SPL spot liquidation seizure (in-process, so it can
+    /// name itself). Native-SOL seizures still arrive as `Withdraw` with
+    /// `is_self_cpi`.
+    Liquidation,
 }
 
 /// Per-asset spot collateral configuration, carried by
@@ -58,8 +63,7 @@ pub struct SpotCollateralMetadata {
     pub max_liquidation_size: u64,
     pub post_liquidation_buffer: QuoteLots,
     pub quote_lot_collateral_shortfall_buffer: QuoteLots,
-    /// Bit 0 `is_active`, bit 1 `has_perp_asset`, bit 2
-    /// `disable_position_authority_swap`.
+    /// Bit 0 `is_active`, bit 1 `has_perp_asset`
     pub flags: u8,
     pub _padding_flags: [u8; 7],
     pub padding: [u64; 26],
@@ -74,10 +78,6 @@ impl SpotCollateralMetadata {
 
     pub const fn has_perp_asset(&self) -> bool {
         self.flags & (1 << 1) != 0
-    }
-
-    pub const fn position_authority_swap_disabled(&self) -> bool {
-        self.flags & (1 << 2) != 0
     }
 }
 
