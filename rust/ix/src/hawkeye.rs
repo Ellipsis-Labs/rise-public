@@ -2,11 +2,13 @@
 
 use core::mem::size_of;
 
-use bytemuck::{Pod, Zeroable, try_pod_read_unaligned};
+use borsh::BorshSerialize;
+use bytemuck::{Contiguous, Pod, Zeroable, try_pod_read_unaligned};
 use solana_pubkey::Pubkey;
 use thiserror::Error;
 
 use crate::discriminants::HawkeyeInstruction;
+use crate::order_packet::OrderPacket;
 use crate::sha2_const;
 use crate::types::{AccountMeta, Instruction};
 
@@ -23,6 +25,7 @@ const VIEW_LIQUIDATION_PRICE_RETURN_MAGIC: u64 =
     sha2_const(b"return:phoenix_hawkeye_liquidation_price");
 const VIEW_BBO_RETURN_MAGIC: u64 = sha2_const(b"return:phoenix_hawkeye_bbo");
 const VIEW_FUNDING_RETURN_MAGIC: u64 = sha2_const(b"return:phoenix_hawkeye_funding");
+const VIEW_ORDER_QUOTE_RETURN_MAGIC: u64 = sha2_const(b"return:phoenix_hawkeye_order_quote");
 
 const VIEW_BBO_HAS_BID: u8 = 1 << 0;
 const VIEW_BBO_HAS_ASK: u8 = 1 << 1;
@@ -166,6 +169,7 @@ pub enum HawkeyeReturnData {
     LiquidationPrice(ViewLiquidationPriceReturn),
     Bbo(ViewBboReturn),
     Funding(ViewFundingReturn),
+    OrderQuote(ViewOrderQuoteReturn),
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -218,6 +222,9 @@ pub fn decode_hawkeye_return_data(
         VIEW_BBO_RETURN_MAGIC => decode_typed(bytes, "view_bbo").map(HawkeyeReturnData::Bbo),
         VIEW_FUNDING_RETURN_MAGIC => {
             decode_typed(bytes, "view_funding").map(HawkeyeReturnData::Funding)
+        }
+        VIEW_ORDER_QUOTE_RETURN_MAGIC => {
+            decode_typed(bytes, "view_order_quote").map(HawkeyeReturnData::OrderQuote)
         }
         magic => Err(HawkeyeReturnDataError::UnknownMagic { magic }),
     }
@@ -279,6 +286,166 @@ pub struct HawkeyeBboViewAccounts {
     pub orderbook: Pubkey,
     #[cfg_attr(feature = "serde", serde(with = "crate::serde_helpers::pubkey"))]
     pub spline_collection: Pubkey,
+}
+
+#[repr(u8)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Contiguous)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum OrderQuoteOutcome {
+    Accepted    = 0,
+    Rejected    = 1,
+    Unsupported = 2,
+}
+
+#[repr(u8)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Contiguous)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum OrderQuoteRejectionReason {
+    None                       = 0,
+    CancelExisting             = 1,
+    InvalidOrderPacket         = 2,
+    MinimumFillNotMet          = 3,
+    SelfTradeAbort             = 4,
+    PostOnlyCross              = 5,
+    ReduceOnlyIncreaseExposure = 6,
+    TooManyLimitOrders         = 7,
+    InsufficientAggression     = 8,
+    InvalidTimeInForce         = 9,
+    ZeroPrice                  = 10,
+    ZeroSize                   = 11,
+    OutsideExecutionPriceBand  = 12,
+    Expired                    = 13,
+}
+
+/// Matching-engine quote; does not establish taker margin or authorization.
+/// Expected rejections return successfully with zero retained fills, fees and
+/// posts. Acceptance does not guarantee placement; enforce placement limits.
+#[repr(C)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Pod, Zeroable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct ViewOrderQuoteReturn {
+    pub magic: u64,
+    pub version: u16,
+    /// Bit 0: average price; bit 1: slippage; bit 2: effective size is present.
+    pub flags: u8,
+    /// 0 = bid, 1 = ask.
+    pub side: u8,
+    pub asset_id: u32,
+    pub slot: u64,
+    pub requested_base_lots: u64,
+    pub filled_base_lots: u64,
+    /// Gross execution notional, excluding taker fees.
+    pub filled_quote_lots: u64,
+    pub fee_quote_lots: u64,
+    pub posted_base_lots: u64,
+    /// Requested minus filled; includes any posted remainder.
+    pub unfilled_base_lots: u64,
+    pub average_price_quote_lots_per_base_lot: u64,
+    pub reference_price_ticks: u64,
+    /// Positive means adverse execution; rounded toward zero. Excludes fees.
+    pub slippage_bps: i64,
+    /// Size after reduce-only clamping. Absent for rejected, unsupported or
+    /// expired orders.
+    pub effective_base_lots: u64,
+    /// Valid only when posted_base_lots is nonzero; includes post-only sliding.
+    pub posted_price_ticks: u64,
+    /// 0 = accepted by matcher, 1 = rejected, 2 = unsupported.
+    pub outcome: u8,
+    /// Stable OrderQuoteRejectionReason code; zero for accepted orders.
+    pub rejection_reason: u8,
+    pub _padding: [u8; 6],
+}
+
+impl ViewOrderQuoteReturn {
+    pub fn outcome(&self) -> Option<OrderQuoteOutcome> {
+        OrderQuoteOutcome::from_integer(self.outcome)
+    }
+
+    pub fn rejection_reason(&self) -> Option<OrderQuoteRejectionReason> {
+        OrderQuoteRejectionReason::from_integer(self.rejection_reason)
+    }
+
+    pub fn effective_base_lots(&self) -> Option<u64> {
+        (self.flags & 4 != 0).then_some(self.effective_base_lots)
+    }
+
+    pub fn posted_price_ticks(&self) -> Option<u64> {
+        (self.posted_base_lots != 0).then_some(self.posted_price_ticks)
+    }
+
+    /// Whether the original requested size filled, excluding any posted lots.
+    pub fn is_fully_filled(&self) -> bool {
+        self.outcome() == Some(OrderQuoteOutcome::Accepted)
+            && self.requested_base_lots > 0
+            && self.filled_base_lots == self.requested_base_lots
+    }
+
+    /// Signed net quote flow: positive received, negative spent, including
+    /// fees. Unknown outcomes and sides cannot be interpreted.
+    pub fn net_quote_lots(&self) -> Option<i128> {
+        match self.outcome()? {
+            OrderQuoteOutcome::Accepted => match self.side {
+                0 => Some(-i128::from(self.filled_quote_lots) - i128::from(self.fee_quote_lots)),
+                1 => Some(i128::from(self.filled_quote_lots) - i128::from(self.fee_quote_lots)),
+                _ => None,
+            },
+            OrderQuoteOutcome::Rejected | OrderQuoteOutcome::Unsupported => Some(0),
+        }
+    }
+
+    pub fn average_price_quote_lots_per_base_lot(&self) -> Option<u64> {
+        (self.flags & 1 != 0).then_some(self.average_price_quote_lots_per_base_lot)
+    }
+
+    pub fn slippage_bps(&self) -> Option<i64> {
+        (self.flags & 2 != 0).then_some(self.slippage_bps)
+    }
+}
+
+const _: () = assert!(size_of::<ViewOrderQuoteReturn>() == 120);
+
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct HawkeyeOrderQuoteAccounts {
+    pub market: HawkeyeBboViewAccounts,
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde_helpers::pubkey"))]
+    pub trader: Pubkey,
+    /// Writable, zero-lamport, Hawkeye-owned temporary account. Allocate it in
+    /// a preceding top-level System Program instruction in the same
+    /// transaction. It is closed after a successful quote. All Phoenix
+    /// accounts are readonly.
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde_helpers::pubkey"))]
+    pub scratch: Pubkey,
+}
+
+/// Quote an order against copied state. `reference_price_ticks = 0` omits
+/// slippage. Packets with margin-dependent `cancel_existing` are unsupported.
+///
+/// Scratch must fit the source accounts (each rounded up to eight bytes), plus
+/// one global-trader-index node and active-position nodes for each spline,
+/// the taker's cold positions, and the quoted market. Insufficient scratch
+/// fails with AccountDataTooSmall. The buffer is
+/// subject to Solana's account-size and transaction-allocation limits.
+pub fn create_hawkeye_view_order_quote_ix(
+    accounts: HawkeyeOrderQuoteAccounts,
+    order_packet: &OrderPacket,
+    reference_price_ticks: u64,
+) -> Instruction {
+    let mut instruction = create_hawkeye_view_bbo_ix(accounts.market);
+    instruction
+        .accounts
+        .push(AccountMeta::readonly(accounts.trader));
+    instruction
+        .accounts
+        .push(AccountMeta::writable(accounts.scratch));
+    instruction.data = Vec::from(HawkeyeInstruction::ViewOrderQuote.discriminant());
+    instruction
+        .data
+        .extend_from_slice(&reference_price_ticks.to_le_bytes());
+    order_packet
+        .serialize(&mut instruction.data)
+        .expect("OrderPacket serialization into a Vec cannot fail");
+    instruction
 }
 
 pub fn create_hawkeye_view_margin_ix(accounts: HawkeyeTraderViewAccounts) -> Instruction {
@@ -411,6 +578,88 @@ fn hawkeye_instruction(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn decodes_order_quote_parity_vector() {
+        // Shared with rise/ts/tests/hawkeye-order-quote.test.ts.
+        let bytes: [u8; 120] = [
+            136, 111, 182, 92, 28, 207, 41, 21, 1, 0, 7, 0, 7, 0, 0, 0, 123, 0, 0, 0, 0, 0, 0, 0,
+            20, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 232, 3, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0,
+            0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0,
+            101, 0, 0, 0, 0, 0, 0, 0, 157, 255, 255, 255, 255, 255, 255, 255, 20, 0, 0, 0, 0, 0, 0,
+            0, 99, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        let expected = ViewOrderQuoteReturn {
+            magic: VIEW_ORDER_QUOTE_RETURN_MAGIC,
+            version: HAWKEYE_RETURN_VERSION,
+            flags: 7,
+            side: 0,
+            asset_id: 7,
+            slot: 123,
+            requested_base_lots: 20,
+            filled_base_lots: 10,
+            filled_quote_lots: 1_000,
+            fee_quote_lots: 2,
+            posted_base_lots: 3,
+            unfilled_base_lots: 10,
+            average_price_quote_lots_per_base_lot: 100,
+            reference_price_ticks: 101,
+            slippage_bps: -99,
+            effective_base_lots: 20,
+            posted_price_ticks: 99,
+            outcome: OrderQuoteOutcome::Accepted as u8,
+            rejection_reason: OrderQuoteRejectionReason::None as u8,
+            _padding: [0; 6],
+        };
+        assert_eq!(bytemuck::bytes_of(&expected), &bytes);
+        assert_eq!(
+            decode_hawkeye_return_data(&bytes).unwrap(),
+            HawkeyeReturnData::OrderQuote(expected),
+        );
+        assert_eq!(expected.average_price_quote_lots_per_base_lot(), Some(100));
+        assert_eq!(expected.slippage_bps(), Some(-99));
+        assert_eq!(expected.effective_base_lots(), Some(20));
+        assert_eq!(expected.posted_price_ticks(), Some(99));
+        assert_eq!(expected.outcome(), Some(OrderQuoteOutcome::Accepted));
+        assert_eq!(
+            expected.rejection_reason(),
+            Some(OrderQuoteRejectionReason::None)
+        );
+        assert!(!expected.is_fully_filled());
+        assert_eq!(expected.net_quote_lots(), Some(-1_002));
+        let ask = ViewOrderQuoteReturn {
+            side: 1,
+            requested_base_lots: 10,
+            ..expected
+        };
+        assert!(ask.is_fully_filled());
+        assert_eq!(ask.net_quote_lots(), Some(998));
+        let rejected = ViewOrderQuoteReturn {
+            outcome: 1,
+            rejection_reason: 3,
+            ..ViewOrderQuoteReturn::default()
+        };
+        assert_eq!(rejected.outcome(), Some(OrderQuoteOutcome::Rejected));
+        assert_eq!(
+            rejected.rejection_reason(),
+            Some(OrderQuoteRejectionReason::MinimumFillNotMet)
+        );
+        assert_eq!(rejected.net_quote_lots(), Some(0));
+        assert!(!rejected.is_fully_filled());
+        assert_eq!(rejected.effective_base_lots(), None);
+        assert_eq!(rejected.posted_price_ticks(), None);
+        let mut unknown = expected;
+        unknown.outcome = 255;
+        unknown.rejection_reason = 255;
+        assert_eq!(unknown.outcome(), None);
+        assert_eq!(unknown.rejection_reason(), None);
+        assert_eq!(unknown.net_quote_lots(), None);
+        assert!(!unknown.is_fully_filled());
+        assert!(matches!(
+            decode_hawkeye_return_data(&bytes[..bytes.len() - 1]),
+            Err(HawkeyeReturnDataError::InvalidLength { .. })
+        ));
+    }
 
     #[test]
     fn decodes_bbo_options() {

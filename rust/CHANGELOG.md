@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.10 - 2026-09-28
+
+Source Phoenix commit: `543c500e521060e7bee25280dbb7d10360bbc1d9`
+
+### Summary
+
+- **ix**: Adds Hawkeye order-quote support, which simulates an order against the matching engine without placing it. New public items are `HawkeyeInstruction::ViewOrderQuote`, `HawkeyeOrderQuoteAccounts`, `create_hawkeye_view_order_quote_ix`, `ViewOrderQuoteReturn`, `OrderQuoteOutcome` and `OrderQuoteRejectionReason`. `ViewOrderQuoteReturn` has helpers such as `net_quote_lots`, `is_fully_filled` and `slippage_bps`.
+- **core**: Adds `PhoenixTxBuilder::build_hawkeye_view_order_quote`. It resolves the market accounts for a symbol and builds the quote instruction for a given trader and scratch account.
+- **api / types**: Trader-state spot collateral now includes `max_balance`, the effective cap on the trader's counted balance in native units. It is `Option<u64>` in `api::SpotCollateral` and an optional decimal string in `types::TraderStateSpotCollateralSnapshot`. It is `None` when the server predates the field.
+- **workspace**: All Rise crates are bumped from `0.6.9` to `0.6.10`, and the shared instruction fixtures are regenerated to include `ViewOrderQuote`.
+
+### Breaking Changes
+
+- `api::SpotCollateral` has a new public field, `max_balance: Option<u64>`. Code that builds `SpotCollateral` with a struct literal, or matches it exhaustively, will stop compiling until the field is added.
+- `types::TraderStateSpotCollateralSnapshot` has a new public field, `max_balance: Option<String>`. Struct-literal construction breaks the same way. Deserialization is unaffected because the field defaults to `None`.
+- `ix::HawkeyeReturnData` and `ix::HawkeyeInstruction` each gain an `OrderQuote` or `ViewOrderQuote` variant. Exhaustive `match` statements on either enum will need a new arm.
+
+### Consumer Notes
+
+- To quote an order, allocate a zero-lamport, Hawkeye-owned scratch account with a System Program instruction earlier in the same transaction. The buffer must be large enough for the copied state, or the quote fails with `AccountDataTooSmall`. Then decode the result with `decode_hawkeye_return_data`.
+- A quote checks matching only. It does not check taker margin or placement permissions, and `cancel_existing` orders are reported as unsupported. Passing `reference_price_ticks = 0` turns off slippage calculation.
+- An unparseable `max_balance` string becomes `Some(0)` in `SpotCollateral`, not `None`. Treat `Some(0)` as "no usable cap" only if that suits your use case.
+
 ## v0.6.9 - 2026-09-28
 
 Source Phoenix commit: `fdaeef82f69e2b6672f7aba6eb8d8fc1755f13a6`

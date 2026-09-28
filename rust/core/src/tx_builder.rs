@@ -11,20 +11,20 @@ use phoenix_rise_ix::prelude::{
     CancelAllParams, CancelId, CancelOrdersByIdParams, CancelStopLossParams, CancelUpToParams,
     CondensedOrder, CondensedOrderV2, CreateConditionalOrdersAccountParams, DepositFundsParams,
     Direction, EmberDepositParams, EmberWithdrawParams, HawkeyeBboViewAccounts,
-    HawkeyeTraderViewAccounts, IsolatedCollateralFlow, IsolatedLimitOrderParams,
-    IsolatedMarketOrderParams, LimitOrderParams, MarketOrderDelegatedParams, MarketOrderParams,
-    MultiLimitOrderParams, MultiLimitOrderParamsV2, OrderFlags, OrderPacket, PHOENIX_PROGRAM_ID,
-    PlaceLimitOrderWithConditionalsParams, PlacePositionConditionalOrderParams,
-    PlaceStopLossParams, RegisterTraderParams, SelfTradeBehavior, Side, SplApproveParams,
-    StopLossOrderKind, SyncParentToChildParams, TraderPreferenceKind,
-    TransferCollateralChildToParentParams, TransferCollateralParams, TriggerOrderParams,
-    UncrossCrankParams, WithdrawFundsParams, client_order_id_to_bytes,
+    HawkeyeOrderQuoteAccounts, HawkeyeTraderViewAccounts, IsolatedCollateralFlow,
+    IsolatedLimitOrderParams, IsolatedMarketOrderParams, LimitOrderParams,
+    MarketOrderDelegatedParams, MarketOrderParams, MultiLimitOrderParams, MultiLimitOrderParamsV2,
+    OrderFlags, OrderPacket, PHOENIX_PROGRAM_ID, PlaceLimitOrderWithConditionalsParams,
+    PlacePositionConditionalOrderParams, PlaceStopLossParams, RegisterTraderParams,
+    SelfTradeBehavior, Side, SplApproveParams, StopLossOrderKind, SyncParentToChildParams,
+    TraderPreferenceKind, TransferCollateralChildToParentParams, TransferCollateralParams,
+    TriggerOrderParams, UncrossCrankParams, WithdrawFundsParams, client_order_id_to_bytes,
     create_associated_token_account_idempotent_ix, create_cancel_all_ix,
     create_cancel_orders_by_id_ix, create_cancel_stop_loss_ix, create_cancel_up_to_ix,
     create_create_conditional_orders_account_ix, create_deposit_funds_ix, create_ember_deposit_ix,
     create_ember_withdraw_ix, create_hawkeye_view_bbo_ix, create_hawkeye_view_funding_ix,
     create_hawkeye_view_liquidation_price_ix, create_hawkeye_view_margin_for_asset_ix,
-    create_hawkeye_view_margin_ix, create_place_limit_order_ix,
+    create_hawkeye_view_margin_ix, create_hawkeye_view_order_quote_ix, create_place_limit_order_ix,
     create_place_limit_order_with_conditionals_ix, create_place_market_order_delegated_ix,
     create_place_market_order_ix, create_place_multi_limit_order_ix,
     create_place_multi_limit_order_v2_ix, create_place_position_conditional_order_ix,
@@ -1403,6 +1403,34 @@ impl<'a> PhoenixTxBuilder<'a> {
         ])
     }
 
+    /// Build a matching-only quote for an explicit trader account and market.
+    ///
+    /// Allocate a zero-lamport, Hawkeye-owned `scratch` buffer earlier in the
+    /// same transaction. Hawkeye closes it after matching. A zero reference
+    /// price disables slippage calculation. Taker margin and placement
+    /// permissions are not checked; `cancel_existing` is unsupported.
+    pub fn build_hawkeye_view_order_quote(
+        &self,
+        symbol: &str,
+        trader: Pubkey,
+        scratch: Pubkey,
+        order_packet: &OrderPacket,
+        reference_price_ticks: u64,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        Ok(vec![
+            create_hawkeye_view_order_quote_ix(
+                HawkeyeOrderQuoteAccounts {
+                    market: self.hawkeye_bbo_accounts(symbol)?,
+                    trader,
+                    scratch,
+                },
+                order_packet,
+                reference_price_ticks,
+            )
+            .into(),
+        ])
+    }
+
     /// Build a transfer collateral instruction.
     ///
     /// Transfers collateral between two subaccounts (e.g., from cross-margin
@@ -2366,6 +2394,72 @@ mod tests {
         assert_eq!(params.price_in_ticks(), None);
         assert_eq!(params.order_flags(), OrderFlags::None);
         assert_eq!(params.subaccount_index(), CROSS_MARGIN_SUBACCOUNT_IDX);
+    }
+
+    #[test]
+    fn test_hawkeye_order_quote_resolves_readonly_market_accounts() {
+        let mut keys = mock_exchange_keys();
+        let program_id = Pubkey::new_unique();
+        keys.program_id = Some(program_id.to_string());
+        keys.global_trader_index
+            .push(Pubkey::new_unique().to_string());
+        keys.active_trader_buffer
+            .push(Pubkey::new_unique().to_string());
+        let metadata = mock_metadata_with_keys("SOL", keys.clone());
+        let market = metadata.get_market("SOL").unwrap();
+        let builder = PhoenixTxBuilder::new(&metadata);
+        let trader = Pubkey::new_unique();
+        let scratch = Pubkey::new_unique();
+        let packet = OrderPacket::limit(
+            Side::Bid,
+            100,
+            20,
+            SelfTradeBehavior::CancelProvide,
+            None,
+            [0; 16],
+            None,
+            OrderFlags::None,
+            false,
+        );
+        let instructions = builder
+            .build_hawkeye_view_order_quote("SOL", trader, scratch, &packet, 99)
+            .unwrap();
+        assert_eq!(instructions.len(), 1);
+        let ix = &instructions[0];
+        assert_eq!(ix.program_id, phoenix_rise_ix::HAWKEYE_PROGRAM_ID);
+        assert_eq!(
+            ix.accounts
+                .iter()
+                .map(|account| account.pubkey)
+                .collect::<Vec<_>>(),
+            vec![
+                program_id,
+                Pubkey::from_str(&keys.global_config).unwrap(),
+                Pubkey::from_str(&keys.global_trader_index[0]).unwrap(),
+                Pubkey::from_str(&keys.global_trader_index[1]).unwrap(),
+                Pubkey::from_str(&keys.active_trader_buffer[0]).unwrap(),
+                Pubkey::from_str(&keys.active_trader_buffer[1]).unwrap(),
+                Pubkey::from_str(&keys.perp_asset_map).unwrap(),
+                Pubkey::from_str(&market.market_pubkey).unwrap(),
+                Pubkey::from_str(&market.spline_pubkey).unwrap(),
+                trader,
+                scratch,
+            ],
+        );
+        for account in &ix.accounts {
+            assert!(!account.is_signer);
+            assert_eq!(account.is_writable, account.pubkey == scratch);
+        }
+        assert_eq!(
+            &ix.data[..8],
+            &phoenix_rise_ix::HawkeyeInstruction::ViewOrderQuote.discriminant(),
+        );
+        assert_eq!(&ix.data[8..16], &99u64.to_le_bytes());
+        assert_eq!(&ix.data[16..], borsh::to_vec(&packet).unwrap());
+        assert!(matches!(
+            builder.build_hawkeye_view_order_quote("UNKNOWN", trader, scratch, &packet, 99),
+            Err(PhoenixTxBuilderError::UnknownSymbol(_)),
+        ));
     }
 
     #[test]

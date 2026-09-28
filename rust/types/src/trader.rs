@@ -69,6 +69,13 @@ pub struct TraderStateSpotCollateralSnapshot {
     pub balance: String,
     /// Native-unit decimals of the asset (9 for native SOL).
     pub decimals: u8,
+    /// Effective cap on this trader's counted balance of the asset, in native
+    /// units, as a decimal integer string. Includes any trader-specific limit
+    /// and is always greater than zero. Deposits beyond `maxBalance -
+    /// balance` are not credited; the exchange-wide limit may bind first.
+    /// Absent from API servers that predate this field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_balance: Option<String>,
 }
 
 /// Complete subaccount view contained in a snapshot.
