@@ -1122,6 +1122,36 @@
       "discriminatorBase64": "4e1lf4YRp0Q="
     },
     {
+      "program": "phoenix-flight",
+      "enumName": "FlightInstruction",
+      "instructionName": "UpdateBuilderOnboarding",
+      "snakeCaseName": "update_builder_onboarding",
+      "preimage": "global:update_builder_onboarding",
+      "tag": "16647822288447516765",
+      "discriminatorHex": "5db0beda2af208e7",
+      "discriminatorBase64": "XbC+2iryCOc="
+    },
+    {
+      "program": "phoenix-flight",
+      "enumName": "FlightInstruction",
+      "instructionName": "SetOnboarderSigner",
+      "snakeCaseName": "set_onboarder_signer",
+      "preimage": "global:set_onboarder_signer",
+      "tag": "16013182577034493487",
+      "discriminatorHex": "2f7e9d5bb6403ade",
+      "discriminatorBase64": "L36dW7ZAOt4="
+    },
+    {
+      "program": "phoenix-flight",
+      "enumName": "FlightInstruction",
+      "instructionName": "OnboardTrader",
+      "snakeCaseName": "onboard_trader",
+      "preimage": "global:onboard_trader",
+      "tag": "10232994808980173235",
+      "discriminatorHex": "b3f1ade18fe6028e",
+      "discriminatorBase64": "s/Gt4Y/mAo4="
+    },
+    {
       "program": "phoenix-hawkeye",
       "enumName": "HawkeyeInstruction",
       "instructionName": "ViewMargin",

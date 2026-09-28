@@ -346,6 +346,10 @@ Flight is the builder-routing layer. The important pieces are:
   orders
 - once a client is configured with `flight: { builderAuthority, ... }`,
   supported order instructions are wrapped automatically
+- `flight.buildSetOnboarderSignerIx`/`create_set_onboarder_signer_ix` set the
+  builder's onboarder signer, and `flight.buildOnboardTraderIx`/
+  `create_onboard_trader_ix` onboard a trader from the builder's own backend
+  (co-signed by that onboarder key)
 
 When you register Flight against a builder authority and its associated trader
 account, all builder fees from Flight-routed orders accrue to that builder

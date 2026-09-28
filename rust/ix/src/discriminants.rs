@@ -388,6 +388,9 @@ define_instruction_discriminants! {
         UpdateFee => "update_fee",
         ProxyInstruction => "proxy_instruction",
         ProxyInstructionWithFeeOverride => "proxy_instruction_with_fee_override",
+        UpdateBuilderOnboarding => "update_builder_onboarding",
+        SetOnboarderSigner => "set_onboarder_signer",
+        OnboardTrader => "onboard_trader",
     }
 }
 
@@ -564,9 +567,24 @@ mod tests {
                 "ProxyInstructionWithFeeOverride",
                 "proxy_instruction_with_fee_override",
             ),
+            (
+                FlightInstruction::UpdateBuilderOnboarding,
+                "UpdateBuilderOnboarding",
+                "update_builder_onboarding",
+            ),
+            (
+                FlightInstruction::SetOnboarderSigner,
+                "SetOnboarderSigner",
+                "set_onboarder_signer",
+            ),
+            (
+                FlightInstruction::OnboardTrader,
+                "OnboardTrader",
+                "onboard_trader",
+            ),
         ];
 
-        assert_eq!(FlightInstruction::ALL.len(), 9);
+        assert_eq!(FlightInstruction::ALL.len(), 12);
         for (instruction, instruction_name, snake_case_name) in FLIGHT_INSTRUCTIONS {
             assert_eq!(instruction.instruction_name(), *instruction_name);
             assert_eq!(instruction.snake_case_instruction_name(), *snake_case_name);

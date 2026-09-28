@@ -6,8 +6,8 @@ use phoenix_rise::ix::claim_fees::{ClaimFeesParams, create_claim_fees_ix};
 use phoenix_rise::ix::constants::{get_associated_token_address, usdc_mint};
 use phoenix_rise::ix::discriminants::FlightAccount;
 use phoenix_rise::ix::flight::{
-    RegisterBuilderParams, UpdateFeeParams, create_register_builder_ix, create_update_fee_ix,
-    get_flight_builder_state_address,
+    RegisterBuilderParams, SetOnboarderSignerParams, UpdateFeeParams, create_register_builder_ix,
+    create_set_onboarder_signer_ix, create_update_fee_ix, get_flight_builder_state_address,
 };
 use serde::Serialize;
 use solana_commitment_config::CommitmentConfig;
@@ -29,6 +29,8 @@ pub enum FlightCommand {
     RegisterBuilder(RegisterBuilderArgs),
     /// Build a Flight update-fee instruction.
     UpdateFee(UpdateFeeArgs),
+    /// Build a Flight set-onboarder-signer instruction.
+    SetOnboarderSigner(SetOnboarderSignerArgs),
     /// Build the Phoenix/Ember withdrawal flow for a Flight builder's
     /// collateralized fees.
     #[command(alias = "withdraw-fees", alias = "withdraw-builder-fees")]
@@ -73,6 +75,16 @@ pub struct UpdateFeeArgs {
     /// New builder fee in basis points.
     #[arg(long)]
     pub(crate) fee_bps: u64,
+}
+
+#[derive(Debug, Args)]
+pub struct SetOnboarderSignerArgs {
+    /// Builder authority pubkey. This account signs the transaction.
+    #[arg(long)]
+    pub(crate) authority: String,
+    /// New onboarder signer pubkey.
+    #[arg(long)]
+    pub(crate) signer: String,
 }
 
 #[derive(Debug, Args)]
@@ -149,6 +161,14 @@ struct UpdateFeePlan {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct SetOnboarderSignerPlan {
+    authority: String,
+    builder_state: String,
+    signer: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct WithdrawCollateralPlan {
     authority: String,
     trader_account: String,
@@ -186,6 +206,10 @@ struct FlightBuilderView {
     withdrawable_fee_usdc: String,
     trader_can_withdraw: bool,
     position_count: u64,
+    onboarder_signer: String,
+    onboardings_remaining: u64,
+    onboarder_maker_fee_discount: i8,
+    onboarder_taker_fee_discount: i8,
     note: &'static str,
 }
 
@@ -195,6 +219,10 @@ struct FlightBuilderState {
     trader_key: Pubkey,
     status: u64,
     fee_bps: u64,
+    onboarder_signer_pubkey: Pubkey,
+    onboarder_num_onboarding_remaining: u64,
+    onboarder_maker_fee_discount: i8,
+    onboarder_taker_fee_discount: i8,
 }
 
 pub async fn run(cmd: FlightCommand, ctx: &CommandCtx) -> Result<(), Box<dyn Error>> {
@@ -202,6 +230,7 @@ pub async fn run(cmd: FlightCommand, ctx: &CommandCtx) -> Result<(), Box<dyn Err
         FlightCommand::View(args) => view(args, ctx).await,
         FlightCommand::RegisterBuilder(args) => register_builder(args, ctx),
         FlightCommand::UpdateFee(args) => update_fee(args, ctx),
+        FlightCommand::SetOnboarderSigner(args) => set_onboarder_signer(args, ctx),
         FlightCommand::WithdrawCollateral(args) => withdraw_collateral(args, ctx).await,
         FlightCommand::ClaimFees(args) => claim_fees(args, ctx).await,
     }
@@ -240,6 +269,10 @@ async fn view(args: ViewArgs, ctx: &CommandCtx) -> Result<(), Box<dyn Error>> {
             phoenix_rise::accounts::trader::capabilities::TraderCapabilityKind::WithdrawCollateral,
         ),
         position_count: trader.raw_len(),
+        onboarder_signer: builder_state.onboarder_signer_pubkey.to_string(),
+        onboardings_remaining: builder_state.onboarder_num_onboarding_remaining,
+        onboarder_maker_fee_discount: builder_state.onboarder_maker_fee_discount,
+        onboarder_taker_fee_discount: builder_state.onboarder_taker_fee_discount,
         note: "withdrawableFeeQuoteLots is the positive collateral in the builder trader account; \
                open positions, orders, queues, or risk checks can reduce the amount a withdrawal \
                transaction may settle",
@@ -302,6 +335,32 @@ fn update_fee(args: UpdateFeeArgs, ctx: &CommandCtx) -> Result<(), Box<dyn Error
             authority: authority.to_string(),
             builder_state: builder_state.to_string(),
             fee_bps: args.fee_bps,
+        },
+        vec![authority],
+        vec![ix],
+        ctx,
+    )
+}
+
+fn set_onboarder_signer(
+    args: SetOnboarderSignerArgs,
+    ctx: &CommandCtx,
+) -> Result<(), Box<dyn Error>> {
+    let authority = parse_pubkey(&args.authority)?;
+    let signer = parse_pubkey(&args.signer)?;
+    let builder_state = get_flight_builder_state_address(&authority)?;
+    let params = SetOnboarderSignerParams::builder()
+        .builder_authority(authority)
+        .signer(signer)
+        .build()?;
+    let ix: Instruction = create_set_onboarder_signer_ix(params)?.into();
+
+    print_flight_bundle(
+        "setOnboarderSigner",
+        SetOnboarderSignerPlan {
+            authority: authority.to_string(),
+            builder_state: builder_state.to_string(),
+            signer: signer.to_string(),
         },
         vec![authority],
         vec![ix],
@@ -483,6 +542,10 @@ impl FlightBuilderState {
             trader_key: Pubkey::new_from_array(read_pubkey(data, 40)?),
             status: read_u64(data, 72)?,
             fee_bps: read_u64(data, 80)?,
+            onboarder_signer_pubkey: Pubkey::new_from_array(read_pubkey(data, 88)?),
+            onboarder_num_onboarding_remaining: read_u64(data, 120)?,
+            onboarder_maker_fee_discount: data[128] as i8,
+            onboarder_taker_fee_discount: data[129] as i8,
         })
     }
 
@@ -544,6 +607,13 @@ fn print_builder_view(output: &FlightBuilderView) {
         "  Can withdraw: {} | open positions: {}",
         output.trader_can_withdraw, output.position_count
     );
+    println!(
+        "  Onboarder: {} | remaining: {} | maker fee discount: {} | taker fee discount: {}",
+        output.onboarder_signer,
+        output.onboardings_remaining,
+        output.onboarder_maker_fee_discount,
+        output.onboarder_taker_fee_discount
+    );
     println!("  Note: {}", output.note);
 }
 
@@ -569,12 +639,17 @@ mod tests {
     fn decodes_flight_builder_state() {
         let authority = Pubkey::new_unique();
         let trader = Pubkey::new_unique();
+        let onboarder_signer = Pubkey::new_unique();
         let mut bytes = vec![0; FlightBuilderState::LEN];
         bytes[..8].copy_from_slice(&FlightAccount::BuilderState.discriminant());
         bytes[8..40].copy_from_slice(authority.as_ref());
         bytes[40..72].copy_from_slice(trader.as_ref());
         bytes[72..80].copy_from_slice(&FlightBuilderState::ACTIVE_FLAG.to_le_bytes());
         bytes[80..88].copy_from_slice(&25u64.to_le_bytes());
+        bytes[88..120].copy_from_slice(onboarder_signer.as_ref());
+        bytes[120..128].copy_from_slice(&7u64.to_le_bytes());
+        bytes[128] = (-5i8) as u8;
+        bytes[129] = (-3i8) as u8;
 
         let state = FlightBuilderState::try_from_account_bytes(&bytes).unwrap();
 
@@ -582,5 +657,9 @@ mod tests {
         assert_eq!(state.trader_key, trader);
         assert_eq!(state.fee_bps, 25);
         assert!(state.is_active());
+        assert_eq!(state.onboarder_signer_pubkey, onboarder_signer);
+        assert_eq!(state.onboarder_num_onboarding_remaining, 7);
+        assert_eq!(state.onboarder_maker_fee_discount, -5);
+        assert_eq!(state.onboarder_taker_fee_discount, -3);
     }
 }
