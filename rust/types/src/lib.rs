@@ -42,6 +42,8 @@ pub mod trader_http;
 #[cfg(feature = "serde")]
 pub mod trades;
 #[cfg(feature = "serde")]
+pub mod twap;
+#[cfg(feature = "serde")]
 pub mod ws;
 
 /// Broad import surface for callers that want the DTO crate's old flat API.
@@ -136,6 +138,9 @@ pub mod prelude {
     pub use super::trades::{
         LiquidityRole, TradeEvent, TradeHistoryItem, TradeHistoryQueryParams, TradeHistoryResponse,
         TradeType, TradesMessage, TradesSubscriptionRequest,
+    };
+    pub use super::twap::{
+        TwapAccountSnapshot, TwapOrderSnapshot, TwapOrdersQueryParams, TwapSnapshot,
     };
     pub use super::ws::{
         AllMidsData, CandlesSubscriptionRequest, ClientMessage, ErrorMessage,

@@ -1,4 +1,5 @@
 use phoenix_rise_types::prelude::{PnlPoint, PnlQueryParams, TraderView};
+use phoenix_rise_types::twap::{TwapOrdersQueryParams, TwapSnapshot};
 use solana_pubkey::Pubkey;
 
 use crate::http_client::HttpClientInner;
@@ -10,6 +11,17 @@ pub struct TradersClient<'a> {
 }
 
 impl TradersClient<'_> {
+    /// Returns the trader's TWAP accounts, including dust execution parameters.
+    pub async fn get_twap(
+        &self,
+        authority: &Pubkey,
+        params: TwapOrdersQueryParams,
+    ) -> Result<TwapSnapshot, PhoenixHttpError> {
+        self.http
+            .get_json_with_query(&format!("/v1/trader/{authority}/twap"), &params)
+            .await
+    }
+
     pub async fn get_trader_by_pubkey(
         &self,
         trader_pubkey: &Pubkey,

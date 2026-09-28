@@ -67,6 +67,15 @@ phoenix-rise-math = "0.2"
   raw instruction data and explicit account metas do not require Pinocchio.
 - `utoipa`: OpenAPI schema derivations for API types
 
+## Solana Pubkey Compatibility
+
+The crates accept `solana-pubkey` `>=3.0.0, <5` and resolve to 4.x by default.
+Both majors re-export the same `solana_address::Address` (2.x) as `Pubkey`, so
+a Rise `Pubkey` is the caller's `Pubkey` either way. A project pinned to
+`solana-pubkey` 3.0 can drop the duplicate crate with
+`cargo update -p solana-pubkey@<4.x version> --precise 3.0.0` if nothing else
+in its graph requires 4.x.
+
 ## Source Layout
 
 - [`accounts/`](accounts/README.md): `phoenix-rise-accounts`
