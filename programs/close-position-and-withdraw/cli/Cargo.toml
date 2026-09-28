@@ -19,7 +19,7 @@ solana-instruction = { version = "~3.4", default-features = false, features = [
   "std",
 ] }
 solana-keypair = "~3.1"
-solana-pubkey = { version = "~3.0", features = ["curve25519"] }
+solana-pubkey = { version = "4.2", features = ["curve25519"] }
 solana-rpc-client = "4.2.2"
 solana-signer = "~3.0"
 solana-transaction = "~4.1"
