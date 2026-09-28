@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.8 - 2026-09-28
+
+Source Phoenix commit: `65e3246ec6c43bc24dc33cbfba075dfd8d561134`
+
+```markdown
+### Summary
+
+- `types` adds a `twap` module with `TwapSnapshot`, `TwapAccountSnapshot`, `TwapOrderSnapshot`, and `TwapOrdersQueryParams`. They are also re-exported from the prelude. `TwapOrderSnapshot` includes dust execution parameters: `n_dust_orders` and `dust_order_size`.
+- `api` adds `TradersClient::get_twap(authority, params)`. It calls `GET /v1/trader/{authority}/twap` and returns a `TwapSnapshot`.
+- `TwapOrdersQueryParams` filters by `trader_pda_index`, `trader_subaccount_index`, and `asset_id`. It serializes in camelCase and omits unset filters. Zero values are sent as filters.
+- The workspace `solana-pubkey` requirement is widened from `3.0` to `>=3.0.0, <5`. Fresh resolution now picks 4.x.
+
+### Breaking Changes
+
+- None identified in the synced diff. The new TWAP types and client method are additive. Both `solana-pubkey` majors re-export the same `solana_address::Address` as `Pubkey`, so the public `Pubkey` type is unchanged.
+
+### Consumer Notes
+
+- `TwapOrderSnapshot::n_dust_orders` is `Option<u64>` and is `None` when an older server omits it. `Some(0)` also covers legacy final-child dust. `dust_order_size` is `None` when the server sends null or omits the field. `n_child_orders` counts all executions, including dust executions.
+- If your project is pinned to `solana-pubkey` 3.0, you can avoid a duplicate crate in your graph. Run `cargo update -p solana-pubkey@<4.x version> --precise 3.0.0`, provided nothing else in your graph requires 4.x. See the new "Solana Pubkey Compatibility" section in `CRATES.md`.
+- The TWAP types are behind the `serde` feature of `types`. The `utoipa` schema derives are available under the `utoipa` feature.
+```
+
 ## v0.6.7 - 2026-09-28
 
 Source Phoenix commit: `61d16d073d0b2b9be7b0737a3dacf9b1773de7bd`
