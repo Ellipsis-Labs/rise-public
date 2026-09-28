@@ -10,6 +10,9 @@ export const FLIGHT_DISCRIMINANTS: DiscriminantMap = {
   UPDATE_BUILDER_STATUS: sha2_const("global:update_builder_status"),
   REGISTER_BUILDER: sha2_const("global:register_builder"),
   UPDATE_FEE: sha2_const("global:update_fee"),
+  UPDATE_BUILDER_ONBOARDING: sha2_const("global:update_builder_onboarding"),
+  SET_ONBOARDER_SIGNER: sha2_const("global:set_onboarder_signer"),
+  ONBOARD_TRADER: sha2_const("global:onboard_trader"),
   PROXY_INSTRUCTION: sha2_const("global:proxy_instruction"),
   PROXY_INSTRUCTION_WITH_FEE_OVERRIDE: sha2_const(
     "global:proxy_instruction_with_fee_override"

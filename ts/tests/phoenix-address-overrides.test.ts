@@ -4,6 +4,7 @@ import {
   PHOENIX_LOG_AUTHORITY_ADDRESS,
   PHOENIX_PROGRAM_ADDRESS,
   buildPlaceMarketOrderIx,
+  flight,
   getPhoenixInstructionAddresses,
   type PlaceMarketOrderParams,
   baseLots,
@@ -247,5 +248,54 @@ describe("phoenix builder address resolution", () => {
 
     expect(addresses.usdcMintAddress).toBe(usdcMintAddress);
     expect(addresses.phoenixProgramAddress).toBe(BETA_PROGRAM_ADDRESS);
+  });
+
+  it("resolves OnboardTrader's phoenix accounts from an explicit phoenixProgramAddress override", async () => {
+    const authorities = [
+      "11111111111111111111111111111112",
+      "11111111111111111111111111111113",
+      "11111111111111111111111111111114",
+      "11111111111111111111111111111115",
+      "11111111111111111111111111111116",
+      "11111111111111111111111111111117",
+    ];
+    const authority = (i: number) => address(authorities[i]) as Authority;
+
+    const params = {
+      builderAuthority: authority(0),
+      onboarderSigner: authority(1),
+      payer: authority(2),
+      traderWallet: authority(3),
+      riskAuthority: authority(4),
+      marketAuthority: authority(5),
+      maxPositions: 128,
+      traderPreferenceBits: 0,
+      globalTraderIndex: [
+        address("SysvarRent111111111111111111111111111111111"),
+        address("SysvarC1ock11111111111111111111111111111111"),
+      ] as GlobalTraderIndexAddressArray,
+      activeTraderBuffer: [
+        address("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"),
+        address("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+      ] as ActiveTraderBufferAddressArray,
+    };
+
+    const ix = await flight.buildOnboardTraderIx({
+      ...params,
+      phoenixProgramAddress: BETA_PROGRAM_ADDRESS,
+    });
+    expect(ix.accounts[6]?.address).toBe(BETA_LOG_AUTHORITY_ADDRESS);
+    expect(ix.accounts[7]?.address).toBe(BETA_GLOBAL_CONFIGURATION_ADDRESS);
+
+    const customIx = await flight.buildOnboardTraderIx({
+      ...params,
+      phoenixProgramAddress: address(authorities[5]) as PhoenixProgramAddress,
+      logAuthorityAddress: address(authorities[0]) as LogAuthorityAddress,
+      globalConfigurationAddress: address(
+        authorities[1]
+      ) as GlobalConfigurationAddress,
+    });
+    expect(customIx.accounts[6]?.address).toBe(authorities[0]);
+    expect(customIx.accounts[7]?.address).toBe(authorities[1]);
   });
 });

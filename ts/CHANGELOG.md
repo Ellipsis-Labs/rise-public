@@ -3,6 +3,32 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.35 - 2026-09-28
+
+Source Phoenix commit: `fdaeef82f69e2b6672f7aba6eb8d8fc1755f13a6`
+
+### Summary
+
+- Adds Flight trader-onboarding support: new `flight.buildSetOnboarderSignerIx` and `flight.buildOnboardTraderIx` instruction builders, with codecs, param and account types, and matching discriminants. A third discriminant, `update_builder_onboarding`, is also registered, but no builder for it is exposed yet.
+- Adds PDA helpers `getFlightTraderOnboardingAuthorityAddress` and `getFlightTraderOnboardingPermissionAddress`, plus the branded types `FlightTraderOnboardingAuthorityAddress` and `FlightTraderOnboardingPermissionAddress`.
+- `BuilderState` now decodes four onboarding fields: `onboarderSignerPubkey`, `onboarderNumOnboardingRemaining`, `onboarderMakerFeeDiscount` and `onboarderTakerFeeDiscount`.
+- Package version bumps from `0.5.34` to `0.5.35`.
+
+### Breaking Changes
+
+- `BuilderState` gains four required fields. Code that constructs `BuilderState` objects by hand (for example mocks or fixtures) will no longer type-check until the fields are added. Code that only reads parsed accounts is unaffected.
+- The `BuilderState` decoder now reads the onboarding fields at the offsets that follow `feeBps`. It expects the current on-chain layout, and the reserved padding after the new fields is smaller than before. Parsing builder state accounts from an older program layout may give wrong values.
+
+### Consumer Notes
+
+- `buildOnboardTraderIx` requires `builderAuthority`, `onboarderSigner`, `payer`, `traderWallet`, `riskAuthority`, `marketAuthority`, `maxPositions`, `traderPreferenceBits`, `globalTraderIndex` and `activeTraderBuffer`.
+  - `maxPositions` and `traderPreferenceBits` must be integers in `0..2^32-1`.
+  - Both arrays must be non-empty.
+  - `logAuthorityAddress` and `globalConfigurationAddress` are optional overrides.
+- `buildOnboardTraderIx` derives the trader account as the wallet's PDA index 0 / subaccount 0 and the two permission accounts from `riskAuthority` and `marketAuthority`. The `onboarderSigner` and `payer` must both sign the transaction.
+- `buildSetOnboarderSignerIx` takes `builderAuthority` and the new `signer` address. The builder authority must sign.
+- Both builders are exported through the `flight` namespace.
+
 ## v0.5.34 - 2026-09-28
 
 Source Phoenix commit: `65e3246ec6c43bc24dc33cbfba075dfd8d561134`

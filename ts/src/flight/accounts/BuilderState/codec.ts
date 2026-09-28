@@ -1,8 +1,10 @@
 import { getAuthorityDecoder, getTraderAddressDecoder } from "@/primitives";
 import {
   createDecoder,
+  getAddressDecoder,
   getConstantDecoder,
   getHiddenPrefixDecoder,
+  getI8Decoder,
   getU64Decoder,
   type Decoder,
 } from "@solana/kit";
@@ -30,6 +32,20 @@ export const getBuilderStateDecoder = (): Decoder<BuilderState> =>
         const [status, afterStatus] = u64.read(bytes, pos);
         pos = afterStatus;
         const [feeBps, afterFeeBps] = u64.read(bytes, pos);
+        pos = afterFeeBps;
+
+        const [onboarderSignerPubkey, afterOnboarderSignerPubkey] =
+          getAddressDecoder().read(bytes, pos);
+        pos = afterOnboarderSignerPubkey;
+        const [onboarderNumOnboardingRemaining, afterOnboarderNumRemaining] =
+          u64.read(bytes, pos);
+        pos = afterOnboarderNumRemaining;
+        const [onboarderMakerFeeDiscount, afterOnboarderMakerFeeDiscount] =
+          getI8Decoder().read(bytes, pos);
+        pos = afterOnboarderMakerFeeDiscount;
+        const [onboarderTakerFeeDiscount, afterOnboarderTakerFeeDiscount] =
+          getI8Decoder().read(bytes, pos);
+        pos = afterOnboarderTakerFeeDiscount;
 
         return [
           {
@@ -39,8 +55,12 @@ export const getBuilderStateDecoder = (): Decoder<BuilderState> =>
             status,
             isActive: (status & 1n) !== 0n,
             feeBps,
+            onboarderSignerPubkey,
+            onboarderNumOnboardingRemaining,
+            onboarderMakerFeeDiscount,
+            onboarderTakerFeeDiscount,
           },
-          afterFeeBps + 128,
+          pos + 6 + 80,
         ];
       },
     }),
