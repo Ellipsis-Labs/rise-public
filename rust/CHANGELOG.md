@@ -3,6 +3,27 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.12 - 2026-09-29
+
+Source Phoenix commit: `b50781149f884f35dc5e4bca07782a6e6b8e461c`
+
+### Summary
+
+- Rust SDK release `0.6.12`: all Rise crates (`sdk`, `api`, `core`, `ix`, `math`, `types`, `accounts`, `events`) move from `0.6.11` to `0.6.12`. The diff has no public API changes.
+- `pinocchio` is bumped from `0.9.2` to `0.9.3` in the workspace and in the example on-chain programs (`close-position-and-withdraw`, `example-program`, `trader-onboarder`).
+- The example programs and CLI now use caret ranges for `borsh`, `borsh-derive` and the `solana-*` crates (for example `1.7` instead of `~1.7`). This makes their version bounds more permissive.
+- The example programs' lockfiles now resolve `solana-pubkey` `4.2.0`, replacing `3.0.0` for the `api`, `core`, `math` and `litesvm-test` crates.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- If you pin `pinocchio` in an on-chain program that depends on `phoenix-rise`, allow `0.9.3` or newer so it matches the workspace.
+- The `solana-pubkey` `4.2.0` resolution appears only in the example programs' lockfiles. It doesn't change the SDK's own `Cargo.toml` requirements.
+- To upgrade, set `phoenix-rise` (and any other `phoenix-rise-*` crates you use) to `0.6.12`.
+
 ## v0.6.11 - 2026-09-29
 
 Source Phoenix commit: `f00817047214aaf92ece9d8a2aa56e2c7a907fd8`
