@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.11 - 2026-09-29
+
+Source Phoenix commit: `f00817047214aaf92ece9d8a2aa56e2c7a907fd8`
+
+### Summary
+
+- `types`: `MarketPublicMetadata` has a new public field, `earnings_dates: Vec<DateTime<Utc>>`. It holds known earnings timestamps in ascending order. Date-only values use midnight UTC.
+- The field is `#[serde(default)]` and serialized as `earningsDates` (camelCase). Payloads that omit it deserialize to an empty list.
+- `api`: the exchange cache test fixtures were updated for the new field. There are no other changes to the published `api` behavior.
+- `workspace`: all Rise crates move to the shared version `0.6.11`. The changes are in `programs` lockfiles and workspace dependency pins only.
+
+### Breaking Changes
+
+- Rust code that builds `MarketPublicMetadata` with a struct literal must now set `earnings_dates`, for example `earnings_dates: Vec::new()`. Otherwise it fails to compile. Code that only deserializes API responses is unaffected.
+
+### Consumer Notes
+
+- Clients should pick upcoming earnings from `earnings_dates` by comparing against their own current time. The list is not filtered to future dates.
+- Bump all `phoenix-rise*` dependencies to `0.6.11` together so the crate versions stay aligned.
+
 ## v0.6.10 - 2026-09-28
 
 Source Phoenix commit: `543c500e521060e7bee25280dbb7d10360bbc1d9`

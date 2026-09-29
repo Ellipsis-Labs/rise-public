@@ -115,6 +115,11 @@ pub struct MarketCalendar {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketPublicMetadata {
+    /// Known earnings timestamps in ascending order; date-only values use
+    /// midnight UTC. Clients select upcoming dates relative to their
+    /// current time.
+    #[serde(default)]
+    pub earnings_dates: Vec<DateTime<Utc>>,
     #[serde(default)]
     pub name: Option<String>,
     #[serde(default)]
@@ -354,6 +359,7 @@ mod tests {
         assert!(empty_json.get("classifications").is_none());
 
         let json = serde_json::to_value(MarketPublicMetadata {
+            earnings_dates: Vec::new(),
             name: Some("Gold".to_string()),
             description: None,
             search_aliases: vec!["XAU".to_string()],
