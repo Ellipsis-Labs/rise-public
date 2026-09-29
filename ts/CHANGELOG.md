@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.38 - 2026-09-29
+
+Source Phoenix commit: `b50781149f884f35dc5e4bca07782a6e6b8e461c`
+
+### Summary
+
+- Bumps the `@ellipsis-labs/rise` TypeScript package from 0.5.37 to 0.5.38.
+- Updates the lockfile. Transitive `@solana/*` packages move to 8.3.0, and `@solana-program/system` and `@solana-program/token` move to 0.14.1 and 0.16.1. These `@solana-program/*` peers now require `@solana/kit` `^8.0.0`.
+- Updates the `litesvm` dev dependency from 1.0.0 to 1.4.1. It is a development dependency only.
+
+### Breaking Changes
+
+- None identified in the synced diff. `ts/package.json` shows only the version bump and the `litesvm` dev dependency change. No public exports, types, or runtime entrypoints changed in the visible diff.
+
+### Consumer Notes
+
+- The lockfile changes affect this repo's own dependency resolution, not the published package's dependency ranges. The `package.json` diff shows no changes to runtime `dependencies` or `peerDependencies`.
+- Consumers who also install `@solana-program/system` or `@solana-program/token` alongside this package should check that their `@solana/kit` version matches those packages' peer requirement (`^8.0.0`). This applies only if they use the versions in this lockfile.
+- The diff was truncated, so this entry is limited to the visible `package.json` and lockfile changes.
+
 ## v0.5.37 - 2026-09-29
 
 Source Phoenix commit: `f00817047214aaf92ece9d8a2aa56e2c7a907fd8`
