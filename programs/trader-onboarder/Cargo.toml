@@ -10,12 +10,12 @@ crate-type = ["cdylib", "lib"]
 test       = false
 
 [dependencies]
-borsh = { version = "~1.7", features = ["derive"] }
-borsh-derive = "~1.7"
+borsh = { version = "1.7", features = ["derive"] }
+borsh-derive = "1.7"
 phoenix-rise = { path = "../../rust/sdk", default-features = false, features = [
   "cpi",
 ] }
-pinocchio = "0.9.2"
+pinocchio = "0.9.3"
 pinocchio-pubkey = "0.3.0"
 proc-macro-crate = "=3.4.0"
 sha2 = "0.10"
@@ -29,11 +29,11 @@ phoenix-rise = { path = "../../rust/sdk", default-features = false, features = [
   "core",
 ] }
 phoenix-rise-litesvm-test = { path = "../../rust/litesvm-test" }
-solana-instruction = { version = "~3.4", default-features = false, features = [
+solana-instruction = { version = "3.4", default-features = false, features = [
   "std",
 ] }
 solana-pubkey = { version = "4.2", features = ["curve25519"] }
-solana-transaction-error = "~3.3"
+solana-transaction-error = "3.3"
 
 [profile.ci]
 inherits = "dev"

@@ -6,23 +6,23 @@ rust-version = "1.85.0"
 version      = "0.1.0"
 
 [dependencies]
-borsh = "~1.7"
+borsh = "1.7"
 clap = { version = "4.5", features = ["derive", "env"] }
 phoenix-rise = { path = "../../../rust/sdk", default-features = false, features = [
   "api",
   "sdk",
 ] }
 rise-close-position-and-withdraw = { path = ".." }
-solana-commitment-config = "~3.1"
-solana-compute-budget-interface = "~3.0"
-solana-instruction = { version = "~3.4", default-features = false, features = [
+solana-commitment-config = "3.1"
+solana-compute-budget-interface = "3.0"
+solana-instruction = { version = "3.4", default-features = false, features = [
   "std",
 ] }
-solana-keypair = "~3.1"
+solana-keypair = "3.1"
 solana-pubkey = { version = "4.2", features = ["curve25519"] }
 solana-rpc-client = "4.2.2"
-solana-signer = "~3.0"
-solana-transaction = "~4.1"
+solana-signer = "3.0"
+solana-transaction = "4.1"
 tokio = { version = "1.44", features = ["macros", "rt-multi-thread"] }
 
 [profile.ci]
