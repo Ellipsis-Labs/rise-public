@@ -402,6 +402,7 @@ define_instruction_discriminants! {
         ViewLiquidationPrice => "view_liquidation_price",
         ViewBbo => "view_bbo",
         ViewFunding => "view_funding",
+        ViewOrderQuote => "view_order_quote",
     }
 }
 
@@ -623,9 +624,14 @@ mod tests {
                 "ViewFunding",
                 "view_funding",
             ),
+            (
+                HawkeyeInstruction::ViewOrderQuote,
+                "ViewOrderQuote",
+                "view_order_quote",
+            ),
         ];
 
-        assert_eq!(HawkeyeInstruction::ALL.len(), 5);
+        assert_eq!(HawkeyeInstruction::ALL.len(), 6);
         for (instruction, instruction_name, snake_case_name) in HAWKEYE_INSTRUCTIONS {
             assert_eq!(instruction.instruction_name(), *instruction_name);
             assert_eq!(instruction.snake_case_instruction_name(), *snake_case_name);

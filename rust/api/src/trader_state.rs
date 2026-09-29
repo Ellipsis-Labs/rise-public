@@ -149,6 +149,10 @@ pub struct SpotCollateral {
     pub balance: u64,
     /// Native-unit decimals of the asset (9 for native SOL).
     pub decimals: u8,
+    /// Effective cap on this trader's counted balance in native units,
+    /// including any trader-specific limit. `None` from API servers that
+    /// predate this field.
+    pub max_balance: Option<u64>,
 }
 
 impl SpotCollateral {
@@ -158,6 +162,10 @@ impl SpotCollateral {
             symbol: snapshot.symbol.clone(),
             balance: snapshot.balance.parse().unwrap_or(0),
             decimals: snapshot.decimals,
+            max_balance: snapshot
+                .max_balance
+                .as_ref()
+                .map(|max_balance| max_balance.parse().unwrap_or(0)),
         }
     }
 }
