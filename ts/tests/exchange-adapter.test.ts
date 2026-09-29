@@ -214,7 +214,7 @@ describe("exchange adapter", () => {
     abort.abort();
   });
 
-  it("accepts classifications in strict snapshots and metadata deltas", async () => {
+  it("accepts classifications and earnings in strict snapshots and metadata deltas", async () => {
     const { ws, subscriptions } = createFakeWs();
     const adapter = createExchangeAdapter(ws, undefined, true);
     const abort = new AbortController();
@@ -230,6 +230,7 @@ describe("exchange adapter", () => {
       markets: payload.markets.map((market) => ({
         ...market,
         metadata: {
+          earningsDates: ["2026-10-22T20:05:00Z", "2027-01-28T00:00:00Z"],
           searchAliases: ["XAU"],
           classifications: ["pre-ipo", "new-listing"],
         },
@@ -241,6 +242,10 @@ describe("exchange adapter", () => {
       throw new Error("expected exchange snapshot");
     }
     expect(snapshot.value.markets[0]?.metadata?.searchAliases).toEqual(["XAU"]);
+    expect(snapshot.value.markets[0]?.metadata?.earningsDates).toEqual([
+      "2026-10-22T20:05:00Z",
+      "2027-01-28T00:00:00Z",
+    ]);
     expect(snapshot.value.markets[0]?.metadata?.classifications).toEqual([
       "pre-ipo",
       "new-listing",
@@ -259,6 +264,7 @@ describe("exchange adapter", () => {
           kind: "marketMetadataUpdated",
           symbol: "GOLD",
           metadata: {
+            earningsDates: [],
             searchAliases: ["XAU"],
             classifications: ["pre-ipo"],
           },
@@ -274,6 +280,7 @@ describe("exchange adapter", () => {
       kind: "marketMetadataUpdated",
       symbol: "GOLD",
       metadata: {
+        earningsDates: [],
         searchAliases: ["XAU"],
         classifications: ["pre-ipo"],
       },
