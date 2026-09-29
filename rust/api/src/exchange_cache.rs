@@ -915,6 +915,7 @@ mod tests {
 
     fn sample_public_metadata(name: &str) -> MarketPublicMetadata {
         MarketPublicMetadata {
+            earnings_dates: Vec::new(),
             name: Some(name.to_string()),
             description: Some("Solana perpetual market".to_string()),
             search_aliases: vec!["SOL".to_string()],
