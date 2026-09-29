@@ -10,9 +10,12 @@
  * `lamports - rent`, and the program credits only
  *
  * ```text
- * credit = min(requested - accounted, maxPerTraderBalance - accounted,
+ * credit = min(requested - accounted, traderMaxBalance - accounted,
  *              maxGlobalBalance - currGlobalBalance)
  * ```
+ *
+ * where `traderMaxBalance` is the trader's effective per-trader cap, which can
+ * differ from the asset's `maxPerTraderBalance`.
  *
  * Whatever the clamp leaves over stays in the account as uncounted excess: it
  * carries no margin value, produces no error, and no transaction fails. A
@@ -87,6 +90,12 @@ export interface NativeSolCollateralHeadroomParams {
   /** The trader's currently accounted native SOL collateral, in lamports. */
   traderNativeSolLamports: bigint;
   /**
+   * The trader's effective per-trader cap, in lamports: `BigInt(row.maxBalance)`
+   * from the SOL row of trader state. Omit only when the trader has no account
+   * yet, in which case `metadata.maxPerTraderBalance` applies.
+   */
+  traderMaxBalanceLamports?: bigint;
+  /**
    * Signed reconciliation delta from {@link nativeSolSyncDeltaLamports}.
    *
    * `SyncNative` credits one lump — it does not distinguish pre-existing excess
@@ -110,12 +119,15 @@ export interface NativeSolCollateralHeadroomParams {
 export const nativeSolCollateralHeadroomLamports = ({
   metadata,
   traderNativeSolLamports,
+  traderMaxBalanceLamports,
   traderSyncDeltaLamports = 0n,
 }: NativeSolCollateralHeadroomParams): bigint => {
   const excess = clampToZero(traderSyncDeltaLamports);
   const deficit = clampToZero(-traderSyncDeltaLamports);
   const perTraderHeadroom = clampToZero(
-    metadata.maxPerTraderBalance - traderNativeSolLamports - excess
+    (traderMaxBalanceLamports ?? metadata.maxPerTraderBalance) -
+      traderNativeSolLamports -
+      excess
   );
   const globalHeadroom = clampToZero(
     metadata.maxGlobalBalance - metadata.currGlobalBalance - excess
@@ -143,11 +155,13 @@ export interface AttributedNativeSolDepositParams extends NativeSolCollateralHea
 export const attributedNativeSolDepositLamports = ({
   metadata,
   traderNativeSolLamports,
+  traderMaxBalanceLamports,
   traderSyncDeltaLamports = 0n,
   depositLamports,
 }: AttributedNativeSolDepositParams): bigint => {
   const perTraderHeadroom = clampToZero(
-    metadata.maxPerTraderBalance - traderNativeSolLamports
+    (traderMaxBalanceLamports ?? metadata.maxPerTraderBalance) -
+      traderNativeSolLamports
   );
   const globalHeadroom = clampToZero(
     metadata.maxGlobalBalance - metadata.currGlobalBalance

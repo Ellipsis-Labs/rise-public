@@ -4,12 +4,15 @@ import {
   getOptionToNullDecoder,
   getOptionToNullEncoder,
 } from "@/core/utils/optionCodec";
-import type { Decoder, Encoder } from "@solana/kit";
+import type { Codec, Decoder, Encoder } from "@solana/kit";
 import {
+  combineCodec,
   getArrayDecoder,
   getArrayEncoder,
   getBooleanDecoder,
   getBooleanEncoder,
+  getDiscriminatedUnionDecoder,
+  getDiscriminatedUnionEncoder,
   getEnumDecoder,
   getEnumEncoder,
   getStructDecoder,
@@ -35,6 +38,7 @@ import { getSideDecoder, getSideEncoder } from "../Side";
 import {
   type CondensedOrderFlags,
   type OrderFlags,
+  type OrderPacket,
   SelfTradeBehavior,
   type CondensedOrder,
   type CondensedOrderV2,
@@ -44,6 +48,23 @@ import {
   type MultipleOrderPacketV2,
   type PostOnlyOrderPacket,
 } from "./types";
+
+export const getOrderPacketEncoder = (): Encoder<OrderPacket> =>
+  getDiscriminatedUnionEncoder([
+    ["PostOnly", getPostOnlyOrderPacketEncoder()],
+    ["Limit", getLimitOrderPacketEncoder()],
+    ["ImmediateOrCancel", getImmediateOrCancelOrderPacketEncoder()],
+  ]);
+
+export const getOrderPacketDecoder = (): Decoder<OrderPacket> =>
+  getDiscriminatedUnionDecoder([
+    ["PostOnly", getPostOnlyOrderPacketDecoder()],
+    ["Limit", getLimitOrderPacketDecoder()],
+    ["ImmediateOrCancel", getImmediateOrCancelOrderPacketDecoder()],
+  ]);
+
+export const getOrderPacketCodec = (): Codec<OrderPacket> =>
+  combineCodec(getOrderPacketEncoder(), getOrderPacketDecoder());
 
 export const getOrderFlagsDecoder = (): Decoder<OrderFlags> => {
   const u8Decoder = getU8Decoder();

@@ -1,9 +1,5 @@
 import type { FIFOOrderId } from "../FIFOOrderId";
-import type {
-  ImmediateOrCancelOrderPacket,
-  LimitOrderPacket,
-  PostOnlyOrderPacket,
-} from "../OrderPacket";
+import type { OrderPacket } from "../OrderPacket";
 import type { Side } from "../Side";
 import type { Direction, StopLossOrderKind } from "../StopLoss";
 import type { BaseLots, Ticks } from "../_numberTypes";
@@ -16,10 +12,7 @@ export interface TriggerOrderParams {
   executionPrice: Ticks;
 }
 
-export type ConditionalOrderPacket =
-  | ({ __kind: "PostOnly" } & PostOnlyOrderPacket)
-  | ({ __kind: "Limit" } & LimitOrderPacket)
-  | ({ __kind: "ImmediateOrCancel" } & ImmediateOrCancelOrderPacket);
+export type ConditionalOrderPacket = OrderPacket;
 
 export type ConditionalOrderIndex = number;
 

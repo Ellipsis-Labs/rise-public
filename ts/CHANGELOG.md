@@ -3,6 +3,30 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.36 - 2026-09-29
+
+Source Phoenix commit: `543c500e521060e7bee25280dbb7d10360bbc1d9`
+
+### Summary
+
+- Adds Hawkeye order-quote support. `buildHawkeyeViewOrderQuoteIx` builds a `view_order_quote` instruction from an `OrderPacket` (PostOnly, Limit or ImmediateOrCancel) and an optional `referencePriceTicks`. `decodeHawkeyeReturnData` now decodes the result as `HawkeyeOrderQuoteReturn`. It includes fills, fees, posted size, average price, slippage, outcome and rejection reason.
+- Adds helpers `isHawkeyeOrderQuoteFullyFilled` and `getHawkeyeOrderQuoteNetQuoteLots`, plus new `HAWKEYE_ORDER_QUOTE_*` flag constants. The quote checks matching only, so an accepted quote doesn't confirm taker margin or permissions.
+- `encodeHawkeyeSimulationTransaction` accepts optional `preInstructions`. They run after the compute-budget instruction and before the Hawkeye view, for example to allocate the scratch buffer an order quote needs.
+- Exports the `OrderPacket` type and `getOrderPacketCodec`, `getOrderPacketDecoder` and `getOrderPacketEncoder` from the public SDK. The `getConditionalOrderPacket*` codecs and the `ConditionalOrderPacket` type are now aliases of these, and their encoding is unchanged.
+- Trader state spot collateral rows gain an optional `maxBalance`: the trader's effective per-trader cap, in native units, as a decimal string. Servers that predate the field omit it.
+- `nativeSolCollateralHeadroomLamports` and `attributedNativeSolDepositLamports` accept an optional `traderMaxBalanceLamports`. Pass `BigInt(row.maxBalance)` from the SOL row so headroom uses the trader's own cap rather than the asset-wide `maxPerTraderBalance`.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- Before calling `buildHawkeyeViewOrderQuoteIx`, allocate the writable, zero-lamport Hawkeye-owned scratch account earlier in the same transaction. Pass that allocation through `preInstructions` when simulating. Hawkeye closes the buffer on success.
+- Order quotes don't support `cancelExisting`. Expected matching rejections come back as a quote with zero retained fills, fees and posts, so check `outcome` and `rejectionReason`.
+- `HawkeyeReturnData` and `HawkeyeViewKind` now include the `orderQuote` / `view_order_quote` variant. Code that switches exhaustively on these types needs a new case.
+- If you size native SOL deposits, start passing `traderMaxBalanceLamports` from trader state's `maxBalance`. Without it, headroom falls back to the asset-wide cap and can differ from what the program credits when the trader's cap is different. Omit it only when the trader has no account yet.
+
 ## v0.5.35 - 2026-09-28
 
 Source Phoenix commit: `fdaeef82f69e2b6672f7aba6eb8d8fc1755f13a6`

@@ -160,6 +160,23 @@ describe("nativeSolCollateralHeadroomLamports", () => {
     ).toBe(700n);
   });
 
+  it("uses a trader-specific cap above the asset's per-trader cap", () => {
+    const params = {
+      metadata: metadata({
+        maxPerTraderBalance: 100n,
+        maxGlobalBalance: 1_000n,
+        currGlobalBalance: 0n,
+      }),
+      traderNativeSolLamports: 40n,
+      traderMaxBalanceLamports: 300n,
+    };
+
+    expect(nativeSolCollateralHeadroomLamports(params)).toBe(260n);
+    expect(
+      attributedNativeSolDepositLamports({ ...params, depositLamports: 500n })
+    ).toBe(260n);
+  });
+
   it("returns the largest deposit the on-chain reconciliation leaves fully counted", () => {
     const caps = metadata({
       maxPerTraderBalance: 1_000n,

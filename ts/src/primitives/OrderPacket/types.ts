@@ -1,6 +1,12 @@
 import type { BaseLots, QuoteLots, Ticks } from "../_numberTypes";
 import type { Side } from "../Side";
 
+/** OrderPacketKind variants with the same wire layout as order placement. */
+export type OrderPacket =
+  | ({ __kind: "PostOnly" } & PostOnlyOrderPacket)
+  | ({ __kind: "Limit" } & LimitOrderPacket)
+  | ({ __kind: "ImmediateOrCancel" } & ImmediateOrCancelOrderPacket);
+
 /**
  * Order flags for specifying order behavior
  */
