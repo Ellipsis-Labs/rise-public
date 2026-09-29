@@ -249,6 +249,7 @@ const sameMarketPublicMetadata = (
   const leftCalendar = left?.calendar ?? null;
   const rightCalendar = right?.calendar ?? null;
   return (
+    sameStringArray(left?.earningsDates, right?.earningsDates) &&
     (left?.name ?? null) === (right?.name ?? null) &&
     (left?.description ?? null) === (right?.description ?? null) &&
     sameStringArray(left?.searchAliases, right?.searchAliases) &&

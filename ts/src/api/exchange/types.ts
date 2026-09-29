@@ -267,6 +267,8 @@ export const MarketCalendarSchema: z.ZodType<MarketCalendar> = z.object({
 });
 
 export interface MarketPublicMetadata {
+  /** Sorted earnings timestamps; date-only values use midnight UTC. Filter against the current time for upcoming dates. */
+  earningsDates?: string[];
   name?: string | null;
   description?: string | null;
   searchAliases?: string[] | null;
@@ -283,6 +285,7 @@ export interface MarketPublicMetadata {
 
 export const MarketPublicMetadataSchema: z.ZodType<MarketPublicMetadata> =
   z.object({
+    earningsDates: z.array(z.string().datetime({ offset: true })).optional(),
     name: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
     searchAliases: z.array(z.string()).nullable().optional(),

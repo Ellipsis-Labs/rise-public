@@ -3,6 +3,27 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.37 - 2026-09-29
+
+Source Phoenix commit: `f00817047214aaf92ece9d8a2aa56e2c7a907fd8`
+
+```markdown
+### Summary
+
+- Added an optional `earningsDates` field to `MarketPublicMetadata`. It is a sorted list of earnings timestamps as ISO 8601 datetime strings. Date-only values use midnight UTC. Filter the list against the current time to get upcoming dates.
+- `MarketPublicMetadataSchema` now validates `earningsDates` as an array of datetime strings, and offsets are allowed. The strict exchange snapshot and metadata delta paths accept the field.
+- The exchange cache treats changes to `earningsDates` as metadata changes. Adding, changing, or clearing earnings dates through a metadata delta produces a new metadata object, so selectors and subscribers see the update.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `earningsDates` is optional, so existing code that reads market metadata still compiles. Handle it being `undefined`, and handle an empty array when earnings dates are cleared.
+- Strict-schema consumers that validate exchange payloads can now receive `earningsDates` without failing validation. Values that are not valid datetime strings will be rejected.
+```
+
 ## v0.5.36 - 2026-09-29
 
 Source Phoenix commit: `543c500e521060e7bee25280dbb7d10360bbc1d9`

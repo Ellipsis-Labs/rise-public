@@ -752,6 +752,27 @@ describe("exchange cache", () => {
     expect(store.marketMetadataByPubkey("sol-market")).toEqual(
       classificationUpdatedMetadata
     );
+    for (const [sequenceNumber, earningsDates] of [
+      [15n, ["2026-10-22T20:05:00Z"]],
+      [16n, ["2026-10-22T20:05:00Z", "2027-01-28T00:00:00Z"]],
+      [17n, []],
+    ] as const) {
+      const beforeEarnings = store.marketMetadata("sol-perp");
+      const earningsDelta = ExchangeWireMsgSchema.parse(
+        buildMarketMetadataDelta(sequenceNumber, 4n, 3, {
+          ...classificationUpdatedMetadata,
+          earningsDates: [...earningsDates],
+        })
+      );
+      if (earningsDelta.messageType !== "delta") {
+        throw new Error("expected earnings metadata delta");
+      }
+      store.applyDelta(earningsDelta);
+      expect(store.marketMetadata("sol-perp")?.earningsDates).toEqual(
+        earningsDates
+      );
+      expect(store.marketMetadata("sol-perp")).not.toBe(beforeEarnings);
+    }
     expect(store.marketByAssetId(1)?.symbol).toBe("SOL-PERP");
     expect(store.marketByPubkey("sol-market")?.symbol).toBe("SOL-PERP");
     expect(store.instructionContext("SOL-PERP")?.market.assetId).toBe(1);
