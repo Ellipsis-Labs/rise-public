@@ -7,12 +7,9 @@ import {
   getFIFOOrderIdEncoder,
 } from "@/primitives/FIFOOrderId";
 import {
-  getImmediateOrCancelOrderPacketDecoder,
-  getImmediateOrCancelOrderPacketEncoder,
-  getLimitOrderPacketDecoder,
-  getLimitOrderPacketEncoder,
-  getPostOnlyOrderPacketDecoder,
-  getPostOnlyOrderPacketEncoder,
+  getOrderPacketCodec,
+  getOrderPacketDecoder,
+  getOrderPacketEncoder,
 } from "@/primitives/OrderPacket";
 import { getSideDecoder, getSideEncoder } from "@/primitives/Side";
 import {
@@ -29,8 +26,6 @@ import {
 } from "@/primitives/_numberTypes";
 import {
   combineCodec,
-  getDiscriminatedUnionDecoder,
-  getDiscriminatedUnionEncoder,
   getStructDecoder,
   getStructEncoder,
   getU32Decoder,
@@ -44,7 +39,6 @@ import {
   type Encoder,
 } from "@solana/kit";
 import type {
-  ConditionalOrderPacket,
   PlaceAttachedConditionalOrderData,
   PlaceLimitOrderWithConditionalsData,
   PlacePositionConditionalOrderData,
@@ -72,28 +66,12 @@ export const getTriggerOrderParamsDecoder = (): Decoder<TriggerOrderParams> =>
 export const getTriggerOrderParamsCodec = (): Codec<TriggerOrderParams> =>
   combineCodec(getTriggerOrderParamsEncoder(), getTriggerOrderParamsDecoder());
 
-export const getConditionalOrderPacketEncoder =
-  (): Encoder<ConditionalOrderPacket> =>
-    getDiscriminatedUnionEncoder([
-      ["PostOnly", getPostOnlyOrderPacketEncoder()],
-      ["Limit", getLimitOrderPacketEncoder()],
-      ["ImmediateOrCancel", getImmediateOrCancelOrderPacketEncoder()],
-    ]) as unknown as Encoder<ConditionalOrderPacket>;
-
-export const getConditionalOrderPacketDecoder =
-  (): Decoder<ConditionalOrderPacket> =>
-    getDiscriminatedUnionDecoder([
-      ["PostOnly", getPostOnlyOrderPacketDecoder()],
-      ["Limit", getLimitOrderPacketDecoder()],
-      ["ImmediateOrCancel", getImmediateOrCancelOrderPacketDecoder()],
-    ]) as unknown as Decoder<ConditionalOrderPacket>;
-
-export const getConditionalOrderPacketCodec =
-  (): Codec<ConditionalOrderPacket> =>
-    combineCodec(
-      getConditionalOrderPacketEncoder(),
-      getConditionalOrderPacketDecoder()
-    );
+export const getConditionalOrderPacketEncoder: typeof getOrderPacketEncoder =
+  getOrderPacketEncoder;
+export const getConditionalOrderPacketDecoder: typeof getOrderPacketDecoder =
+  getOrderPacketDecoder;
+export const getConditionalOrderPacketCodec: typeof getOrderPacketCodec =
+  getOrderPacketCodec;
 
 export const getPlaceAttachedConditionalOrderParamsEncoder =
   (): Encoder<PlaceAttachedConditionalOrderData> =>

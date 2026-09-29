@@ -220,6 +220,13 @@ export interface TraderStateSpotCollateral {
   balance: string;
   /** Native-unit decimals of the asset (9 for SOL). */
   decimals: number;
+  /**
+   * Effective cap on this trader's counted balance, in native units, decimal
+   * integer string. Always greater than zero; deposits beyond
+   * `maxBalance - balance` are not credited, and the exchange-wide limit may
+   * bind first. Absent from API servers that predate this field.
+   */
+  maxBalance?: string;
 }
 
 export interface TraderStateSubaccountSnapshot {
@@ -227,6 +234,7 @@ export interface TraderStateSubaccountSnapshot {
   sequence: number;
   /** Quote collateral balance. */
   collateral: string;
+  /** The SOL row is always present, even at zero balance. */
   spotCollaterals?: TraderStateSpotCollateral[];
   capabilities?: TraderStateCapabilities;
   cooldownStatus?: CooldownStatus;
@@ -241,6 +249,7 @@ export interface TraderStateSubaccountDelta {
   sequence: number;
   /** Quote collateral balance. Carries the full current value, not a diff. */
   collateral: string;
+  /** Carries the full current list, not a diff. */
   spotCollaterals?: TraderStateSpotCollateral[];
   capabilities?: TraderStateCapabilities;
   cooldownStatus?: CooldownStatus;
@@ -529,6 +538,7 @@ const TraderStateSpotCollateralSchema: z.ZodType<TraderStateSpotCollateral> =
     symbol: z.string(),
     balance: z.string(),
     decimals: z.number(),
+    maxBalance: z.string().optional(),
   });
 
 const TraderStateSubaccountSnapshotSchema: z.ZodType<TraderStateSubaccountSnapshot> =

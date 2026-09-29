@@ -635,7 +635,8 @@ export const buildFlameAtomicDepositFlow = async (
  * than rejects, against the per-trader and exchange-wide caps, and consumes any
  * pre-existing unaccounted lamports first. Size deposits with
  * `nativeSolCollateralHeadroomLamports` (and report credits with
- * `attributedNativeSolDepositLamports`) so nothing lands uncounted.
+ * `attributedNativeSolDepositLamports`), passing the trader's per-trader cap
+ * from trader state's `maxBalance`, so nothing lands uncounted.
  */
 export const buildNativeSolDepositFlow = async (
   params: NativeSolDepositFlowParams,

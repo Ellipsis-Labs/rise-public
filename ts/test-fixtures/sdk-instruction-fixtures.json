@@ -1200,6 +1200,16 @@
       "tag": "13810104614354031554",
       "discriminatorHex": "c2138e49fa58a7bf",
       "discriminatorBase64": "whOOSfpYp78="
+    },
+    {
+      "program": "phoenix-hawkeye",
+      "enumName": "HawkeyeInstruction",
+      "instructionName": "ViewOrderQuote",
+      "snakeCaseName": "view_order_quote",
+      "preimage": "global:view_order_quote",
+      "tag": "3240529040672010184",
+      "discriminatorHex": "c8af9751feabf82c",
+      "discriminatorBase64": "yK+XUf6r+Cw="
     }
   ]
 }

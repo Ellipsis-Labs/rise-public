@@ -1,5 +1,8 @@
 import { sha2_const } from "@/core/discriminants";
-import { generateReadonlyAccount } from "@/core/utils/accountMeta";
+import {
+  generateReadonlyAccount,
+  generateWritableAccount,
+} from "@/core/utils/accountMeta";
 import type {
   ActiveTraderBufferAddressArray,
   GlobalConfigurationAddress,
@@ -12,11 +15,16 @@ import type {
 } from "@/primitives";
 import type { InstructionsWithAccountsAndData } from "@/primitives/_utilityTypes";
 import {
+  getOrderPacketEncoder,
+  type OrderPacket,
+} from "@/primitives/OrderPacket";
+import {
   address,
   appendTransactionMessageInstructions,
   compileTransaction,
   createTransactionMessage,
   getBase64EncodedWireTransaction,
+  getU64Encoder,
   setTransactionMessageFeePayer,
   setTransactionMessageLifetimeUsingBlockhash,
   type Address,
@@ -41,6 +49,7 @@ export type HawkeyeViewInstructionDiscriminators = {
   readonly liquidation: "global:view_liquidation_price";
   readonly bbo: "global:view_bbo";
   readonly funding: "global:view_funding";
+  readonly orderQuote: "global:view_order_quote";
 };
 
 export const HAWKEYE_VIEW_INSTRUCTIONS: HawkeyeViewInstructionDiscriminators = {
@@ -49,6 +58,7 @@ export const HAWKEYE_VIEW_INSTRUCTIONS: HawkeyeViewInstructionDiscriminators = {
   liquidation: "global:view_liquidation_price",
   bbo: "global:view_bbo",
   funding: "global:view_funding",
+  orderQuote: "global:view_order_quote",
 };
 
 type DiscriminantMap = Record<string, Uint8Array>;
@@ -59,6 +69,7 @@ export const HAWKEYE_DISCRIMINANTS: DiscriminantMap = {
   VIEW_LIQUIDATION_PRICE: sha2_const(HAWKEYE_VIEW_INSTRUCTIONS.liquidation),
   VIEW_BBO: sha2_const(HAWKEYE_VIEW_INSTRUCTIONS.bbo),
   VIEW_FUNDING: sha2_const(HAWKEYE_VIEW_INSTRUCTIONS.funding),
+  VIEW_ORDER_QUOTE: sha2_const(HAWKEYE_VIEW_INSTRUCTIONS.orderQuote),
 };
 
 export type HawkeyeReturnLabels = {
@@ -67,6 +78,7 @@ export type HawkeyeReturnLabels = {
   readonly liquidation: "view_liquidation_price";
   readonly bbo: "view_bbo";
   readonly funding: "view_funding";
+  readonly orderQuote: "view_order_quote";
 };
 
 export const HAWKEYE_RETURN_LABELS: HawkeyeReturnLabels = {
@@ -75,6 +87,7 @@ export const HAWKEYE_RETURN_LABELS: HawkeyeReturnLabels = {
   liquidation: "view_liquidation_price",
   bbo: "view_bbo",
   funding: "view_funding",
+  orderQuote: "view_order_quote",
 };
 
 export type HawkeyeViewKind = keyof typeof HAWKEYE_VIEW_INSTRUCTIONS;
@@ -85,12 +98,34 @@ const HAWKEYE_RETURN_MAGICS = {
   liquidation: sha2_const("return:phoenix_hawkeye_liquidation_price"),
   bbo: sha2_const("return:phoenix_hawkeye_bbo"),
   funding: sha2_const("return:phoenix_hawkeye_funding"),
+  orderQuote: sha2_const("return:phoenix_hawkeye_order_quote"),
 } as const;
 
 export const HAWKEYE_BBO_HAS_BID: number = 1 << 0;
 export const HAWKEYE_BBO_HAS_ASK: number = 1 << 1;
 export const HAWKEYE_FUNDING_HAS_ACCUMULATED: number = 1 << 0;
 export const HAWKEYE_FUNDING_HAS_UNSETTLED: number = 1 << 1;
+export const HAWKEYE_ORDER_QUOTE_HAS_AVERAGE_PRICE: number = 1 << 0;
+export const HAWKEYE_ORDER_QUOTE_HAS_SLIPPAGE: number = 1 << 1;
+export const HAWKEYE_ORDER_QUOTE_HAS_EFFECTIVE_SIZE: number = 1 << 2;
+
+const ORDER_QUOTE_OUTCOMES = ["accepted", "rejected", "unsupported"] as const;
+const ORDER_QUOTE_REJECTION_REASONS = [
+  "none",
+  "cancel_existing",
+  "invalid_order_packet",
+  "minimum_fill_not_met",
+  "self_trade_abort",
+  "post_only_cross",
+  "reduce_only_increase_exposure",
+  "too_many_limit_orders",
+  "insufficient_aggression",
+  "invalid_time_in_force",
+  "zero_price",
+  "zero_size",
+  "outside_execution_price_band",
+  "expired",
+] as const;
 
 const RISK_STATES = [
   "healthy",
@@ -116,6 +151,7 @@ const LIQUIDATION_STATUSES = [
 ] as const;
 
 const SIDES = ["flat", "long", "short"] as const;
+const ORDER_SIDES = ["bid", "ask"] as const;
 
 export type HawkeyeCodeLabel<TLabel extends string = string> = {
   code: number;
@@ -211,12 +247,74 @@ export type HawkeyeFundingReturn = {
   projected1hFundingRateMicroBps: bigint;
 };
 
+/** Matching only. Acceptance does not establish taker margin or permissions. */
+export type HawkeyeOrderQuoteReturn = {
+  kind: typeof HAWKEYE_RETURN_LABELS.orderQuote;
+  magic: HawkeyeMagic;
+  version: number;
+  flags: number;
+  side: HawkeyeCodeLabel<(typeof ORDER_SIDES)[number]>;
+  assetId: number;
+  slot: bigint;
+  requestedBaseLots: bigint;
+  filledBaseLots: bigint;
+  /** Gross fill notional, excluding fees. */
+  filledQuoteLots: bigint;
+  feeQuoteLots: bigint;
+  postedBaseLots: bigint;
+  /** Requested lots minus filled lots, including any posted remainder. */
+  unfilledBaseLots: bigint;
+  averagePriceQuoteLotsPerBaseLot: bigint | null;
+  referencePriceTicks: bigint;
+  /** Negative values indicate a favorable execution price. */
+  slippageBps: bigint | null;
+  /** Size after reduce-only clamping; absent for rejected, unsupported or expired orders. */
+  effectiveBaseLots: bigint | null;
+  /** Price of the posted remainder, including post-only sliding. */
+  postedPriceTicks: bigint | null;
+  outcome: HawkeyeCodeLabel<(typeof ORDER_QUOTE_OUTCOMES)[number]>;
+  rejectionReason: HawkeyeCodeLabel<
+    (typeof ORDER_QUOTE_REJECTION_REASONS)[number]
+  >;
+};
+
+/** Whether the original requested size filled, excluding any posted lots. */
+export const isHawkeyeOrderQuoteFullyFilled = (
+  quote: HawkeyeOrderQuoteReturn
+): boolean =>
+  quote.outcome.label === "accepted" &&
+  quote.requestedBaseLots > 0n &&
+  quote.filledBaseLots === quote.requestedBaseLots;
+
+/** Signed net quote flow: positive received, negative spent, including fees. */
+export const getHawkeyeOrderQuoteNetQuoteLots = (
+  quote: HawkeyeOrderQuoteReturn
+): bigint | null => {
+  switch (quote.outcome.label) {
+    case "rejected":
+    case "unsupported":
+      return 0n;
+    case "accepted":
+      switch (quote.side.label) {
+        case "bid":
+          return -quote.filledQuoteLots - quote.feeQuoteLots;
+        case "ask":
+          return quote.filledQuoteLots - quote.feeQuoteLots;
+        default:
+          return null;
+      }
+    default:
+      return null;
+  }
+};
+
 export type HawkeyeReturnData =
   | HawkeyeMarginReturn
   | HawkeyeAssetReturn
   | HawkeyeLiquidationPriceReturn
   | HawkeyeBboReturn
-  | HawkeyeFundingReturn;
+  | HawkeyeFundingReturn
+  | HawkeyeOrderQuoteReturn;
 
 export type HawkeyeBaseAccounts = {
   phoenixProgramAddress: PhoenixProgramAddress;
@@ -233,6 +331,12 @@ export type HawkeyeTraderViewAccounts = HawkeyeBaseAccounts & {
 export type HawkeyeBboViewAccounts = HawkeyeBaseAccounts & {
   orderbook: MarketAddress;
   splineCollection: SplineCollectionAddress;
+};
+
+export type HawkeyeOrderQuoteAccounts = HawkeyeBboViewAccounts & {
+  traderAccount: TraderAddress;
+  /** Writable, zero-lamport Hawkeye-owned buffer allocated earlier in the transaction. */
+  scratch: Address;
 };
 
 export type HawkeyeIx = InstructionsWithAccountsAndData;
@@ -265,6 +369,38 @@ export const buildHawkeyeViewBboIx = (
   data: buildHawkeyeInstructionData("bbo"),
 });
 
+/**
+ * Quote matching without checking taker margin or placement permissions.
+ * The caller must allocate scratch space before this instruction in the same
+ * transaction. Hawkeye closes the buffer on success. `cancelExisting` is unsupported.
+ * Expected matching rejections return a quote with zero retained fills, fees and
+ * posts. Use limits on the placement instruction to enforce execution constraints.
+ */
+export const buildHawkeyeViewOrderQuoteIx = (
+  params: HawkeyeOrderQuoteAccounts & {
+    orderPacket: OrderPacket;
+    /** Zero (the default) disables slippage calculation. */
+    referencePriceTicks?: bigint;
+  }
+): HawkeyeIx => {
+  const packetBytes = getOrderPacketEncoder().encode(params.orderPacket);
+  const data = new Uint8Array(16 + packetBytes.length);
+  data.set(HAWKEYE_DISCRIMINANTS.VIEW_ORDER_QUOTE, 0);
+  data.set(getU64Encoder().encode(params.referencePriceTicks ?? 0n), 8);
+  data.set(packetBytes, 16);
+  return {
+    programAddress: HAWKEYE_PROGRAM_ADDRESS,
+    accounts: [
+      ...buildBaseAccounts(params),
+      generateReadonlyAccount(params.orderbook),
+      generateReadonlyAccount(params.splineCollection),
+      generateReadonlyAccount(params.traderAccount),
+      generateWritableAccount(params.scratch),
+    ],
+    data,
+  };
+};
+
 export const buildSetComputeUnitLimitIx = (
   units: number = HAWKEYE_SIMULATION_COMPUTE_UNIT_LIMIT
 ): Instruction => {
@@ -281,13 +417,19 @@ export const buildSetComputeUnitLimitIx = (
 
 export const encodeHawkeyeSimulationTransaction = (params: {
   instruction: Instruction;
+  /** Instructions such as scratch allocation to execute before the Hawkeye view. */
+  preInstructions?: readonly Instruction[];
   blockhash: Blockhash;
   lastValidBlockHeight: bigint;
   feePayer?: Address;
   computeUnitLimit?: number;
 }): string => {
   const message = appendTransactionMessageInstructions(
-    [buildSetComputeUnitLimitIx(params.computeUnitLimit), params.instruction],
+    [
+      buildSetComputeUnitLimitIx(params.computeUnitLimit),
+      ...(params.preInstructions ?? []),
+      params.instruction,
+    ],
     setTransactionMessageLifetimeUsingBlockhash(
       {
         blockhash: params.blockhash,
@@ -318,6 +460,8 @@ export const decodeHawkeyeReturnData = (
       return decodeBbo(bytes);
     case "funding":
       return decodeFunding(bytes);
+    case "orderQuote":
+      return decodeOrderQuote(bytes);
   }
 };
 
@@ -343,7 +487,7 @@ const buildBaseAccounts = (params: HawkeyeBaseAccounts) => [
 ];
 
 const buildHawkeyeInstructionData = (
-  kind: HawkeyeViewKind,
+  kind: Exclude<HawkeyeViewKind, "orderQuote">,
   assetId?: number
 ): Uint8Array => {
   const needsAsset =
@@ -477,6 +621,46 @@ const decodeFunding = (bytes: Uint8Array): HawkeyeFundingReturn => {
         : null,
     currentFundingRateMicroBps: view.getBigInt64(32, true),
     projected1hFundingRateMicroBps: view.getBigInt64(40, true),
+  };
+};
+
+const decodeOrderQuote = (bytes: Uint8Array): HawkeyeOrderQuoteReturn => {
+  const view = viewFor(bytes, 120, "view_order_quote");
+  const flags = view.getUint8(10);
+  return {
+    kind: HAWKEYE_RETURN_LABELS.orderQuote,
+    magic: readMagic(bytes),
+    version: view.getUint16(8, true),
+    flags,
+    side: codeLabel(ORDER_SIDES, view.getUint8(11)),
+    assetId: view.getUint32(12, true),
+    slot: view.getBigUint64(16, true),
+    requestedBaseLots: view.getBigUint64(24, true),
+    filledBaseLots: view.getBigUint64(32, true),
+    filledQuoteLots: view.getBigUint64(40, true),
+    feeQuoteLots: view.getBigUint64(48, true),
+    postedBaseLots: view.getBigUint64(56, true),
+    unfilledBaseLots: view.getBigUint64(64, true),
+    averagePriceQuoteLotsPerBaseLot:
+      (flags & HAWKEYE_ORDER_QUOTE_HAS_AVERAGE_PRICE) !== 0
+        ? view.getBigUint64(72, true)
+        : null,
+    referencePriceTicks: view.getBigUint64(80, true),
+    slippageBps:
+      (flags & HAWKEYE_ORDER_QUOTE_HAS_SLIPPAGE) !== 0
+        ? view.getBigInt64(88, true)
+        : null,
+    effectiveBaseLots:
+      (flags & HAWKEYE_ORDER_QUOTE_HAS_EFFECTIVE_SIZE) !== 0
+        ? view.getBigUint64(96, true)
+        : null,
+    postedPriceTicks:
+      view.getBigUint64(56, true) !== 0n ? view.getBigUint64(104, true) : null,
+    outcome: codeLabel(ORDER_QUOTE_OUTCOMES, view.getUint8(112)),
+    rejectionReason: codeLabel(
+      ORDER_QUOTE_REJECTION_REASONS,
+      view.getUint8(113)
+    ),
   };
 };
 
