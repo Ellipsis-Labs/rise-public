@@ -15,16 +15,19 @@ const request: PlaceTwapOrderRequest = {
 };
 
 describe("TWAP HTTP request", () => {
-  it.each([undefined, null, 0, 2])("preserves dust count %s", (nDustOrders) => {
-    const payload = {
-      ...request,
-      ...(nDustOrders === undefined ? {} : { nDustOrders }),
-    };
-    const parsed = PlaceTwapOrderRequestSchema.parse(payload);
+  it.each([undefined, null, 0, 2, 4])(
+    "preserves dust count %s",
+    (nDustOrders) => {
+      const payload = {
+        ...request,
+        ...(nDustOrders === undefined ? {} : { nDustOrders }),
+      };
+      const parsed = PlaceTwapOrderRequestSchema.parse(payload);
 
-    expect(parsed).toEqual(payload);
-    expect(JSON.parse(JSON.stringify(parsed))).toEqual(payload);
-  });
+      expect(parsed).toEqual(payload);
+      expect(JSON.parse(JSON.stringify(parsed))).toEqual(payload);
+    }
+  );
 
   it("preserves isolated collateral parameters under the API field name", () => {
     const payload: PlaceTwapOrderRequest = {
