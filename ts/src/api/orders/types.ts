@@ -224,8 +224,9 @@ export interface TwapChildOrderParams {
    * Size of each dust execution in base lots, smaller than the regular child
    * size. Required and positive when nDustOrders is positive.
    * With an omitted or zero count, a positive size pins the final child
-   * (childOrders >= 2), an omitted size derives a final dust child for uneven
-   * totals, and zero requires an equal split.
+   * (childOrders >= 2), and zero requires an equal split. An omitted size
+   * preserves a single final dust child when possible, otherwise derives
+   * regular and dust sizes one lot apart within the requested childOrders.
    */
   dustOrderSize?: number | null;
 }
@@ -278,9 +279,9 @@ export interface PlaceTwapOrderRequest {
    */
   childOrders: number;
   /**
-   * Additional dust executions, at most childOrders. A positive count
-   * requires childOrderParams.dustOrderSize > 0. Omitted or zero preserves
-   * legacy sizing, including an optional final dust child.
+   * Additional dust executions. A positive count requires
+   * childOrderParams.dustOrderSize > 0. Omitted or zero lets the API derive
+   * dust executions within the requested total childOrders count.
    */
   nDustOrders?: number | null;
   childOrderParams?: TwapChildOrderParams;

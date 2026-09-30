@@ -57,7 +57,7 @@ export interface PlaceTwapOrderData {
   cooldownSlots: bigint;
   /** Regular child count for explicit dust; total execution count for legacy dust. */
   nChildOrders: bigint;
-  /** Explicit dust count, at most nChildOrders. Defaults to zero; nonzero dustOrderSize then uses legacy final-child dust. */
+  /** Explicit dust count following the regular child orders. Defaults to zero; nonzero dustOrderSize then uses legacy final-child dust. */
   nDustOrders?: bigint;
   childOrderMaxSlippageBps: bigint | number;
   childOrderMinPriceInTicks?: Ticks | null;
@@ -93,7 +93,7 @@ export interface PlaceTwapOrderParams
   cooldownSlots: bigint;
   /** Regular child count for explicit dust; total execution count for legacy dust. */
   nChildOrders: bigint;
-  /** Explicit dust count, at most nChildOrders. Defaults to zero; nonzero dustOrderSize then uses legacy final-child dust. */
+  /** Explicit dust count following the regular child orders. Defaults to zero; nonzero dustOrderSize then uses legacy final-child dust. */
   nDustOrders?: bigint;
   childOrderMaxSlippageBps: bigint | number;
   childOrderMinPriceInTicks?: Ticks | null;

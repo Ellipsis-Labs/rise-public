@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.39 - 2026-09-30
+
+Source Phoenix commit: `1cba3a70688a9e3f4480b91762cabd72e1f5638c`
+
+### Summary
+
+- TWAP dust orders are no longer capped at the child order count. `nDustOrders` can now exceed `childOrders` on `PlaceTwapOrderRequest`, and on `nChildOrders` in the instruction builders.
+- The docs for `TwapChildOrderParams.dustOrderSize` and `PlaceTwapOrderRequest.nDustOrders` describe the new behavior when the dust count is omitted or zero. An omitted `dustOrderSize` keeps a single final dust child when possible. Otherwise the API derives regular and dust sizes one lot apart within the requested `childOrders`.
+- Bumped the `brace-expansion` override to `>=5.0.12` for dependency hygiene.
+
+### Breaking Changes
+
+- None identified in the synced diff. The dust-count validation is looser, so inputs that used to be rejected are now accepted.
+
+### Consumer Notes
+
+- The instruction builder `validatePlaceTwapOrder` now throws `"Dust order count must be non-negative"` for negative counts. It no longer throws `"Dust order count must be between 0 and the child order count"`. If your code matches on the old message, update it.
+- `nChildOrders + nDustOrders` must still fit in a u64.
+- For `nDustOrders` greater than 0, `childOrderParams.dustOrderSize` must still be positive.
+
 ## v0.5.38 - 2026-09-29
 
 Source Phoenix commit: `b50781149f884f35dc5e4bca07782a6e6b8e461c`
