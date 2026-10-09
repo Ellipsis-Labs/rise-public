@@ -28,6 +28,12 @@ import {
 import type { PhoenixPdaClient } from "@/pdaClient";
 import type { PhoenixProgramAddress } from "@/primitives";
 import { PhoenixRpcAccountFetcherClient } from "@/rpc";
+import {
+  divRoundNearest,
+  FEE_MICRO_MULTIPLIER,
+  pow10,
+  QUOTE_DECIMALS,
+} from "@/units";
 import { SYSVAR_LAST_RESTART_SLOT_ADDRESS } from "@solana/sysvars";
 import type { Address } from "@solana/kit";
 import type { PhoenixExchangeCacheStore } from "./types";
@@ -158,13 +164,7 @@ const toExchangeStateSnapshot = (
   };
 };
 
-const DEFAULT_QUOTE_DECIMALS = 6;
 const MAX_PRICE_DECIMALS = 18;
-
-const pow10 = (exponent: number): bigint => 10n ** BigInt(exponent);
-
-const divRoundNearest = (numerator: bigint, denominator: bigint): bigint =>
-  (numerator + denominator / 2n) / denominator;
 
 const formatScaledDecimal = (value: bigint, decimals: number): string => {
   const negative = value < 0n;
@@ -261,7 +261,7 @@ export const toCommodityMetadata = (params: {
     return null;
   }
 
-  const quoteDecimals = params.quoteDecimals ?? DEFAULT_QUOTE_DECIMALS;
+  const quoteDecimals = params.quoteDecimals ?? QUOTE_DECIMALS;
   const lastKnownIndexPrice = metadata.lastKnownIndexPrice;
   const afterHoursBand =
     metadata.assetFlags.isCommoditiesAfterHours && lastKnownIndexPrice !== null
@@ -364,29 +364,28 @@ const toMarketSnapshot = async (
     splinePubkey,
     tickSize: Number(metadata.staticMarketParams.tickSize),
     baseLotsDecimals: metadata.staticMarketParams.baseLotDecimals,
-    takerFee: header.defaultTakerFeeMicro / 1_000_000,
-    makerFee: header.defaultMakerFeeMicro / 1_000_000,
+    takerFee: header.defaultTakerFeeMicro / FEE_MICRO_MULTIPLIER,
+    makerFee: header.defaultMakerFeeMicro / FEE_MICRO_MULTIPLIER,
     leverageTiers: metadata.riskParams.leverageTiers.map((tier) => ({
       maxLeverage: Number(tier.maxLeverage),
       maxSizeBaseLots: tier.upperBoundSize,
       limitOrderRiskFactor: Number(tier.limitOrderRiskFactor),
     })),
     riskFactors: {
-      maintenance: metadata.riskParams.riskFactors[0] ?? 0,
+      maintenance: (metadata.riskParams.riskFactors[0] ?? 0) / 100,
       maintenanceBps: metadata.riskParams.riskFactors[0] ?? 0,
-      backstop: metadata.riskParams.riskFactors[1] ?? 0,
+      backstop: (metadata.riskParams.riskFactors[1] ?? 0) / 100,
       backstopBps: metadata.riskParams.riskFactors[1] ?? 0,
-      highRisk: metadata.riskParams.riskFactors[2] ?? 0,
+      highRisk: (metadata.riskParams.riskFactors[2] ?? 0) / 100,
       highRiskBps: metadata.riskParams.riskFactors[2] ?? 0,
-      upnl: Number(metadata.riskParams.upnlRiskFactor),
+      upnl: Number(metadata.riskParams.upnlRiskFactor) / 100,
       upnlBps: Number(metadata.riskParams.upnlRiskFactor),
-      upnlForWithdrawals: Number(
-        metadata.riskParams.upnlRiskFactorForWithdrawals
-      ),
+      upnlForWithdrawals:
+        Number(metadata.riskParams.upnlRiskFactorForWithdrawals) / 100,
       upnlForWithdrawalsBps: Number(
         metadata.riskParams.upnlRiskFactorForWithdrawals
       ),
-      cancelOrder: metadata.riskParams.cancelOrderRiskFactor,
+      cancelOrder: metadata.riskParams.cancelOrderRiskFactor / 100,
       cancelOrderBps: metadata.riskParams.cancelOrderRiskFactor,
     },
     fundingConfig: {

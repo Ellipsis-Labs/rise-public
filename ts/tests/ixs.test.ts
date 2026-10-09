@@ -788,6 +788,18 @@ describe("ix operations", () => {
           price: 86_000,
           orderSequenceNumber: 10,
         },
+        {
+          price: 86_000.06,
+          orderSequenceNumber: 11,
+        },
+        {
+          price: 86_000.04,
+          orderSequenceNumber: 12,
+        },
+        {
+          price: 86_000.06,
+          orderSequenceNumber: (1n << 64n) - 13n,
+        },
       ],
     });
 
@@ -800,6 +812,9 @@ describe("ix operations", () => {
     expect(decoded.orderIds[2]?.orderId.orderSequenceNumber).toBe(9n);
     expect(decoded.orderIds[3]?.orderId.priceInTicks).toBe(ticks(860_000n));
     expect(decoded.orderIds[3]?.orderId.orderSequenceNumber).toBe(10n);
+    expect(decoded.orderIds[4]?.orderId.priceInTicks).toBe(ticks(860_001n));
+    expect(decoded.orderIds[5]?.orderId.priceInTicks).toBe(ticks(860_001n));
+    expect(decoded.orderIds[6]?.orderId.priceInTicks).toBe(ticks(860_000n));
   });
 
   it("builds tick-native cancel-by-id without tick-size metadata", async () => {

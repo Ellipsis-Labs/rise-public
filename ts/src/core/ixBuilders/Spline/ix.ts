@@ -3,6 +3,7 @@ import {
   SYSTEM_PROGRAM_ADDRESS,
 } from "@/core/constants";
 import { DISCRIMINANTS } from "@/core/discriminants";
+import { BPS_DENOMINATOR } from "@/units";
 import {
   generateArenaAccounts,
   generateReadonlyAccount,
@@ -218,7 +219,7 @@ const validatePositionLimitsConfig = (
   }
   if (
     params.leverageDecreaseInBps !== null &&
-    params.leverageDecreaseInBps > 10_000
+    params.leverageDecreaseInBps > Number(BPS_DENOMINATOR)
   ) {
     throw new Error("Leverage decrease bps cannot exceed 10000");
   }
