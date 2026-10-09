@@ -54,8 +54,8 @@ fn spot_collateral_metadata_borsh_size_matches_onchain_layout() {
     );
 }
 
-/// Borsh enum tags are positional, so the three spot-collateral events must
-/// sit at exactly 67/68/69. A drift here silently misreads every event after
+/// Borsh enum tags are positional, so the spot-collateral events must sit at
+/// exactly 67/68/69 and 72. A drift here silently misreads every event after
 /// `OrderResidualDiscarded`.
 #[test]
 fn spot_collateral_events_use_the_expected_borsh_tags() {
@@ -100,6 +100,26 @@ fn spot_collateral_events_use_the_expected_borsh_tags() {
     ))
     .unwrap();
     assert_eq!(liquidated[0], 69);
+
+    let price_updated = borsh::to_vec(&rise::MarketEvent::SpotAssetPriceUpdated(
+        rise::SpotAssetPriceUpdatedEvent {
+            asset_symbol: rise::Symbol::new("JUP").unwrap(),
+            asset_index: 0xFFFE_0001,
+            price: rise::Ticks::new(15),
+            price_sequence_number: 16,
+            prev_price_sequence_number_slot: 17,
+        },
+    ))
+    .unwrap();
+    let mut expected = vec![72];
+    let mut symbol = [0u8; 16];
+    symbol[..3].copy_from_slice(b"JUP");
+    expected.extend_from_slice(&symbol);
+    expected.extend_from_slice(&0xFFFE_0001u32.to_le_bytes());
+    expected.extend_from_slice(&15u64.to_le_bytes());
+    expected.extend_from_slice(&16u64.to_le_bytes());
+    expected.extend_from_slice(&17u64.to_le_bytes());
+    assert_eq!(price_updated, expected);
 }
 
 /// Regression: before the spot-collateral variants existed, an unknown trailing

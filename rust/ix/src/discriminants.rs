@@ -362,6 +362,14 @@ define_instruction_discriminants! {
         TransferNativeSolFromChildToParent => "transfer_native_sol_from_child_to_parent",
         LiquidateNativeSol => "liquidate_native_sol",
         SwapNative => "swap_native",
+        SyncSpot => "sync_spot",
+        WithdrawSpot => "withdraw_spot",
+        TransferSpot => "transfer_spot",
+        TransferSpotFromChildToParent => "transfer_spot_from_child_to_parent",
+        LiquidateSpot => "liquidate_spot",
+        SwapSpotWithUsdc => "swap_spot_with_usdc",
+        SwapSpotWithSol => "swap_spot_with_sol",
+        SwapSpotWithSpot => "swap_spot_with_spot",
     }
     aliases {
         UpdateSplinePriceWithOrdering => UpdateSplinePrice = "update_spline_price_with_ordering",

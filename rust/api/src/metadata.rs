@@ -405,6 +405,7 @@ mod tests {
 
     fn market_stats() -> MarketStatsUpdate {
         MarketStatsUpdate {
+            cumulative_funding_quote_lots_per_base_lot: None,
             symbol: "SOL-PERP".to_string(),
             open_interest: 0.0,
             mark_price: 121.0,

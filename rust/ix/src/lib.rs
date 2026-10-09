@@ -112,6 +112,7 @@ pub mod return_data;
 mod serde_helpers;
 pub mod spl_approve;
 pub mod spline;
+pub mod spot;
 pub mod sync_parent_to_child;
 pub mod transfer_collateral;
 pub mod twap;
@@ -162,6 +163,7 @@ pub mod prelude {
     pub use super::return_data::*;
     pub use super::spl_approve::*;
     pub use super::spline::*;
+    pub use super::spot::*;
     pub use super::sync_parent_to_child::*;
     pub use super::transfer_collateral::*;
     pub use super::twap::*;

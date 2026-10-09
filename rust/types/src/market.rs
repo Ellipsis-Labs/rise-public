@@ -139,6 +139,14 @@ pub struct L2BookUpdate {
 /// Contains real-time pricing and market data for a specific perpetual market.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketStatsUpdate {
+    /// Cumulative funding in signed quote lots per base lot, as a decimal
+    /// integer.
+    #[serde(
+        default,
+        rename = "cumulativeFundingQuoteLotsPerBaseLot",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub cumulative_funding_quote_lots_per_base_lot: Option<String>,
     /// Market symbol (e.g., "SOL")
     pub symbol: String,
     /// Total open interest in the market
@@ -314,6 +322,7 @@ mod tests {
     #[test]
     fn test_serialize_market_stats_update() {
         let update = MarketStatsUpdate {
+            cumulative_funding_quote_lots_per_base_lot: None,
             symbol: "BTC".to_string(),
             open_interest: 500000.0,
             mark_price: 65000.0,

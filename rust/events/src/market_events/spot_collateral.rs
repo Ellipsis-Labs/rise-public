@@ -130,9 +130,10 @@ pub struct SpotCollateralWithdrawnEvent {
     pub destination: Pubkey,
     /// Accounted collateral debited, in native units.
     pub amount: u64,
-    /// Uncounted lamports additionally swept out beyond `amount`, nonzero only
-    /// when `withdraw_excess` was requested and the account held uncounted
-    /// lamports. Physical lamports moved equal `amount + excess`.
+    /// Uncounted units additionally moved beyond `amount`: nonzero only when
+    /// `withdraw_excess` was requested, or for a child-to-parent sweep
+    /// (which moves all uncounted backing), and uncounted units were held.
+    /// Physical units moved equal `amount + excess`.
     pub excess: u64,
     /// Whether the withdrawal requested an excess sweep; `excess` may still be
     /// 0. Always false for swap, sync, transfer, and liquidation flows.
@@ -172,4 +173,21 @@ pub struct SpotCollateralLiquidatedEvent {
     pub oracle_notional: QuoteLots,
     /// Discount applied to the oracle value for the minimum deposit.
     pub liquidation_discount: BasisPoints,
+}
+
+/// A spot collateral asset priced by its own oracle (no linked perp market)
+/// accepted a new price. The price is recorded at the event's slot.
+#[derive(Debug, Copy, Clone, BorshDeserialize, BorshSerialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct SpotAssetPriceUpdatedEvent {
+    pub asset_symbol: Symbol,
+    /// Raw `AssetIndex` key of the spot asset.
+    pub asset_index: u32,
+    /// Accepted price mantissa, with the asset's configured price exponent
+    /// as its number of fractional decimal digits.
+    pub price: Ticks,
+    /// The asset's price sequence number before this update.
+    pub price_sequence_number: u64,
+    /// Slot of the previous accepted price.
+    pub prev_price_sequence_number_slot: u64,
 }

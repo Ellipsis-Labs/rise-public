@@ -124,8 +124,7 @@ pub enum PhoenixIxError {
     InvalidTwapDustOrderSize,
 
     #[error(
-        "TWAP child count must be positive, dust count must not exceed it, and their sum must fit \
-         in u64"
+        "TWAP child count must be positive and the total regular and dust count must fit in u64"
     )]
     InvalidTwapOrderCounts,
 

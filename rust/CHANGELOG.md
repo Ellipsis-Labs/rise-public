@@ -3,6 +3,32 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.13 - 2026-10-09
+
+Source Phoenix commit: `96a1919a3bb7bc6a05f6f16604b3dd3def8e102d`
+
+### Summary
+
+- `ix`: Adds a new `spot` module, re-exported through the prelude, with builders for SPL spot collateral instructions: sync, withdraw, transfer, child-to-parent sweep, liquidate, and swaps against USDC, SOL and other spot assets. Adds the `get_trader_wallet_address` PDA helper and eight new `PhoenixInstruction` variants (`SyncSpot`, `WithdrawSpot`, `TransferSpot`, `TransferSpotFromChildToParent`, `LiquidateSpot`, `SwapSpotWithUsdc`, `SwapSpotWithSol`, `SwapSpotWithSpot`).
+- `events`: Adds the `MarketEvent` variants `AdditionalFeeAccrued` and `SpotAssetPriceUpdated`, with matching `MarketEventType` variants and the new event structs. `SpotAssetPriceUpdated` encodes at Borsh tag 72. The docs for `SpotCollateralWithdrawnEvent::excess` now say it covers uncounted units of any spot asset, and that child-to-parent sweeps move all uncounted backing.
+- `types` and `api`: `MarketStatsUpdate` and `MarketStatsV2Data` gain an optional `cumulative_funding_quote_lots_per_base_lot` decimal string. `TwapSnapshot` gains `terminal_events`, a list of the new `TwapTerminalEvent` type. It is skipped on serialization when empty.
+- `ix` and `types` (TWAP): `PlaceTwapOrderParamsBuilder::build` no longer rejects a dust order count above the regular child count. It still requires a positive child count and a total that fits in `u64`. The `PlaceTwapOrderRequest` docs now say the API derives dust executions within the requested `childOrders` total.
+- Workspace: All crates move to `0.6.13`. The lockfiles now resolve `solana-pubkey` to `3.0.0` instead of `4.2.x`.
+
+### Breaking Changes
+
+- `types`: `MarketStatsUpdate` has a new public field, so code that builds it with a struct literal must set `cumulative_funding_quote_lots_per_base_lot` (use `None` if unused). `MarketStatsV2Data` has the same new field. `TwapSnapshot` has a new `terminal_events` field with the same effect.
+- `events`: `MarketEvent` and `MarketEventType` gain variants. Exhaustive `match` expressions over either enum no longer compile until the new arms are added.
+- `ix`: `PhoenixInstruction` gains eight variants, so exhaustive matches on it are affected. `PhoenixInstruction::ALL` grows from 101 to 109 entries.
+- `ix` (TWAP): Dust counts that the builder used to reject, such as a dust count greater than the child count, are now accepted. Code that relied on the old `InvalidTwapOrderCounts` rejection must validate on its own.
+
+### Consumer Notes
+
+- Spot builders take a `mint` and derive the trader wallet PDA and its custody ATAs internally. Swap and liquidate builders require an explicit `min_amount_out` or `without_slippage_protection()`. The program applies no oracle price floor to swaps.
+- Deposits are a plain SPL transfer into the custody ATA followed by `create_sync_spot_ix`, which is permissionless. Spot withdrawals are never queued and fail if the exchange-wide throttle can't absorb them. Admin instructions (add, configure) are not exposed.
+- Struct-literal construction of the changed `types` structs is the main source-compatibility risk. Deserialization of older payloads still works because the new fields default.
+- The lockfile `solana-pubkey` resolution moved from `4.2.x` to `3.0.0`. Check dependency resolution if your project pins `solana-pubkey` itself.
+
 ## v0.6.12 - 2026-09-29
 
 Source Phoenix commit: `b50781149f884f35dc5e4bca07782a6e6b8e461c`
