@@ -677,7 +677,6 @@ impl PlaceTwapOrderParamsBuilder {
             .child_order_packet
             .ok_or(PhoenixIxError::MissingField("child_order_packet"))?;
         if n_child_orders == 0
-            || child_order_packet.n_dust_orders() > n_child_orders
             || n_child_orders
                 .checked_add(child_order_packet.n_dust_orders())
                 .is_none()
@@ -1398,7 +1397,17 @@ mod tests {
 
     #[test]
     fn encodes_twap_dust_orders_without_changing_regular_child_count() {
-        for (n_child_orders, n_dust_orders) in [(3, 0), (3, 1), (3, 2), (3, 3), (1, 1)] {
+        for (n_child_orders, n_dust_orders) in [
+            (3, 0),
+            (3, 1),
+            (3, 2),
+            (3, 3),
+            (1, 1),
+            (1, 2),
+            (1, 3),
+            (3, 4),
+            (1, u64::MAX - 1),
+        ] {
             let dust_order_size = if n_dust_orders == 0 { 0 } else { 300 };
             let child_order_packet = TwapIocOrderPacket::builder()
                 .side(Side::Bid)
@@ -1453,8 +1462,8 @@ mod tests {
     }
 
     #[test]
-    fn rejects_excessive_or_overflowing_twap_dust_counts() {
-        for (n_child_orders, n_dust_orders) in [(0, 0), (1, 2), (3, 4), (u64::MAX, 1)] {
+    fn rejects_zero_regular_or_overflowing_total_twap_counts() {
+        for (n_child_orders, n_dust_orders) in [(0, 0), (0, 1), (u64::MAX, 1), (1, u64::MAX)] {
             let child_order_packet = TwapIocOrderPacket::builder()
                 .side(Side::Bid)
                 .num_base_lots(1_000)

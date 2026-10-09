@@ -222,7 +222,7 @@ pub enum WithdrawNativeSolAction {
 }
 
 impl WithdrawNativeSolAction {
-    fn encode(&self, out: &mut Vec<u8>) {
+    pub(crate) fn encode(&self, out: &mut Vec<u8>) {
         match self {
             Self::AllExcess => out.push(0),
             Self::WithExcess { amount } => {
@@ -236,7 +236,7 @@ impl WithdrawNativeSolAction {
         }
     }
 
-    fn amount(&self) -> Option<u64> {
+    pub(crate) fn amount(&self) -> Option<u64> {
         match self {
             Self::AllExcess => None,
             Self::WithExcess { amount } | Self::WithoutExcess { amount } => Some(*amount),
@@ -815,7 +815,7 @@ pub enum SwapDirection {
 }
 
 impl SwapDirection {
-    fn as_u8(self) -> u8 {
+    pub(crate) fn as_u8(self) -> u8 {
         match self {
             Self::Sell => 0,
             Self::Buy => 1,
@@ -1171,7 +1171,7 @@ pub enum SwapSlippage {
 }
 
 impl SwapSlippage {
-    fn as_min_amount_out(self) -> u64 {
+    pub(crate) fn as_min_amount_out(self) -> u64 {
         match self {
             Self::MinAmountOut(min_amount_out) => min_amount_out,
             Self::Unprotected => 0,
@@ -1387,13 +1387,13 @@ impl SwapNativeParamsBuilder {
 /// A [`SwapDirection::Buy`] additionally honors the deposit cooldown and is
 /// rejected while the trader has a queued withdrawal.
 pub fn create_swap_native_ix(params: SwapNativeParams) -> Result<Instruction, PhoenixIxError> {
-    let mut data = crate::PhoenixInstruction::SwapNative
-        .discriminant()
-        .to_vec();
-    data.push(params.direction.as_u8());
-    data.extend_from_slice(&params.amount_in.to_le_bytes());
-    data.extend_from_slice(&params.slippage.as_min_amount_out().to_le_bytes());
-    encode_packed_instructions(&mut data, params.venue.instructions());
+    let data = encode_swap_data(
+        crate::PhoenixInstruction::SwapNative,
+        params.direction,
+        params.amount_in,
+        params.slippage,
+        &params.venue,
+    );
 
     let mut accounts = log_accounts();
     accounts.push(AccountMeta::writable(*PHOENIX_GLOBAL_CONFIGURATION));
@@ -1422,7 +1422,24 @@ pub fn create_swap_native_ix(params: SwapNativeParams) -> Result<Instruction, Ph
     })
 }
 
-fn encode_packed_instructions(data: &mut Vec<u8>, instructions: &[PackedInstruction]) {
+/// Swap instruction data: discriminant, direction, `amount_in`,
+/// `min_amount_out`, then the packed venue instructions.
+pub(crate) fn encode_swap_data(
+    instruction: crate::PhoenixInstruction,
+    direction: SwapDirection,
+    amount_in: u64,
+    slippage: SwapSlippage,
+    venue: &PackedVenueInstructions,
+) -> Vec<u8> {
+    let mut data = instruction.discriminant().to_vec();
+    data.push(direction.as_u8());
+    data.extend_from_slice(&amount_in.to_le_bytes());
+    data.extend_from_slice(&slippage.as_min_amount_out().to_le_bytes());
+    encode_packed_instructions(&mut data, venue.instructions());
+    data
+}
+
+pub(crate) fn encode_packed_instructions(data: &mut Vec<u8>, instructions: &[PackedInstruction]) {
     data.extend_from_slice(&(instructions.len() as u32).to_le_bytes());
     for instruction in instructions {
         data.push(instruction.program_id_index);
@@ -1439,14 +1456,14 @@ fn encode_packed_instructions(data: &mut Vec<u8>, instructions: &[PackedInstruct
 // Shared helpers
 ////////////////////////////////////////////////////////////////////////////////
 
-fn log_accounts() -> Vec<AccountMeta> {
+pub(crate) fn log_accounts() -> Vec<AccountMeta> {
     vec![
         AccountMeta::readonly(*PHOENIX_PROGRAM_ID),
         AccountMeta::readonly(*PHOENIX_LOG_AUTHORITY),
     ]
 }
 
-fn require_index_accounts(
+pub(crate) fn require_index_accounts(
     global_trader_index: Option<Vec<Pubkey>>,
     active_trader_buffer: Option<Vec<Pubkey>>,
 ) -> Result<(Vec<Pubkey>, Vec<Pubkey>), PhoenixIxError> {

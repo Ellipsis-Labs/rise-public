@@ -9,6 +9,18 @@ pub struct TwapSnapshot {
     pub trader_pda_index: u8,
     pub slot: u64,
     pub accounts: Vec<TwapAccountSnapshot>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub terminal_events: Vec<TwapTerminalEvent>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct TwapTerminalEvent {
+    pub event_id: String,
+    pub twap_account: String,
+    pub order_sequence_number: u64,
+    pub error_code: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -100,6 +112,7 @@ mod tests {
             assert_eq!(order.n_child_orders, 5);
             assert_eq!(order.n_dust_orders, Some(count));
             assert_eq!(order.dust_order_size, size);
+            assert!(snapshot.terminal_events.is_empty());
             assert_eq!(serde_json::to_value(snapshot).unwrap(), payload);
         }
         let order = payload["accounts"][0]["order"].as_object_mut().unwrap();
@@ -109,6 +122,81 @@ mod tests {
         let order = snapshot.accounts[0].order.as_ref().unwrap();
         assert_eq!(order.n_dust_orders, None);
         assert_eq!(order.dust_order_size, None);
+    }
+
+    #[test]
+    fn snapshot_round_trips_terminal_events() {
+        for error_code in [
+            "CANCELLED_INSUFFICIENT_MARGIN",
+            "CANCELLED_INSUFFICIENT_FUNDS",
+            "CANCELLED_POSITION_NOT_REDUCIBLE",
+            "EXPIRED_INCOMPLETE",
+            "FUTURE_SERVER_ERROR_CODE",
+        ] {
+            let mut payload: serde_json::Value =
+                serde_json::from_str(include_str!("../../../ts/tests/mocks/twap-snapshot.json"))
+                    .unwrap();
+            payload["terminalEvents"] = serde_json::json!([
+                {
+                    "eventId": "event-1",
+                    "twapAccount": "11111111111111111111111111111113",
+                    "orderSequenceNumber": 0,
+                    "errorCode": error_code
+                }
+            ]);
+            let snapshot: TwapSnapshot = serde_json::from_value(payload.clone()).unwrap();
+
+            assert_eq!(serde_json::to_value(snapshot).unwrap(), payload);
+        }
+    }
+
+    #[test]
+    fn snapshot_omits_empty_terminal_events() {
+        let mut payload: serde_json::Value =
+            serde_json::from_str(include_str!("../../../ts/tests/mocks/twap-snapshot.json"))
+                .unwrap();
+        payload["terminalEvents"] = serde_json::json!([]);
+
+        let snapshot: TwapSnapshot = serde_json::from_value(payload.clone()).unwrap();
+
+        assert!(snapshot.terminal_events.is_empty());
+        payload.as_object_mut().unwrap().remove("terminalEvents");
+        assert_eq!(serde_json::to_value(snapshot).unwrap(), payload);
+    }
+
+    #[test]
+    fn snapshot_rejects_invalid_terminal_event_fields() {
+        let payload = serde_json::json!({
+            "authority": "11111111111111111111111111111112",
+            "traderPdaIndex": 0,
+            "slot": 1000,
+            "accounts": [],
+            "terminalEvents": [{
+                "eventId": "event-1",
+                "twapAccount": "11111111111111111111111111111113",
+                "orderSequenceNumber": 0,
+                "errorCode": "EXPIRED_INCOMPLETE"
+            }]
+        });
+        for (field, value) in [
+            ("eventId", serde_json::json!(1)),
+            ("twapAccount", serde_json::json!(1)),
+            ("orderSequenceNumber", serde_json::json!("0")),
+            ("errorCode", serde_json::json!(1)),
+            ("errorCode", serde_json::Value::Null),
+        ] {
+            let mut invalid = payload.clone();
+            invalid["terminalEvents"][0][field] = value;
+            assert!(serde_json::from_value::<TwapSnapshot>(invalid).is_err());
+        }
+        for field in ["eventId", "twapAccount", "orderSequenceNumber", "errorCode"] {
+            let mut invalid = payload.clone();
+            invalid["terminalEvents"][0]
+                .as_object_mut()
+                .unwrap()
+                .remove(field);
+            assert!(serde_json::from_value::<TwapSnapshot>(invalid).is_err());
+        }
     }
 
     #[test]

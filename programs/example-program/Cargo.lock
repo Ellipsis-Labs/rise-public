@@ -2448,7 +2448,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise"
-version = "0.6.12"
+version = "0.6.13"
 dependencies = [
  "phoenix-rise-accounts",
  "phoenix-rise-api",
@@ -2460,7 +2460,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-accounts"
-version = "0.6.12"
+version = "0.6.13"
 dependencies = [
  "borsh",
  "bs58",
@@ -2474,7 +2474,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-api"
-version = "0.6.12"
+version = "0.6.13"
 dependencies = [
  "async-trait",
  "base64",
@@ -2496,7 +2496,7 @@ dependencies = [
  "solana-compute-budget-interface",
  "solana-instruction",
  "solana-keypair",
- "solana-pubkey 4.2.0",
+ "solana-pubkey 3.0.0",
  "solana-rpc-client",
  "solana-rpc-client-api",
  "solana-signature",
@@ -2512,7 +2512,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-core"
-version = "0.6.12"
+version = "0.6.13"
 dependencies = [
  "base64",
  "bytemuck",
@@ -2522,7 +2522,7 @@ dependencies = [
  "phoenix-rise-math",
  "solana-compute-budget-interface",
  "solana-instruction",
- "solana-pubkey 4.2.0",
+ "solana-pubkey 3.0.0",
  "solana-rpc-client",
  "solana-rpc-client-api",
  "solana-transaction",
@@ -2533,7 +2533,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-ix"
-version = "0.6.12"
+version = "0.6.13"
 dependencies = [
  "borsh",
  "bytemuck",
@@ -2549,7 +2549,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-litesvm-test"
-version = "0.6.12"
+version = "0.6.13"
 dependencies = [
  "base64",
  "borsh",
@@ -2562,7 +2562,7 @@ dependencies = [
  "solana-commitment-config",
  "solana-instruction",
  "solana-keypair",
- "solana-pubkey 4.2.0",
+ "solana-pubkey 3.0.0",
  "solana-rpc-client",
  "solana-signature",
  "solana-signer",
@@ -2572,7 +2572,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-math"
-version = "0.6.12"
+version = "0.6.13"
 dependencies = [
  "borsh",
  "bytemuck",
@@ -2581,13 +2581,13 @@ dependencies = [
  "rust_decimal",
  "serde",
  "sha2-const-stable",
- "solana-pubkey 4.2.0",
+ "solana-pubkey 3.0.0",
  "thiserror 2.0.20",
 ]
 
 [[package]]
 name = "phoenix-rise-types"
-version = "0.6.12"
+version = "0.6.13"
 dependencies = [
  "chrono",
  "phoenix-rise-math",

@@ -106,6 +106,7 @@ mod tests {
 
     fn make_stats_update(symbol: &str, mark_price: f64) -> MarketStatsUpdate {
         MarketStatsUpdate {
+            cumulative_funding_quote_lots_per_base_lot: None,
             symbol: symbol.to_string(),
             open_interest: 1000000.0,
             mark_price,

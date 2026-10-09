@@ -148,6 +148,10 @@ pub struct FundingRateMessage {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketStatsV2Data {
+    /// Cumulative funding in signed quote lots per base lot, as a decimal
+    /// integer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cumulative_funding_quote_lots_per_base_lot: Option<String>,
     pub symbol: String,
     /// Unix timestamp in seconds.
     pub timestamp: u64,
@@ -168,6 +172,9 @@ pub struct MarketStatsV2Data {
 impl MarketStatsV2Data {
     fn legacy_market_stats_update(&self) -> Option<MarketStatsUpdate> {
         Some(MarketStatsUpdate {
+            cumulative_funding_quote_lots_per_base_lot: self
+                .cumulative_funding_quote_lots_per_base_lot
+                .clone(),
             symbol: self.symbol.clone(),
             open_interest: self.open_interest,
             mark_price: self.mark_price,
@@ -630,5 +637,33 @@ mod tests {
         assert_eq!(message.symbols, Some(vec!["SOL-PERP".to_string()]));
         assert_eq!(message.stats[0].mark_price, 3.0);
         assert_eq!(message.stats[0].mid_price, Some(3.5));
+        assert_eq!(
+            message.stats[0].cumulative_funding_quote_lots_per_base_lot,
+            None
+        );
+        let mut enriched = message;
+        enriched.stats[0].cumulative_funding_quote_lots_per_base_lot =
+            Some("-9007199254740993".to_string());
+        let wire = serde_json::to_value(&enriched).unwrap();
+        assert_eq!(
+            wire["stats"][0]["cumulativeFundingQuoteLotsPerBaseLot"],
+            "-9007199254740993"
+        );
+        assert!(wire["stats"][0].get("slot").is_none());
+        assert!(wire["stats"][0].get("slotIndex").is_none());
+        let decoded: MarketStatsV2Update = serde_json::from_value(wire).unwrap();
+        let legacy = decoded.legacy_market_stats_update().unwrap();
+        assert_eq!(
+            legacy.cumulative_funding_quote_lots_per_base_lot.as_deref(),
+            Some("-9007199254740993")
+        );
+        let legacy_wire = serde_json::to_value(&legacy).unwrap();
+        assert!(legacy_wire.get("slot").is_none());
+        assert!(legacy_wire.get("slotIndex").is_none());
+        let legacy_decoded: MarketStatsUpdate = serde_json::from_value(legacy_wire).unwrap();
+        assert_eq!(
+            legacy_decoded.cumulative_funding_quote_lots_per_base_lot,
+            legacy.cumulative_funding_quote_lots_per_base_lot
+        );
     }
 }

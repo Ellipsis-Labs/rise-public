@@ -331,3 +331,16 @@ pub struct MarketSummaryEvent {
     pub mark_price: Ticks,
     pub spot_price: Ticks,
 }
+
+/// Additional fees actually collected above the trader's normal fee schedule.
+#[derive(Copy, Clone, BorshDeserialize, BorshSerialize, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct AdditionalFeeAccruedEvent {
+    pub trader: Pubkey,
+    /// Present for a resting maker order, absent for an incoming taker order.
+    pub order_sequence_number: Option<u64>,
+    pub additional_fee_tenths_bps: u8,
+    pub quote_lots_filled: QuoteLots,
+    /// Difference between rounded combined fees and rounded base fees.
+    pub fee_in_quote_lots: QuoteLots,
+}

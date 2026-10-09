@@ -295,6 +295,15 @@ pub fn get_native_sol_authority_address() -> Result<Pubkey, PhoenixIxError> {
     derive_program_address(&[b"native_sol"], &phoenix_program_id())
 }
 
+/// Derives the trader wallet PDA that owns a trader account's SPL spot
+/// collateral custody ATAs and signs the program's own token movements out of
+/// them.
+///
+/// Seeds: ["wallet", trader_account] against Phoenix program
+pub fn get_trader_wallet_address(trader_account: &Pubkey) -> Result<Pubkey, PhoenixIxError> {
+    derive_program_address(&[b"wallet", trader_account.as_ref()], &phoenix_program_id())
+}
+
 /// Derives the associated token address for an owner and mint.
 ///
 /// This follows the standard SPL ATA derivation.
