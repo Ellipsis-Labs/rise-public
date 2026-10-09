@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { V1CollateralClient } from "@/api/collateral";
+import { SpotAssetConfigSchema } from "@/api/collateral/types";
 import type { HttpTransport, RequestOptions } from "@/http";
 
 const transportWithResponse = (
@@ -14,6 +15,43 @@ const transportWithResponse = (
       headers: { "content-type": "application/json" },
     });
   },
+});
+
+describe("spot collateral metadata", () => {
+  const config = {
+    isActive: true,
+    perpAssetIndex: null,
+    maxPerTraderBalance: "1000000000",
+    maxGlobalBalance: "10000000000",
+    currGlobalBalance: "0",
+    minMarginDiscountBps: 0,
+    maxMarginDiscountBps: 5000,
+    maxLiquidationDiscountBps: 5000,
+    minLiquidationSlippageBps: 0,
+    maxLiquidationSize: "1",
+  };
+
+  it("preserves optional oracle-only pricing metadata without losing integer precision", () => {
+    expect(SpotAssetConfigSchema.parse(config).oraclePrice).toBeUndefined();
+    expect(
+      SpotAssetConfigSchema.parse({
+        ...config,
+        oraclePrice: {
+          ticks: "9007199254740993",
+          tickSize: "1000",
+          baseLotDecimals: 3,
+          lastUpdateSlot: "42",
+          staleThresholdSlots: "100",
+        },
+      }).oraclePrice
+    ).toEqual({
+      ticks: 9007199254740993n,
+      tickSize: 1000n,
+      baseLotDecimals: 3,
+      lastUpdateSlot: 42n,
+      staleThresholdSlots: 100n,
+    });
+  });
 });
 
 describe("V1CollateralClient.getUserCollateralTotals", () => {

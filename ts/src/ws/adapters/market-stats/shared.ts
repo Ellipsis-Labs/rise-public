@@ -2,6 +2,8 @@ import z from "zod";
 import { numericBigint } from "@/ws/numericSchemas";
 
 export interface MarketStats {
+  /** Signed quote lots per base lot. Kept as a string for exact integer arithmetic. */
+  cumulativeFundingQuoteLotsPerBaseLot?: string;
   timestamp: bigint;
   openInterest: number;
   markPrice: number;
@@ -19,10 +21,14 @@ export interface MarketStatsWireData extends MarketStats {
 }
 
 type MarketStatsZodShape = {
-  [Field in keyof MarketStats]: z.ZodType<MarketStats[Field]>;
+  [Field in keyof MarketStats]-?: z.ZodType<MarketStats[Field]>;
 };
 
 const marketStatsShape: MarketStatsZodShape = {
+  cumulativeFundingQuoteLotsPerBaseLot: z
+    .string()
+    .regex(/^-?\d+$/)
+    .optional(),
   timestamp: numericBigint("timestamp"),
   openInterest: z.number(),
   markPrice: z.number(),

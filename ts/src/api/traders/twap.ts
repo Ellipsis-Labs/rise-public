@@ -102,13 +102,29 @@ export interface TwapSnapshot {
   traderPdaIndex: number;
   slot: number;
   accounts: TwapAccountSnapshot[];
+  terminalEvents?: TwapTerminalEvent[];
 }
+
+export interface TwapTerminalEvent {
+  eventId: string;
+  twapAccount: string;
+  orderSequenceNumber: number;
+  errorCode: string;
+}
+
+export const TwapTerminalEventSchema: z.ZodType<TwapTerminalEvent> = z.object({
+  eventId: z.string(),
+  twapAccount: z.string(),
+  orderSequenceNumber: z.number(),
+  errorCode: z.string(),
+});
 
 export const TwapSnapshotSchema: z.ZodType<TwapSnapshot> = z.object({
   authority: z.string(),
   traderPdaIndex: z.number(),
   slot: z.number(),
   accounts: z.array(TwapAccountSnapshotSchema),
+  terminalEvents: z.array(TwapTerminalEventSchema).optional(),
 });
 
 /** Filters for a trader's TWAP accounts. The PDA index defaults to zero. */

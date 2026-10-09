@@ -428,6 +428,7 @@ describe("createPhoenixMarketData", () => {
         currentFundingRate: 0.01,
         eightHourFundingRate: 0.08,
         annualizedFundingRate: 1.2,
+        cumulativeFundingQuoteLotsPerBaseLot: "-9007199254740993",
       },
     });
 
@@ -466,6 +467,9 @@ describe("createPhoenixMarketData", () => {
 
     const solBeforeBtcStats =
       marketData.store.getState().marketsBySymbol["SOL-PERP"];
+    expect(solBeforeBtcStats).toMatchObject({
+      cumulativeFundingQuoteLotsPerBaseLot: "-9007199254740993",
+    });
 
     marketStats.push({
       symbol: "BTC-PERP",

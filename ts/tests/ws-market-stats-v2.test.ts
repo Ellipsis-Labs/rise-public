@@ -1,6 +1,7 @@
 import { createMarketStatsAdapter } from "@/ws/adapters/market-stats/adapter";
 import { createMarketStatsV2Adapter } from "@/ws/adapters/market-stats-v2/adapter";
 import { createMarketStatsV2Plugin } from "@/ws/adapters/market-stats-v2/plugin";
+import { marketStatsWireDataSchema } from "@/ws/adapters/market-stats/shared";
 import { buildMarketStatsV2RoutingKey } from "@/ws/adapters/market-stats-v2/routing";
 import type {
   SubscriptionMessage,
@@ -49,6 +50,51 @@ const rawStats = (symbol: string) => ({
 });
 
 describe("marketStatsV2 websocket adapter", () => {
+  it("preserves exact cumulative funding without per-market cursors through both adapters", async () => {
+    for (const createAdapter of [
+      createMarketStatsAdapter,
+      createMarketStatsV2Adapter,
+    ]) {
+      const { ws, subscriptions } = createMockWsClient();
+      const stream = createAdapter(ws)();
+      const iterator = stream[Symbol.asyncIterator]();
+      const next = iterator.next();
+      subscriptions[0]!.onMessage({
+        channel: "marketStatsV2",
+        stats: [
+          {
+            ...rawStats("SOL-PERP"),
+            cumulativeFundingQuoteLotsPerBaseLot: "-9007199254740993",
+          },
+        ],
+      });
+      const received = await next;
+      if (received.done) throw new Error("Missing market update");
+      const entry =
+        "symbol" in received.value ? received.value : received.value.stats[0];
+      expect(entry?.stats).toMatchObject({
+        cumulativeFundingQuoteLotsPerBaseLot: "-9007199254740993",
+      });
+      expect(entry?.stats).not.toHaveProperty("slot");
+      expect(entry?.stats).not.toHaveProperty("slotIndex");
+      await iterator.return?.();
+    }
+  });
+
+  it("accepts old stats but rejects fractional or numeric accumulators", () => {
+    expect(marketStatsWireDataSchema.safeParse(rawStats("SOL")).success).toBe(
+      true
+    );
+    for (const accumulator of ["1.5", 99, "NaN", ""]) {
+      expect(
+        marketStatsWireDataSchema.safeParse({
+          ...rawStats("SOL"),
+          cumulativeFundingQuoteLotsPerBaseLot: accumulator,
+        }).success
+      ).toBe(false);
+    }
+  });
+
   it("backs the V1-compatible stream with V2 and flattens each batch", async () => {
     const { ws, subscriptions } = createMockWsClient();
     const marketStats = createMarketStatsAdapter(ws);

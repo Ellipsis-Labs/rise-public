@@ -54,6 +54,7 @@ const EMPTY_STATUS: PhoenixMarketDataStatus = {
 };
 
 const createEmptyRow = (symbol: string): PhoenixMarketDataRow => ({
+  cumulativeFundingQuoteLotsPerBaseLot: null,
   symbol,
   timestamp: null,
   mid: null,
@@ -85,6 +86,8 @@ const preserveRowReference = (
 
   if (
     previous.symbol === next.symbol &&
+    previous.cumulativeFundingQuoteLotsPerBaseLot ===
+      next.cumulativeFundingQuoteLotsPerBaseLot &&
     previous.timestamp === next.timestamp &&
     previous.mid === next.mid &&
     previous.markPrice === next.markPrice &&
@@ -918,6 +921,8 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
         oraclePrice: update.stats.oraclePrice,
         openInterest: update.stats.openInterest,
         currentFundingRate: update.stats.currentFundingRate,
+        cumulativeFundingQuoteLotsPerBaseLot:
+          update.stats.cumulativeFundingQuoteLotsPerBaseLot ?? null,
         eightHourFundingRate: update.stats.eightHourFundingRate,
         annualizedFundingRate: update.stats.annualizedFundingRate,
         prevDayMarkPrice: update.stats.prevDayMarkPrice,
@@ -930,6 +935,11 @@ class PhoenixMarketDataImpl implements PhoenixMarketData {
       const stable = preserveRowReference(previous, next);
       const changedFields: PhoenixMarketDataChangedField[] = [];
 
+      if (
+        stable.cumulativeFundingQuoteLotsPerBaseLot !==
+        previous.cumulativeFundingQuoteLotsPerBaseLot
+      )
+        changedFields.push("cumulativeFundingQuoteLotsPerBaseLot");
       if (stable.timestamp !== previous.timestamp)
         changedFields.push("timestamp");
       if (stable.markPrice !== previous.markPrice)

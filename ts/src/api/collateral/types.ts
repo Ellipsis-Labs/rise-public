@@ -2,6 +2,14 @@ import z from "zod";
 import { numericBigint } from "@/ws/numericSchemas";
 
 export interface SpotAssetConfig {
+  /** Oracle-priced assets use this synthetic base-lot price instead of a perp. */
+  oraclePrice?: {
+    ticks: bigint;
+    tickSize: bigint;
+    baseLotDecimals: number;
+    lastUpdateSlot: bigint;
+    staleThresholdSlots: bigint;
+  } | null;
   /** Base58 SPL Token mint; absent for native SOL. */
   mint?: string | null;
   isActive: boolean;
@@ -28,6 +36,15 @@ export interface CollateralAssetsResponse {
 }
 
 export const SpotAssetConfigSchema: z.ZodType<SpotAssetConfig> = z.object({
+  oraclePrice: z
+    .object({
+      ticks: numericBigint("ticks"),
+      tickSize: numericBigint("tickSize"),
+      baseLotDecimals: z.number().int().min(-128).max(127),
+      lastUpdateSlot: numericBigint("lastUpdateSlot"),
+      staleThresholdSlots: numericBigint("staleThresholdSlots"),
+    })
+    .nullish(),
   mint: z.string().nullable().optional(),
   isActive: z.boolean(),
   perpAssetIndex: z.number().int().nonnegative().nullable().optional(),
