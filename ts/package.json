@@ -1,6 +1,6 @@
 {
   "name": "@ellipsis-labs/rise",
-  "version": "0.5.41",
+  "version": "0.6.0",
   "packageManager": "bun@1.4.2",
   "repository": {
     "type": "git",
@@ -63,8 +63,8 @@
   "dependencies": {
     "@noble/hashes": "^2.0.1",
     "@scure/base": "^2.0.0",
-    "@solana/kit": "^4.0.0",
-    "@solana/sysvars": "^4.0.0",
+    "@solana/kit": "^8.4.0",
+    "@solana/sysvars": "^8.4.0",
     "fzstd": "^0.1.1",
     "xstate": "^5.28.0",
     "zod": "4.4.3",
@@ -86,7 +86,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@solana/signers": "^4.0.0",
+    "@solana/signers": "^8.4.0",
     "@types/node": "^22.15.21",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",

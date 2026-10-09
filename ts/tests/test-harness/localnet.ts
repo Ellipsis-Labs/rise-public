@@ -9,6 +9,7 @@ import {
   createKeyPairSignerFromPrivateKeyBytes,
   createTransactionMessage,
   getBase58Encoder,
+  lamports,
   setTransactionMessageFeePayerSigner,
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners,
@@ -17,7 +18,6 @@ import type {
   AccountMeta,
   AccountSignerMeta,
   Address,
-  Blockhash,
   Instruction,
   InstructionWithAccounts,
   InstructionWithData,
@@ -185,10 +185,6 @@ type TransactionMetadata = Exclude<
   FailedTransactionMetadata
 >;
 
-type LiteSvmAddress = Parameters<LiteSVM["addProgramFromFile"]>[0];
-type LiteSvmLamports = Parameters<LiteSVM["airdrop"]>[1];
-type LiteSvmTransaction = Parameters<LiteSVM["sendTransaction"]>[0];
-
 const REQUIRED_PROGRAM_ARTIFACT_ENV = "RISE_SDK_LOCALNET_REQUIRE_PROGRAMS";
 const LOG_SUCCESSFUL_TRANSACTION_ENV = "RISE_SDK_LOCALNET_LOGS";
 const PHOENIX_REPO_ROOT_ENV = "PHOENIX_REPO_ROOT";
@@ -327,7 +323,7 @@ export const buildSdkLocalnetTransaction = async (
     signableInstructions,
     setTransactionMessageLifetimeUsingBlockhash(
       {
-        blockhash: vm.latestBlockhash() as unknown as Blockhash,
+        blockhash: vm.latestBlockhash(),
         lastValidBlockHeight: DEFAULT_LAST_VALID_BLOCK_HEIGHT,
       },
       setTransactionMessageFeePayerSigner(
@@ -353,9 +349,7 @@ export const sendSdkLocalnetInstructions = async (
     instructions,
     options
   );
-  const result = vm.sendTransaction(
-    transaction as unknown as LiteSvmTransaction
-  );
+  const result = vm.sendTransaction(transaction);
   const metadata = assertSuccessfulTransaction(result, label);
   if (shouldLogSuccessfulTransaction(label)) {
     console.info(`[LiteSVM:${label}]\n${metadata.logs().join("\n")}`);
@@ -662,24 +656,15 @@ export const loadSdkLocalnetPrograms = (
   programPaths: SdkLocalnetProgramPaths
 ): void => {
   vm.addProgramFromFile(
-    toLiteSvmAddress(fixture.programs.phoenixEternal),
+    address(fixture.programs.phoenixEternal),
     programPaths.phoenixEternal
   );
-  vm.addProgramFromFile(
-    toLiteSvmAddress(fixture.programs.ember),
-    programPaths.ember
-  );
+  vm.addProgramFromFile(address(fixture.programs.ember), programPaths.ember);
   if (programPaths.hawkeye) {
-    vm.addProgramFromFile(
-      toLiteSvmAddress(HAWKEYE_PROGRAM_ADDRESS),
-      programPaths.hawkeye
-    );
+    vm.addProgramFromFile(HAWKEYE_PROGRAM_ADDRESS, programPaths.hawkeye);
   }
   if (programPaths.flight) {
-    vm.addProgramFromFile(
-      toLiteSvmAddress(FLIGHT_PROGRAM_ADDRESS),
-      programPaths.flight
-    );
+    vm.addProgramFromFile(FLIGHT_PROGRAM_ADDRESS, programPaths.flight);
   }
 };
 
@@ -695,8 +680,8 @@ export const fundSdkLocalnetSigners = (
 
     const signer = getRequiredSigner(signers, signerConfig.seed);
     const result = vm.airdrop(
-      signer.address as unknown as LiteSvmAddress,
-      BigInt(signerConfig.initialLamports) as unknown as LiteSvmLamports
+      signer.address,
+      lamports(BigInt(signerConfig.initialLamports))
     );
     assertSuccessfulTransaction(result, `airdrop:${signerConfig.name}`);
   }
@@ -1094,9 +1079,6 @@ const getFixtureMint = (
 
 const isSignerRole = (role: AccountRole): boolean =>
   role === AccountRole.READONLY_SIGNER || role === AccountRole.WRITABLE_SIGNER;
-
-const toLiteSvmAddress = (value: string): LiteSvmAddress =>
-  address(value) as unknown as LiteSvmAddress;
 
 const explicitProgramPaths = (
   programPaths?: Partial<SdkLocalnetProgramPaths>
