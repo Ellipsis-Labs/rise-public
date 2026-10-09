@@ -1012,6 +1012,86 @@
       "discriminatorBase64": "WJOxuoHq7+c="
     },
     {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "SyncSpot",
+      "snakeCaseName": "sync_spot",
+      "preimage": "global:sync_spot",
+      "tag": "147956017718638072",
+      "discriminatorHex": "f83580d636a50d02",
+      "discriminatorBase64": "+DWA1jalDQI="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "WithdrawSpot",
+      "snakeCaseName": "withdraw_spot",
+      "preimage": "global:withdraw_spot",
+      "tag": "8132676774421998052",
+      "discriminatorHex": "e4297e047012dd70",
+      "discriminatorBase64": "5Cl+BHAS3XA="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "TransferSpot",
+      "snakeCaseName": "transfer_spot",
+      "preimage": "global:transfer_spot",
+      "tag": "4201072634231816191",
+      "discriminatorHex": "ff7f00774d354d3a",
+      "discriminatorBase64": "/38Ad001TTo="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "TransferSpotFromChildToParent",
+      "snakeCaseName": "transfer_spot_from_child_to_parent",
+      "preimage": "global:transfer_spot_from_child_to_parent",
+      "tag": "16331064343225435185",
+      "discriminatorHex": "310400967e98a3e2",
+      "discriminatorBase64": "MQQAln6Yo+I="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "LiquidateSpot",
+      "snakeCaseName": "liquidate_spot",
+      "preimage": "global:liquidate_spot",
+      "tag": "1367938851019948139",
+      "discriminatorHex": "6b00802923e5fb12",
+      "discriminatorBase64": "awCAKSPl+xI="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "SwapSpotWithUsdc",
+      "snakeCaseName": "swap_spot_with_usdc",
+      "preimage": "global:swap_spot_with_usdc",
+      "tag": "16129361069480114551",
+      "discriminatorHex": "777960886f00d7df",
+      "discriminatorBase64": "d3lgiG8A198="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "SwapSpotWithSol",
+      "snakeCaseName": "swap_spot_with_sol",
+      "preimage": "global:swap_spot_with_sol",
+      "tag": "7302278069132564204",
+      "discriminatorHex": "ec96c5f936e75665",
+      "discriminatorBase64": "7JbF+TbnVmU="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "SwapSpotWithSpot",
+      "snakeCaseName": "swap_spot_with_spot",
+      "preimage": "global:swap_spot_with_spot",
+      "tag": "1938784625249578566",
+      "discriminatorHex": "466efd3358f2e71a",
+      "discriminatorBase64": "Rm79M1jy5xo="
+    },
+    {
       "program": "phoenix-ember",
       "enumName": "EmberInstruction",
       "instructionName": "Deposit",

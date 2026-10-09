@@ -28,6 +28,7 @@ export * from "./Spline";
 export * from "./SyncParentToChild";
 export * from "./SystemTransferSol";
 export * from "./NativeSol";
+export * from "./Spot";
 export * from "./TransferCollateral";
 export * from "./TransferCollateralChildToParent";
 export * from "./Twap";

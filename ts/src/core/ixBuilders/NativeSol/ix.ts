@@ -99,10 +99,10 @@ const mergeMeta = (
     isWritableRole(meta.role) || isWritable
   );
 
-const requireIndexAccounts = (params: {
+export const requireIndexAccounts = (params: {
   globalTraderIndex: readonly unknown[];
   activeTraderBuffer: readonly unknown[];
-}) => {
+}): void => {
   if (!params.globalTraderIndex || params.globalTraderIndex.length === 0) {
     throw new Error(
       "Global trader index array is required and must not be empty"
@@ -111,6 +111,25 @@ const requireIndexAccounts = (params: {
   if (!params.activeTraderBuffer || params.activeTraderBuffer.length === 0) {
     throw new Error(
       "Active trader buffer array is required and must not be empty"
+    );
+  }
+};
+
+export const requireSwapAmounts = (params: {
+  amountIn: bigint;
+  minAmountOut: SwapNativeParams["minAmountOut"];
+}): void => {
+  if (params.amountIn === undefined || params.amountIn <= 0n) {
+    throw new Error("Swap amount in must be greater than 0");
+  }
+  if (params.minAmountOut === undefined) {
+    throw new Error(
+      'minAmountOut is required; pass "unprotected" to disable slippage protection'
+    );
+  }
+  if (typeof params.minAmountOut === "bigint" && params.minAmountOut <= 0n) {
+    throw new Error(
+      'minAmountOut must be greater than 0; pass "unprotected" to disable slippage protection'
     );
   }
 };
@@ -486,19 +505,7 @@ export const buildSwapNativeIx = async (
   if (!params.mint) {
     throw new Error("Mint is required");
   }
-  if (params.amountIn === undefined || params.amountIn <= 0n) {
-    throw new Error("Swap amount in must be greater than 0");
-  }
-  if (params.minAmountOut === undefined) {
-    throw new Error(
-      'minAmountOut is required; pass "unprotected" to disable slippage protection'
-    );
-  }
-  if (typeof params.minAmountOut === "bigint" && params.minAmountOut <= 0n) {
-    throw new Error(
-      'minAmountOut must be greater than 0; pass "unprotected" to disable slippage protection'
-    );
-  }
+  requireSwapAmounts(params);
 
   const { programAddress, logAuthorityAddress, globalConfigurationAddress } =
     getPhoenixInstructionAddresses(params);
