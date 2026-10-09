@@ -2,6 +2,8 @@ import z from "zod";
 import { numericBigint } from "@/ws/numericSchemas";
 
 export interface SpotAssetConfig {
+  /** Base58 SPL Token mint; absent for native SOL. */
+  mint?: string | null;
   isActive: boolean;
   perpAssetIndex?: number | null;
   maxPerTraderBalance: bigint;
@@ -26,6 +28,7 @@ export interface CollateralAssetsResponse {
 }
 
 export const SpotAssetConfigSchema: z.ZodType<SpotAssetConfig> = z.object({
+  mint: z.string().nullable().optional(),
   isActive: z.boolean(),
   perpAssetIndex: z.number().int().nonnegative().nullable().optional(),
   maxPerTraderBalance: numericBigint("maxPerTraderBalance"),

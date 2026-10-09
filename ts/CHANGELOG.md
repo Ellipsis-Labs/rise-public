@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.41 - 2026-10-09
+
+Source Phoenix commit: `6d22a5b38852c847c5f84e28fa57db413d6e8028`
+
+### Summary
+
+- Adds a React Native package entry. The root export now resolves to `dist/native/index.js` when the resolver enables the `react-native` condition. It exposes the same public API and types as the default Node/browser entry.
+- Adds `V1FundingClient.getFundingOverviewBySymbol(symbol, request?)`. It calls `GET /v1/funding/overview/{symbol}` and returns a `FundingOverviewSeries` for a single market.
+- Adds an optional `mint` field to `SpotAssetConfig` and its schema. It is the base58 SPL Token mint and is absent for native SOL.
+
+### Breaking Changes
+
+- Service-account credential files are unsupported in the React Native entry. `loadServiceAccountCredentialFromPath`, and any `PHOENIX_SERVICE_ACCOUNT_CREDENTIAL` file path, now reject with `PhoenixAuthError` code `service_account_credential_file_unavailable`. React Native bundlers that resolve the `react-native` condition will pick up this behavior automatically.
+- A configured credential file path takes precedence over split env credentials, so the native entry does not fall back to them.
+
+### Consumer Notes
+
+- The native entry has no Node filesystem loader. The application's runtime must supply the UTF-8 encoding, randomness and cryptographic capabilities that SDK operations need.
+- Explicit credentials and split-env credential loading behave the same in the native and default entries.
+- The default Node/browser entry is unchanged. It still loads Node `fs/promises` lazily, only when a credential file is requested.
+- The package version is `0.5.41`.
+
 ## v0.5.40 - 2026-10-09
 
 Source Phoenix commit: `37448f08b7a851abc164e998df7b3b850a101d35`

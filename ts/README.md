@@ -578,6 +578,23 @@ It does not force an eager login flow. Built-in route clients use the shared
 session opportunistically when one exists. For custom transport calls, use
 `RequestOptions.auth` to disable auth or require it explicitly.
 
+### React Native package entry
+
+The root package export selects `dist/native/index.js` when the resolver enables
+the `react-native` condition. It exposes the same public API and types as the
+default Node/browser entry. The native entry contains no Node filesystem loader;
+UTF-8 encoding, randomness, and cryptographic capabilities required by SDK
+operations must be supplied by the application's runtime.
+
+Service-account credential files are unsupported in the native entry. Calling
+`loadServiceAccountCredentialFromPath`, or configuring
+`PHOENIX_SERVICE_ACCOUNT_CREDENTIAL`, rejects with `PhoenixAuthError` code
+`service_account_credential_file_unavailable`. A configured file path takes
+precedence over split environment credentials, so this error does not fall back
+to those credentials. Explicit credentials and split environment loading retain
+the default entry's contract. The default entry continues to load Node
+`fs/promises` lazily when a credential file is requested.
+
 ### Service-account sessions
 
 Server-side tools can authenticate with the same service-account credential env
