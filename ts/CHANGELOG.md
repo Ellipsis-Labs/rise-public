@@ -3,6 +3,25 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.6.0 - 2026-10-09
+
+Source Phoenix commit: `8805b9df2e58b42435db0b333e258c9444e57375`
+
+### Summary
+
+- Bumps the package to `0.6.0`.
+- Upgrades the runtime dependencies `@solana/kit` and `@solana/sysvars` from `^4.0.0` to `^8.4.0`. The lockfile moves the transitive `@solana/*` packages to `8.4.0`.
+
+### Breaking Changes
+
+- `@solana/kit` and `@solana/sysvars` moved four major versions (`^4.0.0` to `^8.4.0`). Any Solana Kit types or values you pass into or receive from Rise APIs (addresses, signers, instructions, transaction messages) now come from Kit 8. Apps still on Kit 4 may hit type mismatches or runtime incompatibilities, so upgrade them to Kit `^8.4.0` alongside this release.
+- The `@solana/*` packages now require TypeScript `>=5.4.0` (previously `>=5.3.3`). Consumers on TypeScript 5.3.x need to upgrade.
+
+### Consumer Notes
+
+- Align the versions of `@solana/kit`, `@solana/signers`, and any `@solana-program/*` packages in your app with Kit 8.x. This avoids duplicate, mismatched copies of Kit in your dependency tree.
+- The synced diff shows no changes to Rise's own source exports. The only other change is to the internal test harness, which isn't published. Review any Kit 4 to 8 migration notes for code you've written against Kit directly.
+
 ## v0.5.41 - 2026-10-09
 
 Source Phoenix commit: `6d22a5b38852c847c5f84e28fa57db413d6e8028`
