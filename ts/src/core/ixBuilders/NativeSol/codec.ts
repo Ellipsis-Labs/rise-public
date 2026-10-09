@@ -7,7 +7,7 @@ import type {
   WithdrawNativeSolAction,
 } from "./types";
 
-const concat = (...chunks: Uint8Array[]): Uint8Array => {
+export const concat = (...chunks: Uint8Array[]): Uint8Array => {
   const total = chunks.reduce((length, chunk) => length + chunk.length, 0);
   const out = new Uint8Array(total);
   let offset = 0;
@@ -18,11 +18,11 @@ const concat = (...chunks: Uint8Array[]): Uint8Array => {
   return out;
 };
 
-const u8 = (value: number): Uint8Array =>
+export const u8 = (value: number): Uint8Array =>
   new Uint8Array(getU8Encoder().encode(value));
-const u32 = (value: number): Uint8Array =>
+export const u32 = (value: number): Uint8Array =>
   new Uint8Array(getU32Encoder().encode(value));
-const u64 = (value: bigint): Uint8Array =>
+export const u64 = (value: bigint): Uint8Array =>
   new Uint8Array(getU64Encoder().encode(value));
 
 export const encodeSyncNative = (): Uint8Array =>
@@ -56,53 +56,61 @@ export const packedAccountMetaState = (meta: {
 }): number =>
   (meta.index << 2) | (meta.isSigner ? 0b10 : 0) | (meta.isWritable ? 0b01 : 0);
 
+export const packedInstructionChunks = (
+  instructions: readonly PackedInstruction[]
+): Uint8Array[] => {
+  const chunks: Uint8Array[] = [u32(instructions.length)];
+  for (const instruction of instructions) {
+    chunks.push(
+      u8(instruction.programIdIndex),
+      u32(instruction.data.length),
+      instruction.data,
+      u32(instruction.accountMetas.length),
+      Uint8Array.from(instruction.accountMetas.map(packedAccountMetaState))
+    );
+  }
+  return chunks;
+};
+
+/** Shared layout of `SwapNative` and the spot swaps against USDC or SOL. */
+export const encodeSwap = (
+  discriminant: Uint8Array,
+  direction: SwapDirection,
+  amountIn: bigint,
+  minAmountOut: SwapSlippage,
+  instructions: readonly PackedInstruction[]
+): Uint8Array =>
+  concat(
+    new Uint8Array(discriminant),
+    u8(direction),
+    u64(amountIn),
+    // `unprotected` encodes the on-chain sentinel that disables the check.
+    u64(minAmountOut === "unprotected" ? 0n : minAmountOut),
+    ...packedInstructionChunks(instructions)
+  );
+
 export const encodeSwapNative = (
   direction: SwapDirection,
   amountIn: bigint,
   minAmountOut: SwapSlippage,
   instructions: readonly PackedInstruction[]
-): Uint8Array => {
-  const chunks: Uint8Array[] = [
-    new Uint8Array(DISCRIMINANTS.SWAP_NATIVE),
-    u8(direction),
-    u64(amountIn),
-    // `unprotected` encodes the on-chain sentinel that disables the check.
-    u64(minAmountOut === "unprotected" ? 0n : minAmountOut),
-    u32(instructions.length),
-  ];
-
-  for (const instruction of instructions) {
-    chunks.push(
-      u8(instruction.programIdIndex),
-      u32(instruction.data.length),
-      instruction.data,
-      u32(instruction.accountMetas.length),
-      Uint8Array.from(instruction.accountMetas.map(packedAccountMetaState))
-    );
-  }
-
-  return concat(...chunks);
-};
+): Uint8Array =>
+  encodeSwap(
+    DISCRIMINANTS.SWAP_NATIVE,
+    direction,
+    amountIn,
+    minAmountOut,
+    instructions
+  );
 
 export const encodeLiquidateNativeSol = (
   maxNativeSolAmount: bigint,
   numTradersToCheck: bigint,
   instructions: readonly PackedInstruction[]
-): Uint8Array => {
-  const chunks: Uint8Array[] = [
+): Uint8Array =>
+  concat(
     new Uint8Array(DISCRIMINANTS.LIQUIDATE_NATIVE_SOL),
     u64(maxNativeSolAmount),
     u64(numTradersToCheck),
-    u32(instructions.length),
-  ];
-  for (const instruction of instructions) {
-    chunks.push(
-      u8(instruction.programIdIndex),
-      u32(instruction.data.length),
-      instruction.data,
-      u32(instruction.accountMetas.length),
-      Uint8Array.from(instruction.accountMetas.map(packedAccountMetaState))
-    );
-  }
-  return concat(...chunks);
-};
+    ...packedInstructionChunks(instructions)
+  );

@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.5.40 - 2026-10-09
+
+Source Phoenix commit: `37448f08b7a851abc164e998df7b3b850a101d35`
+
+### Summary
+
+- Adds SPL spot collateral support to `@ellipsis-labs/rise` 0.5.40. New instruction builders (`buildSyncSpotIx`, `buildWithdrawSpotIx`, `buildTransferSpotIx`, `buildTransferSpotFromChildToParentIx`, `buildLiquidateSpotIx`, `buildSwapSpotWithUsdcIx`, `buildSwapSpotWithSolIx`, `buildSwapSpotWithSpotIx`), their `encode*` codecs, and the related param and type exports are available from the instruction-builders entrypoint.
+- Adds `buildSpotDepositFlow`, which builds the instruction sequence for a spot deposit. It reserves trader capacity (wallet-paid only), idempotently creates the custody ATA, transfers the tokens, then runs `SyncSpot`. It exports `SpotDepositFlowParams`, `SpotDepositFlowInstructions` and `SpotDepositFlowResult`.
+- Adds PDA helpers `getPhoenixTraderWalletAddress` (seeds `["wallet", traderAccount]`) and `getAssociatedTokenAccountAddress` (works for any owner). Adds the `TraderWalletAddress` branded type.
+- Widens the `owner` parameter of `buildCreateAssociatedTokenAccountIdempotentSync` from `Authority` to `Address`, so PDA-owned ATAs can be created.
+- Bumps the `source-map-js` override to `>=1.2.2`.
+
+### Breaking Changes
+
+- None identified in the synced diff. The `owner` widening is backward compatible. `getPhoenixTraderTokenAccountAddress` keeps its signature and now delegates to `getAssociatedTokenAccountAddress`. `NativeSolDepositFlowParams` is now built from a shared `SponsorableDepositParams` type, but it has the same shape as before. The sponsored-deposit error message still reads "Sponsored native SOL deposits require traderCapacityPrepared: true…".
+
+### Consumer Notes
+
+- Spot deposits use a plain SPL transfer into the trader wallet PDA's custody ATA, followed by `SyncSpot`. `SyncSpot` clamps to the per-trader and exchange-wide caps instead of rejecting. The credited amount can therefore be less than the amount transferred, and the remainder stays in the custody ATA as uncounted excess.
+- Sponsored spot deposits require `traderCapacityPrepared: true`, which means running a wallet-paid `buildReallocTraderIx` transaction first. This matches the native SOL flow. The token transfer is always signed and funded by `authority`.
+- The spot swap builders require an explicit `minAmountOut`. Pass a positive `bigint`, or `"unprotected"` to disable the check. `undefined` or `0n` throws. The unit is the output asset: quote lots or spot base units, depending on direction.
+- `buildWithdrawSpotIx` rejects a destination equal to the custody ATA. Only the trader wallet can sign it, not a position authority.
+
 ## v0.5.39 - 2026-09-30
 
 Source Phoenix commit: `1cba3a70688a9e3f4480b91762cabd72e1f5638c`

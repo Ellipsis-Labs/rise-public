@@ -44,6 +44,16 @@ export const DISCRIMINANTS: DiscriminantMap = {
   ),
   LIQUIDATE_NATIVE_SOL: sha2_const("global:liquidate_native_sol"),
   SWAP_NATIVE: sha2_const("global:swap_native"),
+  SYNC_SPOT: sha2_const("global:sync_spot"),
+  WITHDRAW_SPOT: sha2_const("global:withdraw_spot"),
+  TRANSFER_SPOT: sha2_const("global:transfer_spot"),
+  TRANSFER_SPOT_FROM_CHILD_TO_PARENT: sha2_const(
+    "global:transfer_spot_from_child_to_parent"
+  ),
+  LIQUIDATE_SPOT: sha2_const("global:liquidate_spot"),
+  SWAP_SPOT_WITH_USDC: sha2_const("global:swap_spot_with_usdc"),
+  SWAP_SPOT_WITH_SOL: sha2_const("global:swap_spot_with_sol"),
+  SWAP_SPOT_WITH_SPOT: sha2_const("global:swap_spot_with_spot"),
   REGISTER_SPLINE: sha2_const("global:register_spline"),
   DEACTIVATE_SPLINE: sha2_const("global:deactivate_spline"),
   UPDATE_SPLINE_PRICE: sha2_const("global:update_spline_price"),

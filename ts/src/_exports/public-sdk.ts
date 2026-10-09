@@ -247,6 +247,7 @@ export {
 } from "../pdaClient";
 
 export {
+  getAssociatedTokenAccountAddress,
   getEmberStateAddress,
   getEmberVaultAddress,
   getPhoenixConditionalOrdersAddress,
@@ -259,6 +260,7 @@ export {
   getPhoenixStopLossAddress,
   getPhoenixTraderSubaccountAddress,
   getPhoenixTraderTokenAccountAddress,
+  getPhoenixTraderWalletAddress,
   getTwapAccountAddress,
   getTwapDelegatePermissionAddress,
   getTwapGlobalStateAddress,
@@ -398,6 +400,7 @@ export {
   buildGrantEscrowPermissionFlow,
   buildNativeSolDepositFlow,
   buildPlaceLimitOrderFlow,
+  buildSpotDepositFlow,
   buildPlaceMarketOrderFlow,
   buildPlaceMultiLimitOrderFlow,
   buildRevokeEscrowPermissionFlow,
@@ -414,6 +417,9 @@ export {
   type NativeSolDepositFlowInstructions,
   type NativeSolDepositFlowParams,
   type NativeSolDepositFlowResult,
+  type SpotDepositFlowInstructions,
+  type SpotDepositFlowParams,
+  type SpotDepositFlowResult,
   type GrantEscrowPermissionFlowInstructions,
   type GrantEscrowPermissionFlowParams,
   type GrantEscrowPermissionFlowResult,

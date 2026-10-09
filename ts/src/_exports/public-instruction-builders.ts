@@ -394,6 +394,36 @@ export {
 } from "../core/ixBuilders/NativeSol";
 
 export {
+  buildLiquidateSpotIx,
+  buildSwapSpotWithSolIx,
+  buildSwapSpotWithSpotIx,
+  buildSwapSpotWithUsdcIx,
+  buildSyncSpotIx,
+  buildTransferSpotFromChildToParentIx,
+  buildTransferSpotIx,
+  buildWithdrawSpotIx,
+  encodeLiquidateSpot,
+  encodeSwapSpotWithSol,
+  encodeSwapSpotWithSpot,
+  encodeSwapSpotWithUsdc,
+  encodeSyncSpot,
+  encodeTransferSpot,
+  encodeTransferSpotFromChildToParent,
+  encodeWithdrawSpot,
+  type LiquidateSpotParams,
+  type SpotAccounts,
+  type SpotIx,
+  type SwapSpotWithSolParams,
+  type SwapSpotWithSpotParams,
+  type SwapSpotWithUsdcParams,
+  type SyncSpotParams,
+  type TransferSpotFromChildToParentParams,
+  type TransferSpotParams,
+  type WithdrawSpotAction,
+  type WithdrawSpotParams,
+} from "../core/ixBuilders/Spot";
+
+export {
   buildTransferCollateralIx,
   getTransferCollateralCodec,
   getTransferCollateralDecoder,

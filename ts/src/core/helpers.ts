@@ -679,7 +679,7 @@ export const buildCreateAssociatedTokenAccountIdempotent = async (params: {
 export const buildCreateAssociatedTokenAccountIdempotentSync = (params: {
   payer: Authority;
   ataAddress: Address;
-  owner: Authority;
+  owner: Address;
   mint: MintAddress;
   tokenProgram?: SPLTokenProgramAddress;
 }): InstructionsWithAccountsAndData => {

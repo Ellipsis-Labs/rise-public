@@ -1,6 +1,6 @@
 {
   "name": "@ellipsis-labs/rise",
-  "version": "0.5.39",
+  "version": "0.5.40",
   "packageManager": "bun@1.4.2",
   "repository": {
     "type": "git",
@@ -80,7 +80,8 @@
     "picomatch": ">=4.0.4",
     "vite": "8.0.16",
     "ws": ">=8.21.0",
-    "undici": "^7.29.0"
+    "undici": "^7.29.0",
+    "source-map-js": ">=1.2.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

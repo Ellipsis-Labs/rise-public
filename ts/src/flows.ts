@@ -24,6 +24,7 @@ import {
 } from "@/core/permissionInstructions";
 import { buildSyncNativeIx } from "@/core/ixBuilders/NativeSol";
 import { buildReallocTraderIx } from "@/core/ixBuilders/ReallocTrader";
+import { buildSyncSpotIx } from "@/core/ixBuilders/Spot";
 import { buildTransferSolIx } from "@/core/ixBuilders/SystemTransferSol";
 import {
   buildDepositFunds,
@@ -39,6 +40,7 @@ import {
   type Authority,
   MarginType,
   type MarketAddress,
+  type MintAddress,
   type PerpAssetMapAddress,
   quoteLots,
   Side,
@@ -52,10 +54,12 @@ import {
   type TraderAddress,
 } from "@/primitives";
 import {
+  getAssociatedTokenAccountAddress,
   getPhoenixPermissionAddress,
   getPhoenixSplineCollectionAddress,
   getPhoenixTraderSubaccountAddress,
   getPhoenixTraderTokenAccountAddress,
+  getPhoenixTraderWalletAddress,
 } from "@/pdas";
 import {
   buildFlameDepositToPhoenixIx,
@@ -171,21 +175,38 @@ interface BaseNativeSolDepositFlowParams {
   subaccountIndex?: number;
 }
 
-type SponsoredNativeSolDepositFlowParams = BaseNativeSolDepositFlowParams &
-  SponsorshipUserIdentifier & {
-    feePayer: Authority;
-    sponsorshipToken: string;
-    /** Complete wallet-paid ReallocTrader preparation before sponsorship. */
-    traderCapacityPrepared: true;
-  };
+type SponsorableDepositParams<B> =
+  | (B &
+      SponsorshipUserIdentifier & {
+        feePayer: Authority;
+        sponsorshipToken: string;
+        /** Complete wallet-paid ReallocTrader preparation before sponsorship. */
+        traderCapacityPrepared: true;
+      })
+  | (B & { feePayer?: null });
 
-interface NonSponsoredNativeSolDepositFlowParams extends BaseNativeSolDepositFlowParams {
-  feePayer?: null;
-}
+/** Returns whether the deposit is sponsored. */
+const assertCapacityPrepared = (
+  params: SponsorableDepositParams<object>,
+  label: string
+): boolean => {
+  const sponsored = params.feePayer != null;
+  if (
+    sponsored &&
+    !(
+      "traderCapacityPrepared" in params &&
+      params.traderCapacityPrepared === true
+    )
+  ) {
+    throw new Error(
+      `Sponsored ${label} deposits require traderCapacityPrepared: true after wallet-paid ReallocTrader preparation`
+    );
+  }
+  return sponsored;
+};
 
 export type NativeSolDepositFlowParams =
-  | SponsoredNativeSolDepositFlowParams
-  | NonSponsoredNativeSolDepositFlowParams;
+  SponsorableDepositParams<BaseNativeSolDepositFlowParams>;
 
 export interface NativeSolDepositFlowInstructions {
   /** Included for wallet-paid flows; sponsored flows require prior preparation. */
@@ -651,18 +672,7 @@ export const buildNativeSolDepositFlow = async (
   if (lamports <= 0n) {
     throw new Error("Deposit amount must be greater than 0");
   }
-  const sponsored = params.feePayer != null;
-  if (
-    sponsored &&
-    !(
-      "traderCapacityPrepared" in params &&
-      params.traderCapacityPrepared === true
-    )
-  ) {
-    throw new Error(
-      "Sponsored native SOL deposits require traderCapacityPrepared: true after wallet-paid ReallocTrader preparation"
-    );
-  }
+  const sponsored = assertCapacityPrepared(params, "native SOL");
 
   const [{ arenaAddresses, globalTraderIndexAddresses }, traderAccount] =
     await Promise.all([
@@ -709,6 +719,154 @@ export const buildNativeSolDepositFlow = async (
     traderAccount,
   };
 };
+
+/**
+ * SPL spot deposits have no deposit instruction of their own: an SPL transfer
+ * lands tokens in the custody ATA of the trader's wallet PDA, and a following
+ * `SyncSpot` accounts them as collateral. The ordering is load-bearing — the
+ * sync must run after the transfer in the same transaction.
+ */
+interface BaseSpotDepositFlowParams {
+  authority: Authority;
+  /** The spot asset's mint. */
+  mint: MintAddress;
+  /** Deposit amount in the token's base units. */
+  amount: bigint;
+  /**
+   * Token account funding the deposit; must be owned by `authority`. Defaults
+   * to the authority's associated token account for `mint`.
+   */
+  sourceTokenAccount?: TokenAccountAddress;
+  traderPdaIndex?: number;
+  /** Defaults to the cross-margin subaccount (`0`). */
+  subaccountIndex?: number;
+}
+
+export type SpotDepositFlowParams =
+  SponsorableDepositParams<BaseSpotDepositFlowParams>;
+
+export interface SpotDepositFlowInstructions {
+  /** Included for wallet-paid flows; sponsored flows require prior preparation. */
+  reallocTrader?: InstructionsWithAccountsAndData;
+  /** Idempotent create of the custody ATA; a no-op when it already exists. */
+  createCustodyAta: InstructionsWithAccountsAndData;
+  transferTokens: InstructionsWithAccountsAndData;
+  syncSpot: InstructionsWithAccountsAndData;
+}
+
+export interface SpotDepositFlowResult {
+  instructions: InstructionsWithAccountsAndData[];
+  named: SpotDepositFlowInstructions;
+  /** The trader (sub)account the tokens were credited against. */
+  traderAccount: TraderAddress;
+  /** The wallet-PDA custody ATA the tokens were sent to. */
+  custodyTokenAccount: TokenAccountAddress;
+}
+
+/**
+ * Deposit an SPL token as spot collateral: reserve map capacity with
+ * `ReallocTrader`, idempotently create the wallet-PDA custody ATA, transfer
+ * `amount` into it, then `SyncSpot` to account the balance.
+ *
+ * Mirrors `buildNativeSolDepositFlow`: register-if-needed stays with the
+ * caller, and sponsored deposits require a wallet-paid `buildReallocTraderIx`
+ * preparation transaction followed by `traderCapacityPrepared: true`. The token
+ * transfer is always signed and funded by `authority` — sponsorship covers the
+ * network fee (and any custody-ATA rent, via `feePayer`), never the deposited
+ * tokens.
+ *
+ * The credited amount can be less than `amount`: `SyncSpot` clamps, rather
+ * than rejects, against the per-trader and exchange-wide caps, and consumes
+ * any pre-existing unaccounted tokens first. Whatever the clamp leaves over
+ * stays in the custody ATA as uncounted excess, recoverable by a later sync
+ * once headroom frees up.
+ */
+export const buildSpotDepositFlow = async (
+  params: SpotDepositFlowParams,
+  client: PhoenixInstructionClient
+): Promise<SpotDepositFlowResult> => {
+  const {
+    authority,
+    mint,
+    amount,
+    traderPdaIndex = 0,
+    subaccountIndex = 0,
+  } = params;
+  if (amount <= 0n) {
+    throw new Error("Deposit amount must be greater than 0");
+  }
+  const sponsored = assertCapacityPrepared(params, "spot");
+
+  const [
+    { arenaAddresses, globalTraderIndexAddresses, perpAssetMapKey },
+    traderAccount,
+  ] = await Promise.all([
+    fetchRequiredAccounts(client),
+    getPhoenixTraderSubaccountAddress({
+      authority,
+      traderPdaIndex,
+      subaccountIndex,
+      phoenixProgramAddress: client.addresses.phoenixProgramAddress,
+    }),
+  ]);
+  const wallet = await getPhoenixTraderWalletAddress(
+    traderAccount,
+    client.addresses.phoenixProgramAddress
+  );
+  const [custodyTokenAccount, defaultSourceTokenAccount] = await Promise.all([
+    getAssociatedTokenAccountAddress(wallet, mint),
+    getPhoenixTraderTokenAccountAddress(authority, mint),
+  ]);
+  const sourceTokenAccount =
+    params.sourceTokenAccount ?? defaultSourceTokenAccount;
+
+  const reallocTrader = sponsored
+    ? undefined
+    : buildReallocTraderIx({
+        ...clientPhoenixInstructionAddresses(client),
+        payer: authority,
+        trader: authority,
+        traderAccount,
+      });
+  const createCustodyAta = buildCreateAssociatedTokenAccountIdempotentSync({
+    payer: resolveFlowPayer(params),
+    ataAddress: custodyTokenAccount,
+    owner: wallet,
+    mint,
+  });
+  const transferTokens = buildSplTokenTransfer({
+    owner: authority,
+    sourceTokenAccount,
+    destinationTokenAccount: custodyTokenAccount,
+    amount,
+  });
+  const syncSpot = await buildSyncSpotIx({
+    ...clientPhoenixInstructionAddresses(client),
+    traderAccount,
+    mint,
+    perpAssetMap: perpAssetMapKey,
+    globalTraderIndex: globalTraderIndexAddresses,
+    activeTraderBuffer: arenaAddresses,
+  });
+
+  return {
+    instructions: [
+      ...(reallocTrader ? [reallocTrader] : []),
+      createCustodyAta,
+      transferTokens,
+      syncSpot,
+    ],
+    named: {
+      reallocTrader,
+      createCustodyAta,
+      transferTokens,
+      syncSpot,
+    },
+    traderAccount,
+    custodyTokenAccount,
+  };
+};
+
 export const buildWithdrawFlow = async (
   params: WithdrawFlowParams,
   client: PhoenixInstructionClient

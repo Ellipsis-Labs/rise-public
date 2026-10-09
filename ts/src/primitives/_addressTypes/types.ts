@@ -54,6 +54,10 @@ export type GlobalVaultAddress = Branded<Address, "GlobalVault">;
 /** PDA that custodies native SOL spot collateral and signs the program's own
  * withdrawals of it. Seeds: `["native_sol"]`. */
 export type NativeSolAuthorityAddress = Branded<Address, "NativeSolAuthority">;
+/** Per-trader wallet PDA that owns the trader's SPL spot collateral custody
+ * ATAs and signs the program's own token movements out of them. Seeds:
+ * `["wallet", traderAccount]`. */
+export type TraderWalletAddress = Branded<Address, "TraderWallet">;
 export type WithdrawQueueAddress = Branded<Address, "WithdrawQueue">;
 export type EmberStateAddress = Branded<Address, "EmberState">;
 export type EmberVaultAddress = Branded<Address, "EmberVault">;

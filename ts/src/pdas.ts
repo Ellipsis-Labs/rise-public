@@ -20,6 +20,7 @@ import type {
   SplineCollectionAddress,
   TokenAccountAddress,
   TraderAddress,
+  TraderWalletAddress,
   TwapAccountAddress,
   TwapGlobalStateAddress,
   TwapLogAuthorityAddress,
@@ -123,14 +124,15 @@ export const getPhoenixTraderSubaccountAddress = async (
   return pda as TraderAddress;
 };
 
-export const getPhoenixTraderTokenAccountAddress = async (
-  authority: Authority,
+/** Derives the standard SPL associated token account for any owner. */
+export const getAssociatedTokenAccountAddress = async (
+  owner: Address,
   mint: MintAddress
 ): Promise<TokenAccountAddress> => {
   const [pda] = await getProgramDerivedAddress({
     programAddress: SPL_ATA_PROGRAM_ADDRESS,
     seeds: [
-      getBase58Encoder().encode(authority),
+      getBase58Encoder().encode(owner),
       getBase58Encoder().encode(SPL_TOKEN_PROGRAM_ADDRESS),
       getBase58Encoder().encode(mint),
     ],
@@ -138,6 +140,12 @@ export const getPhoenixTraderTokenAccountAddress = async (
 
   return pda as TokenAccountAddress;
 };
+
+export const getPhoenixTraderTokenAccountAddress = async (
+  authority: Authority,
+  mint: MintAddress
+): Promise<TokenAccountAddress> =>
+  getAssociatedTokenAccountAddress(authority, mint);
 
 export const getPhoenixGlobalVaultAddress = async (
   mint: MintAddress,
@@ -188,6 +196,25 @@ export const getPhoenixNativeSolAuthorityAddress = async (
   });
 
   return pda as NativeSolAuthorityAddress;
+};
+
+/**
+ * Derives the trader wallet PDA that owns a trader account's SPL spot
+ * collateral custody ATAs and signs the program's own token movements out of
+ * them.
+ *
+ * Seeds: `["wallet", traderAccount]`.
+ */
+export const getPhoenixTraderWalletAddress = async (
+  traderAccount: TraderAddress,
+  phoenixProgramAddress: PhoenixProgramAddress = getPhoenixProgramAddress()
+): Promise<TraderWalletAddress> => {
+  const [pda] = await getProgramDerivedAddress({
+    programAddress: phoenixProgramAddress,
+    seeds: ["wallet", getBase58Encoder().encode(traderAccount)],
+  });
+
+  return pda as TraderWalletAddress;
 };
 
 export const getPhoenixPermissionAddress = async (
