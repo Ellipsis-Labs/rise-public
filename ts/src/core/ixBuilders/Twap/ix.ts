@@ -339,10 +339,8 @@ const validatePlaceTwapOrder = (params: PlaceTwapOrderParams) => {
     throw new Error("Child order packet is required");
   }
   const nDustOrders = params.nDustOrders ?? 0n;
-  if (nDustOrders < 0n || nDustOrders > params.nChildOrders) {
-    throw new Error(
-      "Dust order count must be between 0 and the child order count"
-    );
+  if (nDustOrders < 0n) {
+    throw new Error("Dust order count must be non-negative");
   }
   if (params.nChildOrders + nDustOrders > (1n << 64n) - 1n) {
     throw new Error("Total order count exceeds u64");

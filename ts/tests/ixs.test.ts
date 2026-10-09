@@ -433,6 +433,10 @@ describe("twap dust orders", () => {
     [3n, 2n],
     [3n, 3n],
     [1n, 1n],
+    [1n, 2n],
+    [1n, 3n],
+    [3n, 4n],
+    [1n, (1n << 64n) - 2n],
   ])(
     "round-trips %s regular children and %s dust orders",
     (nChildOrders, nDustOrders) => {
@@ -462,10 +466,7 @@ describe("twap dust orders", () => {
     }
   );
 
-  it.each([
-    [1n, 2n],
-    [3n, -1n],
-  ])(
+  it.each([[3n, -1n]])(
     "rejects %s regular children with %s dust orders",
     (nChildOrders, nDustOrders) => {
       expect(() =>
@@ -483,7 +484,7 @@ describe("twap dust orders", () => {
             accountMeta("order-phoenix-program", AccountRole.READONLY),
           ],
         })
-      ).toThrow("Dust order count must be between 0 and the child order count");
+      ).toThrow("Dust order count must be non-negative");
     }
   );
 
