@@ -1,6 +1,6 @@
 {
   "name": "@ellipsis-labs/rise",
-  "version": "0.5.40",
+  "version": "0.5.41",
   "packageManager": "bun@1.4.2",
   "repository": {
     "type": "git",
@@ -29,6 +29,7 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "react-native": "./dist/native/index.js",
       "default": "./dist/index.js"
     },
     "./test-fixtures/default-localnet.json": "./test-fixtures/default-localnet.json",

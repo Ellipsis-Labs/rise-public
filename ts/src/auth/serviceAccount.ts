@@ -6,6 +6,7 @@ import { base64urlnopad } from "@scure/base";
 import z from "zod";
 
 import { PhoenixAuthError } from "@/errors";
+import { loadServiceAccountFileReader } from "@/auth/serviceAccountFile";
 import type { AuthSession } from "./session";
 import type {
   AuthChallengeResponse,
@@ -154,11 +155,13 @@ const loadServiceAccountCredentialFromResolvedPath = async (
   env: PhoenixServiceAccountCredentialEnv
 ): Promise<PhoenixServiceAccountCredential> => {
   try {
-    const { readFile } = await loadNodeFsPromises();
+    const readFile = await loadServiceAccountFileReader();
     const contents = await readFile(expandHomePath(path, env), "utf8");
     return ServiceAccountCredentialSchema.parse(JSON.parse(contents));
   } catch (error) {
-    if (error instanceof PhoenixAuthError) throw error;
+    if (error instanceof PhoenixAuthError) {
+      throw error;
+    }
     throw new PhoenixAuthError(
       error instanceof Error
         ? `Failed to load service-account credential: ${error.message}`
@@ -168,34 +171,6 @@ const loadServiceAccountCredentialFromResolvedPath = async (
     );
   }
 };
-
-type NodeReadTextFile = (path: string, encoding: "utf8") => Promise<string>;
-
-interface NodeFsPromisesModule {
-  readFile: NodeReadTextFile;
-}
-
-const isNodeFsPromisesModule = (
-  value: unknown
-): value is NodeFsPromisesModule =>
-  value !== null &&
-  typeof value === "object" &&
-  "readFile" in value &&
-  typeof value.readFile === "function";
-
-const loadNodeFsPromises = async (): Promise<NodeFsPromisesModule> => {
-  const module: unknown = await import(nodeFsPromisesModuleSpecifier());
-  if (!isNodeFsPromisesModule(module)) {
-    throw new PhoenixAuthError(
-      "Node fs/promises module is unavailable",
-      "service_account_credential_file_unavailable"
-    );
-  }
-  return module;
-};
-
-const nodeFsPromisesModuleSpecifier = (): string =>
-  ["node:", "fs/promises"].join("");
 
 const decodePrivateKey = (privateKey: string): Uint8Array => {
   try {

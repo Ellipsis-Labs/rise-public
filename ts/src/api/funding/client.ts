@@ -6,6 +6,7 @@ import type {
   FundingHourlyRequest,
   FundingOverviewRequest,
   FundingOverviewResponse,
+  FundingOverviewSeries,
   FundingRateHistoryRequest,
   FundingRateHistoryResponse,
   TraderFundingHistoryRequest,
@@ -14,6 +15,7 @@ import type {
 import {
   FundingHourlyHistoryResponseSchema,
   FundingOverviewResponseSchema,
+  FundingOverviewSeriesSchema,
   FundingRateHistoryResponseSchema,
   TraderFundingHistoryResponseSchema,
 } from "./types";
@@ -121,6 +123,18 @@ export class V1FundingClient {
       this.http,
       "/v1/funding/overview",
       FundingOverviewResponseSchema,
+      { params: buildFundingOverviewQuery(request) }
+    );
+  }
+
+  async getFundingOverviewBySymbol(
+    symbol: string,
+    request?: FundingOverviewRequest
+  ): Promise<FundingOverviewSeries> {
+    return get(
+      this.http,
+      `/v1/funding/overview/${encodeURIComponent(symbol)}`,
+      FundingOverviewSeriesSchema,
       { params: buildFundingOverviewQuery(request) }
     );
   }

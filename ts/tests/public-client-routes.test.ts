@@ -748,6 +748,14 @@ describe("public client route mapping", () => {
           },
         ],
         [
+          "/v1/funding/overview/SOL",
+          {
+            marketId: 1,
+            symbol: "SOL",
+            points: [],
+          },
+        ],
+        [
           "/v1/invite/validate",
           {
             success: true,
@@ -877,6 +885,11 @@ describe("public client route mapping", () => {
       limit: 25,
     });
     await funding.getFundingOverview({
+      startTime: 0,
+      endTime: 0,
+      perMarketLimit: 10,
+    });
+    await funding.getFundingOverviewBySymbol("SOL", {
       startTime: 0,
       endTime: 0,
       perMarketLimit: 10,
@@ -1051,6 +1064,16 @@ describe("public client route mapping", () => {
       {
         method: "GET",
         endpoint: "/v1/funding/overview",
+        params: {
+          startTime: 0,
+          endTime: 0,
+          perMarketLimit: 10,
+        },
+        body: undefined,
+      },
+      {
+        method: "GET",
+        endpoint: "/v1/funding/overview/SOL",
         params: {
           startTime: 0,
           endTime: 0,
