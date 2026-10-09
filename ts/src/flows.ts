@@ -46,7 +46,6 @@ import {
   Side,
   type Symbol,
   type Ticks,
-  ticks,
   type BaseLots,
   type QuoteLots,
   type InstructionsWithAccountsAndData,
@@ -65,6 +64,7 @@ import {
   buildFlameDepositToPhoenixIx,
   deriveFlameDepositAddresses,
 } from "@/flame";
+import { orderPriceUsdToTicksWithMarketParams } from "@/units";
 import { address, type Address } from "@solana/kit";
 import { buildPlaceLimitOrderIx } from "./core/ixBuilders/PlaceLimitOrder";
 import { buildPlaceMarketOrderIx } from "./core/ixBuilders/PlaceMarketOrder";
@@ -1271,9 +1271,11 @@ export const buildPlaceMarketOrderFlow = async (
         : mid * (1 - DEFAULT_MARKET_ORDER_SLIPPAGE);
     const { tickSizeInQuoteLotsPerBaseLot: tickSize, baseLotsDecimals } =
       marketView.market.units;
-    const priceTicks =
-      (limitPriceUsd * 1_000_000) / (tickSize * Math.pow(10, baseLotsDecimals));
-    resolvedPriceInTicks = ticks(BigInt(Math.floor(priceTicks)));
+    resolvedPriceInTicks = orderPriceUsdToTicksWithMarketParams(
+      limitPriceUsd,
+      { tickSize, baseLotsDecimals },
+      side
+    );
   }
 
   // Effective signer of the placement instruction; the Flight wrap must name

@@ -8,16 +8,32 @@ export type {
 } from "./client";
 export { DEFAULT_PHOENIX_API_URL, type PhoenixApiUrlConfig } from "./apiUrl";
 export {
-  baseUnitsToBaseLotsWithMarketParams,
   buildLimitOrderPacketFromMarketParams,
   buildMarketOrderPacketFromMarketParams,
-  priceUsdToTicksWithMarketParams,
-  ticksToUsdWithMarketParams,
   type BuildLimitOrderPacketFromMarketParamsInput,
   type BuildMarketOrderPacketFromMarketParamsInput,
-  type OrderPacketMarketParams,
   type PhoenixOrderPacketBuilders,
 } from "./orderPackets";
+export {
+  BPS_DENOMINATOR,
+  FEE_MICRO_MULTIPLIER,
+  QUOTE_DECIMALS,
+  QUOTE_LOTS_PER_USD,
+  baseLotsToBaseUnits,
+  baseUnitsToBaseLotsWithMarketParams,
+  displayTickSize,
+  feeRateToMicro,
+  orderPriceUsdToTicksWithMarketParams,
+  priceDecimalsFromTickSize,
+  priceUsdToTicksWithMarketParams,
+  quoteLotsToUsd,
+  riskFactorPercentToBps,
+  ticksToUsdWithMarketParams,
+  usdToQuoteLots,
+  type OrderPacketMarketParams,
+  type Rounding,
+  type TickSizeDisplayParams,
+} from "./units";
 export {
   MIN_SCALE_ORDERS,
   MIN_SCALE_BIAS,

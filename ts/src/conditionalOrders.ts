@@ -6,8 +6,8 @@ import {
   type Ticks,
   type TriggerOrderParams,
 } from "@/primitives";
+import { applyBps, applyBpsCeil, BPS_DENOMINATOR } from "@/units";
 
-const BPS_DENOMINATOR = 10_000n;
 export const TP_SL_MAX_SLIPPAGE_BPS = 1_000;
 
 export type TriggerOrderParamsInput = {
@@ -47,8 +47,7 @@ export const executionPriceFromSlippageBps = (
       throw new Error("sell-side slippageBps must be less than 10000");
     }
 
-    let executionPrice =
-      (triggerPrice * (BPS_DENOMINATOR - bps)) / BPS_DENOMINATOR;
+    let executionPrice = applyBps(triggerPrice, BPS_DENOMINATOR - bps);
     if (slippageBps > 0 && executionPrice === triggerPrice) {
       executionPrice -= 1n;
     }
@@ -61,9 +60,7 @@ export const executionPriceFromSlippageBps = (
     return ticks(executionPrice);
   }
 
-  let executionPrice =
-    (triggerPrice * (BPS_DENOMINATOR + bps) + BPS_DENOMINATOR - 1n) /
-    BPS_DENOMINATOR;
+  let executionPrice = applyBpsCeil(triggerPrice, BPS_DENOMINATOR + bps);
   if (slippageBps > 0 && executionPrice === triggerPrice) {
     executionPrice += 1n;
   }

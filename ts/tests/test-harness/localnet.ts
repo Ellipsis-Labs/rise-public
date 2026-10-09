@@ -44,7 +44,7 @@ import type {
   BuildWithdrawIxsResolvedInput,
 } from "../../src/ixs/types";
 import type { ResolvedPlaceOrderContext } from "../../src/ixs/types";
-import type { OrderPacketMarketParams } from "../../src/orderPackets";
+import type { OrderPacketMarketParams } from "../../src/units";
 import type { InstructionsWithAccountsAndData } from "../../src/primitives";
 import type {
   ActiveTraderBufferAddressArray,

@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.6.2 - 2026-10-09
+
+Source Phoenix commit: `a13bddf3b6f45e5d347aa07636e3be7b054c3b26`
+
+### Summary
+
+- Adds a new `units` module, exported from the package root, that consolidates the SDK's unit-conversion helpers. New exports: `QUOTE_LOTS_PER_USD`, `QUOTE_DECIMALS`, `BPS_DENOMINATOR`, `FEE_MICRO_MULTIPLIER`, `orderPriceUsdToTicksWithMarketParams`, `usdToQuoteLots`, `quoteLotsToUsd`, `baseLotsToBaseUnits`, `priceDecimalsFromTickSize`, `displayTickSize`, `feeRateToMicro`, `riskFactorPercentToBps`, and the `Rounding` and `TickSizeDisplayParams` types.
+- `priceUsdToTicksWithMarketParams` now takes an optional `rounding` argument (`"floor"` by default, or `"ceil"` / `"nearest"`). Number inputs written in exponent form, such as `1e-7`, are now parsed exactly.
+- Order-price conversion is now side-aware. Limit orders, market-order price limits, the market-order flow and cancel-by-id price resolution round bids down and asks up. They throw `order price must be at least one tick` if the price resolves to zero ticks.
+- Exchange metadata snapshots now report the percent-scale `riskFactors` fields (`maintenance`, `backstop`, `highRisk`, `upnl`, `upnlForWithdrawals`, `cancelOrder`) as the matching `*Bps` value divided by 100. Previously they carried the raw bps values.
+- Fixes the fills WebSocket adapter's integer-timestamp check. Integer-string timestamps are now correctly kept as `bigint`, and ISO strings are converted to milliseconds.
+
+### Breaking Changes
+
+- Off-tick prices are no longer always floored. Asks now round up, and a price that resolves to zero ticks now throws instead of producing a zero-tick order. This affects `buildLimitOrderPacketFromMarketParams`, `buildMarketOrderPacketFromMarketParams`, the market-order flow, and cancel-by-id by price. Callers that depended on the old floor behavior or on zero-tick prices must adjust.
+- The percent-scale `riskFactors` fields (`maintenance`, `backstop`, `highRisk`, `upnl`, `upnlForWithdrawals`, `cancelOrder`) on exchange market snapshots change value (now `*Bps / 100`). Consumers reading them need to update. The `*Bps` fields are unchanged.
+
+### Consumer Notes
+
+- Imports of `priceUsdToTicksWithMarketParams`, `ticksToUsdWithMarketParams`, `baseUnitsToBaseLotsWithMarketParams` and `OrderPacketMarketParams` from the package root keep working. The source module moved from `orderPackets` to `units`, so deep imports of those names from `orderPackets` will break.
+- For cancel-by-id, the order side is inferred from the `orderSequenceNumber` high bit. Bids have it set and asks do not.
+- `riskFactorPercentToBps` and `feeRateToMicro` are now public helpers. Use them instead of reimplementing the conversions.
+
 ## v0.6.1 - 2026-10-09
 
 Source Phoenix commit: `96a1919a3bb7bc6a05f6f16604b3dd3def8e102d`

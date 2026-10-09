@@ -9,9 +9,12 @@ import type {
   MarketUnits,
   RiskFactors,
 } from "@/types";
-
-const QUOTE_LOTS_DECIMALS = 6;
-const FEE_MICRO_MULTIPLIER = 1_000_000;
+import {
+  displayTickSize,
+  feeRateToMicro,
+  priceDecimalsFromTickSize,
+  riskFactorPercentToBps,
+} from "@/units";
 
 const projectedMarketCache = new WeakMap<
   ExchangeMarketSnapshot,
@@ -22,50 +25,9 @@ const projectedMarketsBySymbolCache = new WeakMap<
   PhoenixProjectedMarketsBySymbol
 >();
 
-const normalizePriceDecimalsForDisplay = (decimals: number): number => {
-  const normalized = Math.max(0, Math.trunc(decimals));
-  return normalized === 1 ? 2 : normalized;
-};
-
-const getDecimalPlacesFromLotTickSize = ({
-  baseLotsDecimals,
-  quoteLotsDecimals,
-  tickSizeInQuoteLotsPerBaseLot,
-}: {
-  baseLotsDecimals: number;
-  quoteLotsDecimals: number;
-  tickSizeInQuoteLotsPerBaseLot: number;
-}): number => {
-  const decimalShift = Math.max(0, quoteLotsDecimals - baseLotsDecimals);
-
-  let normalizedTickSize = Math.abs(tickSizeInQuoteLotsPerBaseLot);
-  let trailingZeroCount = 0;
-
-  while (normalizedTickSize !== 0 && normalizedTickSize % 10 === 0) {
-    normalizedTickSize /= 10;
-    trailingZeroCount += 1;
-  }
-
-  return normalizePriceDecimalsForDisplay(
-    Math.max(0, decimalShift - trailingZeroCount)
-  );
-};
-
-const convertTickSizeToDecimalUnits = ({
-  baseLotsDecimals,
-  quoteLotsDecimals,
-  tickSizeInQuoteLotsPerBaseLot,
-}: {
-  baseLotsDecimals: number;
-  quoteLotsDecimals: number;
-  tickSizeInQuoteLotsPerBaseLot: number;
-}): number =>
-  tickSizeInQuoteLotsPerBaseLot *
-  Math.pow(10, baseLotsDecimals - quoteLotsDecimals);
-
 const toMarketFees = (market: ExchangeMarketSnapshot): MarketFees => ({
-  takerFeeMicro: Math.round(market.takerFee * FEE_MICRO_MULTIPLIER),
-  makerFeeMicro: Math.round(market.makerFee * FEE_MICRO_MULTIPLIER),
+  takerFeeMicro: feeRateToMicro(market.takerFee),
+  makerFeeMicro: feeRateToMicro(market.makerFee),
 });
 
 const toLeverageTiers = (
@@ -81,13 +43,6 @@ const toUnits = (market: ExchangeMarketSnapshot): MarketUnits => ({
   baseLotsDecimals: market.baseLotsDecimals,
   tickSizeInQuoteLotsPerBaseLot: market.tickSize,
 });
-
-const riskFactorPercentToBps = (value: number): number => {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-  return Math.round(value * 100);
-};
 
 const toRiskFactors = (market: ExchangeMarketSnapshot): RiskFactors => ({
   maintenance:
@@ -152,16 +107,8 @@ export const projectPhoenixMarket = (
     leverageTiers: toLeverageTiers(market),
     riskFactors: toRiskFactors(market),
     isolatedOnly: market.isolatedOnly,
-    priceDecimals: getDecimalPlacesFromLotTickSize({
-      baseLotsDecimals: units.baseLotsDecimals,
-      quoteLotsDecimals: QUOTE_LOTS_DECIMALS,
-      tickSizeInQuoteLotsPerBaseLot: units.tickSizeInQuoteLotsPerBaseLot,
-    }),
-    tickSize: convertTickSizeToDecimalUnits({
-      baseLotsDecimals: units.baseLotsDecimals,
-      quoteLotsDecimals: QUOTE_LOTS_DECIMALS,
-      tickSizeInQuoteLotsPerBaseLot: units.tickSizeInQuoteLotsPerBaseLot,
-    }),
+    priceDecimals: priceDecimalsFromTickSize(units),
+    tickSize: displayTickSize(units),
   };
 
   projectedMarketCache.set(market, projected);
