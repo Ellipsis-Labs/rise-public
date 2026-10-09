@@ -3,6 +3,27 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.6.1 - 2026-10-09
+
+Source Phoenix commit: `96a1919a3bb7bc6a05f6f16604b3dd3def8e102d`
+
+### Summary
+
+- Collateral asset configs (`SpotAssetConfig`) now expose an optional `oraclePrice` object (`ticks`, `tickSize`, `baseLotDecimals`, `lastUpdateSlot`, `staleThresholdSlots`) for oracle-priced assets that have no backing perp. Integer fields parse to `bigint`, so values above 2^53 keep full precision.
+- Market stats now carry an optional `cumulativeFundingQuoteLotsPerBaseLot`. It is a signed integer string, so arithmetic on it stays exact. The market-stats and marketStatsV2 adapters both pass it through. `PhoenixMarketDataRow` also exposes it, and it is `null` until a stats update supplies it.
+- TWAP snapshots (`TwapSnapshot`) accept an optional `terminalEvents` array. Each `TwapTerminalEvent` has `eventId`, `twapAccount`, `orderSequenceNumber` and `errorCode`. The new `TwapTerminalEventSchema` is exported alongside it.
+
+### Breaking Changes
+
+- `PhoenixMarketDataChangedField` has a new member, `"cumulativeFundingQuoteLotsPerBaseLot"`. Code that switches exhaustively over this union will fail to compile until it handles the new case.
+- Market stats validation is stricter for the new field. If present, `cumulativeFundingQuoteLotsPerBaseLot` must match `/^-?\d+$/`. Fractional, numeric or empty values are rejected. Payloads without the field still parse.
+
+### Consumer Notes
+
+- All other additions are optional, so existing consumers should keep working. Treat `oraclePrice` (it can also be `null`), `terminalEvents`, `MarketStats.cumulativeFundingQuoteLotsPerBaseLot` and `PhoenixMarketDataRow.cumulativeFundingQuoteLotsPerBaseLot` as possibly absent.
+- `terminalEvents[].errorCode` is a plain `string`, not a closed enum, so handle unknown values. TWAP snapshots do not expose `statusRevision`, and active TWAP orders do not expose `errorCode`.
+- The package version is `0.6.1`.
+
 ## v0.6.0 - 2026-10-09
 
 Source Phoenix commit: `8805b9df2e58b42435db0b333e258c9444e57375`

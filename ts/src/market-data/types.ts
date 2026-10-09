@@ -17,6 +17,7 @@ export interface PhoenixMarketDataStatus {
 }
 
 export interface PhoenixMarketDataRow {
+  cumulativeFundingQuoteLotsPerBaseLot?: string | null;
   symbol: string;
   timestamp: number | null;
   mid: number | null;
@@ -39,6 +40,7 @@ export interface PhoenixMarketDataRow {
 }
 
 export type PhoenixMarketDataChangedField =
+  | "cumulativeFundingQuoteLotsPerBaseLot"
   | "mid"
   | "markPrice"
   | "oraclePrice"

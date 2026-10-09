@@ -28,6 +28,8 @@ const normalizeMarketStatsUpdate = (
   return {
     symbol: message.symbol,
     stats: {
+      cumulativeFundingQuoteLotsPerBaseLot:
+        message.cumulativeFundingQuoteLotsPerBaseLot,
       timestamp: BigInt(timestampMs),
       openInterest: message.openInterest,
       markPrice: message.markPrice,

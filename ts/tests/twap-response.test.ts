@@ -46,11 +46,106 @@ describe("TWAP HTTP response", () => {
     const payload = structuredClone(snapshot);
     const legacyOrder = payload.accounts[0].order;
     expect(legacyOrder).toBeDefined();
-    if (!legacyOrder) throw new Error("Expected active TWAP fixture");
+    if (!legacyOrder) {
+      throw new Error("Expected active TWAP fixture");
+    }
     Reflect.deleteProperty(legacyOrder, "nDustOrders");
     Reflect.deleteProperty(legacyOrder, "dustOrderSize");
     const order = TwapSnapshotSchema.parse(payload).accounts[0].order;
     expect(order?.nDustOrders).toBeUndefined();
     expect(order?.dustOrderSize).toBeUndefined();
   });
+
+  it("accepts a snapshot without terminal events or fabricated reasons", () => {
+    const parsed = TwapSnapshotSchema.parse(snapshot);
+
+    expect(parsed).toEqual(snapshot);
+    expect(parsed.terminalEvents).toBeUndefined();
+    expect(parsed.accounts[0].order).not.toHaveProperty("errorCode");
+    expect(parsed).not.toHaveProperty("statusRevision");
+  });
+
+  it.each([
+    "CANCELLED_INSUFFICIENT_MARGIN",
+    "CANCELLED_INSUFFICIENT_FUNDS",
+    "CANCELLED_POSITION_NOT_REDUCIBLE",
+    "EXPIRED_INCOMPLETE",
+    "FUTURE_SERVER_ERROR_CODE",
+  ])("preserves terminal reason %s and live event metadata", (errorCode) => {
+    const payload = {
+      ...snapshot,
+      terminalEvents: [
+        {
+          eventId: "twap:77:10:2:3",
+          twapAccount: snapshot.accounts[0].twapAccount,
+          orderSequenceNumber: 77,
+          errorCode,
+        },
+      ],
+    };
+
+    expect(TwapSnapshotSchema.parse(payload)).toEqual(payload);
+  });
+
+  it("does not expose retired active-status fields", () => {
+    const payload = {
+      ...snapshot,
+      statusRevision: "9007199254740993",
+      accounts: [
+        {
+          ...snapshot.accounts[0],
+          order: {
+            ...snapshot.accounts[0].order,
+            errorCode: "RETRYING_CHILD_UNFILLED",
+          },
+        },
+      ],
+    };
+    const parsed = TwapSnapshotSchema.parse(payload);
+
+    expect(parsed).not.toHaveProperty("statusRevision");
+    expect(parsed.accounts[0].order).not.toHaveProperty("errorCode");
+    expect(parsed.terminalEvents).toBeUndefined();
+  });
+
+  it.each([
+    { eventId: 1 },
+    { twapAccount: 1 },
+    { orderSequenceNumber: "77" },
+    { errorCode: 1 },
+    { errorCode: null },
+  ])("rejects invalid terminal event types: %j", (invalid) => {
+    const payload = {
+      ...snapshot,
+      terminalEvents: [
+        {
+          eventId: "twap:77:10:2:3",
+          twapAccount: snapshot.accounts[0].twapAccount,
+          orderSequenceNumber: 77,
+          errorCode: "CANCELLED_INSUFFICIENT_MARGIN",
+          ...invalid,
+        },
+      ],
+    };
+
+    expect(TwapSnapshotSchema.safeParse(payload).success).toBe(false);
+  });
+
+  it.each(["eventId", "twapAccount", "orderSequenceNumber", "errorCode"])(
+    "rejects a terminal event missing %s",
+    (field) => {
+      const event: Record<string, unknown> = {
+        eventId: "twap:77:10:2:3",
+        twapAccount: snapshot.accounts[0].twapAccount,
+        orderSequenceNumber: 77,
+        errorCode: "CANCELLED_INSUFFICIENT_MARGIN",
+      };
+      delete event[field];
+
+      expect(
+        TwapSnapshotSchema.safeParse({ ...snapshot, terminalEvents: [event] })
+          .success
+      ).toBe(false);
+    }
+  );
 });
