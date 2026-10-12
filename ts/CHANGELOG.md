@@ -3,6 +3,34 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.6.3 - 2026-10-12
+
+Source Phoenix commit: `8e73680bda296dbe6df5b80ee91402d4cf0d2c8b`
+
+### Summary
+
+- Spot collateral now covers SPL tokens as well as native SOL. `Trader` and `PerpAssetMap` expose decoded spot collateral entries, and spot assets can be valued by their own oracle price instead of a bound perp market.
+- Order history v2 can group TWAP orders under parent summaries. Pass `organizeTwapOrders: true` to `getTraderOrderHistoryV2`.
+- Order history items and trader-state WebSocket order history deltas now carry optional TWAP parent fields. `compareOrderHistorySortKeys` is a new root export.
+- New spot cap helpers `spotCollateralHeadroom`, `attributedSpotDeposit`, and `spotSyncDelta` cover SPL assets. The native SOL helpers are kept as wrappers.
+
+### Breaking Changes
+
+- `SpotAssetConfig.oraclePrice` (collateral assets API) no longer includes `lastUpdateSlot` or `staleThresholdSlots`. Its type is now the new `SpotOraclePrice` export, and the schema no longer validates `baseLotDecimals` to the −128..127 range.
+- `SpotCollateralParams.perpSymbol` is now optional, because an asset has either a perp symbol or an oracle price. `SpotCollateralMarginResult.pricingMarketSymbol` is also optional. Code that assumes either is always a string will fail to compile.
+- `SpotCollateralMetadata` has a new required `oraclePrice` field (`SpotAssetOraclePrice | null`). `Trader` and `PerpAssetMap` have new required `spotCollaterals` arrays. Code that constructs these objects by hand must add them.
+- The margin snapshot helpers no longer take an `options` argument, and the `MarginSnapshotOptions` and `SpotCollateralAssetParams` types are removed. `buildSubaccountMarginInputsFromSnapshot` and `buildTraderMarginInputsFromSnapshot` now emit raw `spotCollateralBalances`, and the calculator's spot params value them. Previously they emitted `spotCollaterals` inputs built from the options.
+- A spot margin result for a zero-priced oracle asset now returns the real `balance` instead of `"0"`. The old behavior was returning `"0"` whenever the balance was zero.
+- `OrderHistoryV2ResponseSchema` is now a plain Zod object instead of a transformed schema. `prevCursor` and `nextCursor` still default to `null` when absent.
+
+### Consumer Notes
+
+- `Trader.nativeSolCollateral` is deprecated. Use `spotCollaterals` and pick the `NATIVE_SOL_ASSET_INDEX` entry.
+- Each `TraderSpotCollateral` entry includes `maxPerTraderBalanceOverride`, which is `null` when no override is set.
+- `PerpAssetMap` decoding now handles spot collateral collection slots, exposed as `spotCollaterals` and decoded by `getSpotCollateralCollectionDecoder`.
+- `getTraderOrderHistoryV2` is overloaded. With `organizeTwapOrders: true` it returns `OrganizedOrderHistoryV2Response`, with `twapOrders` (summaries and children) and `singleOrders`. Otherwise it returns the flat `OrderHistoryV2Response`. The new schemas and types are exported from the public API schemas.
+- Spot helper docs now mention `buildSyncSpotIx`. Size SPL deposits by passing `spotSyncDelta` of the custody ATA and the trader's per-trader cap from trader state's `maxBalance`.
+
 ## v0.6.2 - 2026-10-09
 
 Source Phoenix commit: `a13bddf3b6f45e5d347aa07636e3be7b054c3b26`

@@ -3,6 +3,7 @@ import type {
   SequenceNumber,
   ShortEntries,
   TraderPosition,
+  TraderSpotCollateral,
   TraderState,
 } from "../internal";
 import type { TraderPreferenceFlags, TraderPreferences } from "./preferences";
@@ -28,5 +29,8 @@ export interface Trader {
   conditionalOrderBits: number[];
   occupiedConditionalOrderIndices: number[];
   positions: ShortEntries<bigint, TraderPosition>;
+  /** @deprecated Use `spotCollaterals` and pick the `NATIVE_SOL_ASSET_INDEX` entry. */
   nativeSolCollateral: bigint;
+  /** All spot collateral entries, native SOL included, in account order. */
+  spotCollaterals: TraderSpotCollateral[];
 }

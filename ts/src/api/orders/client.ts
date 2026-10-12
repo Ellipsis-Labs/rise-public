@@ -14,6 +14,7 @@ import type {
   OrderHistoryResponse,
   OrderHistoryV2Request,
   OrderHistoryV2Response,
+  OrganizedOrderHistoryV2Response,
   PlaceIsolatedOrderEnhancedInstructionsResponse,
   PlaceIsolatedLimitOrderRequest,
   PlaceIsolatedLimitOrderWithConditionalsRequest,
@@ -28,6 +29,7 @@ import {
   CancelStopLossOrderRequestSchema,
   OrderHistoryResponseSchema,
   OrderHistoryV2ResponseSchema,
+  OrganizedOrderHistoryV2ResponseSchema,
   PlaceIsolatedOrderEnhancedResponseSchema,
   PlaceIsolatedLimitOrderRequestSchema,
   PlaceIsolatedLimitOrderWithConditionalsRequestSchema,
@@ -56,9 +58,11 @@ const buildOrderHistoryQuery = (
 };
 
 const buildOrderHistoryV2Query = (
-  request?: OrderHistoryV2Request
+  request?: OrderHistoryV2Request<boolean>
 ): Record<string, ParamValue> | undefined => {
-  if (!request) return undefined;
+  if (!request) {
+    return undefined;
+  }
 
   const params: Record<string, ParamValue> = {};
 
@@ -67,6 +71,9 @@ const buildOrderHistoryV2Query = (
   if (request.cursor) params.cursor = request.cursor;
   if (request.startTime) params.start_time = request.startTime.toISOString();
   if (request.endTime) params.end_time = request.endTime.toISOString();
+  if (request.organizeTwapOrders !== undefined) {
+    params.organize_twap_orders = request.organizeTwapOrders;
+  }
 
   return Object.keys(params).length > 0 ? params : undefined;
 };
@@ -169,16 +176,33 @@ export class V1OrdersClient {
     );
   }
 
-  async getTraderOrderHistoryV2(
+  getTraderOrderHistoryV2(
+    traderPubkey: string,
+    request: OrderHistoryV2Request<true> & { organizeTwapOrders: true }
+  ): Promise<OrganizedOrderHistoryV2Response>;
+  getTraderOrderHistoryV2(
     traderPubkey: string,
     request?: OrderHistoryV2Request
-  ): Promise<OrderHistoryV2Response> {
-    return get(
-      this.http,
-      `/v1/traders/${encodeURIComponent(traderPubkey)}/orders_v2`,
-      OrderHistoryV2ResponseSchema,
-      { params: buildOrderHistoryV2Query(request) }
-    );
+  ): Promise<OrderHistoryV2Response>;
+  getTraderOrderHistoryV2(
+    traderPubkey: string,
+    request?: OrderHistoryV2Request<boolean>
+  ): Promise<OrderHistoryV2Response | OrganizedOrderHistoryV2Response>;
+  async getTraderOrderHistoryV2(
+    traderPubkey: string,
+    request?: OrderHistoryV2Request<boolean>
+  ): Promise<OrderHistoryV2Response | OrganizedOrderHistoryV2Response> {
+    const endpoint = `/v1/traders/${encodeURIComponent(traderPubkey)}/orders_v2`;
+    const options = { params: buildOrderHistoryV2Query(request) };
+    if (request?.organizeTwapOrders === true) {
+      return get(
+        this.http,
+        endpoint,
+        OrganizedOrderHistoryV2ResponseSchema,
+        options
+      );
+    }
+    return get(this.http, endpoint, OrderHistoryV2ResponseSchema, options);
   }
 
   async cancelConditionalOrder(

@@ -360,8 +360,8 @@ const getDefaultPrices = async (
  * `perpSymbol`, which is a join through the market map rather than a wire
  * field), and every consumer should go through here so they cannot drift
  * apart silently. Assets that do not currently count toward margin (the quote
- * asset, inactive spot assets, or ones not yet bound to a perp market) are
- * skipped; an *active* asset referencing an unknown market throws — that is a
+ * asset, inactive spot assets, or ones with neither a perp market nor an
+ * oracle price) are skipped; an *active* asset referencing an unknown market throws — that is a
  * live server contradicting itself, not an old one.
  */
 export const spotCollateralParamsFromAssets = (
@@ -370,20 +370,29 @@ export const spotCollateralParamsFromAssets = (
 ): SpotCollateralParams[] =>
   spotCollaterals.assets.flatMap((asset) => {
     const spot = asset.spot;
-    if (!spot?.isActive || spot.perpAssetIndex == null) {
+    if (!spot?.isActive) {
       return [];
     }
-    const perpSymbol = symbolsByAssetId.get(spot.perpAssetIndex);
-    if (!perpSymbol) {
-      throw new Error(
-        `Collateral ${asset.symbol} references unknown perp asset ${spot.perpAssetIndex}`
-      );
+    let pricing: Pick<SpotCollateralParams, "perpSymbol" | "oraclePrice">;
+    if (spot.perpAssetIndex != null) {
+      const perpSymbol = symbolsByAssetId.get(spot.perpAssetIndex);
+      if (!perpSymbol) {
+        throw new Error(
+          `Collateral ${asset.symbol} references unknown perp asset ${spot.perpAssetIndex}`
+        );
+      }
+      pricing = { perpSymbol };
+    } else if (spot.oraclePrice) {
+      const { ticks, tickSize, baseLotDecimals } = spot.oraclePrice;
+      pricing = { oraclePrice: { ticks, tickSize, baseLotDecimals } };
+    } else {
+      return [];
     }
     return [
       {
         assetIndex: asset.assetIndex,
         symbol: asset.symbol,
-        perpSymbol,
+        ...pricing,
         decimals: asset.decimals,
         maxPerTraderBalance: spot.maxPerTraderBalance,
         maxGlobalBalance: spot.maxGlobalBalance,

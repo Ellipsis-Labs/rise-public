@@ -1,5 +1,6 @@
 import type { Decoder } from "@solana/kit";
 import {
+  getI8Decoder,
   getStructDecoder,
   getU32Decoder,
   getU64Decoder,
@@ -7,13 +8,33 @@ import {
   transformDecoder,
 } from "@solana/kit";
 import { getQuoteLotsDecoder } from "@/primitives/_numberTypes";
+import { getSymbolDecoder } from "@/primitives/Symbol";
 import { getFixedArrayDecoder, getMintAddressDecoder } from "../internal";
-import type { SpotCollateralMetadata } from "./types";
+import type {
+  SpotAssetOraclePrice,
+  SpotCollateralAsset,
+  SpotCollateralMetadata,
+} from "./types";
 import {
   SPOT_COLLATERAL_FLAG_DISABLE_POSITION_AUTHORITY_SWAP,
   SPOT_COLLATERAL_FLAG_HAS_PERP_ASSET,
   SPOT_COLLATERAL_FLAG_IS_ACTIVE,
 } from "./types";
+
+const getSpotAssetOraclePriceDecoder = (): Decoder<SpotAssetOraclePrice> =>
+  transformDecoder(
+    getStructDecoder([
+      ["sequenceNumber", getU64Decoder()],
+      ["lastUpdateSlot", getU64Decoder()],
+      ["ticks", getU64Decoder()],
+      ["priceExpo", getU8Decoder()],
+      ["baseLotDecimals", getI8Decoder()],
+      ["_writerConfig", getFixedArrayDecoder(getU8Decoder, 38)],
+      ["staleThresholdSlots", getU64Decoder()],
+      ["tickSize", getU64Decoder()],
+    ]),
+    ({ _writerConfig, ...price }): SpotAssetOraclePrice => price
+  );
 
 /**
  * Decodes the 320-byte spot collateral metadata embedded in the global
@@ -39,16 +60,59 @@ export const getSpotCollateralMetadataDecoder =
         ["quoteLotCollateralShortfallBuffer", getQuoteLotsDecoder()],
         ["flags", getU8Decoder()],
         ["_paddingFlags", getFixedArrayDecoder(getU8Decoder, 7)],
-        ["_padding", getFixedArrayDecoder(getU64Decoder, 26)],
+        ["oraclePrice", getSpotAssetOraclePriceDecoder()],
+        ["_padding", getFixedArrayDecoder(getU64Decoder, 16)],
       ]),
-      ({ _paddingFlags, _padding, ...metadata }): SpotCollateralMetadata => ({
-        ...metadata,
-        isActive: (metadata.flags & SPOT_COLLATERAL_FLAG_IS_ACTIVE) !== 0,
-        hasPerpAsset:
-          (metadata.flags & SPOT_COLLATERAL_FLAG_HAS_PERP_ASSET) !== 0,
-        positionAuthoritySwapDisabled:
-          (metadata.flags &
-            SPOT_COLLATERAL_FLAG_DISABLE_POSITION_AUTHORITY_SWAP) !==
-          0,
-      })
+      ({
+        _paddingFlags,
+        _padding,
+        oraclePrice,
+        ...metadata
+      }): SpotCollateralMetadata => {
+        const hasPerpAsset =
+          (metadata.flags & SPOT_COLLATERAL_FLAG_HAS_PERP_ASSET) !== 0;
+        return {
+          ...metadata,
+          oraclePrice: hasPerpAsset ? null : oraclePrice,
+          isActive: (metadata.flags & SPOT_COLLATERAL_FLAG_IS_ACTIVE) !== 0,
+          hasPerpAsset,
+          positionAuthoritySwapDisabled:
+            (metadata.flags &
+              SPOT_COLLATERAL_FLAG_DISABLE_POSITION_AUTHORITY_SWAP) !==
+            0,
+        };
+      }
     );
+
+/**
+ * Decodes the value of a perp asset map slot tagged as a spot collateral
+ * collection into its initialized assets (zero asset index = uninitialized).
+ */
+export const getSpotCollateralCollectionDecoder = (): Decoder<
+  SpotCollateralAsset[]
+> =>
+  transformDecoder(
+    getStructDecoder([
+      ["_shortMapMetadata", getFixedArrayDecoder(getU8Decoder, 8)],
+      [
+        "entries",
+        getFixedArrayDecoder(
+          () =>
+            getStructDecoder([
+              ["symbol", getSymbolDecoder()],
+              ["assetIndex", getU32Decoder()],
+              ["_padding", getFixedArrayDecoder(getU8Decoder, 4)],
+              ["metadata", getSpotCollateralMetadataDecoder()],
+            ]),
+          4
+        ),
+      ],
+      ["_reserved", getFixedArrayDecoder(getU64Decoder, 22)],
+      ["_padding", getFixedArrayDecoder(getU8Decoder, 7)],
+      ["_assetMapVariant", getU8Decoder()],
+    ]),
+    ({ entries }) =>
+      entries
+        .filter((entry) => entry.assetIndex !== 0)
+        .map(({ _padding, ...asset }): SpotCollateralAsset => asset)
+  );
