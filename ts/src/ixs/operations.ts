@@ -25,6 +25,8 @@ import {
 import type { PhoenixOrderPacketBuilders } from "@/orderPackets";
 import { getPhoenixConditionalOrdersAddress } from "@/pdas";
 import { MarginType, ticks, toMaxPositions } from "@/primitives";
+import { Side } from "@/primitives/Side";
+import { orderPriceUsdToTicksWithMarketParams } from "@/units";
 import type {
   ActiveTraderBufferAddressArray,
   Authority,
@@ -229,17 +231,6 @@ const resolveOrderSigner = (params: {
   return { signer, usePositionAuthority: signer !== params.authority };
 };
 
-const priceToTicks = (
-  priceUsd: bigint | number,
-  tickSize: number,
-  baseLotsDecimals: number
-): bigint => {
-  const price = typeof priceUsd === "bigint" ? Number(priceUsd) : priceUsd;
-  const priceTicks =
-    (price * 1_000_000) / (tickSize * Math.pow(10, baseLotsDecimals));
-  return BigInt(Math.floor(priceTicks));
-};
-
 const cancelOrderPriceInTicks = (
   order: ClientCancelOrdersByIdInput["orders"][number],
   market: Pick<PhoenixIxResolvedMarketContext, "tickSize" | "baseLotsDecimals">
@@ -259,7 +250,13 @@ const cancelOrderPriceInTicks = (
     throw new Error("Market metadata is missing base lot decimals");
   }
 
-  return ticks(priceToTicks(order.price, tickSize, baseLotsDecimals));
+  const side =
+    BigInt(order.orderSequenceNumber) >> 63n === 1n ? Side.Bid : Side.Ask;
+  return orderPriceUsdToTicksWithMarketParams(
+    order.price,
+    { tickSize, baseLotsDecimals },
+    side
+  );
 };
 
 export const createPhoenixIxOperations = (

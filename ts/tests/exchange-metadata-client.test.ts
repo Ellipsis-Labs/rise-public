@@ -488,6 +488,17 @@ describe("exchange metadata client integration", () => {
     expect(snapshot.slot).toBe(415023825n);
     expect(snapshot.slotIndex).toBe(0);
     expect(snapshot.markets.length).toBeGreaterThan(0);
+    for (const { riskFactors } of snapshot.markets) {
+      expect(riskFactors.maintenanceBps).toBeGreaterThan(0);
+      expect(riskFactors).toMatchObject({
+        maintenance: riskFactors.maintenanceBps / 100,
+        backstop: riskFactors.backstopBps / 100,
+        highRisk: riskFactors.highRiskBps / 100,
+        upnl: riskFactors.upnlBps / 100,
+        upnlForWithdrawals: riskFactors.upnlForWithdrawalsBps / 100,
+        cancelOrder: riskFactors.cancelOrderBps / 100,
+      });
+    }
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchOrderbookHeaderSpy).toHaveBeenCalled();
     expect(getGlobalTraderIndexAddressesSpy).toHaveBeenCalledOnce();

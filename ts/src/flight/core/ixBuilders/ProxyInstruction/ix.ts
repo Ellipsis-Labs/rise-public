@@ -19,8 +19,7 @@ import type {
   ProxyInstructionParams,
 } from "./types";
 import type { PhoenixProgramAddress } from "@/primitives/index.js";
-
-const MAX_BASIS_POINTS = 10_000n;
+import { BPS_DENOMINATOR } from "@/units";
 
 export const buildProxyInstructionIx = async (
   params: ProxyInstructionParams
@@ -103,10 +102,7 @@ const validate = (
     throw new Error("Inner instruction program address is required");
   }
   if (params.feeBpsOverride != null) {
-    if (
-      params.feeBpsOverride < 0n ||
-      params.feeBpsOverride > MAX_BASIS_POINTS
-    ) {
+    if (params.feeBpsOverride < 0n || params.feeBpsOverride > BPS_DENOMINATOR) {
       // Keep this wording in lockstep with the Rust builder's
       // `PhoenixIxError::InvalidFeeBpsOverride` display string.
       throw new Error("Invalid fee bps override (must be in 0..=10000)");

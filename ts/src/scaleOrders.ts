@@ -1,9 +1,4 @@
 import type { TraderStateMarketLimitOrderRow } from "@/api/traders/traderState";
-import {
-  priceUsdToTicksWithMarketParams,
-  ticksToUsdWithMarketParams,
-  type OrderPacketMarketParams,
-} from "@/orderPackets";
 import type { CancelId } from "@/primitives/CancelId";
 import { ticks, u64 } from "@/primitives/_numberTypes";
 import { Side } from "@/primitives/Side";
@@ -12,6 +7,12 @@ import {
   type MultipleOrderPacket,
   type MultipleOrderPacketV2,
 } from "@/primitives/OrderPacket";
+import {
+  baseLotsToBaseUnits,
+  priceUsdToTicksWithMarketParams,
+  ticksToUsdWithMarketParams,
+  type OrderPacketMarketParams,
+} from "@/units";
 
 /**
  * Minimum number of sub-orders in a scale (multi-limit) order. There is no
@@ -203,26 +204,16 @@ const marketParamsOf = (input: ScaleOrderInput): OrderPacketMarketParams => ({
   baseLotsDecimals: input.baseLotsDecimals,
 });
 
-/** Format a positive float as a plain decimal string (never exponential). */
-const toUsdString = (price: number): string =>
-  Number.isFinite(price) && price > 0 ? price.toFixed(12) : "0";
-
 /** Snap a raw USD price to the nearest tick, returning both the tick and its USD value. */
 const snapToNearestTick = (
   rawPrice: number,
   marketParams: OrderPacketMarketParams
 ): { priceInTicks: bigint; priceUsd: number } => {
-  const floorTicks = priceUsdToTicksWithMarketParams(
-    toUsdString(rawPrice),
-    marketParams
+  const nearest = priceUsdToTicksWithMarketParams(
+    Number.isFinite(rawPrice) && rawPrice > 0 ? rawPrice : 0,
+    marketParams,
+    "nearest"
   );
-  const ceilTicks = floorTicks + 1n;
-  const floorUsd = ticksToUsdWithMarketParams(floorTicks, marketParams);
-  const ceilUsd = ticksToUsdWithMarketParams(ceilTicks, marketParams);
-  const nearest =
-    Math.abs(rawPrice - floorUsd) <= Math.abs(ceilUsd - rawPrice)
-      ? floorTicks
-      : ceilTicks;
   return {
     priceInTicks: nearest,
     priceUsd: ticksToUsdWithMarketParams(nearest, marketParams),
@@ -427,7 +418,6 @@ export const previewScaleOrder = (
     surplus
   );
 
-  const baseLotsMultiplier = 10 ** input.baseLotsDecimals;
   const levels: ScaleOrderLevel[] = merged.map((level, index) => {
     const sizeBaseLots = minPerOrder + surplusShares[index];
     return {
@@ -435,7 +425,7 @@ export const previewScaleOrder = (
       priceUsd: level.priceUsd,
       priceInTicks: level.priceInTicks,
       sizeBaseLots,
-      sizeUnits: sizeBaseLots / baseLotsMultiplier,
+      sizeUnits: baseLotsToBaseUnits(sizeBaseLots, input.baseLotsDecimals),
     };
   });
 

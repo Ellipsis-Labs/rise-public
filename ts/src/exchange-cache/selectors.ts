@@ -11,53 +11,17 @@ import type {
   PhoenixExchangeMetadataSourceState,
   PhoenixExchangeStoreState,
 } from "./types";
-
-const DEFAULT_QUOTE_DECIMALS = 6;
-const FEE_MICRO_MULTIPLIER = 1_000_000;
-
-const normalizePriceDecimalsForDisplay = (decimals: number): number => {
-  const normalized = Math.max(0, decimals);
-  return normalized === 1 ? 2 : normalized;
-};
+import {
+  displayTickSize,
+  feeRateToMicro,
+  priceDecimalsFromTickSize,
+  QUOTE_DECIMALS,
+} from "@/units";
 
 const normalizeSymbol = (symbol: string): string => symbol.trim().toLowerCase();
 
 const normalizeSelectedSymbol = (symbol: string | null): string | null =>
   symbol ? symbol.trim() : null;
-
-const getPriceDecimalsFromLotTickSize = (params: {
-  baseLotsDecimals: number;
-  quoteDecimals: number;
-  tickSizeInQuoteLotsPerBaseLot: number;
-}): number => {
-  const decimalShift = Math.max(
-    0,
-    params.quoteDecimals - params.baseLotsDecimals
-  );
-  let normalizedTickSize = Math.abs(params.tickSizeInQuoteLotsPerBaseLot);
-  let trailingZeroCount = 0;
-
-  while (normalizedTickSize !== 0 && normalizedTickSize % 10 === 0) {
-    normalizedTickSize /= 10;
-    trailingZeroCount += 1;
-  }
-
-  return normalizePriceDecimalsForDisplay(
-    Math.max(0, decimalShift - trailingZeroCount)
-  );
-};
-
-const getDisplayTickSize = (params: {
-  baseLotsDecimals: number;
-  quoteDecimals: number;
-  tickSizeInQuoteLotsPerBaseLot: number;
-}): number => {
-  const tickSize =
-    (10 ** params.baseLotsDecimals / 10 ** params.quoteDecimals) *
-    params.tickSizeInQuoteLotsPerBaseLot;
-  const decimals = getPriceDecimalsFromLotTickSize(params);
-  return Number(tickSize.toFixed(decimals));
-};
 
 export interface ProjectedExchangeMarket {
   market: ExchangeMarketSnapshot;
@@ -193,14 +157,14 @@ export const projectExchangeMarket = (
     quoteDecimals?: number;
   } = {}
 ): ProjectedExchangeMarket => {
-  const quoteDecimals = options.quoteDecimals ?? DEFAULT_QUOTE_DECIMALS;
+  const quoteDecimals = options.quoteDecimals ?? QUOTE_DECIMALS;
   return {
     market,
     units: {
       tickSizeInQuoteLotsPerBaseLot: market.tickSize,
       baseLotsDecimals: market.baseLotsDecimals,
       quoteDecimals,
-      tickSize: getDisplayTickSize({
+      tickSize: displayTickSize({
         baseLotsDecimals: market.baseLotsDecimals,
         quoteDecimals,
         tickSizeInQuoteLotsPerBaseLot: market.tickSize,
@@ -209,11 +173,11 @@ export const projectExchangeMarket = (
     fees: {
       takerFeeRate: market.takerFee,
       makerFeeRate: market.makerFee,
-      takerFeeMicro: Math.round(market.takerFee * FEE_MICRO_MULTIPLIER),
-      makerFeeMicro: Math.round(market.makerFee * FEE_MICRO_MULTIPLIER),
+      takerFeeMicro: feeRateToMicro(market.takerFee),
+      makerFeeMicro: feeRateToMicro(market.makerFee),
     },
     display: {
-      priceDecimals: getPriceDecimalsFromLotTickSize({
+      priceDecimals: priceDecimalsFromTickSize({
         baseLotsDecimals: market.baseLotsDecimals,
         quoteDecimals,
         tickSizeInQuoteLotsPerBaseLot: market.tickSize,

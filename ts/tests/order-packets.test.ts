@@ -38,6 +38,25 @@ describe("order packet builders", () => {
     });
   });
 
+  it("rounds off-tick order prices down for bids and up for asks", () => {
+    const marketParams = { tickSize: 100, baseLotsDecimals: 2 };
+    const priceFor = (side: Side) =>
+      buildLimitOrderPacketFromMarketParams(
+        { side, priceUsd: "135.875", baseUnits: "1" },
+        marketParams
+      ).priceInTicks;
+    const limitFor = (side: Side) =>
+      buildMarketOrderPacketFromMarketParams(
+        { side, baseUnits: "1", priceLimitUsd: 135.875 },
+        marketParams
+      ).priceInTicks;
+
+    expect(priceFor(Side.Bid)).toEqual(ticks(13587n));
+    expect(priceFor(Side.Ask)).toEqual(ticks(13588n));
+    expect(limitFor(Side.Bid)).toEqual(ticks(13587n));
+    expect(limitFor(Side.Ask)).toEqual(ticks(13588n));
+  });
+
   it("handles negative base lot decimals when converting price and size", () => {
     expect(
       priceUsdToTicksWithMarketParams("0.000012", {

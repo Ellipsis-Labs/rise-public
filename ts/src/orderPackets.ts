@@ -1,11 +1,4 @@
-import {
-  baseLots,
-  quoteLots,
-  ticks,
-  type BaseLots,
-  type QuoteLots,
-  type Ticks,
-} from "@/primitives/_numberTypes";
+import { quoteLots, type QuoteLots } from "@/primitives/_numberTypes";
 import { type Side } from "@/primitives/Side";
 import {
   OrderFlags,
@@ -13,63 +6,11 @@ import {
   type ImmediateOrCancelOrderPacket,
   type LimitOrderPacket,
 } from "@/primitives/OrderPacket";
-
-const MICRO_USD = 1_000_000n;
-
-const DECIMAL_PATTERN = /^(?:0|[1-9]\d*)(?:\.(\d+))?$/;
-
-const parseNonNegativeDecimal = (
-  value: number | string | bigint,
-  fieldName: string
-): { numerator: bigint; scale: bigint } => {
-  const normalized =
-    typeof value === "bigint"
-      ? value.toString()
-      : typeof value === "number"
-        ? Number.isFinite(value)
-          ? value.toString()
-          : ""
-        : value.trim();
-  const match = DECIMAL_PATTERN.exec(normalized);
-  if (!match) {
-    throw new Error(
-      `${fieldName} must be a non-negative base-10 decimal string, number, or bigint`
-    );
-  }
-
-  const [whole, fraction = ""] = normalized.split(".");
-  const digits = `${whole}${fraction}`;
-  const numerator = digits.length > 0 ? BigInt(digits) : 0n;
-  const scale = 10n ** BigInt(fraction.length);
-  return { numerator, scale };
-};
-
-const toBigIntStrict = (
-  value: number | string | bigint,
-  fieldName: string
-): bigint => {
-  if (typeof value === "bigint") {
-    return value;
-  }
-  if (typeof value === "number") {
-    if (!Number.isFinite(value) || !Number.isSafeInteger(value)) {
-      throw new Error(
-        `${fieldName} must be a finite safe integer when passed as a number`
-      );
-    }
-    return BigInt(value);
-  }
-  const trimmed = value.trim();
-  if (!/^\d+$/.test(trimmed)) {
-    throw new Error(`${fieldName} must be a non-negative integer`);
-  }
-  return BigInt(trimmed);
-};
-
-export interface OrderPacketMarketParams {
-  tickSize: number | string | bigint;
-  baseLotsDecimals: number;
-}
+import {
+  baseUnitsToBaseLotsWithMarketParams,
+  orderPriceUsdToTicksWithMarketParams,
+  type OrderPacketMarketParams,
+} from "@/units";
 
 export interface BuildLimitOrderPacketFromMarketParamsInput {
   side: Side;
@@ -107,85 +48,16 @@ export interface PhoenixOrderPacketBuilders {
   ) => Promise<ImmediateOrCancelOrderPacket>;
 }
 
-export const priceUsdToTicksWithMarketParams = (
-  priceUsd: number | string | bigint,
-  marketParams: OrderPacketMarketParams
-): Ticks => {
-  const { numerator, scale } = parseNonNegativeDecimal(priceUsd, "priceUsd");
-  const priceMicros = (numerator * MICRO_USD) / scale;
-  const tickSize = toBigIntStrict(marketParams.tickSize, "tickSize");
-  if (tickSize <= 0n) {
-    throw new Error("tickSize must be greater than zero");
-  }
-
-  const decimals = marketParams.baseLotsDecimals;
-  let scaledNumerator = priceMicros;
-  let denominator = tickSize;
-  const decimalScale = 10n ** BigInt(Math.abs(decimals));
-
-  if (decimals >= 0) {
-    denominator *= decimalScale;
-  } else {
-    scaledNumerator *= decimalScale;
-  }
-
-  return ticks(scaledNumerator / denominator);
-};
-
-/**
- * Inverse of {@link priceUsdToTicksWithMarketParams}: convert an integer tick
- * price back to a human-readable USD price for display/preview. The forward
- * conversion floors, so this returns the USD value of the tick boundary itself
- * (not the original pre-snap price). Returned as a `number` for display; the
- * exact tick value remains the source of truth.
- */
-export const ticksToUsdWithMarketParams = (
-  priceInTicks: number | string | bigint,
-  marketParams: OrderPacketMarketParams
-): number => {
-  const tickValue = toBigIntStrict(priceInTicks, "priceInTicks");
-  const tickSize = toBigIntStrict(marketParams.tickSize, "tickSize");
-  if (tickSize <= 0n) {
-    throw new Error("tickSize must be greater than zero");
-  }
-
-  const decimals = marketParams.baseLotsDecimals;
-  const decimalScale = 10n ** BigInt(Math.abs(decimals));
-
-  // Forward (decimals >= 0): ticks = priceMicros / (tickSize * decimalScale)
-  // Forward (decimals  < 0): ticks = priceMicros * decimalScale / tickSize
-  // Invert each, then divide micro-USD -> USD with a single float op so the
-  // bigint multiplications stay exact.
-  if (decimals >= 0) {
-    return Number(tickValue * tickSize * decimalScale) / Number(MICRO_USD);
-  }
-  return (
-    Number(tickValue * tickSize) / (Number(decimalScale) * Number(MICRO_USD))
-  );
-};
-
-export const baseUnitsToBaseLotsWithMarketParams = (
-  baseUnits: number | string | bigint,
-  marketParams: Pick<OrderPacketMarketParams, "baseLotsDecimals">
-): BaseLots => {
-  const { numerator, scale } = parseNonNegativeDecimal(baseUnits, "baseUnits");
-  const decimals = marketParams.baseLotsDecimals;
-  const decimalScale = 10n ** BigInt(Math.abs(decimals));
-
-  const lots =
-    decimals >= 0
-      ? (numerator * decimalScale) / scale
-      : numerator / (scale * decimalScale);
-
-  return baseLots(lots);
-};
-
 export const buildLimitOrderPacketFromMarketParams = (
   params: BuildLimitOrderPacketFromMarketParamsInput,
   marketParams: OrderPacketMarketParams
 ): LimitOrderPacket => ({
   side: params.side,
-  priceInTicks: priceUsdToTicksWithMarketParams(params.priceUsd, marketParams),
+  priceInTicks: orderPriceUsdToTicksWithMarketParams(
+    params.priceUsd,
+    marketParams,
+    params.side
+  ),
   numBaseLots: baseUnitsToBaseLotsWithMarketParams(
     params.baseUnits,
     marketParams
@@ -221,7 +93,11 @@ export const buildMarketOrderPacketFromMarketParams = (
     priceInTicks:
       params.priceLimitUsd === undefined || params.priceLimitUsd === null
         ? null
-        : priceUsdToTicksWithMarketParams(params.priceLimitUsd, marketParams),
+        : orderPriceUsdToTicksWithMarketParams(
+            params.priceLimitUsd,
+            marketParams,
+            params.side
+          ),
     numBaseLots,
     numQuoteLots: params.numQuoteLots ?? null,
     minBaseLotsToFill,

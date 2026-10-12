@@ -75,7 +75,7 @@ export const createFillsAdapter = (
 
           const isIsoString =
             typeof fillData.timestamp === "string" &&
-            !/^-?\\d+$/.test(fillData.timestamp);
+            !/^-?\d+$/.test(fillData.timestamp);
 
           updates.push({
             symbol: message.symbol,

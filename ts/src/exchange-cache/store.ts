@@ -16,6 +16,7 @@ import type {
   ExchangeMsg,
   ExchangeSnapshotMsg,
 } from "@/ws/adapters/exchange";
+import { riskFactorPercentToBps } from "@/units";
 import type {
   ExchangeCacheEvent,
   ExchangeCacheHealth,
@@ -154,13 +155,6 @@ const cloneCollateralAsset = (
   ...asset,
   spot: asset.spot ? { ...asset.spot } : asset.spot,
 });
-
-const riskFactorPercentToBps = (value: number): number => {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-  return Math.round(value * 100);
-};
 
 const sortMarkets = (markets: ExchangeMarketSnapshot[]): void => {
   markets.sort(
