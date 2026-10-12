@@ -3,6 +3,33 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.14 - 2026-10-12
+
+Source Phoenix commit: `dcad55ef9df91589b8c5e4b03047af27ccab244e`
+
+### Summary
+
+- Rust 0.6.14 adds Order History V2 to `api`/`sdk`. `get_user_order_history_v2` and `get_trader_order_history_v2` return flat packets that include TWAP children. `get_user_organized_order_history_v2` and `get_trader_organized_order_history_v2` return terminal TWAP parents with nested children, plus standalone orders. The new `types::order_history_v2` module holds the request and response types, and live `OrderHistoryDelta` rows gain optional `parent_order_id` and `parent_order_type`.
+- Spot collateral now covers SPL tokens as well as native SOL. `accounts` adds `TraderSpotCollateral`, `Trader::spot_collaterals()` and `PerpAssetMap::spot_collaterals()`. Spot assets can be priced by their own oracle (`SpotOraclePriceView`, `SpotCollateralPricing`, `SpotPrice`) when no perp market is bound. `math` margin valuation and the `api` trader state use this pricing.
+- `math` converts amounts exactly. `quote_usd_to_quote_lots` and `quote_lots_from_decimal_str` are new, and quote amounts round down. `core` order tickets, bracket legs and multi-limit orders use `order_price_to_ticks` with the order side. `types` `Decimal::from_i64_with_decimals` no longer goes through floating point.
+- `cli` Flight `--usdc-amount` uses the exact conversion and rejects amounts below one USDC unit.
+
+### Breaking Changes
+
+- `api` no longer exports `decimal_str_to_quote_lots`. Use `math::quote_lots_from_decimal_str` instead.
+- `accounts` and `ix` no longer re-export `TraderPositions` or `TraderPositionIter` from their `trader` and `accounts` modules. `accounts::prelude` still exports them, but they are deprecated. Use `Trader` with `position_entries()` instead.
+- `SpotCollateralParams.perp_symbol` is replaced by `pricing: SpotCollateralPricing`. In `SpotCollateralInput`, `pricing_market_symbol` and `index_price` are replaced by `perp_symbol: Option<String>` and `price: Option<SpotPrice>`. `SpotCollateralMargin.pricing_market_symbol` is now `Option<String>`.
+- `SpotAssetConfig` has a new `oracle_price` field, and `OrderHistoryDelta` has new `parent_order_id` and `parent_order_type` fields. Code that builds these with struct literals must set them, usually to `None`.
+- Owned `accounts::Trader.native_sol_collateral` is deprecated. Use `spot_collaterals` and pick the `NATIVE_SOL_ASSET_INDEX` entry.
+- The size of `SpotCollateralMetadata` is unchanged. The oracle price now occupies bytes that were previously padding.
+
+### Consumer Notes
+
+- Price-to-tick conversion for orders is now side-aware. Check order prices if you depend on the previous rounding.
+- USDC deposit and withdraw amounts convert exactly and round down, where they previously used floating-point multiplication.
+- The V2 history methods work with opaque cursors. Start without a cursor when switching between the flat and organized views. The legacy order history methods are unchanged.
+- Update any code that used `Trader` header-extension SOL balances to read `spot_collaterals()` so SPL balances are included.
+
 ## v0.6.13 - 2026-10-09
 
 Source Phoenix commit: `96a1919a3bb7bc6a05f6f16604b3dd3def8e102d`

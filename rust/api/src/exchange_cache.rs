@@ -824,6 +824,7 @@ mod tests {
                     max_liquidation_discount_bps: 500,
                     min_liquidation_slippage_bps: 50,
                     max_liquidation_size: 1_000_000_000u64.into(),
+                    oracle_price: None,
                 }),
             }],
         }

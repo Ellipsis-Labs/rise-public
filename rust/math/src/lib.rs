@@ -37,7 +37,9 @@ pub use margin_calc::{
     position_backstop_margin, position_cancel_margin, position_high_risk_margin,
     position_maintenance_margin,
 };
-pub use market_math::{MarketCalculator, RoundingMode};
+pub use market_math::{
+    MarketCalculator, RoundingMode, quote_lots_from_decimal_str, quote_usd_to_quote_lots,
+};
 pub use perp_metadata::PerpAssetMetadata;
 pub use portfolio::{
     CalculateLiquidationPriceUsdInput, MarginScenario, MarginScenarioResult,
@@ -65,9 +67,9 @@ pub use quantities::{
 pub use risk::{MarginError, MarginState, ProgramError, RiskAction, RiskState, RiskTier};
 use sha2_const_stable::Sha256;
 pub use spot_collateral::{
-    NATIVE_SOL_ASSET_INDEX, SpotCollateralParams, SpotCollateralValuationError,
-    discounted_spot_collateral, margin_retained_bps, notional_spot_collateral,
-    spot_collateral_price,
+    NATIVE_SOL_ASSET_INDEX, SpotCollateralParams, SpotCollateralPricing,
+    SpotCollateralValuationError, SpotPrice, discounted_spot_collateral, margin_retained_bps,
+    notional_spot_collateral, spot_collateral_price,
 };
 pub use trader_position::{TraderPosition, calculate_unrealized_pnl};
 

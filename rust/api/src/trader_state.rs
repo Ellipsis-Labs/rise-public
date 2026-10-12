@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use phoenix_rise_math::portfolio::SpotCollateralInput;
 use phoenix_rise_math::{
     BaseLots, LimitOrder as MarginLimitOrder, SequenceNumberU8, Side as MarginSide, SignedBaseLots,
-    SignedQuoteLots, SignedQuoteLotsI56, SignedQuoteLotsPerBaseLot, Ticks, TraderPortfolio,
-    TraderPosition,
+    SignedQuoteLots, SignedQuoteLotsI56, SignedQuoteLotsPerBaseLot, SpotCollateralPricing,
+    SpotPrice, Ticks, TraderPortfolio, TraderPosition,
 };
 use rust_decimal::Decimal;
 use tracing::{debug, warn};
@@ -266,14 +266,27 @@ impl SubaccountState {
                 );
                 continue;
             };
-            let index_price = metadata.get_index_price(&params.perp_symbol);
+            let (perp_symbol, price) = match &params.pricing {
+                SpotCollateralPricing::Perp { symbol } => (
+                    Some(symbol.clone()),
+                    metadata
+                        .get_index_price(symbol)
+                        .zip(metadata.get_perp_asset_metadata(symbol))
+                        .map(|(ticks, market)| SpotPrice {
+                            ticks,
+                            tick_size: market.tick_size(),
+                            base_lot_decimals: market.base_lot_decimals(),
+                        }),
+                ),
+                SpotCollateralPricing::Oracle(price) => (None, Some(*price)),
+            };
             portfolio.spot_collaterals.push(SpotCollateralInput {
                 asset_index: spot.asset_index,
                 symbol: spot.symbol.clone(),
-                pricing_market_symbol: params.perp_symbol.clone(),
+                perp_symbol,
+                price,
                 balance: spot.balance,
                 decimals,
-                index_price,
                 max_global_balance: params.max_global_balance,
                 min_margin_discount_bps,
                 max_margin_discount_bps,

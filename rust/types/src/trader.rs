@@ -409,6 +409,10 @@ pub struct TradeHistoryDelta {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderHistoryDelta {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_order_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_order_type: Option<String>,
     pub timestamp: u64,
     pub slot: u64,
     pub slot_index: u32,
@@ -584,5 +588,41 @@ mod tests {
         json.as_object_mut().unwrap().remove("parentTwapId");
         let delta: TradeHistoryDelta = serde_json::from_value(json).unwrap();
         assert_eq!(delta.parent_twap_id, None);
+    }
+
+    #[test]
+    fn order_history_delta_preserves_optional_parent_attribution() {
+        let mut payload = json!({
+            "timestamp": 1000,
+            "slot": 100,
+            "slotIndex": 1,
+            "instructionIndex": 2,
+            "eventIndex": 3,
+            "market": "SOL",
+            "instructionType": "ExecuteTwapOrder",
+            "orderType": "market",
+            "status": "filled",
+            "size": "1",
+            "price": "150",
+            "filledSize": "1",
+            "parentOrderId": "twap-account:42",
+            "parentOrderType": "twap"
+        });
+
+        for absent_fields in [
+            &[][..],
+            &["parentOrderId"][..],
+            &["parentOrderId", "parentOrderType"][..],
+        ] {
+            for field in absent_fields {
+                payload.as_object_mut().unwrap().remove(*field);
+            }
+
+            let delta: OrderHistoryDelta = serde_json::from_value(payload.clone()).unwrap();
+            let serialized = serde_json::to_value(delta).unwrap();
+
+            assert_eq!(serialized["parentOrderId"], payload["parentOrderId"]);
+            assert_eq!(serialized["parentOrderType"], payload["parentOrderType"]);
+        }
     }
 }

@@ -228,6 +228,10 @@ name              = "opentelemetry_feature_tests"
 required-features = ["opentelemetry"]
 
 [[test]]
+name              = "order_history_client_tests"
+required-features = ["api"]
+
+[[test]]
 name              = "sdk_localnet_fixture_tests"
 required-features = ["tx-builder"]
 
