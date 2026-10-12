@@ -8,7 +8,7 @@ use phoenix_rise_api::{CROSS_MARGIN_SUBACCOUNT_IDX, ExchangeKeysView, ExchangeMa
 use phoenix_rise_ix::limit_order::LimitOrderParams;
 use phoenix_rise_ix::market_order::MarketOrderParams;
 use phoenix_rise_ix::types::{OrderFlags, SelfTradeBehavior, Side, StopLossOrderKind};
-use phoenix_rise_math::MarketCalculator;
+use phoenix_rise_math::{BasisPoints, MarketCalculator};
 use solana_pubkey::Pubkey;
 use solana_rpc_client::nonblocking::rpc_client::RpcClient;
 
@@ -17,7 +17,7 @@ use crate::tx_builder::{
     parse_global_trader_index_pubkeys,
 };
 
-const BPS_DENOMINATOR: f64 = 10_000.0;
+const BPS_DENOMINATOR: f64 = BasisPoints::DENOMINATOR as f64;
 /// Default slippage used when an IOC bracket leg omits an explicit execution
 /// price.
 pub const DEFAULT_BRACKET_LEG_SLIPPAGE_BPS: u32 = 1_000;
@@ -136,8 +136,12 @@ impl MarketOrderTicket {
             .min_quote_lots_to_fill(self.min_quote_lots_to_fill);
 
         if let Some(price) = self.price {
-            builder =
-                builder.price_in_ticks(metadata.market_calc.price_to_ticks(price)?.as_inner());
+            builder = builder.price_in_ticks(
+                metadata
+                    .market_calc
+                    .order_price_to_ticks(price, self.side)?
+                    .as_inner(),
+            );
         }
         if let Some(num_quote_lots) = self.num_quote_lots {
             builder = builder.num_quote_lots(num_quote_lots);
@@ -358,7 +362,10 @@ impl LimitOrderTicket {
         metadata: OrderTicketMetadata<'_>,
     ) -> Result<LimitOrderParams, PhoenixTxBuilderError> {
         let addrs = metadata.parse_addresses()?;
-        let price_in_ticks = metadata.market_calc.price_to_ticks(self.price)?.as_inner();
+        let price_in_ticks = metadata
+            .market_calc
+            .order_price_to_ticks(self.price, self.side)?
+            .as_inner();
 
         let mut builder = LimitOrderParams::builder()
             .trader(self.authority)

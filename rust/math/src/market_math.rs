@@ -1,7 +1,15 @@
+use std::str::FromStr;
+
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::{Decimal, RoundingStrategy};
+
+use crate::direction::Side;
 use crate::quantities::{
     BaseLots, BaseLotsPerTick, MathError, QuoteLots, QuoteLotsPerBaseLotPerTick, SignedBaseLots,
     SignedQuoteLots, SignedTicks, Ticks,
 };
+
+const QUOTE_LOT_DECIMALS: u8 = 6;
 
 /// Rounding behavior for floating-point conversions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -12,23 +20,69 @@ pub enum RoundingMode {
 }
 
 impl RoundingMode {
-    fn apply(self, value: f64) -> Result<u64, MathError> {
-        if !value.is_finite() {
-            return Err(MathError::Overflow);
-        }
-        if value < 0.0 {
+    fn apply(self, value: Decimal) -> Result<u64, MathError> {
+        if value.is_sign_negative() && !value.is_zero() {
             return Err(MathError::Underflow);
         }
         let rounded = match self {
             RoundingMode::Floor => value.floor(),
             RoundingMode::Ceil => value.ceil(),
-            RoundingMode::Nearest => value.round(),
+            RoundingMode::Nearest => {
+                value.round_dp_with_strategy(0, RoundingStrategy::MidpointAwayFromZero)
+            }
         };
-        if rounded < 0.0 || rounded > u64::MAX as f64 {
-            return Err(MathError::Overflow);
-        }
-        Ok(rounded as u64)
+        rounded.to_u64().ok_or(MathError::Overflow)
     }
+}
+
+fn exact(x: f64) -> Result<Decimal, MathError> {
+    if !x.is_finite() {
+        return Err(MathError::Overflow);
+    }
+    if x < 0.0 {
+        return Err(MathError::Underflow);
+    }
+    Decimal::from_str(&format!("{x}")).map_err(|_| MathError::Overflow)
+}
+
+fn checked_pow10(exp: u32) -> Option<Decimal> {
+    10i128
+        .checked_pow(exp)
+        .and_then(|pow| Decimal::try_from_i128_with_scale(pow, 0).ok())
+}
+
+fn scale_pow10(value: Decimal, exp: i32) -> Result<Decimal, MathError> {
+    let factor = checked_pow10(exp.unsigned_abs()).ok_or(MathError::Overflow)?;
+    if exp >= 0 {
+        value.checked_mul(factor)
+    } else {
+        value.checked_div(factor)
+    }
+    .ok_or(MathError::Overflow)
+}
+
+fn quote_lots_floor(value: Decimal) -> Result<QuoteLots, MathError> {
+    let lots = scale_pow10(value, QUOTE_LOT_DECIMALS as i32)?;
+    QuoteLots::new_checked(RoundingMode::Floor.apply(lots)?)
+}
+
+/// Convert quote units (e.g. USD) → quote lots, rounding down.
+pub fn quote_usd_to_quote_lots(usd: f64) -> Result<QuoteLots, MathError> {
+    quote_lots_floor(exact(usd)?)
+}
+
+/// Parse a non-negative decimal string of quote units (e.g. USD) into quote
+/// lots, rounding down.
+pub fn quote_lots_from_decimal_str(value: &str) -> Result<QuoteLots, MathError> {
+    let value = value.trim();
+    if !value
+        .bytes()
+        .all(|b| b.is_ascii_digit() || matches!(b, b'.' | b'+' | b'-'))
+    {
+        return Err(MathError::Overflow);
+    }
+    let parsed = Decimal::from_str_exact(value).map_err(|_| MathError::Overflow)?;
+    quote_lots_floor(parsed)
 }
 
 /// Utility struct that encapsulates per-market math conversions.
@@ -59,14 +113,16 @@ impl RoundingMode {
 ///
 /// ## Example
 /// ```
-/// use phoenix_rise_math::{MarketCalculator, QuoteLotsPerBaseLotPerTick, RoundingMode};
+/// use phoenix_rise_math::{
+///     MarketCalculator, QuoteLotsPerBaseLotPerTick, RoundingMode, quote_usd_to_quote_lots,
+/// };
 ///
 /// let calc = MarketCalculator::new(4, QuoteLotsPerBaseLotPerTick::new(100)); // BTC-like
 /// let ticks = calc.price_to_ticks(50_000.0).unwrap();
 /// let lots = calc
 ///     .base_units_to_lots(0.25, RoundingMode::Nearest)
 ///     .unwrap();
-/// let usd = calc.quote_lots_to_usd(calc.quote_usd_to_quote_lots(123.45).unwrap());
+/// let usd = calc.quote_lots_to_usd(quote_usd_to_quote_lots(123.45).unwrap());
 /// ```
 ///
 /// All helpers perform bounds/finite checks and return `MathError` on overflow,
@@ -82,7 +138,7 @@ impl MarketCalculator {
     pub fn new(base_lot_decimals: i8, tick_size: QuoteLotsPerBaseLotPerTick) -> Self {
         Self {
             base_lot_decimals,
-            quote_lot_decimals: 6,
+            quote_lot_decimals: QUOTE_LOT_DECIMALS,
             tick_size,
         }
     }
@@ -96,22 +152,11 @@ impl MarketCalculator {
     }
 
     fn pow10_decimal(exp: i32) -> rust_decimal::Decimal {
-        use rust_decimal::Decimal;
-        // 10^exp using integer power to avoid reliance on Decimal::powu.
-        if exp == 0 {
-            return Decimal::ONE;
-        }
-        if exp > 0 {
-            match 10i128.checked_pow(exp as u32) {
-                Some(val) => Decimal::from(val),
-                None => Decimal::MAX,
-            }
-        } else {
-            // Negative exponent -> 1 / 10^{-exp}
-            match 10i128.checked_pow((-exp) as u32) {
-                Some(val) if val != 0 => Decimal::ONE / Decimal::from(val),
-                _ => Decimal::ZERO,
-            }
+        match (checked_pow10(exp.unsigned_abs()), exp >= 0) {
+            (Some(factor), true) => factor,
+            (Some(factor), false) => Decimal::ONE / factor,
+            (None, true) => Decimal::MAX,
+            (None, false) => Decimal::ZERO,
         }
     }
 
@@ -125,17 +170,18 @@ impl MarketCalculator {
 
     /// Convert ticks → price in quote units (e.g. USD).
     pub fn ticks_to_price(&self, ticks: Ticks) -> f64 {
-        let ticks_f = ticks.as_inner() as f64;
-        let tick_size_f = self.tick_size.as_inner() as f64;
-        ticks_f * tick_size_f * self.base_lots_per_base_unit() / self.quote_lots_per_quote_unit()
+        self.ticks_f64_to_price(ticks.as_inner() as f64)
     }
 
     /// Convert signed ticks → price difference in quote units (e.g. USD).
     /// Used for values like EMA of price differences that can be negative.
     pub fn signed_ticks_to_price_diff(&self, ticks: SignedTicks) -> f64 {
-        let ticks_f = ticks.as_inner() as f64;
+        self.ticks_f64_to_price(ticks.as_inner() as f64)
+    }
+
+    fn ticks_f64_to_price(&self, ticks: f64) -> f64 {
         let tick_size_f = self.tick_size.as_inner() as f64;
-        ticks_f * tick_size_f * self.base_lots_per_base_unit() / self.quote_lots_per_quote_unit()
+        ticks * tick_size_f * self.base_lots_per_base_unit() / self.quote_lots_per_quote_unit()
     }
 
     pub fn ticks_to_decimal(&self, ticks: Ticks) -> rust_decimal::Decimal {
@@ -148,19 +194,45 @@ impl MarketCalculator {
 
     /// Convert price in quote units (e.g. USD) → ticks (rounded to nearest).
     pub fn price_to_ticks(&self, price: f64) -> Result<Ticks, MathError> {
+        self.price_to_ticks_rounded(price, RoundingMode::Nearest)
+    }
+
+    /// Convert price in quote units (e.g. USD) → ticks with selectable
+    /// rounding.
+    pub fn price_to_ticks_rounded(
+        &self,
+        price: f64,
+        rounding: RoundingMode,
+    ) -> Result<Ticks, MathError> {
         if price <= 0.0 || !price.is_finite() {
             return Err(MathError::Underflow);
         }
-        let numerator = price * self.quote_lots_per_quote_unit();
-        let denominator = self.tick_size.as_inner() as f64 * self.base_lots_per_base_unit();
-        if denominator == 0.0 {
+        if self.tick_size.as_inner() == 0 {
             return Err(MathError::DivisionByZero);
         }
-        let ticks = (numerator / denominator).round();
-        if ticks < 0.0 || ticks > u64::MAX as f64 {
-            return Err(MathError::Overflow);
+        let scaled = scale_pow10(
+            exact(price)?,
+            self.quote_lot_decimals as i32 - self.base_lot_decimals as i32,
+        )?;
+        let ticks = scaled
+            .checked_div(Decimal::from(self.tick_size.as_inner()))
+            .ok_or(MathError::Overflow)?;
+        Ticks::new_checked(rounding.apply(ticks)?).map_err(|_| MathError::Overflow)
+    }
+
+    /// Convert an order price in quote units (e.g. USD) → ticks. Bids round
+    /// down and asks round up; a price that resolves to zero ticks is an
+    /// error.
+    pub fn order_price_to_ticks(&self, price: f64, side: Side) -> Result<Ticks, MathError> {
+        let rounding = match side {
+            Side::Bid => RoundingMode::Floor,
+            Side::Ask => RoundingMode::Ceil,
+        };
+        let ticks = self.price_to_ticks_rounded(price, rounding)?;
+        if ticks.as_inner() == 0 {
+            return Err(MathError::Underflow);
         }
-        Ticks::new_checked(ticks as u64).map_err(|_| MathError::Overflow)
+        Ok(ticks)
     }
 
     /// Synonym for `price_to_ticks` when callers conceptually start from a
@@ -178,9 +250,16 @@ impl MarketCalculator {
         if base_units <= 0.0 || !base_units.is_finite() {
             return Err(MathError::Underflow);
         }
-        let lots = base_units * self.base_lots_per_base_unit();
-        let lots_u64 = rounding.apply(lots)?;
-        BaseLots::new_checked(lots_u64)
+        self.base_units_decimal_to_lots(exact(base_units)?, rounding)
+    }
+
+    fn base_units_decimal_to_lots(
+        &self,
+        base_units: Decimal,
+        rounding: RoundingMode,
+    ) -> Result<BaseLots, MathError> {
+        let lots = scale_pow10(base_units, self.base_lot_decimals as i32)?;
+        BaseLots::new_checked(rounding.apply(lots)?)
     }
 
     /// Convert base lots back to human base units.
@@ -209,16 +288,6 @@ impl MarketCalculator {
         } else {
             lots_dec / denom
         }
-    }
-
-    /// Convert quote units (e.g. USD) → quote lots.
-    pub fn quote_usd_to_quote_lots(&self, usd: f64) -> Result<QuoteLots, MathError> {
-        if usd < 0.0 || !usd.is_finite() {
-            return Err(MathError::Underflow);
-        }
-        let lots = usd * self.quote_lots_per_quote_unit();
-        let lots_u64 = RoundingMode::Nearest.apply(lots)?;
-        QuoteLots::new_checked(lots_u64)
     }
 
     /// Convert quote lots → quote units (e.g. USD).
@@ -250,8 +319,10 @@ impl MarketCalculator {
         if quote_usd <= 0.0 || price <= 0.0 {
             return Err(MathError::Underflow);
         }
-        let base_units = quote_usd / price;
-        self.base_units_to_lots(base_units, rounding)
+        let base_units = exact(quote_usd)?
+            .checked_div(exact(price)?)
+            .ok_or(MathError::Overflow)?;
+        self.base_units_decimal_to_lots(base_units, rounding)
     }
 
     /// USD-per-tick multiplier (helpful for formatting book depths).
@@ -261,7 +332,6 @@ impl MarketCalculator {
     }
 
     pub fn tick_size_multiplier_decimal(&self) -> rust_decimal::Decimal {
-        use rust_decimal::Decimal;
         let denom =
             self.base_lots_per_base_unit_decimal() * Decimal::from(self.tick_size.as_inner());
         if denom.is_zero() {
@@ -288,7 +358,6 @@ impl MarketCalculator {
         &self,
         base_lots_density: BaseLotsPerTick,
     ) -> rust_decimal::Decimal {
-        use rust_decimal::Decimal;
         let base_units_per_tick =
             self.base_lots_to_decimal(BaseLots::new(base_lots_density.as_inner()));
         let dollars_per_tick = self.ticks_to_decimal(Ticks::new(1));
@@ -474,7 +543,7 @@ mod tests {
     fn quote_lots_round_trip() {
         let c = calc(4, 100);
         let usd = 123.456789;
-        let ql = c.quote_usd_to_quote_lots(usd).unwrap();
+        let ql = quote_usd_to_quote_lots(usd).unwrap();
         let usd_back = c.quote_lots_to_usd(ql);
         assert!((usd_back - usd).abs() < 0.000001);
     }
@@ -500,11 +569,78 @@ mod tests {
     }
 
     #[test]
+    fn exact_conversions_and_order_price_rounding() {
+        for d in 0..=6i8 {
+            let c = calc(d, 1);
+            let scale = 10f64.powi(d as i32);
+            for n in 1..=100_000u64 {
+                let lots = c
+                    .base_units_to_lots(n as f64 / scale, RoundingMode::Floor)
+                    .unwrap();
+                assert_eq!(lots.as_inner(), n, "d={d} n={n}");
+            }
+        }
+        for n in 1..=100_000u64 {
+            let two_dp = quote_usd_to_quote_lots(n as f64 / 100.0).unwrap();
+            assert_eq!(two_dp.as_inner(), n * 10_000, "n={n}");
+            let six_dp = quote_usd_to_quote_lots(n as f64 / 1_000_000.0).unwrap();
+            assert_eq!(six_dp.as_inner(), n, "n={n}");
+        }
+
+        let c = calc(2, 100);
+        for n in 1..=100_000u64 {
+            let price = n as f64 / 100.0;
+            let ticks = [
+                c.price_to_ticks(price),
+                c.price_to_ticks_rounded(price, RoundingMode::Floor),
+                c.price_to_ticks_rounded(price, RoundingMode::Ceil),
+                c.order_price_to_ticks(price, Side::Bid),
+                c.order_price_to_ticks(price, Side::Ask),
+            ];
+            for t in ticks {
+                assert_eq!(t.unwrap().as_inner(), n, "n={n}");
+            }
+        }
+        for (price, bid, ask, nearest) in [
+            (135.87, 13587, 13587, 13587),
+            (135.874, 13587, 13588, 13587),
+            (135.875, 13587, 13588, 13588),
+        ] {
+            let ticks = |side| c.order_price_to_ticks(price, side).unwrap().as_inner();
+            assert_eq!(ticks(Side::Bid), bid, "price={price}");
+            assert_eq!(ticks(Side::Ask), ask, "price={price}");
+            assert_eq!(c.price_to_ticks(price).unwrap().as_inner(), nearest);
+        }
+        assert!(matches!(
+            c.order_price_to_ticks(0.001, Side::Bid),
+            Err(MathError::Underflow)
+        ));
+        assert_eq!(
+            c.order_price_to_ticks(0.001, Side::Ask).unwrap().as_inner(),
+            1
+        );
+
+        let parse = |s| quote_lots_from_decimal_str(s).map(|lots| lots.as_inner());
+        assert_eq!(parse("1000.5").unwrap(), 1_000_500_000);
+        assert_eq!(parse("0.0000019").unwrap(), 1);
+        for bad in [
+            "-1",
+            "NaN",
+            "abc",
+            "1e3",
+            "1_000",
+            "99999999999999999999999999",
+        ] {
+            assert!(parse(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
     fn invalid_inputs_should_error() {
         let c = calc(4, 100);
         assert!(c.price_to_ticks(-1.0).is_err());
         assert!(c.base_units_to_lots(-0.5, RoundingMode::Nearest).is_err());
-        assert!(c.quote_usd_to_quote_lots(-10.0).is_err());
+        assert!(quote_usd_to_quote_lots(-10.0).is_err());
         assert!(c.price_to_ticks(f64::NAN).is_err());
         assert!(
             c.base_units_to_lots(f64::INFINITY, RoundingMode::Nearest)
@@ -516,11 +652,11 @@ mod tests {
     fn zero_and_tiny_inputs() {
         let c = calc(4, 100);
         assert!(c.base_units_to_lots(0.0, RoundingMode::Nearest).is_err());
-        assert_eq!(c.quote_usd_to_quote_lots(0.0).unwrap().as_inner(), 0);
+        assert_eq!(quote_usd_to_quote_lots(0.0).unwrap().as_inner(), 0);
         let tiny = 0.000001;
         assert!(c.price_to_ticks(tiny).is_ok());
         assert!(c.base_units_to_lots(tiny, RoundingMode::Nearest).is_ok());
-        assert!(c.quote_usd_to_quote_lots(tiny).is_ok());
+        assert!(quote_usd_to_quote_lots(tiny).is_ok());
     }
 
     #[test]

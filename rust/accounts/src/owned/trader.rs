@@ -29,7 +29,13 @@ pub struct Trader {
     pub last_deposit_slot: u64,
     pub conditional_order_bits: Vec<u8>,
     pub occupied_conditional_order_indices: Vec<u8>,
+    #[deprecated(
+        since = "0.7.0",
+        note = "use `spot_collaterals` and pick the `NATIVE_SOL_ASSET_INDEX` entry"
+    )]
     pub native_sol_collateral: u64,
+    /// All spot collateral entries, native SOL included.
+    pub spot_collaterals: Vec<borrowed::TraderSpotCollateral>,
     pub positions: ShortEntries<u64, TraderPosition>,
 }
 
@@ -39,6 +45,7 @@ impl AccountDeserialize for Trader {
     }
 }
 
+#[allow(deprecated)]
 impl From<borrowed::Trader<'_>> for Trader {
     fn from(trader: borrowed::Trader<'_>) -> Self {
         let header = trader.header();
@@ -70,6 +77,7 @@ impl From<borrowed::Trader<'_>> for Trader {
             ),
             conditional_order_bits,
             native_sol_collateral: trader.native_sol_collateral(),
+            spot_collaterals: trader.spot_collaterals().collect(),
             positions: ShortEntries {
                 len: entries.len() as u64,
                 capacity: trader.capacity(),

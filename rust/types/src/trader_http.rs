@@ -778,10 +778,9 @@ pub struct LimitOrder {
 
 /// A trader's balance in one spot collateral asset, valued for margin.
 ///
-/// Spot collateral is collateral held in an asset other than the quote token;
-/// native SOL is the only one today. `balance` and `withdrawable` are in the
-/// asset's own units (SOL, 9 decimals), while `notional` and `discounted` are
-/// quote units.
+/// Spot collateral is collateral held in an asset other than the quote token.
+/// `balance` and `withdrawable` are in the asset's own units (9 decimals for
+/// SOL), while `notional` and `discounted` are quote units.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotCollateralBalanceView {
@@ -816,7 +815,8 @@ pub struct TraderView {
     pub authority: String,
 
     pub collateral_balance: Decimal,
-    /// Spot collateral balances (native SOL today), valued at the index price.
+    /// Spot collateral balances, valued at each asset's pricing market index
+    /// price or its own oracle price.
     /// Empty when the trader holds none or the exchange has the feature
     /// disabled. Defaulted so responses from API versions that predate the
     /// field still decode.

@@ -135,19 +135,3 @@ pub(crate) fn read_u64(data: &[u8], offset: usize) -> u64 {
     bytes.copy_from_slice(&data[offset..offset + 8]);
     u64::from_le_bytes(bytes)
 }
-
-pub(crate) fn read_i64(data: &[u8], offset: usize) -> i64 {
-    let mut bytes = [0u8; 8];
-    bytes.copy_from_slice(&data[offset..offset + 8]);
-    i64::from_le_bytes(bytes)
-}
-
-pub(crate) fn read_i56(data: &[u8], offset: usize) -> i64 {
-    let bytes = &data[offset..offset + 7];
-    let mut extended = [0u8; 8];
-    extended[..7].copy_from_slice(bytes);
-    if bytes[6] & 0x80 != 0 {
-        extended[7] = u8::MAX;
-    }
-    i64::from_le_bytes(extended)
-}

@@ -9,6 +9,8 @@ use phoenix_rise::ix::flight::{
     RegisterBuilderParams, SetOnboarderSignerParams, UpdateFeeParams, create_register_builder_ix,
     create_set_onboarder_signer_ix, create_update_fee_ix, get_flight_builder_state_address,
 };
+use phoenix_rise::math::quote_usd_to_quote_lots;
+use phoenix_rise::types::core::Decimal;
 use serde::Serialize;
 use solana_commitment_config::CommitmentConfig;
 use solana_instruction::Instruction;
@@ -18,8 +20,6 @@ use solana_rpc_client::nonblocking::rpc_client::RpcClient;
 use crate::context::CommandCtx;
 use crate::output::{InstructionOutput, print_json};
 use crate::util::parse_pubkey;
-
-const USDC_BASE_UNITS_PER_TOKEN: f64 = 1_000_000.0;
 
 #[derive(Debug, Subcommand)]
 pub enum FlightCommand {
@@ -248,7 +248,8 @@ async fn view(args: ViewArgs, ctx: &CommandCtx) -> Result<(), Box<dyn Error>> {
     let trader_header = trader.header();
     let trader_state = trader_header.state();
     let quote_lot_collateral = trader_state.quote_lot_collateral.as_inner();
-    let withdrawable_fee_quote_lots = quote_lot_collateral.max(0).unsigned_abs();
+    let withdrawable_fee = quote_lot_collateral.max(0);
+    let withdrawable_fee_quote_lots = withdrawable_fee.unsigned_abs();
     let configured_authority = builder_state.authority_key;
     let output = FlightBuilderView {
         authority: authority.to_string(),
@@ -262,9 +263,9 @@ async fn view(args: ViewArgs, ctx: &CommandCtx) -> Result<(), Box<dyn Error>> {
         trader_pda_index: trader_header.trader_pda_index(),
         trader_subaccount_index: trader_header.trader_subaccount_index(),
         quote_lot_collateral,
-        quote_lot_collateral_usdc: format_signed_base_units(quote_lot_collateral),
+        quote_lot_collateral_usdc: format_base_units(quote_lot_collateral),
         withdrawable_fee_quote_lots,
-        withdrawable_fee_usdc: format_base_units(withdrawable_fee_quote_lots),
+        withdrawable_fee_usdc: format_base_units(withdrawable_fee),
         trader_can_withdraw: trader_state.capability_flags().allows(
             phoenix_rise::accounts::trader::capabilities::TraderCapabilityKind::WithdrawCollateral,
         ),
@@ -479,11 +480,11 @@ fn resolve_base_units(
         (Some(amount), None) if amount > 0 => Ok(amount),
         (Some(_), None) => Err(format!("--amount for {action} must be greater than zero").into()),
         (None, Some(usdc_amount)) if usdc_amount.is_finite() && usdc_amount > 0.0 => {
-            let base_units = (usdc_amount * USDC_BASE_UNITS_PER_TOKEN).round();
-            if base_units > u64::MAX as f64 {
-                return Err(format!("--usdc-amount for {action} is too large").into());
+            match quote_usd_to_quote_lots(usdc_amount).map(|lots| lots.as_inner()) {
+                Ok(0) => Err(format!("--usdc-amount for {action} is below one USDC unit").into()),
+                Ok(base_units) => Ok(base_units),
+                Err(_) => Err(format!("--usdc-amount for {action} is too large").into()),
             }
-            Ok(base_units as u64)
         }
         (None, Some(_)) => {
             Err(format!("--usdc-amount for {action} must be a positive finite number").into())
@@ -569,18 +570,8 @@ fn read_u64(data: &[u8], offset: usize) -> Result<u64, Box<dyn Error>> {
     ))
 }
 
-fn format_base_units(amount: u64) -> String {
-    let whole = amount / 1_000_000;
-    let fractional = amount % 1_000_000;
-    format!("{whole}.{fractional:06}")
-}
-
-fn format_signed_base_units(amount: i64) -> String {
-    if amount < 0 {
-        format!("-{}", format_base_units(amount.unsigned_abs()))
-    } else {
-        format_base_units(amount as u64)
-    }
+fn format_base_units(amount: i64) -> String {
+    Decimal::from_i64_with_decimals(amount, 6).ui
 }
 
 fn print_builder_view(output: &FlightBuilderView) {
@@ -633,6 +624,8 @@ mod tests {
             resolve_base_units(None, Some(12.345678), "withdraw").unwrap(),
             12_345_678
         );
+        let error = resolve_base_units(None, Some(0.000_000_9), "withdraw").unwrap_err();
+        assert!(error.to_string().contains("below one USDC unit"));
     }
 
     #[test]

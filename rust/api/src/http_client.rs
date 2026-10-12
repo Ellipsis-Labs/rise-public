@@ -10,6 +10,9 @@ use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use phoenix_rise_ix::types::{IsolatedCollateralFlow, Side};
+use phoenix_rise_types::order_history_v2::{
+    OrderHistoryV2QueryParams, OrderHistoryV2Response, OrganizedOrderHistoryV2Response,
+};
 use phoenix_rise_types::prelude::{
     ApiCandle, CancelStopLossOrderRequest, CandlesQueryParams, CandlesV2QueryParams,
     CandlesV2Response, CollateralAssetsResponse, CollateralHistoryQueryParams,
@@ -1043,6 +1046,55 @@ impl PhoenixHttpClient {
     ) -> Result<OrderHistoryResponse, PhoenixHttpError> {
         self.orders()
             .get_trader_order_history_with_trader_key(trader_key, params)
+            .await
+    }
+
+    /// Fetch flat V2 history for a wallet authority, including TWAP children.
+    pub async fn get_user_order_history_v2(
+        &self,
+        authority: &Pubkey,
+        params: OrderHistoryV2QueryParams,
+    ) -> Result<OrderHistoryV2Response, PhoenixHttpError> {
+        self.orders()
+            .get_user_order_history_v2(authority, params)
+            .await
+    }
+
+    /// Fetch flat V2 history for an actual trader PDA, not its wallet
+    /// authority.
+    pub async fn get_trader_order_history_v2(
+        &self,
+        trader_pda: &Pubkey,
+        params: OrderHistoryV2QueryParams,
+    ) -> Result<OrderHistoryV2Response, PhoenixHttpError> {
+        self.orders()
+            .get_trader_order_history_v2(trader_pda, params)
+            .await
+    }
+
+    /// Fetch terminal TWAP parents and standalone orders for a wallet
+    /// authority. Start without a cursor when switching between flat and
+    /// organized history.
+    pub async fn get_user_organized_order_history_v2(
+        &self,
+        authority: &Pubkey,
+        params: OrderHistoryV2QueryParams,
+    ) -> Result<OrganizedOrderHistoryV2Response, PhoenixHttpError> {
+        self.orders()
+            .get_user_organized_order_history_v2(authority, params)
+            .await
+    }
+
+    /// Fetch terminal TWAP parents and standalone orders for an actual trader
+    /// PDA. Start without a cursor when switching between flat and
+    /// organized history.
+    pub async fn get_trader_organized_order_history_v2(
+        &self,
+        trader_pda: &Pubkey,
+        params: OrderHistoryV2QueryParams,
+    ) -> Result<OrganizedOrderHistoryV2Response, PhoenixHttpError> {
+        self.orders()
+            .get_trader_organized_order_history_v2(trader_pda, params)
             .await
     }
 
