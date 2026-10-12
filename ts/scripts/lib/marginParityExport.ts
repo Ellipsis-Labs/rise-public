@@ -49,14 +49,18 @@ export type MarginParitySnapshotFile = {
     indexPriceTicks?: string;
   }>;
   /**
-   * Exchange configuration for every active spot collateral asset; empty before
-   * the rollout. The chain configures a single asset today, so this holds at
-   * most one entry.
+   * Exchange configuration for every active spot collateral asset, priced by
+   * a perp market or by its own oracle; empty before the rollout.
    */
   spotCollaterals?: Array<{
     assetIndex: number;
     symbol: string;
-    perpSymbol: string;
+    perpSymbol?: string;
+    oraclePrice?: {
+      ticks: string;
+      tickSize: string;
+      baseLotDecimals: number;
+    };
     decimals: number;
     maxPerTraderBalance: string;
     maxGlobalBalance: string;
@@ -382,6 +386,11 @@ export const buildMarginParityOutput = (
         assetIndex: params.assetIndex,
         symbol: params.symbol,
         perpSymbol: params.perpSymbol,
+        oraclePrice: params.oraclePrice && {
+          ticks: BigInt(params.oraclePrice.ticks),
+          tickSize: BigInt(params.oraclePrice.tickSize),
+          baseLotDecimals: params.oraclePrice.baseLotDecimals,
+        },
         decimals: params.decimals,
         maxPerTraderBalance: BigInt(params.maxPerTraderBalance),
         maxGlobalBalance: BigInt(params.maxGlobalBalance),
