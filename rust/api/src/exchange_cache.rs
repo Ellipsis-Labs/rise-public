@@ -41,6 +41,7 @@ pub enum ExchangeCacheMarketChangeKind {
     FundingParameters,
     MarketFees,
     CommodityMetadata,
+    DisplayName,
     Metadata,
 }
 
@@ -587,6 +588,9 @@ fn apply_market_parameter_update(
         ExchangeMarketParameterUpdate::CommodityMetadataUpdated { new, .. } => {
             market.commodity_metadata = Some(new.clone());
         }
+        ExchangeMarketParameterUpdate::DisplayNameUpdated { new, .. } => {
+            market.display_name = new.clone();
+        }
         ExchangeMarketParameterUpdate::Unknown => {}
     }
 }
@@ -638,6 +642,9 @@ fn market_change_kind(
         }
         ExchangeMarketParameterUpdate::CommodityMetadataUpdated { .. } => {
             Some(ExchangeCacheMarketChangeKind::CommodityMetadata)
+        }
+        ExchangeMarketParameterUpdate::DisplayNameUpdated { .. } => {
+            Some(ExchangeCacheMarketChangeKind::DisplayName)
         }
         ExchangeMarketParameterUpdate::Unknown => None,
     }
@@ -737,6 +744,7 @@ mod tests {
             },
             markets: vec![ExchangeMarketSnapshot {
                 symbol: "SOL-PERP".to_string(),
+                display_name: None,
                 asset_id: 1,
                 market_status: MarketStatus::Active,
                 metadata: None,
@@ -824,6 +832,7 @@ mod tests {
                     max_liquidation_discount_bps: 500,
                     min_liquidation_slippage_bps: 50,
                     max_liquidation_size: 1_000_000_000u64.into(),
+                    oracle_price: None,
                 }),
             }],
         }
@@ -1038,6 +1047,34 @@ mod tests {
             metadata_events.get(1),
             Some(ExchangeCacheEvent::MarketUpdated {
                 change: ExchangeCacheMarketChangeKind::Metadata,
+                ..
+            })
+        ));
+
+        let mut display_name_delta = build_open_interest_cap_delta(13, 7_500);
+        display_name_delta.ops = vec![
+            serde_json::from_value(serde_json::json!({
+                "kind": "marketParameterUpdated",
+                "symbol": "SOL-PERP",
+                "update": {
+                    "kind": "displayNameUpdated",
+                    "previous": null,
+                    "new": "Solana"
+                }
+            }))
+            .expect("display name op should deserialize"),
+        ];
+        let display_name_events = cache
+            .apply_delta(&display_name_delta)
+            .expect("display name delta should apply");
+        assert_eq!(
+            cache.market("sol-perp").expect("market").display_name,
+            Some("Solana".to_string())
+        );
+        assert!(matches!(
+            display_name_events.get(1),
+            Some(ExchangeCacheEvent::MarketUpdated {
+                change: ExchangeCacheMarketChangeKind::DisplayName,
                 ..
             })
         ));

@@ -22,13 +22,40 @@ impl Decimal {
     };
 
     pub fn from_i64_with_decimals(value: i64, decimals: i8) -> Self {
-        let scale = 10f64.powi(decimals as i32);
-        let ui = format!("{:.*}", decimals as usize, value as f64 / scale);
+        let sign = if value < 0 { "-" } else { "" };
+        let digits = value.unsigned_abs().to_string();
+        let places = decimals.unsigned_abs() as usize;
+        let ui = if decimals <= 0 {
+            let zeros = if value == 0 { 0 } else { places };
+            format!("{sign}{digits}{}", "0".repeat(zeros))
+        } else {
+            let padded = format!("{digits:0>width$}", width = places + 1);
+            let (whole, fraction) = padded.split_at(padded.len() - places);
+            format!("{sign}{whole}.{fraction}")
+        };
         Self {
             value,
             decimals,
             ui,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Decimal;
+
+    #[test]
+    fn from_i64_with_decimals_formats_ui() {
+        let ui = |value, decimals| Decimal::from_i64_with_decimals(value, decimals).ui;
+        assert_eq!(ui(0, 6), "0.000000");
+        assert_eq!(ui(1_234_567, 6), "1.234567");
+        assert_eq!(ui(-5, 1), "-0.5");
+        assert_eq!(ui(-1, 0), "-1");
+        assert_eq!(ui(12, -2), "1200");
+        assert_eq!(ui(0, -2), "0");
+        assert_eq!(ui(i64::MAX, 6), "9223372036854.775807");
+        assert_eq!(ui(i64::MIN, 6), "-9223372036854.775808");
     }
 }
 

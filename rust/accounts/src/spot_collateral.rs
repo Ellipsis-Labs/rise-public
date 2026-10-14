@@ -1,8 +1,8 @@
 //! Spot collateral configuration embedded in the global configuration account.
 //!
 //! Spot collateral is collateral held in an asset other than the canonical
-//! quote token. Native SOL is the only spot asset today; the layout is
-//! per-asset so SPL tokens can follow.
+//! quote token: native SOL, configured in the global configuration account,
+//! and SPL tokens, registered in the perp asset map.
 //!
 //! The account bytes are zero on exchanges that never configured the asset,
 //! which decodes as an inactive, all-zero metadata. Use
@@ -13,7 +13,9 @@
 //! `program-core/exchange/src/accounts/spot_collateral.rs`.
 
 use bytemuck::{Pod, Zeroable};
-use phoenix_rise_math::{BasisPointsU32, QuoteLots, ScalarBounds};
+use phoenix_rise_math::{
+    BasisPointsU32, QuoteLots, QuoteLotsPerBaseLotPerTick, ScalarBounds, SpotPrice, Ticks,
+};
 #[cfg(feature = "serde")]
 use serde::ser::SerializeStruct;
 
@@ -53,8 +55,37 @@ pub struct SpotCollateralMetadata {
     quote_lot_collateral_shortfall_buffer: QuoteLots,
     flags: u8,
     _padding_flags: [u8; 7],
-    _padding: [u64; 26],
+    oracle_price: SpotAssetPriceComponent,
+    _padding: [u64; 16],
 }
+
+/// A spot asset's own oracle price, which values the asset when no perp asset
+/// is bound. Read it through [`SpotCollateralMetadata::oracle_price`].
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct SpotAssetPriceComponent {
+    sequence_number: u64,
+    last_update_slot: u64,
+    ticks: u64,
+    price_expo: u8,
+    base_lot_decimals: i8,
+    _hard_stale_multiplier: u8,
+    _padding: [u8; 5],
+    _proxy_authority: [u8; 32],
+    stale_threshold_slots: u64,
+    tick_size: u64,
+}
+
+const_assert_eq!(core::mem::size_of::<SpotAssetPriceComponent>(), 80);
+const_assert_eq!(core::mem::offset_of!(SpotAssetPriceComponent, ticks), 16);
+const_assert_eq!(
+    core::mem::offset_of!(SpotAssetPriceComponent, stale_threshold_slots),
+    64
+);
+const_assert_eq!(
+    core::mem::offset_of!(SpotAssetPriceComponent, tick_size),
+    72
+);
 
 const_assert_eq!(core::mem::size_of::<SpotCollateralMetadata>(), 320);
 const_assert_eq!(core::mem::offset_of!(SpotCollateralMetadata, decimals), 32);
@@ -71,6 +102,68 @@ const_assert_eq!(
     80
 );
 const_assert_eq!(core::mem::offset_of!(SpotCollateralMetadata, flags), 104);
+const_assert_eq!(
+    core::mem::offset_of!(SpotCollateralMetadata, oracle_price),
+    112
+);
+
+impl SpotAssetPriceComponent {
+    /// Bumped on every accepted price write.
+    #[inline(always)]
+    pub const fn sequence_number(&self) -> u64 {
+        self.sequence_number
+    }
+
+    /// Slot of the latest price write.
+    #[inline(always)]
+    pub const fn last_update_slot(&self) -> u64 {
+        self.last_update_slot
+    }
+
+    /// Latest price, in ticks per synthetic base lot. Zero until the first
+    /// write.
+    #[inline(always)]
+    pub const fn ticks(&self) -> Ticks {
+        Ticks::new(self.ticks)
+    }
+
+    /// Decimal exponent of the price feed.
+    #[inline(always)]
+    pub const fn price_expo(&self) -> u8 {
+        self.price_expo
+    }
+
+    /// Base lot decimals of the synthetic base lot: one base lot is
+    /// `10^(decimals - base_lot_decimals)` native units.
+    #[inline(always)]
+    pub const fn base_lot_decimals(&self) -> i8 {
+        self.base_lot_decimals
+    }
+
+    /// Quote lots per synthetic base lot per tick. Zero while the price scale
+    /// is unset, in which case the price cannot value collateral.
+    #[inline(always)]
+    pub const fn tick_size(&self) -> QuoteLotsPerBaseLotPerTick {
+        QuoteLotsPerBaseLotPerTick::new(self.tick_size)
+    }
+
+    /// Prices older than this many slots do not value collateral; 0 means the
+    /// price never values collateral.
+    #[inline(always)]
+    pub const fn stale_threshold_slots(&self) -> u64 {
+        self.stale_threshold_slots
+    }
+
+    /// The price in the margin engine's form, or `None` while the price scale
+    /// is unset.
+    pub fn price(&self) -> Option<SpotPrice> {
+        (self.tick_size != 0).then(|| SpotPrice {
+            ticks: self.ticks(),
+            tick_size: self.tick_size(),
+            base_lot_decimals: self.base_lot_decimals,
+        })
+    }
+}
 
 impl SpotCollateralMetadata {
     /// Mint of the collateral asset. All-zero for native SOL.
@@ -181,6 +274,17 @@ impl SpotCollateralMetadata {
             Some(self.perp_asset_index)
         } else {
             None
+        }
+    }
+
+    /// The asset's own oracle price, or `None` when a perp asset is bound and
+    /// its index price values the asset instead.
+    #[inline(always)]
+    pub const fn oracle_price(&self) -> Option<&SpotAssetPriceComponent> {
+        if self.has_perp_asset() {
+            None
+        } else {
+            Some(&self.oracle_price)
         }
     }
 

@@ -120,7 +120,7 @@ fn decodes_trader_preference_bits_separately_from_max_positions() {
     );
     // The mock holds no spot collateral, matching the TypeScript golden
     // fixture for the same account bytes.
-    assert_eq!(trader.native_sol_collateral, 0);
+    assert!(trader.spot_collaterals.is_empty());
 }
 
 #[test]

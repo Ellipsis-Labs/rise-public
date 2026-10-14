@@ -49,27 +49,3 @@ pub fn price_to_decimal(price: f64, calculator: &MarketCalculator) -> Decimal {
 pub fn calculator_for_metadata(metadata: &PerpAssetMetadata) -> MarketCalculator {
     MarketCalculator::new(metadata.base_lot_decimals(), metadata.tick_size())
 }
-
-/// Convert a decimal string to QuoteLots (base 10^6).
-pub fn decimal_str_to_quote_lots(decimal_str: &str) -> Result<QuoteLots, String> {
-    let value: f64 = decimal_str
-        .parse()
-        .map_err(|e| format!("Failed to parse decimal: {}", e))?;
-
-    let quote_lots = (value * 1_000_000.0).round() as u64;
-    Ok(QuoteLots::new(quote_lots))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_decimal_str_to_quote_lots() {
-        let lots = decimal_str_to_quote_lots("1000.5").expect("Should convert");
-        assert_eq!(lots.as_inner(), 1_000_500_000);
-
-        let zero = decimal_str_to_quote_lots("0").expect("Should convert");
-        assert_eq!(zero.as_inner(), 0);
-    }
-}

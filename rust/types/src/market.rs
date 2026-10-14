@@ -191,6 +191,8 @@ pub struct MarkPriceResponse {
 #[serde(rename_all = "camelCase")]
 pub struct MarketInfo {
     pub symbol: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
     pub asset_id: u64,
     pub market_status: MarketStatus,
     pub market_key: String,
@@ -232,6 +234,8 @@ pub struct MarketView {
 #[serde(rename_all = "camelCase")]
 pub struct MarketSummary {
     pub symbol: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
     pub asset_id: u64,
     pub market_status: MarketStatus,
     pub units: MarketUnitConfig,

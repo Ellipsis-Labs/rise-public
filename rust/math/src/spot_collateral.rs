@@ -1,13 +1,14 @@
 //! Spot collateral valuation.
 //!
 //! Spot collateral is collateral held in an asset other than the quote token.
-//! Native SOL is the only spot asset today. Its margin value is the balance
-//! marked at the bound perp market's **index** price (not its mark price),
-//! haircut by a balance-dependent discount curve:
+//! Its margin value is the balance marked at either the bound perp market's
+//! **index** price (not its mark price) or, for an asset not bound to a perp,
+//! the asset's own oracle price (see [`SpotCollateralPricing`]), haircut by a
+//! balance-dependent discount curve:
 //!
 //! ```text
 //! lamports_per_base_lot = 10^(decimals - base_lot_decimals)
-//! price_qlpbl           = index_price_ticks * tick_size
+//! price_qlpbl           = price_ticks * tick_size
 //! notional              = floor(balance * price_qlpbl / lamports_per_base_lot)
 //! retained_bps(b)       = (10000 - min_margin_discount)
 //!                       - floor((max_margin_discount - min_margin_discount)
@@ -58,8 +59,8 @@ pub struct SpotCollateralParams {
     pub asset_index: u32,
     /// Spot asset symbol ("SOL" for native SOL), not the perp market symbol.
     pub symbol: String,
-    /// Symbol of the perp market whose index price values this collateral.
-    pub perp_symbol: String,
+    /// Where this collateral's price comes from.
+    pub pricing: SpotCollateralPricing,
     /// Native-unit decimals of the asset (9 for native SOL). Balances above and
     /// in [`crate::TraderPortfolio::spot_collateral`] are raw units at this
     /// scale — lamports only when this asset *is* native SOL — which is why
@@ -79,6 +80,35 @@ pub struct SpotCollateralParams {
     pub max_margin_discount: BasisPoints,
 }
 
+/// How a spot collateral asset is priced.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SpotCollateralPricing {
+    /// At the index price of the perp market with this symbol, in that
+    /// market's ticks, tick size and base lot decimals.
+    Perp { symbol: String },
+    /// At the asset's own oracle price.
+    Oracle(SpotPrice),
+}
+
+impl SpotCollateralPricing {
+    /// The pricing perp market's symbol, or `None` for an oracle-priced asset.
+    pub fn perp_symbol(&self) -> Option<&str> {
+        match self {
+            Self::Perp { symbol } => Some(symbol),
+            Self::Oracle(_) => None,
+        }
+    }
+}
+
+/// A spot asset price, quoted per base lot: one base lot (`10^(decimals -
+/// base_lot_decimals)` native units) is worth `ticks * tick_size` quote lots.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SpotPrice {
+    pub ticks: Ticks,
+    pub tick_size: QuoteLotsPerBaseLotPerTick,
+    pub base_lot_decimals: i8,
+}
+
 /// Why a spot collateral balance could not be valued.
 ///
 /// Callers should treat this as "worth zero for now" rather than a hard error:
@@ -89,6 +119,7 @@ pub enum SpotCollateralValuationError {
     /// No index price was supplied, or it was zero. Rise cannot derive the
     /// index price itself — it is a median over the market's oracles — so it
     /// must be provided, and must never silently fall back to the mark price.
+    /// Also returned for an oracle price that has never been written.
     MissingIndexPrice,
     /// The asset has fewer decimals than the perp market's base lot, so
     /// lamports cannot be converted into base lots.
@@ -248,7 +279,9 @@ mod tests {
         SpotCollateralParams {
             asset_index: 0xFFFF_0000,
             symbol: "SOL".to_string(),
-            perp_symbol: "SOL".to_string(),
+            pricing: SpotCollateralPricing::Perp {
+                symbol: "SOL".to_string(),
+            },
             decimals: 9,
             max_per_trader_balance: max_global,
             max_global_balance: max_global,

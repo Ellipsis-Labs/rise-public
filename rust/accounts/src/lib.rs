@@ -68,9 +68,10 @@ pub mod prelude {
     pub use super::trader::preferences::*;
     pub use super::trader::{
         Trader, TraderHeader, TraderPosition, TraderPositionEntry, TraderPositionEntryRef,
-        TraderPositionIter, TraderPositionMapHeader, TraderPositionRef, TraderPositions,
-        TraderState,
+        TraderPositionMapHeader, TraderPositionRef, TraderSpotCollateral, TraderState,
     };
+    #[allow(deprecated)]
+    pub use super::trader::{TraderPositionIter, TraderPositions};
     pub use super::withdraw_queue::*;
 }
 

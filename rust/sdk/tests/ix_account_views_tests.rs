@@ -15,7 +15,7 @@ use phoenix_rise::accounts::stop_losses::{
 use phoenix_rise::accounts::trader::capabilities::{
     REQUIRED_TRADER_CAPABILITIES, TRADER_CAPABILITY_CAN_WITHDRAW, is_trader_ready,
 };
-use phoenix_rise::accounts::trader::{Trader, TraderHeader, TraderPositions};
+use phoenix_rise::accounts::trader::{Trader, TraderHeader};
 use phoenix_rise::accounts::withdraw_queue::{
     WithdrawQueue, WithdrawRequestState, WithdrawTransitionReason,
 };
@@ -71,12 +71,14 @@ fn borrowed_trader_reads_header_flags_and_position_capacity() {
 #[test]
 fn borrowed_trader_positions_iterate_without_allocating() {
     let data = mock_bytes("trader.json");
-    let positions =
-        TraderPositions::try_from_account_bytes(&data).expect("positions should decode");
-    let entries = positions.iter().collect::<Vec<_>>();
+    let trader = Trader::try_from_account_bytes(&data).expect("trader should decode");
+    let entries = trader
+        .position_entries()
+        .map(|entry| entry.to_entry())
+        .collect::<Vec<_>>();
 
-    assert_eq!(positions.len(), 1);
-    assert_eq!(positions.capacity(), 128);
+    assert_eq!(trader.len(), 1);
+    assert_eq!(trader.capacity(), 128);
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].asset_id, 11);
     assert_eq!(entries[0].position.base_lot_position.as_inner(), 312);

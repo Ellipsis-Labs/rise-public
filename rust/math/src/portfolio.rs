@@ -23,7 +23,8 @@ use crate::quantities::{
 };
 use crate::risk::{MarginError, MarginState, RiskAction, RiskState, RiskTier};
 use crate::spot_collateral::{
-    SpotCollateralParams, margin_retained_bps, notional_spot_collateral, spot_collateral_price,
+    SpotCollateralParams, SpotCollateralPricing, SpotPrice, margin_retained_bps,
+    notional_spot_collateral, spot_collateral_price,
 };
 use crate::trader_position::TraderPosition;
 
@@ -80,26 +81,27 @@ pub struct TraderPortfolio {
     pub stop_losses: Vec<StopLossInfo>,
 }
 
-/// One spot collateral asset (native SOL today) with the context needed to
-/// value it the way the on-chain RiskView does: the balance is priced against
-/// the pricing perp market and discounted along the linear margin-discount
-/// curve. The curve parameters come from `/v1/collateral/assets`.
+/// One spot collateral asset with the context needed to value it the way the
+/// on-chain RiskView does: the balance is priced against the pricing perp
+/// market or the asset's own oracle price, and discounted along the linear
+/// margin-discount curve. The curve parameters come from
+/// `/v1/collateral/assets`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpotCollateralInput {
     /// Raw `AssetIndex` key of the asset in the trader position map.
     pub asset_index: u32,
     /// Spot asset symbol ("SOL"), not necessarily a perp market symbol.
     pub symbol: String,
-    /// Symbol of the perp market whose price values the asset.
-    pub pricing_market_symbol: String,
+    /// Perp market the asset is linked to; `None` for an oracle-priced asset.
+    pub perp_symbol: Option<String>,
+    /// Price per base lot: the linked perp's index price at that market's
+    /// scale, or the asset's own oracle price. `None` values the asset at
+    /// zero, never at the perp mark price.
+    pub price: Option<SpotPrice>,
     /// Balance in the asset's native units (lamports for SOL).
     pub balance: u64,
     /// Native-unit decimals of the asset (9 for SOL).
     pub decimals: u8,
-    /// Index price in ticks of the pricing market. Required for nonzero
-    /// balances; a missing price returns a valuation error, never the perp
-    /// mark price.
-    pub index_price: Option<Ticks>,
     /// Global balance cap in native units — the discount curve's right
     /// endpoint.
     pub max_global_balance: u64,
@@ -114,8 +116,9 @@ pub struct SpotCollateralInput {
 pub struct SpotCollateralMargin {
     pub asset_index: u32,
     pub symbol: String,
-    /// Perp market whose price values this collateral.
-    pub pricing_market_symbol: String,
+    /// Perp market whose price values this collateral; `None` for an asset
+    /// priced by its own oracle, whose value does not move with any market.
+    pub pricing_market_symbol: Option<String>,
     /// Balance in the asset's native units.
     pub balance: u64,
     /// Native units represented by one base lot of the pricing market.
@@ -650,7 +653,7 @@ impl TraderPortfolio {
         let spot_collaterals = self
             .spot_collaterals
             .iter()
-            .map(|spot| value_spot_collateral(spot, provider))
+            .map(value_spot_collateral)
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(TraderPortfolioMargin {
@@ -1981,7 +1984,7 @@ fn spot_collateral_value_at_ticks(
     let mut total = 0u128;
     let price = ticks * perp_asset_metadata.tick_size();
     for spot in spot_collaterals {
-        if spot.pricing_market_symbol.eq(&perp_asset_metadata.symbol) {
+        if spot.pricing_market_symbol.as_deref() == Some(perp_asset_metadata.symbol.as_str()) {
             let notional =
                 notional_spot_collateral(price, spot.native_units_per_base_lot, spot.balance)
                     .ok()?;
@@ -2292,26 +2295,23 @@ fn rebuild_limit_order_state(
 /// balance.
 fn value_spot_collateral(
     spot: &SpotCollateralInput,
-    provider: &impl PerpMetadataProvider,
 ) -> Result<SpotCollateralMargin, PhoenixStateError> {
-    if spot.balance == 0 {
+    // A missing or unset price values the asset at zero, matching on-chain.
+    let Some(price) = spot
+        .price
+        .filter(|price| spot.balance != 0 && price.ticks != Ticks::ZERO)
+    else {
         return Ok(SpotCollateralMargin {
             asset_index: spot.asset_index,
             symbol: spot.symbol.clone(),
-            pricing_market_symbol: spot.pricing_market_symbol.clone(),
-            balance: 0,
+            pricing_market_symbol: spot.perp_symbol.clone(),
+            balance: spot.balance,
             native_units_per_base_lot: 0,
             retained_bps: BasisPoints::ZERO,
             notional: QuoteLots::ZERO,
             discounted: QuoteLots::ZERO,
         });
-    }
-    let metadata = provider
-        .get_perp_metadata(&spot.pricing_market_symbol)
-        .ok_or_else(|| PhoenixStateError::MarketNotFound {
-            symbol: spot.pricing_market_symbol.clone(),
-            markets: provider.get_all_markets(),
-        })?;
+    };
     let valuation_error = |reason: &str| PhoenixStateError::SpotCollateralValuation {
         symbol: spot.symbol.clone(),
         reason: reason.to_string(),
@@ -2320,7 +2320,12 @@ fn value_spot_collateral(
     let params = SpotCollateralParams {
         asset_index: spot.asset_index,
         symbol: spot.symbol.clone(),
-        perp_symbol: spot.pricing_market_symbol.clone(),
+        pricing: match &spot.perp_symbol {
+            Some(symbol) => SpotCollateralPricing::Perp {
+                symbol: symbol.clone(),
+            },
+            None => SpotCollateralPricing::Oracle(price),
+        },
         decimals: u32::from(spot.decimals),
         max_per_trader_balance: spot.max_global_balance,
         max_global_balance: spot.max_global_balance,
@@ -2330,10 +2335,9 @@ fn value_spot_collateral(
     };
     let (price, native_units_per_base_lot) = spot_collateral_price(
         &params,
-        spot.index_price
-            .ok_or_else(|| valuation_error("missing index price"))?,
-        metadata.tick_size(),
-        metadata.base_lot_decimals(),
+        price.ticks,
+        price.tick_size,
+        price.base_lot_decimals,
     )
     .map_err(|error| valuation_error(&format!("{error:?}")))?;
     let notional = notional_spot_collateral(price, native_units_per_base_lot, spot.balance)
@@ -2347,7 +2351,7 @@ fn value_spot_collateral(
     Ok(SpotCollateralMargin {
         asset_index: spot.asset_index,
         symbol: spot.symbol.clone(),
-        pricing_market_symbol: spot.pricing_market_symbol.clone(),
+        pricing_market_symbol: spot.perp_symbol.clone(),
         balance: spot.balance,
         native_units_per_base_lot,
         retained_bps,
@@ -2557,10 +2561,15 @@ mod tests {
         SpotCollateralInput {
             asset_index: 4294901760,
             symbol: "SOL".to_string(),
-            pricing_market_symbol: "SOL".to_string(),
+            perp_symbol: Some("SOL".to_string()),
+            // The SOL market's scale: one base lot = 1e6 lamports at 5000 * 10.
+            price: Some(SpotPrice {
+                ticks: Ticks::new(5_000),
+                tick_size: QuoteLotsPerBaseLotPerTick::new(10),
+                base_lot_decimals: 3,
+            }),
             balance,
             decimals: 9,
-            index_price: Some(Ticks::new(5_000)),
             max_global_balance: 10_000_000_000, // 10 SOL
             min_margin_discount_bps: 500,
             max_margin_discount_bps: 2_000,
@@ -2582,24 +2591,21 @@ mod tests {
     }
 
     #[test]
-    fn funded_sol_requires_index_price_but_zero_balance_does_not() {
+    fn spot_collateral_without_price_is_worth_zero() {
         let markets = sol_spot_pricing_market();
-        for index_price in [None, Some(Ticks::ZERO)] {
-            let mut spot = sol_spot_input(1_000_000_000);
-            spot.index_price = index_price;
+        let mut missing = sol_spot_input(1_000_000_000);
+        missing.price = None;
+        let mut unset = sol_spot_input(1_000_000_000);
+        unset.price.as_mut().unwrap().ticks = Ticks::ZERO;
+        for spot in [missing, unset] {
             let portfolio = TraderPortfolio::builder().spot_collateral(spot).build();
-            assert!(portfolio.compute_margin(&markets).is_err());
+            let margin = portfolio.compute_margin(&markets).unwrap();
+            assert_eq!(margin.spot_collaterals[0].balance, 1_000_000_000);
+            assert_eq!(margin.spot_collaterals[0].notional, QuoteLots::ZERO);
         }
-        let mut spot = sol_spot_input(0);
-        spot.index_price = None;
-        let empty = TraderPortfolio::builder().spot_collateral(spot).build();
-        assert!(
-            empty
-                .compute_margin(&HashMap::<String, PerpAssetMetadata>::new())
-                .is_ok()
-        );
+        // Valued at the supplied price, not the pricing market's mark price.
         let mut spot = sol_spot_input(1_000_000_000);
-        spot.index_price = Some(Ticks::new(6_000));
+        spot.price.as_mut().unwrap().ticks = Ticks::new(6_000);
         let portfolio = TraderPortfolio::builder().spot_collateral(spot).build();
         assert_eq!(
             portfolio.compute_margin(&markets).unwrap().spot_collaterals[0].notional,
@@ -3084,7 +3090,7 @@ mod tests {
                 spot_collaterals: vec![SpotCollateralMargin {
                     asset_index: 0,
                     symbol: "SOL".to_string(),
-                    pricing_market_symbol: "SOL-PERP".to_string(),
+                    pricing_market_symbol: Some("SOL-PERP".to_string()),
                     balance: 1_000_000_000,
                     native_units_per_base_lot: 10_000_000,
                     retained_bps: crate::quantities::BasisPoints::new(9_500),
