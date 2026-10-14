@@ -142,10 +142,9 @@ export const TraderCapabilitiesSchema: z.ZodType<TraderCapabilities> = z.object(
 /**
  * A trader's balance in one spot collateral asset, valued for margin.
  *
- * Spot collateral is collateral held in an asset other than the quote token;
- * native SOL is the only one today. `balance` and `withdrawable` are in the
- * asset's own units (SOL, 9 decimals), while `notional` and `discounted` are
- * quote units.
+ * Spot collateral is collateral held in an asset other than the quote token.
+ * `balance` and `withdrawable` are in the asset's own units (9 decimals for
+ * SOL), while `notional` and `discounted` are quote units.
  */
 export interface SpotCollateralBalance {
   /** Raw asset-index key of the asset in the trader position map. This is not

@@ -72,6 +72,7 @@ export const L2OrderbookSchema: z.ZodType<L2Orderbook> = z.object({
 
 export interface MarketView {
   symbol: string;
+  displayName?: string;
   assetId: number;
   marketStatus: string;
   commodityStatus?: string;
@@ -97,6 +98,7 @@ export interface MarketView {
 
 export const MarketViewSchema: z.ZodType<MarketView> = z.object({
   symbol: z.string(),
+  displayName: z.string().optional(),
   assetId: z.number(),
   marketStatus: z.string(),
   commodityStatus: z.string().optional(),

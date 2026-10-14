@@ -22,6 +22,7 @@ export {
   SPOT_COLLATERAL_FLAG_DISABLE_POSITION_AUTHORITY_SWAP,
   SPOT_COLLATERAL_FLAG_HAS_PERP_ASSET,
   SPOT_COLLATERAL_FLAG_IS_ACTIVE,
+  type SpotCollateralAsset,
   type SpotCollateralMetadata,
 } from "./SpotCollateralMetadata";
 export {
@@ -131,6 +132,7 @@ export type {
   TraderPosition,
   TraderPositionEntry,
   TraderPositionId,
+  TraderSpotCollateral,
   TraderState,
   TransferFeeTier,
 } from "./internal";

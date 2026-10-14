@@ -167,6 +167,12 @@ export interface CommodityMetadataUpdated {
   new: z.infer<typeof ExchangeWsCommodityMetadataSchema>;
 }
 
+export interface DisplayNameUpdated {
+  kind: "displayNameUpdated";
+  previous: string | null;
+  new: string | null;
+}
+
 export interface UnknownMarketParameterUpdate {
   kind: "unknown";
   originalKind: string;
@@ -185,6 +191,7 @@ export type ExchangeMarketParameterUpdate =
   | FundingParametersUpdated
   | MarketFeesUpdated
   | CommodityMetadataUpdated
+  | DisplayNameUpdated
   | UnknownMarketParameterUpdate;
 
 export interface MarketParameterUpdatedOp {
@@ -270,6 +277,7 @@ const KNOWN_MARKET_PARAMETER_UPDATE_KINDS = new Set([
   "fundingParametersUpdated",
   "marketFeesUpdated",
   "commodityMetadataUpdated",
+  "displayNameUpdated",
 ]);
 
 const normalizeUnknownExchangeDeltaOp = (
@@ -534,6 +542,11 @@ const exchangeMarketParameterUpdateSchema = z.discriminatedUnion("kind", [
     kind: z.literal("commodityMetadataUpdated"),
     previous: ExchangeWsCommodityMetadataSchema,
     new: ExchangeWsCommodityMetadataSchema,
+  }),
+  z.object({
+    kind: z.literal("displayNameUpdated"),
+    previous: z.string().nullable(),
+    new: z.string().nullable(),
   }),
   z.object({
     kind: z.literal("unknown"),

@@ -779,7 +779,9 @@ export interface SpotDepositFlowResult {
  * than rejects, against the per-trader and exchange-wide caps, and consumes
  * any pre-existing unaccounted tokens first. Whatever the clamp leaves over
  * stays in the custody ATA as uncounted excess, recoverable by a later sync
- * once headroom frees up.
+ * once headroom frees up. Size deposits with `spotCollateralHeadroom` (and
+ * report credits with `attributedSpotDeposit`), passing `spotSyncDelta` of the
+ * custody ATA and the trader's per-trader cap from trader state's `maxBalance`.
  */
 export const buildSpotDepositFlow = async (
   params: SpotDepositFlowParams,

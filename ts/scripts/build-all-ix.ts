@@ -45,6 +45,11 @@ import {
   baseLots,
   ticks,
   quoteLots,
+  baseUnitsToBaseLotsWithMarketParams,
+  orderPriceUsdToTicksWithMarketParams,
+  priceUsdToTicksWithMarketParams,
+  usdToQuoteLots,
+  type OrderPacketMarketParams,
   Direction,
   StopLossOrderKind,
   flight,
@@ -1120,6 +1125,116 @@ try {
     results["FlightProxyPlaceMarketOrderPositionAuthority"] = hexEncode(
       ix.data
     );
+  }
+
+  // 36. Human-value unit conversions.
+  {
+    console.error("Building human-value unit conversions...");
+    const limitOrder = (
+      marketParams: OrderPacketMarketParams,
+      side: Side,
+      priceUsd: number,
+      baseUnits: number
+    ) =>
+      hexEncode(
+        buildPlaceLimitOrderIx({
+          trader: p(0),
+          traderAccount: p(1),
+          perpAssetMap: p(2),
+          orderbook: p(3),
+          splineCollection: p(4),
+          globalTraderIndex: vec2(5, 6),
+          activeTraderBuffer: vec2(7, 8),
+          orderPacket: {
+            side,
+            priceInTicks: orderPriceUsdToTicksWithMarketParams(
+              priceUsd,
+              marketParams,
+              side
+            ),
+            numBaseLots: baseUnitsToBaseLotsWithMarketParams(
+              baseUnits,
+              marketParams
+            ),
+            selfTradeBehavior: SelfTradeBehavior.Abort,
+            matchLimit: null,
+            clientOrderId: 0n,
+            lastValidSlot: null,
+            orderFlags: OrderFlags.None,
+            cancelExisting: false,
+          },
+        }).data
+      );
+
+    const marketParams = { tickSize: 100n, baseLotsDecimals: 2 };
+    results["ConvertedLimitOrderBid"] = limitOrder(
+      marketParams,
+      Side.Bid,
+      135.874,
+      0.29
+    );
+    results["ConvertedLimitOrderAsk"] = limitOrder(
+      marketParams,
+      Side.Ask,
+      135.874,
+      0.29
+    );
+    results["ConvertedLimitOrderOnTickBid"] = limitOrder(
+      marketParams,
+      Side.Bid,
+      8.2,
+      0.29
+    );
+    results["ConvertedLimitOrderOnTickAsk"] = limitOrder(
+      marketParams,
+      Side.Ask,
+      8.2,
+      0.29
+    );
+    results["ConvertedLimitOrderNegativeBaseLotDecimals"] = limitOrder(
+      { tickSize: 1n, baseLotsDecimals: -4 },
+      Side.Ask,
+      0.00000012345,
+      123456
+    );
+
+    const stopLossIx = buildPlaceStopLossIx({
+      funder: p(0),
+      traderAccount: p(1),
+      perpAssetMap: p(3),
+      orderbook: p(4),
+      splineCollection: p(5),
+      globalTraderIndex: vec2(6, 7),
+      activeTraderBuffer: vec2(8, 9),
+      positionAuthority: p(2),
+      stopLossAccount: p(10),
+      triggerPrice: priceUsdToTicksWithMarketParams(
+        135.875,
+        marketParams,
+        "nearest"
+      ),
+      executionPrice: priceUsdToTicksWithMarketParams(
+        8.2,
+        marketParams,
+        "nearest"
+      ),
+      tradeSide: Side.Ask,
+      executionDirection: Direction.LessThan,
+      orderKind: StopLossOrderKind.IOC,
+    });
+    results["ConvertedStopLoss"] = hexEncode(stopLossIx.data);
+
+    const depositIx = buildDepositFundsIx({
+      trader: p(0),
+      mint: p(2),
+      traderAccount: p(1),
+      traderTokenAccount: p(4),
+      globalVault: p(3),
+      globalTraderIndex: vec2(5, 6),
+      activeTraderBuffer: vec2(7, 8),
+      amount: usdToQuoteLots(8.2),
+    });
+    results["ConvertedDepositFunds"] = hexEncode(depositIx.data);
   }
 
   // Output JSON in sorted order

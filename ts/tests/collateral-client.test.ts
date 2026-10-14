@@ -40,16 +40,12 @@ describe("spot collateral metadata", () => {
           ticks: "9007199254740993",
           tickSize: "1000",
           baseLotDecimals: 3,
-          lastUpdateSlot: "42",
-          staleThresholdSlots: "100",
         },
       }).oraclePrice
     ).toEqual({
       ticks: 9007199254740993n,
       tickSize: 1000n,
       baseLotDecimals: 3,
-      lastUpdateSlot: 42n,
-      staleThresholdSlots: 100n,
     });
   });
 });

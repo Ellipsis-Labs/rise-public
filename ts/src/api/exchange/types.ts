@@ -320,6 +320,7 @@ export const MarketStatsSnapshotSchema: z.ZodType<MarketStatsSnapshot> =
 
 export interface ExchangeMarketConfig {
   symbol: string;
+  displayName?: string;
   assetId: number;
   marketStatus: string;
   commodityStatus?: string;
@@ -346,6 +347,7 @@ export interface ExchangeMarketConfig {
 export const ExchangeMarketConfigSchema: z.ZodType<ExchangeMarketConfig> =
   z.object({
     symbol: z.string(),
+    displayName: z.string().optional(),
     assetId: z.number(),
     marketStatus: z.string(),
     commodityStatus: z.string().optional(),
@@ -599,6 +601,7 @@ export const ExchangeStateSnapshotSchema: z.ZodType<ExchangeStateSnapshot> =
 
 export interface ExchangeMarketSnapshot {
   symbol: string;
+  displayName?: string;
   assetId: number;
   marketStatus: string;
   marketPubkey: string;
@@ -621,6 +624,7 @@ export interface ExchangeMarketSnapshot {
 export const ExchangeMarketSnapshotSchema: z.ZodType<ExchangeMarketSnapshot> =
   z.object({
     symbol: z.string(),
+    displayName: z.string().optional(),
     assetId: z.number(),
     marketStatus: z.string(),
     marketPubkey: z.string(),

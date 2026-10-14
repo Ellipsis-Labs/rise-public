@@ -844,6 +844,8 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
         return "marketFees";
       case "commodityMetadataUpdated":
         return "commodityMetadata";
+      case "displayNameUpdated":
+        return "displayName";
       case "unknown":
         return null;
     }
@@ -902,6 +904,13 @@ class PhoenixExchangeCacheStoreImpl implements PhoenixExchangeCacheStore {
         return nextMarket;
       case "commodityMetadataUpdated":
         nextMarket.commodityMetadata = cloneCommodityMetadata(update.new);
+        return nextMarket;
+      case "displayNameUpdated":
+        if (update.new === null) {
+          delete nextMarket.displayName;
+        } else {
+          nextMarket.displayName = update.new;
+        }
         return nextMarket;
       case "unknown":
         return market;
