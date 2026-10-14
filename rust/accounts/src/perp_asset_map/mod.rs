@@ -10,6 +10,7 @@ use super::common::{
     verify_discriminant,
 };
 use super::discriminants::PhoenixAccount;
+use super::spot_collateral::SpotCollateralMetadata;
 
 mod metadata;
 mod price;
@@ -62,6 +63,48 @@ struct PerpAssetMapHeader {
 struct PerpAssetMapEntry {
     symbol: [u8; 16],
     metadata: PerpAssetMetadataLayout,
+}
+
+/// Value of an asset-map slot tagged [`ASSET_MAP_VARIANT_SPOT`]: up to four
+/// spot collateral assets.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+struct SpotCollateralCollectionLayout {
+    short_map_metadata: [u8; 8],
+    entries: [SpotCollateralEntryLayout; 4],
+    _reserved: [u64; 22],
+    _padding: [u8; 7],
+    asset_map_variant: u8,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+struct SpotCollateralEntryLayout {
+    symbol: [u8; 16],
+    /// Zero while the entry is uninitialized.
+    asset_index: u32,
+    _padding: [u8; 4],
+    metadata: SpotCollateralMetadata,
+}
+
+const_assert_eq!(core::mem::size_of::<SpotCollateralEntryLayout>(), 344);
+const_assert_eq!(
+    core::mem::size_of::<SpotCollateralCollectionLayout>(),
+    core::mem::size_of::<PerpAssetMetadataLayout>()
+);
+
+/// One SPL spot collateral asset registered in the PerpAssetMap.
+///
+/// Native SOL is configured separately, in
+/// [`crate::global_config::GlobalConfig::native_sol_spot_metadata`].
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct SpotCollateralAsset {
+    /// Raw asset-index key in the `0xFFFE_xxxx` spot band. Matches
+    /// [`crate::trader::TraderSpotCollateral::asset_index`].
+    pub asset_index: u32,
+    pub symbol: AssetSymbol,
+    pub metadata: SpotCollateralMetadata,
 }
 
 /// Borrowed view over a Phoenix PerpAssetMap account.
@@ -158,6 +201,32 @@ impl<'a> PerpAssetMap<'a> {
         }
     }
 
+    /// Iterate registered SPL spot collateral assets in account order,
+    /// whether or not they are active.
+    pub fn spot_collaterals(
+        &self,
+    ) -> impl Iterator<Item = Result<SpotCollateralAsset, PhoenixAccountDecodeError>> + 'a {
+        let entries_start = PERP_ASSET_MAP_HEADER_LEN;
+        let entries_len = self.slots_used as usize * PERP_ASSET_MAP_ENTRY_LEN;
+        self.data[entries_start..entries_start + entries_len]
+            .as_chunks::<PERP_ASSET_MAP_ENTRY_LEN>()
+            .0
+            .iter()
+            .filter(|slot| slot[PERP_ASSET_MAP_ENTRY_LEN - 1] == ASSET_MAP_VARIANT_SPOT)
+            .flat_map(|slot| {
+                // Skip the slot's map key (the collection's symbol).
+                bytemuck::pod_read_unaligned::<SpotCollateralCollectionLayout>(&slot[16..]).entries
+            })
+            .filter(|entry| entry.asset_index != 0)
+            .map(|entry| {
+                Ok(SpotCollateralAsset {
+                    asset_index: entry.asset_index,
+                    symbol: AssetSymbol::try_from_bytes(entry.symbol)?,
+                    metadata: entry.metadata,
+                })
+            })
+    }
+
     /// Find the first metadata entry whose symbol bytes match `symbol`.
     ///
     /// Tombstoned entries are skipped.
@@ -242,7 +311,11 @@ impl serde::Serialize for PerpAssetMap<'_> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_struct("PerpAssetMap", 7)?;
+        let spot_collaterals = self
+            .spot_collaterals()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(serde::ser::Error::custom)?;
+        let mut state = serializer.serialize_struct("PerpAssetMap", 8)?;
         state.serialize_field("sequence_number", &self.sequence_number())?;
         state.serialize_field("num_assets", &self.num_assets())?;
         state.serialize_field("slots_used", &self.slots_used())?;
@@ -250,6 +323,7 @@ impl serde::Serialize for PerpAssetMap<'_> {
         state.serialize_field("capacity", &self.capacity())?;
         state.serialize_field("entries", &PerpAssetMapEntries(self))?;
         state.serialize_field("active_entries", &self.num_assets())?;
+        state.serialize_field("spot_collaterals", &spot_collaterals)?;
         state.end()
     }
 }

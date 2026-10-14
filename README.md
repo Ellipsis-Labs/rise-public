@@ -20,7 +20,7 @@ If you are deciding where to start:
   typed live adapters
 - Reach for `PhoenixTxBuilder` in Rust when you want to construct and sign your
   own Solana instructions
-- Reach for `phoenix_rise::accounts::{TraderHeader, TraderPositions,
+- Reach for `phoenix_rise::accounts::{Trader, TraderHeader,
 PerpAssetMap, GlobalConfig, PermissionAccount}` when an on-chain CPI integration needs
   borrowed Phoenix account views without pulling in the full off-chain SDK
   surface

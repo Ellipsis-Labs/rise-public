@@ -34,6 +34,8 @@ pub mod next_commodity_market_transition;
 #[cfg(feature = "serde")]
 pub mod next_market_calendar_transition;
 #[cfg(feature = "serde")]
+pub mod order_history_v2;
+#[cfg(feature = "serde")]
 pub mod service_accounts;
 #[cfg(feature = "serde")]
 pub mod trader;
@@ -65,7 +67,7 @@ pub mod prelude {
         AuthoritySetView, CollateralAssetMetadata, CollateralAssetsResponse, ExchangeKeysView,
         ExchangeLeverageTier, ExchangeMarketConfig, ExchangeResponse, ExchangeRiskFactors,
         ExchangeStatusView, ExchangeView, MarketCalendar, MarketPublicMetadata,
-        MarketStatsSnapshot, SpotAssetConfig,
+        MarketStatsSnapshot, SpotAssetConfig, SpotOraclePriceView,
     };
     pub use super::exchange_ws::{
         AuthoritySet, CommodityMarketState, ExchangeDeltaMessage, ExchangeDeltaOp,
@@ -107,6 +109,10 @@ pub mod prelude {
         MarketCalendarDaySchedule, MarketCalendarHoursRange, MarketCalendarListResponse,
         MarketCalendarRecord, MarketCalendarResponse, MarketCalendarStateView,
         MarketCalendarSummary, MarketCalendarView, NextMarketCalendarTransition,
+    };
+    pub use super::order_history_v2::{
+        OrderHistoryV2Item, OrderHistoryV2QueryParams, OrderHistoryV2Response,
+        OrganizedOrderHistoryV2Data, OrganizedOrderHistoryV2Response, TwapParentOrderHistoryItem,
     };
     pub use super::service_accounts::{
         CreateServiceAccountRequest, CreateServiceKeyRequest, ServiceAccountDto,

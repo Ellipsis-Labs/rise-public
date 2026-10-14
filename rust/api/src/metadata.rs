@@ -152,7 +152,7 @@ impl PhoenixMetadata {
     pub fn collateral_pricing_symbols(&self) -> impl Iterator<Item = &str> {
         self.spot_collateral_params
             .iter()
-            .map(|params| params.perp_symbol.as_str())
+            .filter_map(|params| params.pricing.perp_symbol())
     }
 
     pub fn apply_market_stats(&mut self, stats: &MarketStatsUpdate) -> Result<(), String> {
@@ -334,16 +334,19 @@ fn risk_factor_percent_to_bps(value: f64, field: &str) -> Result<u16, String> {
 
 #[cfg(test)]
 mod tests {
+    use phoenix_rise_math::{SpotCollateralPricing, SpotPrice};
+
     use super::*;
     use crate::types::prelude::{
         AuthoritySetView, CollateralAssetMetadata, CollateralAssetsResponse, ExchangeDeltaMessage,
         ExchangeKeysView, ExchangeRiskFactors, ExchangeView, JsSafeU64, MarketStatus,
-        SpotAssetConfig,
+        SpotAssetConfig, SpotOraclePriceView,
     };
 
     fn market_config() -> ExchangeMarketConfig {
         ExchangeMarketConfig {
             symbol: "SOL-PERP".to_string(),
+            display_name: None,
             asset_id: 1,
             market_status: MarketStatus::Active,
             metadata: None,
@@ -511,6 +514,7 @@ mod tests {
                     max_liquidation_discount_bps: 0,
                     min_liquidation_slippage_bps: 0,
                     max_liquidation_size: JsSafeU64::from(5),
+                    oracle_price: None,
                 }),
             }],
         };
@@ -524,7 +528,12 @@ mod tests {
         let spot = metadata.spot_collateral_params();
         assert_eq!(spot.len(), 1);
         assert_eq!(spot[0].asset_index, 0xffff_0000);
-        assert_eq!(spot[0].perp_symbol, "SOL-PERP");
+        assert_eq!(
+            spot[0].pricing,
+            SpotCollateralPricing::Perp {
+                symbol: "SOL-PERP".to_string()
+            }
+        );
         assert_eq!(spot[0].min_margin_discount, BasisPoints::new(500));
         assert_eq!(
             metadata.collateral_pricing_symbols().collect::<Vec<_>>(),
@@ -545,7 +554,7 @@ mod tests {
                     slot: 1,
                     slot_index: 0,
                     ops: vec![ExchangeDeltaOp::SpotCollateralsUpdated {
-                        assets: response.assets,
+                        assets: response.assets.clone(),
                     }],
                 }))
                 .unwrap()
@@ -554,6 +563,25 @@ mod tests {
             metadata.spot_collateral_params()[0].min_margin_discount,
             BasisPoints::new(600)
         );
+
+        // An asset not bound to a perp is valued at its own oracle price.
+        let spot = response.assets[0].spot.as_mut().unwrap();
+        spot.perp_asset_index = None;
+        spot.oracle_price = Some(SpotOraclePriceView {
+            ticks: JsSafeU64::from(1_234),
+            tick_size: JsSafeU64::from(1),
+            base_lot_decimals: 2,
+        });
+        assert!(metadata.apply_spot_collaterals(response).unwrap());
+        assert_eq!(
+            metadata.spot_collateral_params()[0].pricing,
+            SpotCollateralPricing::Oracle(SpotPrice {
+                ticks: Ticks::new(1_234),
+                tick_size: QuoteLotsPerBaseLotPerTick::new(1),
+                base_lot_decimals: 2,
+            })
+        );
+        assert_eq!(metadata.collateral_pricing_symbols().count(), 0);
     }
 
     #[test]

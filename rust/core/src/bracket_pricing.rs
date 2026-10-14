@@ -1,9 +1,10 @@
 use phoenix_rise_ix::types::{Side, StopLossOrderKind};
+use phoenix_rise_math::BasisPoints;
 
 use crate::order_tickets::{BracketLeg, BracketLegExecution, DEFAULT_BRACKET_LEG_SLIPPAGE_BPS};
 use crate::tx_builder::PhoenixTxBuilderError;
 
-const BPS_DENOMINATOR: u128 = 10_000;
+const BPS_DENOMINATOR: u128 = BasisPoints::DENOMINATOR as u128;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum BracketLegExecutionPriceError {
@@ -25,7 +26,9 @@ pub(crate) fn bracket_leg_execution_ticks(
     order_kind: StopLossOrderKind,
 ) -> Result<u64, PhoenixTxBuilderError> {
     match leg.execution {
-        Some(BracketLegExecution::Price(price)) => Ok(calc.price_to_ticks(price)?.as_inner()),
+        Some(BracketLegExecution::Price(price)) => {
+            Ok(calc.order_price_to_ticks(price, trade_side)?.as_inner())
+        }
         Some(BracketLegExecution::SlippageBps(slippage_bps)) => {
             execution_ticks_with_slippage(trigger_ticks, trade_side, slippage_bps)
         }

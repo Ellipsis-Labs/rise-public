@@ -3,6 +3,33 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.15 - 2026-10-14
+
+Source Phoenix commit: `9f55713fed206e5d504ff59ec487c6aee437fb58`
+
+### Summary
+
+- Spot collateral now supports SPL tokens as well as native SOL. `accounts` decodes SPL spot entries from the `PerpAssetMap` through `spot_collaterals()` and the new `SpotCollateralAsset` type. It also decodes each asset's oracle price and adds `TraderSpotCollateral` entries to `Trader`. `math`, `api` and `types` can value an asset at its own oracle price when no perp market is bound. `SpotAssetConfig` gains an optional `oracle_price`, exposed through the new `SpotOraclePriceView`.
+- `api` and `types` add Order History V2. The new `get_user_order_history_v2` and `get_trader_order_history_v2` methods return flat history, including TWAP children. The `get_user_organized_order_history_v2` and `get_trader_organized_order_history_v2` methods return terminal TWAP parents with nested children. All four are on `orders()` and `PhoenixHttpClient`, take `OrderHistoryV2QueryParams`, and use opaque cursors. Live `OrderHistoryDelta` rows gain optional `parent_order_id` and `parent_order_type`.
+- Markets gain an optional `display_name`. It appears on `ExchangeMarketConfig`, `ExchangeMarketSnapshot`, `MarketInfo`, `MarketSummary` and `MarketStatsV2Data`. A new `DisplayNameUpdated` exchange delta updates it, and the exchange cache reports it as `ExchangeCacheMarketChangeKind::DisplayName`.
+- `math`, `core` and `cli` now convert human-readable values with exact decimal arithmetic instead of `f64`. New helpers are `quote_usd_to_quote_lots` and `quote_lots_from_decimal_str`. `core` order, bracket and condensed-order builders now call `order_price_to_ticks(price, side)`, which takes the order side into account when converting a price to ticks. `Decimal::from_i64_with_decimals` now formats exactly, and the CLI's Flight USDC amounts use the new helpers.
+
+### Breaking Changes
+
+- `ExchangeMarketConfig`, `ExchangeMarketSnapshot`, `MarketInfo`, `MarketSummary`, `MarketStatsV2Data`, `OrderHistoryDelta` and `SpotAssetConfig` have new fields. Code that builds these types with struct literals must set them, usually to `None`. Exhaustive matches on `ExchangeMarketParameterUpdate` and `ExchangeCacheMarketChangeKind` must handle the new variants.
+- In `math`, `SpotCollateralParams.perp_symbol` is replaced by `pricing: SpotCollateralPricing`. In `SpotCollateralInput`, `pricing_market_symbol` becomes `perp_symbol: Option<String>` and `index_price` becomes `price: Option<SpotPrice>`. `SpotCollateralMargin.pricing_market_symbol` is now `Option<String>`.
+- `api` removes `decimal_str_to_quote_lots`. Use `phoenix_rise::math::quote_lots_from_decimal_str` instead.
+- `ix::accounts` no longer re-exports `TraderPositions` or `TraderPositionIter`. In `accounts`, those two types are deprecated and still available through the prelude. Use `Trader::position_entries()` instead.
+- In `accounts`, `owned::Trader` gains a public `spot_collaterals` field. `native_sol_collateral` is deprecated; read the `NATIVE_SOL_ASSET_INDEX` entry of `spot_collaterals` instead.
+- Limit, market, bracket and condensed-order prices now convert to ticks with side-aware rounding. The same human-readable price can produce a different `price_in_ticks` than before.
+
+### Consumer Notes
+
+- `litesvm-test` now depends on `math`, and `sdk` registers a new `order_history_client_tests` integration test that requires the `api` feature.
+- Use a fresh cursor, with none supplied, when switching between flat and organized Order History V2 views. Cursors are opaque and specific to the view that produced them. Existing legacy order-history methods are unchanged.
+- An oracle-priced spot asset with no `price` is valued at zero, never at a perp mark price. `collateral_pricing_symbols()` now skips oracle-priced assets.
+- The workspace version moves to `0.6.15`, and the example program lockfiles are updated to match.
+
 ## v0.6.13 - 2026-10-09
 
 Source Phoenix commit: `96a1919a3bb7bc6a05f6f16604b3dd3def8e102d`
