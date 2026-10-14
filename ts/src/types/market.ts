@@ -109,6 +109,7 @@ export const MarketCommodityMetadataSchema: z.ZodType<MarketCommodityMetadata> =
 
 export interface MarketSummary {
   symbol: Symbol;
+  displayName?: string;
   assetId: number;
   marketStatus: string;
   commodityStatus?: string;
@@ -129,6 +130,7 @@ export interface MarketSummary {
 
 export const MarketSummarySchema: z.ZodType<MarketSummary> = z.object({
   symbol: zSymbol,
+  displayName: z.string().optional(),
   assetId: z.number(),
   marketStatus: z.string(),
   commodityStatus: z.string().optional(),

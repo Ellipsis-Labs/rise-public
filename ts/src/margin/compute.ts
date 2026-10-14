@@ -407,7 +407,10 @@ const spotCollateralInputsFromBalances = (
     if (balance === undefined || toBigInt(balance) === 0n) {
       return [];
     }
-    const market = marketsBySymbol[spot.perpSymbol];
+    const market =
+      spot.perpSymbol === undefined
+        ? undefined
+        : marketsBySymbol[spot.perpSymbol];
     return [
       {
         assetIndex: spot.assetIndex,
@@ -416,6 +419,11 @@ const spotCollateralInputsFromBalances = (
         decimals: spot.decimals,
         pricingMarketSymbol: spot.perpSymbol,
         indexPriceTicks: market?.indexPriceTicks?.toString(),
+        oraclePrice: spot.oraclePrice && {
+          ticks: spot.oraclePrice.ticks.toString(),
+          tickSize: spot.oraclePrice.tickSize.toString(),
+          baseLotDecimals: spot.oraclePrice.baseLotDecimals,
+        },
         maxGlobalBalance: spot.maxGlobalBalance.toString(),
         minMarginDiscountBps: spot.minMarginDiscountBps,
         maxMarginDiscountBps: spot.maxMarginDiscountBps,
@@ -436,45 +444,63 @@ const valueSpotCollateral = (
   spot: SpotCollateralMarginInput,
   marketsBySymbol: NormalizedMarketParamsBySymbol
 ): SpotCollateralMarginResult => {
-  const pricingSymbol = spot.pricingMarketSymbol ?? spot.symbol;
+  const pricingSymbol = spot.oraclePrice
+    ? undefined
+    : (spot.pricingMarketSymbol ?? spot.symbol);
   const balance = requireNonNegativeBigInt(
     spot.balance,
     `Spot collateral balance for ${spot.symbol} must be non-negative`
   );
-  if (balance === 0n) {
+  // An unset oracle price values the asset at zero, matching on-chain.
+  const unpriced =
+    spot.oraclePrice !== undefined && toBigInt(spot.oraclePrice.ticks) === 0n;
+  if (balance === 0n || unpriced) {
     return {
       assetIndex: spot.assetIndex,
       symbol: spot.symbol,
       pricingMarketSymbol: pricingSymbol,
-      balance: "0",
+      balance: balance.toString(),
       nativeUnitsPerBaseLot: "0",
       retainedBps: "0",
       notionalQuoteLots: "0",
       discountedQuoteLots: "0",
     };
   }
-  const marketParams = marketsBySymbol[pricingSymbol];
-  if (!marketParams) {
-    throw new Error(
-      `Missing market params for spot collateral pricing market ${pricingSymbol}`
+  const oraclePrice = spot.oraclePrice;
+  let price;
+  if (oraclePrice) {
+    price = spotCollateralPrice(
+      { decimals: spot.decimals },
+      requirePositiveBigInt(
+        oraclePrice.ticks,
+        `Spot collateral oracle price for ${spot.symbol} must be positive`
+      ),
+      toBigInt(oraclePrice.tickSize),
+      oraclePrice.baseLotDecimals
+    );
+  } else {
+    const marketSymbol = spot.pricingMarketSymbol ?? spot.symbol;
+    const marketParams = marketsBySymbol[marketSymbol];
+    if (!marketParams) {
+      throw new Error(
+        `Missing market params for spot collateral pricing market ${marketSymbol}`
+      );
+    }
+    const indexPrice =
+      spot.indexPriceTicks ?? marketParams.indexPriceTicks?.toString();
+    if (indexPrice === undefined) {
+      throw new Error(`Missing index price for spot collateral ${spot.symbol}`);
+    }
+    price = spotCollateralPrice(
+      { decimals: spot.decimals },
+      requirePositiveBigInt(
+        indexPrice,
+        `Spot collateral indexPriceTicks for ${spot.symbol} must be positive`
+      ),
+      marketParams.tickSize,
+      marketParams.baseLotDecimals
     );
   }
-  const indexPrice =
-    spot.indexPriceTicks ?? marketParams.indexPriceTicks?.toString();
-  if (indexPrice === undefined) {
-    throw new Error(`Missing index price for spot collateral ${spot.symbol}`);
-  }
-  const priceTicks = requirePositiveBigInt(
-    indexPrice,
-    `Spot collateral indexPriceTicks for ${spot.symbol} must be positive`
-  );
-
-  const price = spotCollateralPrice(
-    { decimals: spot.decimals },
-    priceTicks,
-    marketParams.tickSize,
-    marketParams.baseLotDecimals
-  );
   const notional = notionalSpotCollateral(price, balance);
 
   const maxGlobalBalance = requirePositiveBigInt(

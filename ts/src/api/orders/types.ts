@@ -758,13 +758,16 @@ export type ServerBuiltInstruction = InstructionsWithAccountsAndData;
 // Order History V2 Types
 // ============================================================================
 
-export interface OrderHistoryV2Request {
+export interface OrderHistoryV2Request<
+  OrganizeTwapOrders extends boolean = false,
+> {
   marketSymbol?: string;
   limit?: number;
   cursor?: string;
   traderPdaIndex?: number;
   startTime?: Date;
   endTime?: Date;
+  organizeTwapOrders?: OrganizeTwapOrders;
 }
 
 export interface IntendedOrder {
@@ -837,6 +840,9 @@ export interface AggregatedTrades {
 }
 
 export interface OrderHistoryV2Item {
+  parentOrderId?: string;
+  parentOrderType?: "twap";
+  sortKey?: string;
   userId: number;
   traderId: number;
   traderPdaIndex: number;
@@ -867,6 +873,95 @@ export interface OrderHistoryV2Response {
   nextCursor: string | null;
   hasMore: boolean;
 }
+
+export interface OrganizedOrderHistoryV2Response {
+  data: OrganizedOrderHistoryV2Data;
+  prevCursor?: string | null;
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface OrganizedOrderHistoryV2Data {
+  twapOrders: TwapParentOrderHistoryItem[];
+  singleOrders: OrderHistoryV2Item[];
+}
+
+/** Terminal TWAP summary; nullable fields represent unavailable historical evidence. */
+export interface TwapParentOrderHistoryItem {
+  parentOrderId: string;
+  parentOrderType: "twap";
+  marketSymbol: string;
+  traderPdaIndex: number;
+  traderSubaccountIndex: number;
+  side: "bid" | "ask" | null;
+  isReduceOnly: boolean | null;
+  /** Total scheduled executions, including additional dust executions. */
+  nChildOrders: number | null;
+  /** Additional dust executions; zero also covers legacy final-child dust. */
+  nDustOrders: number | null;
+  cooldownSlots: number | null;
+  status: "filled" | "cancelled";
+  requestedBaseQty: string | null;
+  filledBaseQty: string | null;
+  filledQuoteQty: string | null;
+  placedAt: string | null;
+  terminalAt: string;
+  sortKey: string;
+  children: OrderHistoryV2Item[];
+}
+
+const OrderHistorySortKeyPattern = /^ohp1:-?\d+:\d+:\d+:\d+:\d+:[01]$/;
+const OrderHistorySortKeySchema = z
+  .string()
+  .regex(OrderHistorySortKeyPattern)
+  .refine((key) => {
+    if (!OrderHistorySortKeyPattern.test(key)) {
+      return false;
+    }
+    const components = key.split(":").slice(1).map(BigInt);
+    return components.every((component, index) => {
+      if (index < 2) {
+        return (
+          component >= -9223372036854775808n &&
+          component <= 9223372036854775807n
+        );
+      }
+      return component >= 0n && component <= 2147483647n;
+    });
+  }, "History sort key exceeds its integer bounds");
+
+const ParentHistoryQuantitySchema = z
+  .string()
+  .regex(/^\d+(?:\.\d+)?$/)
+  .nullable();
+
+/** Ascending comparison of the server's numeric history ordering tuple. */
+export const compareOrderHistorySortKeys = (
+  left: string,
+  right: string
+): number => {
+  const leftParts = OrderHistorySortKeySchema.parse(left)
+    .split(":")
+    .slice(1)
+    .map(BigInt);
+  const rightParts = OrderHistorySortKeySchema.parse(right)
+    .split(":")
+    .slice(1)
+    .map(BigInt);
+  for (const [index, value] of leftParts.entries()) {
+    const other = rightParts[index];
+    if (other === undefined) {
+      throw new Error("Invalid history sort key component count");
+    }
+    if (value < other) {
+      return -1;
+    }
+    if (value > other) {
+      return 1;
+    }
+  }
+  return 0;
+};
 
 const IntendedOrderSchema = z.object({
   orderKind: z.string(),
@@ -920,6 +1015,9 @@ const CurrentOrderStateSchema = z.object({
 });
 
 const OrderHistoryV2ItemSchema = z.object({
+  parentOrderId: z.string().min(1).optional(),
+  parentOrderType: z.literal("twap").optional(),
+  sortKey: OrderHistorySortKeySchema.optional(),
   userId: z.number(),
   traderId: z.number(),
   traderPdaIndex: z.number(),
@@ -952,19 +1050,57 @@ const OrderHistoryV2ItemSchema = z.object({
   status: z.string(),
 });
 
-export const OrderHistoryV2ResponseSchema: z.ZodType<OrderHistoryV2Response> = z
-  .object({
+export const TwapParentOrderHistoryItemSchema: z.ZodType<TwapParentOrderHistoryItem> =
+  z.object({
+    parentOrderId: z.string().min(1),
+    parentOrderType: z.literal("twap"),
+    marketSymbol: z.string(),
+    traderPdaIndex: z.number().int(),
+    traderSubaccountIndex: z.number().int(),
+    side: z.enum(["bid", "ask"]).nullable(),
+    isReduceOnly: z.boolean().nullable(),
+    nChildOrders: z.number().int().nonnegative().nullable(),
+    nDustOrders: z.number().int().nonnegative().nullable(),
+    cooldownSlots: z.number().int().nonnegative().nullable(),
+    status: z.enum(["filled", "cancelled"]),
+    requestedBaseQty: ParentHistoryQuantitySchema,
+    filledBaseQty: ParentHistoryQuantitySchema,
+    filledQuoteQty: ParentHistoryQuantitySchema,
+    placedAt: z.iso.datetime({ offset: true }).nullable(),
+    terminalAt: z.iso.datetime({ offset: true }),
+    sortKey: OrderHistorySortKeySchema,
+    children: z.array(OrderHistoryV2ItemSchema),
+  });
+
+export const OrganizedOrderHistoryV2DataSchema: z.ZodType<OrganizedOrderHistoryV2Data> =
+  z.object({
+    twapOrders: z.array(TwapParentOrderHistoryItemSchema),
+    singleOrders: z.array(OrderHistoryV2ItemSchema),
+  });
+
+const OrderHistoryPaginationSchema = z.object({
+  prevCursor: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((cursor) => cursor ?? null),
+  nextCursor: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((cursor) => cursor ?? null),
+  hasMore: z.boolean(),
+});
+
+export const OrderHistoryV2ResponseSchema: z.ZodType<OrderHistoryV2Response> =
+  OrderHistoryPaginationSchema.extend({
     data: z.array(OrderHistoryV2ItemSchema),
-    prevCursor: z.string().nullable().optional(),
-    nextCursor: z.string().nullable().optional(),
-    hasMore: z.boolean(),
-  })
-  .transform((raw) => ({
-    data: raw.data as OrderHistoryV2Item[],
-    prevCursor: raw.prevCursor ?? null,
-    nextCursor: raw.nextCursor ?? null,
-    hasMore: raw.hasMore,
-  }));
+  });
+
+export const OrganizedOrderHistoryV2ResponseSchema: z.ZodType<OrganizedOrderHistoryV2Response> =
+  OrderHistoryPaginationSchema.extend({
+    data: OrganizedOrderHistoryV2DataSchema,
+  });
 
 // ============================================================================
 // Order Details Types

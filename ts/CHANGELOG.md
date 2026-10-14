@@ -3,6 +3,34 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.6.4 - 2026-10-14
+
+Source Phoenix commit: `9f55713fed206e5d504ff59ec487c6aee437fb58`
+
+### Summary
+
+- Spot collateral now covers SPL tokens as well as native SOL. `PerpAssetMap.spotCollaterals` lists the registered SPL spot assets. `Trader.spotCollaterals` lists every spot balance, native SOL included, with an optional per-trader cap override. `SpotCollateralMetadata.oraclePrice` is `null` when a perp market prices the asset. Otherwise it holds the asset's own oracle price.
+- The margin calculator can value an asset by its own oracle price. `SpotCollateralParams` and `SpotCollateralMarginInput` accept `oraclePrice` as an alternative to `perpSymbol`. `spotCollateralParamsFromAssets` includes active assets priced by their own oracle.
+- New `spotCollateralHeadroom`, `attributedSpotDeposit` and `spotSyncDelta` helpers size and report SPL deposits. The native-SOL helpers still work and now delegate to them.
+- Order history v2 can group TWAP orders under their parent. Pass `organizeTwapOrders: true` to `getTraderOrderHistoryV2` to get `OrganizedOrderHistoryV2Response`, which has `twapOrders` (with `children`) and `singleOrders`. TWAP child orders carry `parentOrderId` and `parentOrderType`, in REST history and in trader-state WebSocket order history deltas. The package also exports `compareOrderHistorySortKeys` and the new schemas.
+- Markets expose an optional `displayName` on market config, snapshot, view and summary types, on projected markets (as `string | null`), and on `marketStatsV2` WebSocket data. A new `displayNameUpdated` exchange delta updates it in the cache and emits a `"displayName"` market change.
+
+### Breaking Changes
+
+- `SpotAssetConfig.oraclePrice` (the collateral-assets response) no longer includes `lastUpdateSlot` or `staleThresholdSlots`. The schema now parses only `ticks`, `tickSize` and `baseLotDecimals`, and the new `SpotOraclePrice` type replaces the inline shape.
+- `buildSubaccountMarginInputsFromSnapshot` and `buildTraderMarginInputsFromSnapshot` no longer take an options argument. The `SpotCollateralAssetParams`, `MarginSnapshotOptions` and `spotCollateralParamsByIndex` types are removed. Snapshots now produce `spotCollateralBalances`, and the margin calculator's spot params value them. An asset the calculator doesn't know stays unvalued.
+- `SpotCollateralParams.perpSymbol` and `SpotCollateralMarginResult.pricingMarketSymbol` are now optional. Code that assumes they are always set needs a guard.
+- A spot margin result with a zero balance or an unset oracle price now returns the real `balance`. Before, it returned `"0"`.
+- `PerpAssetMap` and `Trader` decoded objects gain a required `spotCollaterals` field. `SpotCollateralMetadata` gains a required `oraclePrice` field. Code that builds these objects by hand, for example as test fixtures, must add them. `Trader.nativeSolCollateral` is deprecated in favor of `spotCollaterals`.
+- `getTraderOrderHistoryV2` now has overloads, and `OrderHistoryV2Request` takes a generic parameter that defaults to `false`. `OrderHistoryV2ResponseSchema` is now a plain object schema rather than a transform, so its types are unchanged but its schema type differs.
+
+### Consumer Notes
+
+- When you size SPL deposits, pass `spotSyncDelta({ custodyAmount, accountedAmount })` as `traderSyncDelta`. Pass the per-trader cap from trader state's `maxBalance` as `traderMaxBalance`.
+- Existing flat order-history calls are unaffected. Without `organizeTwapOrders`, the response keeps its current shape. With `true`, the response is validated against the organized shape, so a server that ignores the flag fails parsing.
+- Sort keys have the form `ohp1:…`. Compare them with `compareOrderHistorySortKeys` rather than as strings.
+- Handle the new `"displayName"` change kind in `ExchangeCacheMarketChangeKind` and the new `displayNameUpdated` variant in `ExchangeMarketParameterUpdate` if you switch over them exhaustively.
+
 ## v0.6.2 - 2026-10-09
 
 Source Phoenix commit: `a13bddf3b6f45e5d347aa07636e3be7b054c3b26`

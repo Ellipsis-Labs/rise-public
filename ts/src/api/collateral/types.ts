@@ -1,15 +1,18 @@
 import z from "zod";
 import { numericBigint } from "@/ws/numericSchemas";
 
+/**
+ * Oracle price of a spot collateral asset, quoted per synthetic base lot: one
+ * base lot (`10^(decimals - baseLotDecimals)` native units) is worth
+ * `ticks * tickSize` quote lots.
+ */
+export interface SpotOraclePrice {
+  ticks: bigint;
+  tickSize: bigint;
+  baseLotDecimals: number;
+}
+
 export interface SpotAssetConfig {
-  /** Oracle-priced assets use this synthetic base-lot price instead of a perp. */
-  oraclePrice?: {
-    ticks: bigint;
-    tickSize: bigint;
-    baseLotDecimals: number;
-    lastUpdateSlot: bigint;
-    staleThresholdSlots: bigint;
-  } | null;
   /** Base58 SPL Token mint; absent for native SOL. */
   mint?: string | null;
   isActive: boolean;
@@ -22,6 +25,9 @@ export interface SpotAssetConfig {
   maxLiquidationDiscountBps: number;
   minLiquidationSlippageBps: number;
   maxLiquidationSize: bigint;
+  /** The asset's own oracle price. Present only for assets not priced by a
+   * perp market (`perpAssetIndex` absent) whose price scale is set. */
+  oraclePrice?: SpotOraclePrice | null;
 }
 
 export interface CollateralAssetMetadata {
@@ -35,16 +41,13 @@ export interface CollateralAssetsResponse {
   assets: CollateralAssetMetadata[];
 }
 
+export const SpotOraclePriceSchema: z.ZodType<SpotOraclePrice> = z.object({
+  ticks: numericBigint("ticks"),
+  tickSize: numericBigint("tickSize"),
+  baseLotDecimals: z.number().int(),
+});
+
 export const SpotAssetConfigSchema: z.ZodType<SpotAssetConfig> = z.object({
-  oraclePrice: z
-    .object({
-      ticks: numericBigint("ticks"),
-      tickSize: numericBigint("tickSize"),
-      baseLotDecimals: z.number().int().min(-128).max(127),
-      lastUpdateSlot: numericBigint("lastUpdateSlot"),
-      staleThresholdSlots: numericBigint("staleThresholdSlots"),
-    })
-    .nullish(),
   mint: z.string().nullable().optional(),
   isActive: z.boolean(),
   perpAssetIndex: z.number().int().nonnegative().nullable().optional(),
@@ -56,6 +59,7 @@ export const SpotAssetConfigSchema: z.ZodType<SpotAssetConfig> = z.object({
   maxLiquidationDiscountBps: z.number().int().nonnegative(),
   minLiquidationSlippageBps: z.number().int().nonnegative(),
   maxLiquidationSize: numericBigint("maxLiquidationSize"),
+  oraclePrice: SpotOraclePriceSchema.nullable().optional(),
 });
 
 export const CollateralAssetMetadataSchema: z.ZodType<CollateralAssetMetadata> =

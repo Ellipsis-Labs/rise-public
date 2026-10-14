@@ -199,6 +199,8 @@ export interface TraderStateTradeHistoryDelta {
 }
 
 export interface TraderStateOrderHistoryDelta {
+  parentOrderId?: string;
+  parentOrderType?: "twap";
   timestamp: number;
   slot: number;
   slotIndex: number;
@@ -518,6 +520,8 @@ const TraderStateTradeHistoryDeltaSchema: z.ZodType<TraderStateTradeHistoryDelta
 
 const TraderStateOrderHistoryDeltaSchema: z.ZodType<TraderStateOrderHistoryDelta> =
   z.object({
+    parentOrderId: z.string().min(1).optional(),
+    parentOrderType: z.literal("twap").optional(),
     timestamp: z.number(),
     slot: z.number(),
     slotIndex: z.number(),

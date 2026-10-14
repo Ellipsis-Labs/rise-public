@@ -72,6 +72,7 @@ export const getTraderDecoder = (): Decoder<Trader> =>
           traderPreferenceFlags.preferences.disablePositionAuthoritySwap,
         positions: entries.positions,
         nativeSolCollateral: entries.nativeSolCollateral,
+        spotCollaterals: entries.spotCollaterals,
         conditionalOrderBits,
         occupiedConditionalOrderIndices:
           getOccupiedConditionalOrderIndices(conditionalOrderBits),

@@ -6,6 +6,7 @@ import {
   createPhoenixExchangeCache,
   createPhoenixExchangeCacheStore,
   projectExchangeMarket,
+  projectPhoenixMarket,
   projectPhoenixExchangeMarketState,
   selectExchangeMarket,
   selectExchangeMarketMetadata,
@@ -19,6 +20,7 @@ import {
   type MarketPublicMetadata,
 } from "@/index";
 import { createAsyncQueue, type AsyncQueue } from "@/ws";
+import { applyStrictModeRecursive } from "@/ws/zodStrictMode";
 
 const buildRiskActionPriceValidityRules = (
   fill: "ignore" | "require" | "forbid" = "ignore"
@@ -669,6 +671,7 @@ describe("exchange cache", () => {
     const liveSnapshot = buildSnapshot(2n, 1);
     liveSnapshot.markets[0] = {
       ...liveSnapshot.markets[0],
+      displayName: "Solana",
       metadata: sampleMarketMetadata(),
     };
     const store = createPhoenixExchangeCacheStore(buildSnapshot(1n, 0));
@@ -677,7 +680,17 @@ describe("exchange cache", () => {
       events.push(event);
     });
 
-    store.applySnapshotMessage(buildSnapshotMsg(10n, liveSnapshot));
+    const strictSchema = applyStrictModeRecursive(ExchangeWireMsgSchema);
+    const parsedSnapshot = strictSchema.parse(
+      buildSnapshotMsg(10n, liveSnapshot)
+    );
+    if (parsedSnapshot.messageType !== "snapshot") {
+      throw new Error("expected parsed snapshot");
+    }
+    store.applySnapshotMessage(parsedSnapshot);
+    expect(projectPhoenixMarket(store.market("sol-perp")!).displayName).toBe(
+      "Solana"
+    );
     const metadataBeforeParameterDelta = store.marketMetadata("sol-perp");
 
     store.applyDelta(buildOpenInterestCapDelta(11n, 3n, 2, 7_500n));
@@ -773,6 +786,33 @@ describe("exchange cache", () => {
       );
       expect(store.marketMetadata("sol-perp")).not.toBe(beforeEarnings);
     }
+    for (const [sequenceNumber, previous, next] of [
+      [18n, "Solana", "Solana Perp"],
+      [19n, "Solana Perp", null],
+    ] as const) {
+      const displayNameDelta = strictSchema.parse({
+        channel: "exchange",
+        messageType: "delta",
+        version: 1,
+        sequenceNumber,
+        slot: 4n,
+        slotIndex: 4,
+        ops: [
+          {
+            kind: "marketParameterUpdated",
+            symbol: "SOL-PERP",
+            update: { kind: "displayNameUpdated", previous, new: next },
+          },
+        ],
+      });
+      if (displayNameDelta.messageType !== "delta") {
+        throw new Error("expected display name delta");
+      }
+      store.applyDelta(displayNameDelta);
+      expect(projectPhoenixMarket(store.market("sol-perp")!).displayName).toBe(
+        next
+      );
+    }
     expect(store.marketByAssetId(1)?.symbol).toBe("SOL-PERP");
     expect(store.marketByPubkey("sol-market")?.symbol).toBe("SOL-PERP");
     expect(store.instructionContext("SOL-PERP")?.market.assetId).toBe(1);
@@ -789,6 +829,14 @@ describe("exchange cache", () => {
         (event) =>
           event.type === "marketUpdated" &&
           event.change === "metadata" &&
+          event.symbol === "SOL-PERP"
+      )
+    ).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "marketUpdated" &&
+          event.change === "displayName" &&
           event.symbol === "SOL-PERP"
       )
     ).toBe(true);

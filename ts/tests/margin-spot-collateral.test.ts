@@ -4,6 +4,7 @@ import {
   computeSubaccountProjectedLiquidationFromMargin,
   createMarginCalculator,
   type MarketParams,
+  spotCollateralParamsFromAssets,
 } from "@/margin";
 
 // SOL market: tickSize 10, baseLotDecimals 3, mark 5000 ticks. One base lot =
@@ -208,33 +209,48 @@ describe("margin spot collateral valuation", () => {
     expect(margin.margin.effectiveCollateralQuoteLots).toBe("1000000");
   });
 
-  it("builds spot inputs from a traderState snapshot with asset params", () => {
-    const inputs = buildSubaccountMarginInputsFromSnapshot(
-      {
-        subaccountIndex: 0,
-        collateral: "1000000",
-        spotCollaterals: [
-          { assetIndex: 4294901760, symbol: "SOL", balance: "2000000000" },
-          // No params registered for this asset -> left unvalued.
-          { assetIndex: 4294901761, symbol: "XYZ", balance: "5" },
-        ],
-      },
-      {
-        spotCollateralParamsByIndex: {
-          4294901760: {
-            assetIndex: 4294901760,
-            decimals: 9,
-            indexPriceTicks: "5000",
-            maxGlobalBalance: "10000000000",
-            minMarginDiscountBps: 500,
-            maxMarginDiscountBps: 2000,
-          },
+  it("values snapshot balances through the calculator's spot params", () => {
+    // The trader-state manager builds inputs without asset params; the
+    // calculator's registry must still value the balance.
+    const calculatorWithSpot = createMarginCalculator(
+      [{ ...solMarketParams, indexPriceTicks: "5000" }],
+      spotCollateralParamsFromAssets(
+        {
+          assets: [
+            {
+              assetIndex: 4294901760,
+              symbol: "SOL",
+              decimals: 9,
+              spot: {
+                isActive: true,
+                perpAssetIndex: 1,
+                maxPerTraderBalance: 10_000_000_000n,
+                maxGlobalBalance: 10_000_000_000n,
+                currGlobalBalance: 2_000_000_000n,
+                minMarginDiscountBps: 500,
+                maxMarginDiscountBps: 2000,
+                maxLiquidationDiscountBps: 0,
+                minLiquidationSlippageBps: 0,
+                maxLiquidationSize: 0n,
+              },
+            },
+          ],
         },
-      }
+        new Map([[1, "SOL"]])
+      )
     );
+    const inputs = buildSubaccountMarginInputsFromSnapshot({
+      subaccountIndex: 0,
+      collateral: "1000000",
+      spotCollaterals: [
+        { assetIndex: 4294901760, symbol: "SOL", balance: "2000000000" },
+        // Not in the calculator's registry -> left unvalued, not an error.
+        { assetIndex: 4294901761, symbol: "XYZ", balance: "5" },
+      ],
+    });
 
-    expect(inputs.spotCollaterals).toHaveLength(1);
-    const margin = calculator.computeSubaccountMarginFromInputs(inputs);
+    const margin = calculatorWithSpot.computeSubaccountMarginFromInputs(inputs);
+    expect(margin.spotCollaterals).toHaveLength(1);
     expect(margin.margin.effectiveCollateralQuoteLots).toBe("93000000");
   });
 
@@ -305,5 +321,100 @@ describe("margin spot collateral valuation", () => {
     expect(projected.positions[0]?.liquidationPriceTicks).toBe(
       result.positions[0]?.liquidationPriceTicks
     );
+  });
+
+  it("values an oracle-priced asset at a constant price", () => {
+    // Same scale and price as the SOL market, but priced by the asset's own
+    // oracle rather than bound to the market.
+    const spotCollaterals = spotCollateralParamsFromAssets(
+      {
+        assets: [
+          {
+            assetIndex: 0xfffe0001,
+            symbol: "JitoSOL",
+            decimals: 9,
+            spot: {
+              isActive: true,
+              perpAssetIndex: null,
+              maxPerTraderBalance: 10_000_000_000n,
+              maxGlobalBalance: 10_000_000_000n,
+              currGlobalBalance: 2_000_000_000n,
+              minMarginDiscountBps: 500,
+              maxMarginDiscountBps: 2000,
+              maxLiquidationDiscountBps: 0,
+              minLiquidationSlippageBps: 0,
+              maxLiquidationSize: 0n,
+              oraclePrice: {
+                ticks: 5000n,
+                tickSize: 10n,
+                baseLotDecimals: 3,
+              },
+            },
+          },
+        ],
+      },
+      new Map([[1, "SOL"]])
+    );
+    const calculator = createMarginCalculator(
+      [
+        {
+          ...solMarketParams,
+          indexPriceTicks: "5000",
+          riskFactors: {
+            ...solMarketParams.riskFactors,
+            maintenanceMarginFactorBps: "5000",
+          },
+        },
+      ],
+      spotCollaterals
+    );
+    const inputs = {
+      subaccountIndex: 0,
+      collateralBalanceQuoteLots: "-20000000",
+      spotCollateralBalances: { [String(0xfffe0001)]: "2000000000" },
+      markets: [
+        {
+          symbol: "SOL",
+          position: {
+            basePositionLots: "1000",
+            virtualQuotePositionLots: "-50000000",
+            entryPriceTicks: "5000",
+            unsettledFundingQuoteLots: "0",
+            accumulatedFundingQuoteLots: "0",
+          },
+        },
+      ],
+    };
+
+    const margin = calculator.computeSubaccountMarginFromInputs(inputs);
+    expect(margin.spotCollaterals?.[0]?.pricingMarketSymbol).toBeUndefined();
+    expect(margin.spotCollaterals?.[0]?.discountedQuoteLots).toBe("92000000");
+
+    // The collateral keeps its $92 value as SOL falls, so the boundary sits
+    // below the ~$25 of the market-priced case above.
+    const liquidationTicks = Number(
+      calculator.computeSubaccountLiquidationPricesFromInputs(inputs)
+        .positions[0]?.liquidationPriceTicks
+    );
+    expect(liquidationTicks).toBeLessThan(2500);
+
+    // An unset oracle price values the holding at zero instead of throwing.
+    const unpriced = calculator.computeSubaccountMarginFromInputs({
+      ...inputs,
+      spotCollaterals: [
+        {
+          assetIndex: 0xfffe0001,
+          symbol: "JitoSOL",
+          balance: "2000000000",
+          decimals: 9,
+          oraclePrice: { ticks: "0", tickSize: "10", baseLotDecimals: 3 },
+          maxGlobalBalance: "10000000000",
+          minMarginDiscountBps: 500,
+          maxMarginDiscountBps: 2000,
+        },
+      ],
+    });
+    expect(unpriced.spotCollaterals?.[0]?.balance).toBe("2000000000");
+    expect(unpriced.spotCollaterals?.[0]?.notionalQuoteLots).toBe("0");
   });
 });

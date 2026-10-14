@@ -50,6 +50,15 @@
       "postLiquidationBuffer": "0",
       "quoteLotCollateralShortfallBuffer": "0",
       "flags": 0,
+      "oraclePrice": {
+        "sequenceNumber": "0",
+        "lastUpdateSlot": "0",
+        "ticks": "0",
+        "priceExpo": 0,
+        "baseLotDecimals": 0,
+        "staleThresholdSlots": "0",
+        "tickSize": "0"
+      },
       "isActive": false,
       "hasPerpAsset": false,
       "positionAuthoritySwapDisabled": false
@@ -2849,7 +2858,8 @@
     "sequenceNumber": {
       "lastUpdateSlot": "380798303",
       "sequenceNumber": "1"
-    }
+    },
+    "spotCollaterals": []
   },
   "splineCollection": {
     "assetSymbol": "TAO",
@@ -3149,6 +3159,7 @@
     "traderSubaccountIndex": 0,
     "withdrawQueueNode": null,
     "disablePositionAuthoritySwap": false,
-    "nativeSolCollateral": "0"
+    "nativeSolCollateral": "0",
+    "spotCollaterals": []
   }
 }

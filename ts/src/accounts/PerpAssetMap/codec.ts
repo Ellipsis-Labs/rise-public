@@ -13,6 +13,7 @@ import {
   getPerpAssetMapMetadataEntriesDecoder,
   getSequenceNumberDecoder,
 } from "../internal";
+import { getSpotCollateralCollectionDecoder } from "../SpotCollateralMetadata";
 import type { PerpAssetMap } from "./types";
 
 export const getPerpAssetMapDecoder = (): Decoder<PerpAssetMap> =>
@@ -22,11 +23,20 @@ export const getPerpAssetMapDecoder = (): Decoder<PerpAssetMap> =>
         ["sequenceNumber", getSequenceNumberDecoder()],
         ["numAssets", getU16Decoder()],
         ["_padding", getFixedArrayDecoder(getU8Decoder, 6)],
-        ["metadata", getPerpAssetMapMetadataEntriesDecoder()],
+        ["slots", getPerpAssetMapMetadataEntriesDecoder()],
       ]),
       [getConstantDecoder(ACCOUNT_DISCRIMINANTS.PERP_ASSET_MAP)]
     ),
-    ({ _padding, ...map }): PerpAssetMap => map
+    ({ _padding, slots, ...map }): PerpAssetMap => {
+      const spotDecoder = getSpotCollateralCollectionDecoder();
+      return {
+        ...map,
+        metadata: slots.metadata,
+        spotCollaterals: slots.spotCollectionSlots.flatMap((slot) =>
+          spotDecoder.decode(slot)
+        ),
+      };
+    }
   );
 
 export const decodePerpAssetMap = (

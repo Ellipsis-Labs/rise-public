@@ -1,13 +1,16 @@
 /**
  * Spot collateral cap arithmetic.
  *
- * Native SOL has no deposit instruction. Its lamports sit in the trader account
- * itself, and the permissionless `SyncNative` crank reconciles the *accounted*
- * collateral against the account's actual lamports. See `buildSyncNativeIx`.
+ * Spot collateral has no deposit instruction. Native SOL lamports sit in the
+ * trader account itself and SPL tokens in the trader wallet PDA's custody ATA;
+ * the permissionless `SyncNative` / `SyncSpot` cranks reconcile the *accounted*
+ * collateral against those balances. See `buildSyncNativeIx` and
+ * `buildSyncSpotIx`.
  *
  * The consequence callers must model is that an upward sync is **clamped, not
- * rejected**. `SyncNative` asks to set the trader's accounted balance to
- * `lamports - rent`, and the program credits only
+ * rejected**. The sync asks to set the trader's accounted balance to
+ * `lamports - rent` (native SOL) or the custody ATA's amount (SPL), and the
+ * program credits only
  *
  * ```text
  * credit = min(requested - accounted, traderMaxBalance - accounted,
@@ -23,8 +26,8 @@
  * silently not credited, which is why this arithmetic belongs here rather than
  * being restated per client.
  *
- * These are pure restatements of `SpotCollateralMetadata::update_total_collateral`
- * and `process_sync_native` in the on-chain program. Keep them in step.
+ * These are pure restatements of `SpotCollateralMetadata::update_total_collateral`,
+ * `process_sync_native` and `process_sync_spot` in the on-chain program. Keep them in step.
  */
 
 import type { SpotCollateralMetadata } from "@/accounts/SpotCollateralMetadata/types";
@@ -85,49 +88,67 @@ export const nativeSolUnaccountedLamports = (
   params: NativeSolAccountStateParams
 ): bigint => clampToZero(nativeSolSyncDeltaLamports(params));
 
-export interface NativeSolCollateralHeadroomParams {
-  metadata: SpotCollateralCapParams;
-  /** The trader's currently accounted native SOL collateral, in lamports. */
-  traderNativeSolLamports: bigint;
-  /**
-   * The trader's effective per-trader cap, in lamports: `BigInt(row.maxBalance)`
-   * from the SOL row of trader state. Omit only when the trader has no account
-   * yet, in which case `metadata.maxPerTraderBalance` applies.
-   */
-  traderMaxBalanceLamports?: bigint;
-  /**
-   * Signed reconciliation delta from {@link nativeSolSyncDeltaLamports}.
-   *
-   * `SyncNative` credits one lump — it does not distinguish pre-existing excess
-   * from freshly deposited lamports — so positive excess consumes headroom a
-   * new deposit would otherwise get, and a negative rent deficit is refilled by
-   * the deposit before anything is credited. Omitting it assumes the account is
-   * exactly reconciled.
-   */
-  traderSyncDeltaLamports?: bigint;
+export interface SpotCustodyStateParams {
+  /** Token amount in the trader wallet PDA's custody ATA for the asset. */
+  custodyAmount: bigint;
+  /** Amount already accounted as this asset's spot collateral for the trader. */
+  accountedAmount: bigint;
 }
 
 /**
- * How many *additional* lamports a trader can deposit before some of them land
- * uncounted, against both caps the program clamps to.
- *
- * With a rent deficit the first `-traderSyncDeltaLamports` of the deposit
- * refill the rent floor rather than being credited, so the cap-imposed maximum
- * grows by the deficit; nothing lands *uncounted* below the returned value
- * either way.
+ * The signed change the next `SyncSpot` would apply to the trader's accounted
+ * balance of an SPL asset, before any new deposit: `custodyAmount - accounted`.
+ * The SPL counterpart of {@link nativeSolSyncDeltaLamports}; there is no rent
+ * floor, so it is the custody ATA's token amount that is reconciled. Pass it as
+ * `traderSyncDelta` to the deposit helpers.
  */
-export const nativeSolCollateralHeadroomLamports = ({
+export const spotSyncDelta = ({
+  custodyAmount,
+  accountedAmount,
+}: SpotCustodyStateParams): bigint => custodyAmount - accountedAmount;
+
+export interface SpotCollateralHeadroomParams {
+  metadata: SpotCollateralCapParams;
+  /** The trader's currently accounted balance of the asset, in native units. */
+  traderBalance: bigint;
+  /**
+   * The trader's effective per-trader cap, in native units:
+   * `BigInt(row.maxBalance)` from the asset's row of trader state. Omit only
+   * when the trader has no account yet, in which case
+   * `metadata.maxPerTraderBalance` applies.
+   */
+  traderMaxBalance?: bigint;
+  /**
+   * Signed reconciliation delta: {@link nativeSolSyncDeltaLamports} for native
+   * SOL, {@link spotSyncDelta} for SPL assets.
+   *
+   * A sync credits one lump — it does not distinguish pre-existing excess from
+   * freshly deposited units — so positive excess consumes headroom a new
+   * deposit would otherwise get, and a negative deficit is refilled by the
+   * deposit before anything is credited. Omitting it assumes the account is
+   * exactly reconciled.
+   */
+  traderSyncDelta?: bigint;
+}
+
+/**
+ * How many *additional* native units a trader can deposit before some of them
+ * land uncounted, against both caps the program clamps to.
+ *
+ * With a deficit the first `-traderSyncDelta` of the deposit refill it rather
+ * than being credited, so the cap-imposed maximum grows by the deficit; nothing
+ * lands *uncounted* below the returned value either way.
+ */
+export const spotCollateralHeadroom = ({
   metadata,
-  traderNativeSolLamports,
-  traderMaxBalanceLamports,
-  traderSyncDeltaLamports = 0n,
-}: NativeSolCollateralHeadroomParams): bigint => {
-  const excess = clampToZero(traderSyncDeltaLamports);
-  const deficit = clampToZero(-traderSyncDeltaLamports);
+  traderBalance,
+  traderMaxBalance,
+  traderSyncDelta = 0n,
+}: SpotCollateralHeadroomParams): bigint => {
+  const excess = clampToZero(traderSyncDelta);
+  const deficit = clampToZero(-traderSyncDelta);
   const perTraderHeadroom = clampToZero(
-    (traderMaxBalanceLamports ?? metadata.maxPerTraderBalance) -
-      traderNativeSolLamports -
-      excess
+    (traderMaxBalance ?? metadata.maxPerTraderBalance) - traderBalance - excess
   );
   const globalHeadroom = clampToZero(
     metadata.maxGlobalBalance - metadata.currGlobalBalance - excess
@@ -136,39 +157,36 @@ export const nativeSolCollateralHeadroomLamports = ({
   return minBigint([perTraderHeadroom, globalHeadroom]) + deficit;
 };
 
-export interface AttributedNativeSolDepositParams extends NativeSolCollateralHeadroomParams {
-  /** Lamports the caller is about to transfer into the trader account. */
-  depositLamports: bigint;
+export interface AttributedSpotDepositParams extends SpotCollateralHeadroomParams {
+  /** Native units the caller is about to deposit. */
+  depositAmount: bigint;
 }
 
 /**
- * Of `depositLamports`, how many the next `SyncNative` will actually credit.
+ * Of `depositAmount`, how many units the next sync will actually credit.
  *
- * The single credit covers pre-existing excess first, and a rent deficit
- * swallows deposited lamports before any are credited — so a deposit smaller
- * than the deficit returns `0n` even though the sync will still lower the
- * accounted balance (by less than it would have without the deposit). Use this
- * to report "you were credited X", not
- * {@link nativeSolCollateralHeadroomLamports}, which answers the different
- * question of how large a deposit can be before any of it is left uncredited.
+ * The single credit covers pre-existing excess first, and a deficit swallows
+ * deposited units before any are credited — so a deposit smaller than the
+ * deficit returns `0n` even though the sync will still lower the accounted
+ * balance (by less than it would have without the deposit). Use this to report
+ * "you were credited X", not {@link spotCollateralHeadroom}, which answers the
+ * different question of how large a deposit can be before any of it is left
+ * uncredited.
  */
-export const attributedNativeSolDepositLamports = ({
+export const attributedSpotDeposit = ({
   metadata,
-  traderNativeSolLamports,
-  traderMaxBalanceLamports,
-  traderSyncDeltaLamports = 0n,
-  depositLamports,
-}: AttributedNativeSolDepositParams): bigint => {
+  traderBalance,
+  traderMaxBalance,
+  traderSyncDelta = 0n,
+  depositAmount,
+}: AttributedSpotDepositParams): bigint => {
   const perTraderHeadroom = clampToZero(
-    (traderMaxBalanceLamports ?? metadata.maxPerTraderBalance) -
-      traderNativeSolLamports
+    (traderMaxBalance ?? metadata.maxPerTraderBalance) - traderBalance
   );
   const globalHeadroom = clampToZero(
     metadata.maxGlobalBalance - metadata.currGlobalBalance
   );
-  const requestedCredit = clampToZero(
-    traderSyncDeltaLamports + depositLamports
-  );
+  const requestedCredit = clampToZero(traderSyncDelta + depositAmount);
   const credit = minBigint([
     requestedCredit,
     perTraderHeadroom,
@@ -177,5 +195,47 @@ export const attributedNativeSolDepositLamports = ({
 
   // Pre-existing excess is credited first; only what is left lands on the
   // new deposit.
-  return clampToZero(credit - clampToZero(traderSyncDeltaLamports));
+  return clampToZero(credit - clampToZero(traderSyncDelta));
 };
+
+export interface NativeSolCollateralHeadroomParams {
+  metadata: SpotCollateralCapParams;
+  /** The trader's currently accounted native SOL collateral, in lamports. */
+  traderNativeSolLamports: bigint;
+  /** See {@link SpotCollateralHeadroomParams.traderMaxBalance}. */
+  traderMaxBalanceLamports?: bigint;
+  /** Signed delta from {@link nativeSolSyncDeltaLamports}; a negative value is
+   * a rent deficit. */
+  traderSyncDeltaLamports?: bigint;
+}
+
+/** {@link spotCollateralHeadroom} for native SOL, in lamports. */
+export const nativeSolCollateralHeadroomLamports = (
+  params: NativeSolCollateralHeadroomParams
+): bigint => spotCollateralHeadroom(fromNativeSolParams(params));
+
+export interface AttributedNativeSolDepositParams extends NativeSolCollateralHeadroomParams {
+  /** Lamports the caller is about to transfer into the trader account. */
+  depositLamports: bigint;
+}
+
+/** {@link attributedSpotDeposit} for native SOL, in lamports. */
+export const attributedNativeSolDepositLamports = (
+  params: AttributedNativeSolDepositParams
+): bigint =>
+  attributedSpotDeposit({
+    ...fromNativeSolParams(params),
+    depositAmount: params.depositLamports,
+  });
+
+const fromNativeSolParams = ({
+  metadata,
+  traderNativeSolLamports,
+  traderMaxBalanceLamports,
+  traderSyncDeltaLamports,
+}: NativeSolCollateralHeadroomParams): SpotCollateralHeadroomParams => ({
+  metadata,
+  traderBalance: traderNativeSolLamports,
+  traderMaxBalance: traderMaxBalanceLamports,
+  traderSyncDelta: traderSyncDeltaLamports,
+});

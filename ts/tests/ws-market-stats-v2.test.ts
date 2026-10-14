@@ -180,14 +180,17 @@ describe("marketStatsV2 websocket adapter", () => {
 
   it("delivers a full batch as one update", async () => {
     const { ws, subscriptions } = createMockWsClient();
-    const marketStatsV2 = createMarketStatsV2Adapter(ws);
+    const marketStatsV2 = createMarketStatsV2Adapter(ws, undefined, true);
     const stream = marketStatsV2(["SOL-PERP", "BTC-PERP"]);
     const next = stream[Symbol.asyncIterator]().next();
 
     subscriptions[0]!.onMessage({
       channel: "marketStatsV2",
       symbols: ["BTC-PERP", "SOL-PERP"],
-      stats: [rawStats("BTC-PERP"), rawStats("SOL-PERP")],
+      stats: [
+        { ...rawStats("BTC-PERP"), displayName: "BITCOIN" },
+        rawStats("SOL-PERP"),
+      ],
     });
 
     await expect(next).resolves.toEqual({
@@ -197,6 +200,7 @@ describe("marketStatsV2 websocket adapter", () => {
         stats: [
           {
             symbol: "BTC-PERP",
+            displayName: "BITCOIN",
             stats: {
               timestamp: 1000n,
               openInterest: 2,
