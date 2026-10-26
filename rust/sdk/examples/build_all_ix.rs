@@ -6,6 +6,9 @@ use std::collections::BTreeMap;
 /// This script tests parity between Rust and TS instruction builders.
 use phoenix_rise::api::PhoenixFlightClient;
 use phoenix_rise::ix::prelude::*;
+use phoenix_rise::math::{
+    MarketCalculator, QuoteLotsPerBaseLotPerTick, RoundingMode, quote_usd_to_quote_lots,
+};
 use solana_pubkey::Pubkey;
 
 fn derive_trader_account_pda(authority: Pubkey, pda_index: u8, subaccount_index: u8) -> Pubkey {
@@ -1141,6 +1144,92 @@ fn main() {
             "FlightProxyPlaceMarketOrderPositionAuthority".to_string(),
             hex_encode(&ix.data),
         );
+    }
+
+    // 36. Human-value unit conversions.
+    {
+        let limit_order = |calc: MarketCalculator, side: Side, price: f64, base_units: f64| {
+            let params = LimitOrderParams::builder()
+                .trader(pubkeys[0])
+                .trader_account(pubkeys[1])
+                .perp_asset_map(pubkeys[2])
+                .orderbook(pubkeys[3])
+                .spline_collection(pubkeys[4])
+                .global_trader_index(vec2(5, 6))
+                .active_trader_buffer(vec2(7, 8))
+                .side(side)
+                .price_in_ticks(calc.order_price_to_ticks(price, side).unwrap().as_inner())
+                .num_base_lots(
+                    calc.base_units_to_lots(base_units, RoundingMode::Floor)
+                        .unwrap()
+                        .as_inner(),
+                )
+                .build()
+                .unwrap();
+            hex_encode(&create_place_limit_order_ix(params).unwrap().data)
+        };
+
+        let calc = MarketCalculator::new(2, QuoteLotsPerBaseLotPerTick::new(100));
+        results.insert(
+            "ConvertedLimitOrderBid".to_string(),
+            limit_order(calc, Side::Bid, 135.874, 0.29),
+        );
+        results.insert(
+            "ConvertedLimitOrderAsk".to_string(),
+            limit_order(calc, Side::Ask, 135.874, 0.29),
+        );
+        results.insert(
+            "ConvertedLimitOrderOnTickBid".to_string(),
+            limit_order(calc, Side::Bid, 8.2, 0.29),
+        );
+        results.insert(
+            "ConvertedLimitOrderOnTickAsk".to_string(),
+            limit_order(calc, Side::Ask, 8.2, 0.29),
+        );
+        results.insert(
+            "ConvertedLimitOrderNegativeBaseLotDecimals".to_string(),
+            limit_order(
+                MarketCalculator::new(-4, QuoteLotsPerBaseLotPerTick::new(1)),
+                Side::Ask,
+                0.00000012345,
+                123456.0,
+            ),
+        );
+
+        let params = PlaceStopLossParams::builder()
+            .funder(pubkeys[0])
+            .trader_account(pubkeys[1])
+            .position_authority(pubkeys[2])
+            .perp_asset_map(pubkeys[3])
+            .orderbook(pubkeys[4])
+            .spline_collection(pubkeys[5])
+            .global_trader_index(vec2(6, 7))
+            .active_trader_buffer(vec2(8, 9))
+            .stop_loss_account(pubkeys[10])
+            .asset_id(0)
+            .trigger_price(calc.price_to_ticks(135.875).unwrap().as_inner())
+            .execution_price(calc.price_to_ticks(8.2).unwrap().as_inner())
+            .trade_side(Side::Ask)
+            .execution_direction(Direction::LessThan)
+            .order_kind(StopLossOrderKind::IOC)
+            .build()
+            .unwrap();
+        let ix = create_place_stop_loss_ix(params).unwrap();
+        results.insert("ConvertedStopLoss".to_string(), hex_encode(&ix.data));
+
+        let params = DepositFundsParams::builder()
+            .trader(pubkeys[0])
+            .trader_account(pubkeys[1])
+            .canonical_mint(pubkeys[2])
+            .global_vault(pubkeys[3])
+            .trader_token_account(pubkeys[4])
+            .global_trader_index(vec2(5, 6))
+            .active_trader_buffer(vec2(7, 8))
+            .amount(quote_usd_to_quote_lots(8.2).unwrap().as_inner())
+            .build()
+            .unwrap();
+        let ix = create_deposit_funds_ix(params).unwrap();
+        results.insert("ConvertedDepositFunds".to_string(), hex_encode(&ix.data));
     }
 
     // Output JSON

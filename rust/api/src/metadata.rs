@@ -346,6 +346,7 @@ mod tests {
     fn market_config() -> ExchangeMarketConfig {
         ExchangeMarketConfig {
             symbol: "SOL-PERP".to_string(),
+            display_name: None,
             asset_id: 1,
             market_status: MarketStatus::Active,
             metadata: None,

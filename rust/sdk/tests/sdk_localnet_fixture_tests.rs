@@ -1046,6 +1046,7 @@ fn phoenix_metadata_from_fixture(fixture: &SdkLocalnetFixture) -> PhoenixMetadat
                 market.symbol.clone(),
                 ExchangeMarketConfig {
                     symbol: market.symbol.clone(),
+                    display_name: None,
                     asset_id: asset_id as u32,
                     market_status: MarketStatus::Active,
                     metadata: None,

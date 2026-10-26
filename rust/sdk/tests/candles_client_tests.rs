@@ -80,6 +80,7 @@ async fn spawn_test_server(state: TestState) -> (String, tokio::task::JoinHandle
 async fn markets_handler() -> Json<Vec<ExchangeMarketConfig>> {
     Json(vec![ExchangeMarketConfig {
         symbol: "SOL".to_string(),
+        display_name: None,
         asset_id: 0,
         market_status: MarketStatus::Active,
         metadata: None,
