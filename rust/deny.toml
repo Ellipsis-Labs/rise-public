@@ -28,6 +28,9 @@ name          = "ring"
 
 [advisories]
 ignore = [
+  # TLS dependencies require ^0.26; 0.26.11 only re-exports the patched 1.x roots.
+  # The bans below reject every other unpatched webpki-roots version.
+  "RUSTSEC-2026-0381",
   "RUSTSEC-2021-0145", # atty - unaligned read (transitive dependency)
   "RUSTSEC-2022-0093", # ed25519-dalek - double public key signing (transitive dependency)
   "RUSTSEC-2024-0344", # curve25519-dalek - timing variability (transitive dependency)
@@ -39,3 +42,9 @@ ignore = [
   "RUSTSEC-2026-0186", # memmap2 0.5.10 forced by Solana 2.x solana-genesis-config; no compatible 0.9.x upgrade available
 ]
 unmaintained = 'workspace'
+
+[bans]
+deny = [
+  { name = "webpki-roots", version = "<0.26.11", reason = "RUSTSEC-2026-0381: bundled emSign root" },
+  { name = "webpki-roots", version = ">0.26.11, <1.0.10", reason = "RUSTSEC-2026-0381: bundled emSign root" },
+]

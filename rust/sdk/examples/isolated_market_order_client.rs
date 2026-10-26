@@ -6,7 +6,8 @@
 //! 3. Cache `Trader` state and `TraderPortfolioMargin` from their respective
 //!    receivers
 //! 4. Wait 10 seconds for state to settle
-//! 5. Compute transferable collateral via `calculate_transferable_collateral`
+//! 5. Compute transferable collateral via
+//!    `calculate_withdrawable_collateral_pre_lock`
 //! 6. Build isolated market order via `PhoenixTxBuilder`
 //!
 //! Run with:
@@ -387,7 +388,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=======================================\n");
 
     // Compute transferable collateral
-    let transferable = margin.calculate_transferable_collateral()?;
+    let transferable = margin.calculate_withdrawable_collateral_pre_lock()?;
     println!("Transferable collateral: {} quote_lots", transferable);
 
     // Build isolated market order via PhoenixTxBuilder

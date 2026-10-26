@@ -2,9 +2,12 @@
 
 use thiserror::Error;
 
-/// Errors that can occur when building Phoenix instructions.
+/// Errors that can occur when building or decoding Phoenix instructions.
 #[derive(Debug, Error)]
 pub enum PhoenixIxError {
+    #[error("Invalid spline metadata payload")]
+    InvalidSplinePriceMetadata,
+
     #[error("Trader wallet is required")]
     MissingTrader,
 

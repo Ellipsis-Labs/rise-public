@@ -84,6 +84,7 @@ impl EscrowHeader {
 pub enum EscrowActionKind {
     Noop,
     Cash,
+    LockedDeposit,
     Unknown(u8),
 }
 
@@ -107,6 +108,7 @@ impl EscrowAction {
         match self.kind {
             0 => EscrowActionKind::Noop,
             1 => EscrowActionKind::Cash,
+            2 => EscrowActionKind::LockedDeposit,
             other => EscrowActionKind::Unknown(other),
         }
     }
@@ -115,6 +117,14 @@ impl EscrowAction {
     pub const fn cash_amount(&self) -> Option<u64> {
         match self.kind {
             1 => Some(self.amount),
+            _ => None,
+        }
+    }
+
+    #[inline(always)]
+    pub const fn locked_deposit_amount(&self) -> Option<u64> {
+        match self.kind {
+            2 => Some(self.amount),
             _ => None,
         }
     }
@@ -353,10 +363,11 @@ impl serde::Serialize for EscrowAction {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_struct("EscrowAction", 3)?;
+        let mut state = serializer.serialize_struct("EscrowAction", 4)?;
         state.serialize_field("raw_kind", &self.raw_kind())?;
         state.serialize_field("kind", &self.kind())?;
         state.serialize_field("cash_amount", &self.cash_amount())?;
+        state.serialize_field("locked_deposit_amount", &self.locked_deposit_amount())?;
         state.end()
     }
 }

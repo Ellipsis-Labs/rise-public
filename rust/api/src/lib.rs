@@ -104,7 +104,7 @@ pub use routes::{
 #[cfg(feature = "ws")]
 pub use subscription_key::SubscriptionKey;
 pub use trader_key::{CROSS_MARGIN_SUBACCOUNT_IDX, ETERNAL_PROGRAM_ID, TraderKey};
-pub use trader_state::{LimitOrder, Position, Spline, SubaccountState, Trader};
+pub use trader_state::{LimitOrder, LockedDepositState, Position, Spline, SubaccountState, Trader};
 #[cfg(feature = "ws")]
 pub use ws_client::{
     ExchangeCachePump, PhoenixWSClient, SubscriptionHandle, WsConnectionStatus, WsSubscriptionEvent,

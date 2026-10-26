@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use phoenix_rise_math::{
     BasisPoints, QuoteLotsPerBaseLotPerTick, SpotCollateralParams, SpotCollateralPricing,
     SpotPrice, Ticks,
@@ -115,6 +115,25 @@ pub struct MarketCalendar {
     pub next_market_transition_utc: Option<DateTime<Utc>>,
 }
 
+/// Reporting session for an earnings announcement; this is not an exact time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum EarningsTime {
+    /// After market close.
+    Amc,
+    /// Before market open.
+    Bmo,
+}
+
+/// Earnings reporting date with an optional before-open or after-close session.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct EarningsDate {
+    /// Reporting date in YYYY-MM-DD format.
+    pub date: NaiveDate,
+    /// Null when the reporting session is unknown.
+    pub time: Option<EarningsTime>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketPublicMetadata {
@@ -123,6 +142,10 @@ pub struct MarketPublicMetadata {
     /// current time.
     #[serde(default)]
     pub earnings_dates: Vec<DateTime<Utc>>,
+    /// Reporting dates and sessions in ascending order, retained through the
+    /// reporting date in America/New_York. An empty array means no known dates.
+    #[serde(default)]
+    pub earnings_dates_v2: Vec<EarningsDate>,
     #[serde(default)]
     pub name: Option<String>,
     #[serde(default)]
@@ -383,6 +406,21 @@ mod tests {
     fn market_public_metadata_defaults_missing_collection_fields() {
         let metadata: MarketPublicMetadata =
             serde_json::from_value(serde_json::json!({ "name": "Gold" })).unwrap();
+        assert!(metadata.earnings_dates_v2.is_empty());
+        let dated: MarketPublicMetadata = serde_json::from_value(serde_json::json!({
+            "earningsDates": ["2026-10-20T00:00:00Z"],
+            "earningsDatesV2": [
+                {"date": "2026-10-20", "time": "amc"},
+                {"date": "2027-01-20", "time": null}
+            ]
+        }))
+        .unwrap();
+        assert_eq!(dated.earnings_dates_v2[0].time, Some(EarningsTime::Amc));
+        assert_eq!(dated.earnings_dates_v2[1].time, None);
+        assert_eq!(
+            serde_json::to_value(dated).unwrap()["earningsDatesV2"][1],
+            serde_json::json!({"date": "2027-01-20", "time": null})
+        );
         assert!(metadata.search_aliases.is_empty());
         assert!(metadata.classifications.is_empty());
         let empty_json = serde_json::to_value(&metadata).unwrap();
@@ -390,6 +428,7 @@ mod tests {
 
         let json = serde_json::to_value(MarketPublicMetadata {
             earnings_dates: Vec::new(),
+            earnings_dates_v2: Vec::new(),
             name: Some("Gold".to_string()),
             description: None,
             search_aliases: vec!["XAU".to_string()],

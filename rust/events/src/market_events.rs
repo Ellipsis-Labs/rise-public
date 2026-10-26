@@ -191,6 +191,9 @@ pub enum MarketEvent {
     Reserved70([u8; 18]),
     AdditionalFeeAccrued(AdditionalFeeAccruedEvent),
     SpotAssetPriceUpdated(SpotAssetPriceUpdatedEvent),
+
+    // Locked deposit events
+    LockedDepositChanged(LockedDepositChangedEvent),
 }
 
 /// Stable event type for a decoded [`MarketEvent`].
@@ -273,6 +276,7 @@ pub enum MarketEventType {
     Reserved70,
     AdditionalFeeAccrued,
     SpotAssetPriceUpdated,
+    LockedDepositChanged,
 }
 
 impl fmt::Display for MarketEventType {
@@ -375,6 +379,7 @@ impl MarketEvent {
             MarketEvent::Reserved70(_) => MarketEventType::Reserved70,
             MarketEvent::AdditionalFeeAccrued(_) => MarketEventType::AdditionalFeeAccrued,
             MarketEvent::SpotAssetPriceUpdated(_) => MarketEventType::SpotAssetPriceUpdated,
+            MarketEvent::LockedDepositChanged(_) => MarketEventType::LockedDepositChanged,
         }
     }
 }

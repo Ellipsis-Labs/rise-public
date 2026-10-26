@@ -71,6 +71,8 @@ pub struct TraderPortfolio {
     pub trader_subaccount_index: u8,
 
     pub quote_lot_collateral: SignedQuoteLots,
+    /// Reserve excluded from USDC withdrawals and swaps.
+    pub locked_deposit_remaining: QuoteLots,
     /// Spot collateral balances with their valuation context; valued by
     /// [`TraderPortfolio::compute_margin`].
     pub spot_collaterals: Vec<SpotCollateralInput>,
@@ -157,6 +159,7 @@ pub struct TraderPortfolioBuilder {
     trader_pda_index: u8,
     trader_subaccount_index: u8,
     quote_lot_collateral: SignedQuoteLots,
+    locked_deposit_remaining: QuoteLots,
     spot_collaterals: Vec<SpotCollateralInput>,
     positions: HashMap<String, TraderPosition>,
     limit_orders: HashMap<String, Vec<LimitOrder>>,
@@ -566,6 +569,11 @@ impl TraderPortfolioBuilder {
         self
     }
 
+    pub fn locked_deposit_remaining(mut self, remaining: QuoteLots) -> Self {
+        self.locked_deposit_remaining = remaining;
+        self
+    }
+
     pub fn stop_loss(mut self, stop_loss: StopLossInfo) -> Self {
         self.stop_losses.push(stop_loss);
         self
@@ -577,6 +585,7 @@ impl TraderPortfolioBuilder {
             trader_pda_index: self.trader_pda_index,
             trader_subaccount_index: self.trader_subaccount_index,
             quote_lot_collateral: self.quote_lot_collateral,
+            locked_deposit_remaining: self.locked_deposit_remaining,
             spot_collaterals: self.spot_collaterals,
             positions: self.positions,
             limit_orders: self.limit_orders,
@@ -661,6 +670,7 @@ impl TraderPortfolio {
             trader_pda_index: self.trader_pda_index,
             trader_subaccount_index: self.trader_subaccount_index,
             quote_lot_collateral: self.quote_lot_collateral,
+            locked_deposit_remaining: self.locked_deposit_remaining,
             spot_collaterals,
             margin,
             positions,
@@ -859,6 +869,7 @@ impl TraderPortfolio {
             trader_pda_index: self.trader_pda_index,
             trader_subaccount_index: self.trader_subaccount_index,
             quote_lot_collateral: collateral,
+            locked_deposit_remaining: self.locked_deposit_remaining,
             // Spot collateral only backs cross margin.
             spot_collaterals: Vec::new(),
             positions,
@@ -1060,6 +1071,10 @@ impl SimulationState {
         let collateral_delta = realized_pnl.checked_sub(fee).ok_or(MathError::Overflow)?;
         self.portfolio.quote_lot_collateral =
             add_signed_quote_lots(self.portfolio.quote_lot_collateral, collateral_delta)?;
+        // The realized loss and the fee each consume the lock; a realized gain
+        // does not offset the fee.
+        self.consume_locked_deposit(negative_part(realized_pnl));
+        self.consume_locked_deposit(fee_quote_lots);
 
         let calculator = MarketCalculator::new(metadata.base_lot_decimals(), metadata.tick_size());
         Ok(MarginSimulationActionReport::FillPosition {
@@ -1362,6 +1377,13 @@ impl SimulationState {
         Ok(())
     }
 
+    /// Mirrors on-chain loss charging: each quote loss consumes the same
+    /// amount of the locked-deposit reserve; credits never restore it.
+    fn consume_locked_deposit(&mut self, loss: QuoteLots) {
+        self.portfolio.locked_deposit_remaining =
+            self.portfolio.locked_deposit_remaining.saturating_sub(loss);
+    }
+
     fn settle_funding_for_action_scope(
         &mut self,
         scope: &ResolvedSimulationScope,
@@ -1409,6 +1431,9 @@ impl SimulationState {
                 *position = settled_position;
                 payment = add_signed_quote_lots(payment, funding_payment)?;
             }
+            // Each market's funding settles separately, so only that market's
+            // net payment can consume the lock.
+            self.consume_locked_deposit(negative_part(payment));
             total_payment = add_signed_quote_lots(total_payment, payment)?;
         }
 
@@ -1820,6 +1845,14 @@ fn settle_funding_for_position(
         * position.base_lot_position;
     position.cumulative_funding_snapshot = perp_asset_metadata.cumulative_funding_rate();
     (position, payment)
+}
+
+fn negative_part(quote_change: SignedQuoteLots) -> QuoteLots {
+    if quote_change < SignedQuoteLots::ZERO {
+        quote_change.abs_as_unsigned()
+    } else {
+        QuoteLots::ZERO
+    }
 }
 
 fn add_signed_quote_lots(
@@ -2369,6 +2402,8 @@ pub struct TraderPortfolioMargin {
     pub trader_subaccount_index: u8,
 
     pub quote_lot_collateral: SignedQuoteLots,
+    /// Reserve excluded from USDC withdrawals and swaps.
+    pub locked_deposit_remaining: QuoteLots,
     /// Valued spot collateral per asset, mirroring phoenix-state's
     /// `TraderPortfolioMargin`.
     pub spot_collaterals: Vec<SpotCollateralMargin>,
@@ -2391,7 +2426,7 @@ impl TraderPortfolioMargin {
     /// plus unsettled funding, excluding spot collateral. Mirrors the on-chain
     /// `RiskView::effective_quote_collateral`: the most a quote withdrawal can
     /// pay out. Spot collateral still backs the margin side of a withdrawal;
-    /// see [`Self::calculate_transferable_collateral`].
+    /// see [`Self::calculate_withdrawable_collateral`].
     pub fn effective_collateral_for_withdrawals(&self) -> SignedQuoteLots {
         self.quote_lot_collateral
             + self.margin.discounted_pnl_for_withdrawals
@@ -2491,14 +2526,21 @@ impl TraderPortfolioMargin {
         Ok(prices)
     }
 
-    /// Maximum quote collateral transferable or withdrawable, mirroring the
-    /// on-chain `get_max_quote_withdrawable_amount`: the tighter of the margin
-    /// bound (withdrawal effective collateral, spot included, minus the
+    /// Maximum quote collateral transferable from cross margin to an isolated
+    /// subaccount in the same trader PDA, before applying the locked-deposit
+    /// reserve. Mirrors `get_max_quote_withdrawable_amount`: the tighter of the
+    /// margin bound (withdrawal effective collateral, spot included, minus the
     /// withdrawal initial margin for positions and open limit orders) and the
     /// payout bound (the positive part of
     /// [`Self::effective_collateral_for_withdrawals`], since spot collateral is
-    /// never paid out as quote).
-    pub fn calculate_transferable_collateral(&self) -> Result<u64, MarginError> {
+    /// never paid out as quote), clamped to zero.
+    ///
+    /// Withdrawals and transfers outside this scope must use
+    /// [`Self::calculate_withdrawable_collateral`]. Child-to-parent sweeps
+    /// additionally require the child to have no positions or orders.
+    /// Swaps must preserve the locked reserve in the completed operation's
+    /// withdrawal capacity, after both collateral legs.
+    pub fn calculate_withdrawable_collateral_pre_lock(&self) -> Result<u64, MarginError> {
         let available_quote_collateral = self.effective_collateral_for_withdrawals();
         if available_quote_collateral <= SignedQuoteLots::ZERO {
             return Ok(0);
@@ -2517,6 +2559,26 @@ impl TraderPortfolioMargin {
             .min(available_quote_collateral)
             .max(SignedQuoteLots::ZERO)
             .as_inner() as u64)
+    }
+
+    /// Maximum quote collateral withdrawable or transferable to
+    /// another trader. Subtracts the remaining locked deposit from the tighter
+    /// of the margin and payout bounds, saturating at zero.
+    pub fn calculate_withdrawable_collateral(&self) -> Result<u64, MarginError> {
+        let max_withdrawable = self.calculate_withdrawable_collateral_pre_lock()?;
+        Ok(max_withdrawable.saturating_sub(self.locked_deposit_remaining.as_inner()))
+    }
+
+    /// Maximum quote collateral withdrawable after subtracting the
+    /// locked-deposit reserve. Alias of
+    /// [`Self::calculate_withdrawable_collateral`].
+    #[deprecated(
+        note = "use `calculate_withdrawable_collateral` for withdrawals and transfers, or \
+                `calculate_withdrawable_collateral_pre_lock` for cross-margin to isolated \
+                transfers within the same trader PDA"
+    )]
+    pub fn calculate_transferable_collateral(&self) -> Result<u64, MarginError> {
+        self.calculate_withdrawable_collateral()
     }
 }
 
@@ -3052,7 +3114,10 @@ mod tests {
             ..TraderPortfolioMargin::default()
         };
 
-        assert_eq!(margin.calculate_transferable_collateral().unwrap(), 80);
+        assert_eq!(
+            margin.calculate_withdrawable_collateral_pre_lock().unwrap(),
+            80
+        );
     }
 
     #[test]
@@ -3076,7 +3141,10 @@ mod tests {
             ..TraderPortfolioMargin::default()
         };
 
-        assert_eq!(margin.calculate_transferable_collateral().unwrap(), 45);
+        assert_eq!(
+            margin.calculate_withdrawable_collateral_pre_lock().unwrap(),
+            45
+        );
     }
 
     /// Mirrors the on-chain `get_max_quote_withdrawable_amount`: spot
@@ -3108,31 +3176,100 @@ mod tests {
         // nothing, now the margin bound 100 + 40 - 120.
         assert_eq!(
             with_spot(100, 40, 120)
-                .calculate_transferable_collateral()
+                .calculate_withdrawable_collateral_pre_lock()
                 .unwrap(),
             20
         );
         // Margin 30 is slack: the payout bound (the quote balance) applies.
         assert_eq!(
             with_spot(100, 40, 30)
-                .calculate_transferable_collateral()
+                .calculate_withdrawable_collateral_pre_lock()
                 .unwrap(),
             100
         );
         // Even the spot does not cover the margin.
         assert_eq!(
             with_spot(100, 40, 200)
-                .calculate_transferable_collateral()
+                .calculate_withdrawable_collateral_pre_lock()
                 .unwrap(),
             0
         );
         // A negative quote balance is never withdrawable against spot.
         assert_eq!(
             with_spot(-10, 40, 0)
-                .calculate_transferable_collateral()
+                .calculate_withdrawable_collateral_pre_lock()
                 .unwrap(),
             0
         );
+    }
+
+    #[test]
+    fn withdrawal_lock_is_subtracted_after_pnl_funding_and_margin() {
+        // cash, remaining lock, discounted PnL, funding, pre-lock bound, payout
+        for (cash, locked, pnl, funding, transferable, withdrawable) in [
+            (100, 50, 50, 0, 140, 90),
+            (100, 50, 25, 0, 115, 65),
+            (100, 50, -60, 0, 30, 0),
+            (50, 50, 50, 0, 90, 40),
+            (40, 50, 50, 0, 80, 30),
+            (-10, 50, 100, 0, 80, 30),
+            (100, 0, 50, 0, 140, 140),
+            (-10, 0, 100, 0, 80, 80),
+            (100, 30, 50, 0, 140, 110),
+            (100, 50, 0, 50, 140, 90),
+            (100, 50, 0, -60, 30, 0),
+            (1000, 0, -600, 0, 390, 390),
+            (1000, 100, -600, 0, 390, 290),
+            (100, 150, 0, 0, 90, 0),
+        ] {
+            let margin = TraderPortfolioMargin {
+                quote_lot_collateral: SignedQuoteLots::new(cash),
+                locked_deposit_remaining: QuoteLots::new(locked),
+                margin: Margin {
+                    discounted_pnl_for_withdrawals: SignedQuoteLots::new(pnl),
+                    unsettled_funding: SignedQuoteLots::new(funding),
+                    initial_margin_for_withdrawals: QuoteLots::new(10),
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            assert_eq!(
+                margin.calculate_withdrawable_collateral_pre_lock().unwrap(),
+                transferable
+            );
+            assert_eq!(
+                margin.calculate_withdrawable_collateral().unwrap(),
+                withdrawable
+            );
+        }
+    }
+
+    #[test]
+    fn locked_reserve_is_subtracted_after_withdrawal_margin() {
+        let mut portfolio = TraderPortfolio::builder()
+            .quote_lot_collateral(SignedQuoteLots::new(100))
+            .locked_deposit_remaining(QuoteLots::new(30))
+            .build();
+        let mut margin = portfolio.compute_margin(&HashMap::new()).unwrap();
+        assert_eq!(margin.effective_collateral(), SignedQuoteLots::new(100));
+        assert_eq!(
+            margin.calculate_withdrawable_collateral_pre_lock().unwrap(),
+            100
+        );
+        assert_eq!(margin.calculate_withdrawable_collateral().unwrap(), 70);
+        margin.margin.initial_margin_for_withdrawals = QuoteLots::new(80);
+        assert_eq!(
+            margin.calculate_withdrawable_collateral_pre_lock().unwrap(),
+            20
+        );
+        assert_eq!(margin.calculate_withdrawable_collateral().unwrap(), 0);
+        portfolio.locked_deposit_remaining = QuoteLots::new(200);
+        let margin = portfolio.compute_margin(&HashMap::new()).unwrap();
+        assert_eq!(
+            margin.calculate_withdrawable_collateral_pre_lock().unwrap(),
+            100
+        );
+        assert_eq!(margin.calculate_withdrawable_collateral().unwrap(), 0);
     }
 
     #[test]
@@ -3170,6 +3307,50 @@ mod tests {
         );
         assert_eq!(result.margin.quote_lot_collateral, quote_lots(100.0));
         assert_close(result.liquidation_price_usd.unwrap(), 101.0101);
+    }
+
+    #[test]
+    fn simulate_position_fill_consumes_lock_with_losses_and_fees() {
+        // price, fee, collateral after, lock after, withdrawable after
+        for (price, fee, collateral, lock, withdrawable) in [
+            (70.0, 0.0, 70.0, 20.0, 50.0),
+            (70.0, 5.0, 65.0, 15.0, 50.0),
+            (130.0, 5.0, 125.0, 45.0, 80.0),
+        ] {
+            let provider =
+                HashMap::from([("SOL-PERP".to_string(), market("SOL-PERP", 1, price, 50))]);
+            let portfolio = TraderPortfolio::builder()
+                .quote_lot_collateral(quote_lots(100.0))
+                .locked_deposit_remaining(quote_lots(50.0).abs_as_unsigned())
+                .position("SOL-PERP", position(1.0, -100.0))
+                .build();
+
+            let result = portfolio
+                .simulate_position_fill(
+                    SimulatePositionFillParams {
+                        symbol: "SOL-PERP",
+                        side: Side::Ask,
+                        base_lots: BaseLots::new(100),
+                        price_ticks: price_ticks(price),
+                        fee_quote_lots: Some(quote_lots(fee).abs_as_unsigned()),
+                        margin_mode: MarginSimulationMode::Cross,
+                        isolated_collateral: None,
+                    },
+                    &provider,
+                )
+                .unwrap();
+
+            assert!(result.projected_position.is_none());
+            assert_eq!(result.margin.quote_lot_collateral, quote_lots(collateral));
+            assert_eq!(
+                result.margin.locked_deposit_remaining,
+                quote_lots(lock).abs_as_unsigned()
+            );
+            assert_eq!(
+                result.margin.calculate_withdrawable_collateral().unwrap(),
+                quote_lots(withdrawable).as_inner() as u64
+            );
+        }
     }
 
     #[test]

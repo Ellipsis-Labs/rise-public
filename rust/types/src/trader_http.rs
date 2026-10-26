@@ -829,9 +829,13 @@ pub struct TraderView {
     /// `effective_collateral_for_withdrawals` plus discounted spot collateral
     /// minus `initial_margin_for_withdrawals`, and the positive part of
     /// `effective_collateral_for_withdrawals`. Defaulted so responses from API
-    /// versions that predate the field still decode.
+    /// versions that predate the field still decode. The remaining account lock
+    /// is subtracted after these bounds, with the result clamped to zero.
     #[serde(default = "zero_quote_decimal")]
     pub withdrawable_quote_collateral: Decimal,
+    /// Current per-account lock reserve in quote units.
+    #[serde(default = "zero_quote_decimal")]
+    pub locked_deposit_remaining: Decimal,
     pub unrealized_pnl: Decimal,
     pub discounted_unrealized_pnl: Decimal,
     pub unsettled_funding_owed: Decimal,

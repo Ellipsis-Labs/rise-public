@@ -4,9 +4,9 @@ use std::collections::HashMap;
 
 use phoenix_rise_math::portfolio::SpotCollateralInput;
 use phoenix_rise_math::{
-    BaseLots, LimitOrder as MarginLimitOrder, SequenceNumberU8, Side as MarginSide, SignedBaseLots,
-    SignedQuoteLots, SignedQuoteLotsI56, SignedQuoteLotsPerBaseLot, SpotCollateralPricing,
-    SpotPrice, Ticks, TraderPortfolio, TraderPosition,
+    BaseLots, LimitOrder as MarginLimitOrder, QuoteLots, SequenceNumberU8, Side as MarginSide,
+    SignedBaseLots, SignedQuoteLots, SignedQuoteLotsI56, SignedQuoteLotsPerBaseLot,
+    SpotCollateralPricing, SpotPrice, Ticks, TraderPortfolio, TraderPosition,
 };
 use rust_decimal::Decimal;
 use tracing::{debug, warn};
@@ -15,11 +15,12 @@ use crate::metadata::PhoenixMetadata;
 use crate::trader_key::TraderKey;
 use crate::types::prelude::{
     CooldownStatus, TraderStateCapabilities, TraderStateConditionalStopLossTrigger,
-    TraderStateConditionalTakeProfitTrigger, TraderStateMarketLimitOrderEvent, TraderStatePayload,
-    TraderStatePositionRow, TraderStatePositionSnapshot, TraderStateRowChangeKind,
-    TraderStateServerMessage, TraderStateSplineRow, TraderStateSplineSnapshot,
-    TraderStateSpotCollateralSnapshot, TraderStateStopLossTrigger, TraderStateSubaccountDelta,
-    TraderStateSubaccountSnapshot, TraderStateTakeProfitTrigger, TraderStateTriggerRow,
+    TraderStateConditionalTakeProfitTrigger, TraderStateLockedDeposit,
+    TraderStateMarketLimitOrderEvent, TraderStatePayload, TraderStatePositionRow,
+    TraderStatePositionSnapshot, TraderStateRowChangeKind, TraderStateServerMessage,
+    TraderStateSplineRow, TraderStateSplineSnapshot, TraderStateSpotCollateralSnapshot,
+    TraderStateStopLossTrigger, TraderStateSubaccountDelta, TraderStateSubaccountSnapshot,
+    TraderStateTakeProfitTrigger, TraderStateTriggerRow,
 };
 
 /// A position held by the trader in a specific market.
@@ -170,12 +171,38 @@ impl SpotCollateral {
     }
 }
 
+/// Current locked-deposit entry for a subaccount, in quote lots.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LockedDepositState {
+    /// Current entry amount (only subaccount zero owns the grant).
+    pub locked_quote_lot: QuoteLots,
+    pub consumed_quote_lot: QuoteLots,
+}
+
+impl LockedDepositState {
+    /// Unconsumed quote lots, clamped to zero.
+    pub fn remaining(&self) -> QuoteLots {
+        self.locked_quote_lot
+            .saturating_sub(self.consumed_quote_lot)
+    }
+}
+
+impl From<&TraderStateLockedDeposit> for LockedDepositState {
+    fn from(lock: &TraderStateLockedDeposit) -> Self {
+        Self {
+            locked_quote_lot: QuoteLots::new(lock.locked_quote_lots.into_inner()),
+            consumed_quote_lot: QuoteLots::new(lock.consumed_quote_lots.into_inner()),
+        }
+    }
+}
+
 /// State for a single subaccount.
 #[derive(Debug, Clone, Default)]
 pub struct SubaccountState {
     pub subaccount_index: u8,
     pub sequence: u64,
     pub collateral: SignedQuoteLots,
+    pub locked_deposit: LockedDepositState,
     /// Raw spot collateral balances keyed by asset index. Both snapshots and
     /// deltas carry the complete current set, so this is replaced wholesale.
     pub spot_collaterals: HashMap<u32, SpotCollateral>,
@@ -209,7 +236,9 @@ impl SubaccountState {
 
     /// Build a TraderPortfolio from this subaccount's positions and orders.
     pub fn to_trader_portfolio(&self) -> TraderPortfolio {
-        let mut builder = TraderPortfolio::builder().quote_lot_collateral(self.collateral);
+        let mut builder = TraderPortfolio::builder()
+            .quote_lot_collateral(self.collateral)
+            .locked_deposit_remaining(self.locked_deposit.remaining());
 
         for (symbol, position) in &self.positions {
             builder = builder.position(symbol, position.to_trader_position());
@@ -303,6 +332,11 @@ impl SubaccountState {
             .map(SignedQuoteLots::new)
             .unwrap_or(SignedQuoteLots::ZERO);
         self.spot_collaterals = Self::collect_spot_collaterals(&snapshot.spot_collaterals);
+        self.locked_deposit = snapshot
+            .locked_deposit
+            .as_ref()
+            .map(LockedDepositState::from)
+            .unwrap_or_default();
         self.capabilities = snapshot.capabilities.clone();
         self.cooldown_status = snapshot.cooldown_status.clone();
 
@@ -355,6 +389,9 @@ impl SubaccountState {
             .map(SignedQuoteLots::new)
             .unwrap_or(self.collateral);
         self.spot_collaterals = Self::collect_spot_collaterals(&delta.spot_collaterals);
+        if let Some(lock) = &delta.locked_deposit {
+            self.locked_deposit = lock.into();
+        }
         if delta.capabilities.is_some() {
             self.capabilities = delta.capabilities.clone();
         }
@@ -479,6 +516,28 @@ impl Trader {
         }
     }
 
+    /// Current cross-margin grant amount, excluding isolated snapshots and past
+    /// grants.
+    pub fn locked_deposit_total(&self) -> QuoteLots {
+        self.primary_subaccount()
+            .map_or(QuoteLots::ZERO, |s| s.locked_deposit.locked_quote_lot)
+    }
+
+    /// Consumption across this PDA's accounts, clamped to the current grant.
+    pub fn locked_deposit_consumed(&self) -> QuoteLots {
+        self.subaccounts
+            .values()
+            .fold(QuoteLots::ZERO, |total, s| {
+                total.saturating_add(s.locked_deposit.consumed_quote_lot)
+            })
+            .min(self.locked_deposit_total())
+    }
+
+    pub fn locked_deposit_remaining(&self) -> QuoteLots {
+        self.locked_deposit_total()
+            .saturating_sub(self.locked_deposit_consumed())
+    }
+
     pub fn total_collateral(&self) -> SignedQuoteLots {
         self.subaccounts
             .values()
@@ -575,5 +634,162 @@ impl Trader {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod locked_deposit_tests {
+    use std::collections::HashMap;
+
+    use phoenix_rise_math::{BaseLots, QuoteLots, Ticks};
+
+    use super::{LockedDepositState, SubaccountState, Trader};
+    use crate::trader_key::TraderKey;
+    use crate::types::prelude::{
+        TraderStateLockedDeposit, TraderStateSubaccountDelta, TraderStateSubaccountSnapshot,
+    };
+
+    #[test]
+    fn snapshots_preserve_lock_precision_and_reset_missing_entries() {
+        let mut subaccount = SubaccountState::default();
+        let mut snapshot: TraderStateSubaccountSnapshot =
+            serde_json::from_value(serde_json::json!({
+                "subaccountIndex": 0, "sequence": 1, "collateral": "0",
+                "lockedDeposit": {
+                    "lockedQuoteLots": "18446744073709551615",
+                    "consumedQuoteLots": "9007199254740993"
+                }
+            }))
+            .unwrap();
+        subaccount.apply_snapshot(&snapshot);
+        assert_eq!(
+            subaccount.locked_deposit.locked_quote_lot,
+            QuoteLots::new(u64::MAX)
+        );
+        assert_eq!(
+            subaccount.locked_deposit.consumed_quote_lot,
+            QuoteLots::new(9_007_199_254_740_993)
+        );
+        assert_eq!(
+            subaccount.locked_deposit.remaining(),
+            QuoteLots::new(u64::MAX - 9_007_199_254_740_993)
+        );
+
+        snapshot.locked_deposit = Some(TraderStateLockedDeposit {
+            locked_quote_lots: 10.into(),
+            consumed_quote_lots: 11.into(),
+        });
+        subaccount.apply_snapshot(&snapshot);
+        assert_eq!(subaccount.locked_deposit.remaining(), QuoteLots::ZERO);
+
+        snapshot.locked_deposit = None;
+        subaccount.apply_snapshot(&snapshot);
+        assert_eq!(subaccount.locked_deposit, LockedDepositState::default());
+    }
+
+    #[test]
+    fn snapshot_and_delta_locks_reduce_profit_backed_withdrawal_capacity() {
+        use phoenix_rise_math::{
+            BasisPoints, Constant, LeverageTier, LeverageTiers, PerpAssetMetadata,
+            QuoteLotsPerBaseLotPerTick,
+        };
+
+        let tier = LeverageTier {
+            upper_bound_size: BaseLots::new(1_000),
+            max_leverage: Constant::new(20),
+            limit_order_risk_factor: BasisPoints::new(10_000),
+        };
+        let provider = HashMap::from([(
+            "SOL".to_string(),
+            PerpAssetMetadata::new(
+                "SOL".to_string(),
+                1,
+                0,
+                Ticks::new(200),
+                QuoteLotsPerBaseLotPerTick::new(1),
+                LeverageTiers::new_unchecked([tier; 4]),
+                [5_000, 10_000, 10_000],
+                5_000,
+                10_000,
+                10_000,
+            ),
+        )]);
+        let snapshot = serde_json::from_value(serde_json::json!({
+            "subaccountIndex": 0, "sequence": 1, "collateral": "100",
+            "lockedDeposit": {"lockedQuoteLots": "50", "consumedQuoteLots": "0"},
+            "positions": [{
+                "symbol": "SOL", "positionSequenceNumber": "1",
+                "basePositionLots": "1", "virtualQuotePositionLots": "-150",
+                "entryPriceTicks": "150", "entryPriceUsd": "0.00015",
+                "unsettledFundingQuoteLots": "0", "accumulatedFundingQuoteLots": "0",
+                "takeProfitTriggers": [], "stopLossTriggers": []
+            }]
+        }))
+        .unwrap();
+        let mut subaccount = SubaccountState::default();
+        subaccount.apply_snapshot(&snapshot);
+        for (sequence, consumed, expected) in [(2, 0, 90), (3, 20, 110), (4, 50, 140)] {
+            let delta = serde_json::from_value(serde_json::json!({
+                "subaccountIndex": 0, "sequence": sequence, "collateral": "100",
+                "lockedDeposit": {"lockedQuoteLots": "50", "consumedQuoteLots": consumed.to_string()}
+            }))
+            .unwrap();
+            subaccount.apply_delta(&delta);
+            let margin = subaccount
+                .to_trader_portfolio()
+                .compute_margin(&provider)
+                .unwrap();
+            assert_eq!(
+                margin.calculate_withdrawable_collateral_pre_lock().unwrap(),
+                140
+            );
+            assert_eq!(
+                margin.calculate_withdrawable_collateral().unwrap(),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn consumption_and_withdrawal_use_different_account_scopes() {
+        let mut trader = Trader::new(TraderKey::new(solana_pubkey::Pubkey::new_unique()));
+        let message = serde_json::json!({
+            "authority": trader.key.authority_string(), "traderPdaIndex": 0, "slot": 1,
+            "messageType": "delta", "deltas": [
+                {"subaccountIndex": 0, "sequence": 1, "collateral": "200",
+                 "lockedDeposit": {"lockedQuoteLots": "100", "consumedQuoteLots": "20"}},
+                {"subaccountIndex": 1, "sequence": 1, "collateral": "30",
+                 "lockedDeposit": {"lockedQuoteLots": "80", "consumedQuoteLots": "30"}}
+            ]
+        });
+        trader.apply_update(&serde_json::from_value(message).unwrap());
+        assert_eq!(trader.locked_deposit_total(), QuoteLots::new(100));
+        assert_eq!(trader.locked_deposit_consumed(), QuoteLots::new(50));
+        assert_eq!(trader.locked_deposit_remaining(), QuoteLots::new(50));
+        let parent = trader.primary_subaccount().unwrap();
+        assert_eq!(parent.locked_deposit.remaining(), QuoteLots::new(80));
+        let margin = parent
+            .to_trader_portfolio()
+            .compute_margin(&HashMap::new())
+            .unwrap();
+        assert_eq!(
+            margin.calculate_withdrawable_collateral_pre_lock().unwrap(),
+            200
+        );
+        assert_eq!(margin.calculate_withdrawable_collateral().unwrap(), 120);
+        let mut delta: TraderStateSubaccountDelta = serde_json::from_value(serde_json::json!({
+            "subaccountIndex": 0, "sequence": 2, "collateral": "200"
+        }))
+        .unwrap();
+        trader.subaccounts.get_mut(&0).unwrap().apply_delta(&delta);
+        assert_eq!(trader.locked_deposit_remaining(), QuoteLots::new(50));
+        delta.sequence = 3;
+        delta.locked_deposit = Some(TraderStateLockedDeposit {
+            locked_quote_lots: 0.into(),
+            consumed_quote_lots: 0.into(),
+        });
+        trader.subaccounts.get_mut(&0).unwrap().apply_delta(&delta);
+        assert_eq!(trader.locked_deposit_remaining(), QuoteLots::ZERO);
+        assert_eq!(trader.locked_deposit_total(), QuoteLots::ZERO);
     }
 }

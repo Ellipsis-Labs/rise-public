@@ -74,6 +74,7 @@ fn test_apply_snapshot() {
         maker_fee_override_multiplier: 0.9,
         taker_fee_override_multiplier: 1.1,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            locked_deposit: None,
             triggers: vec![],
             subaccount_index: 0,
             sequence: 100,
@@ -129,6 +130,7 @@ fn test_apply_delta_updates_position() {
         maker_fee_override_multiplier: 1.0,
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            locked_deposit: None,
             triggers: vec![],
             subaccount_index: 0,
             sequence: 100,
@@ -155,6 +157,7 @@ fn test_apply_delta_updates_position() {
     // Now apply a delta that updates the position
     let delta = TraderStateDelta {
         deltas: vec![TraderStateSubaccountDelta {
+            locked_deposit: None,
             triggers: vec![],
             subaccount_index: 0,
             sequence: 101,
@@ -204,6 +207,7 @@ fn test_apply_delta_closes_position() {
         maker_fee_override_multiplier: 1.0,
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            locked_deposit: None,
             triggers: vec![],
             subaccount_index: 0,
             sequence: 100,
@@ -232,6 +236,7 @@ fn test_apply_delta_closes_position() {
     // Apply delta that closes the position
     let delta = TraderStateDelta {
         deltas: vec![TraderStateSubaccountDelta {
+            locked_deposit: None,
             triggers: vec![],
             subaccount_index: 0,
             sequence: 101,
@@ -275,6 +280,7 @@ fn test_stale_delta_ignored() {
         maker_fee_override_multiplier: 1.0,
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            locked_deposit: None,
             triggers: vec![],
             subaccount_index: 0,
             sequence: 100,
@@ -298,6 +304,7 @@ fn test_stale_delta_ignored() {
     // Try to apply a stale delta with sequence 99
     let delta = TraderStateDelta {
         deltas: vec![TraderStateSubaccountDelta {
+            locked_deposit: None,
             triggers: vec![],
             subaccount_index: 0,
             sequence: 99, // Stale!
@@ -339,6 +346,7 @@ fn test_multiple_subaccounts() {
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![
             TraderStateSubaccountSnapshot {
+                locked_deposit: None,
                 triggers: vec![],
                 subaccount_index: 0,
                 sequence: 100,
@@ -351,6 +359,7 @@ fn test_multiple_subaccounts() {
                 splines: vec![],
             },
             TraderStateSubaccountSnapshot {
+                locked_deposit: None,
                 triggers: vec![],
                 subaccount_index: 1,
                 sequence: 50,
@@ -394,6 +403,7 @@ fn test_cooldown_status_snapshot_and_delta() {
         maker_fee_override_multiplier: 1.0,
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            locked_deposit: None,
             triggers: vec![],
             subaccount_index: 0,
             sequence: 100,
@@ -425,6 +435,7 @@ fn test_cooldown_status_snapshot_and_delta() {
     // Missing cooldown_status in delta should preserve existing value.
     let delta_preserve = TraderStateDelta {
         deltas: vec![TraderStateSubaccountDelta {
+            locked_deposit: None,
             triggers: vec![],
             subaccount_index: 0,
             sequence: 101,
@@ -454,6 +465,7 @@ fn test_cooldown_status_snapshot_and_delta() {
     // Present cooldown_status in delta should replace existing value.
     let delta_update = TraderStateDelta {
         deltas: vec![TraderStateSubaccountDelta {
+            locked_deposit: None,
             triggers: vec![],
             subaccount_index: 0,
             sequence: 102,
@@ -518,6 +530,7 @@ fn trader_state_cache_preserves_triggers_and_conditional_order_metadata() {
         maker_fee_override_multiplier: 1.0,
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            locked_deposit: None,
             triggers: vec![],
             subaccount_index: 0,
             sequence: 100,
@@ -579,6 +592,7 @@ fn isolated_subaccount_selection_is_deterministic() {
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![
             TraderStateSubaccountSnapshot {
+                locked_deposit: None,
                 triggers: vec![],
                 subaccount_index: 5,
                 sequence: 100,
@@ -594,6 +608,7 @@ fn isolated_subaccount_selection_is_deterministic() {
                 splines: vec![],
             },
             TraderStateSubaccountSnapshot {
+                locked_deposit: None,
                 triggers: vec![],
                 subaccount_index: 2,
                 sequence: 100,
@@ -609,6 +624,7 @@ fn isolated_subaccount_selection_is_deterministic() {
                 splines: vec![],
             },
             TraderStateSubaccountSnapshot {
+                locked_deposit: None,
                 triggers: vec![],
                 subaccount_index: 4,
                 sequence: 100,
@@ -646,6 +662,7 @@ fn isolated_empty_subaccount_ties_choose_lowest_index() {
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![
             TraderStateSubaccountSnapshot {
+                locked_deposit: None,
                 triggers: vec![],
                 subaccount_index: 7,
                 sequence: 100,
@@ -658,6 +675,7 @@ fn isolated_empty_subaccount_ties_choose_lowest_index() {
                 splines: vec![],
             },
             TraderStateSubaccountSnapshot {
+                locked_deposit: None,
                 triggers: vec![],
                 subaccount_index: 4,
                 sequence: 100,

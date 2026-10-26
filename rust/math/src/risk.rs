@@ -100,7 +100,7 @@ pub enum RiskAction {
     /// Withdrawing quote (USDC) collateral. Native SOL collateral backs the
     /// margin check like any other action; the payout is capped separately at
     /// the quote-side collateral (see
-    /// `TraderPortfolioMargin::calculate_transferable_collateral`).
+    /// `TraderPortfolioMargin::calculate_withdrawable_collateral`).
     WithdrawQuoteCollateral { current_slot: Slot },
     #[deprecated(note = "use View instead for ADL")]
     /// Auto-deleveraging

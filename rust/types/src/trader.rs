@@ -8,6 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::core::Side;
+use crate::js_safe_ints::JsSafeU64;
 
 // ============================================================================
 // State Envelope Types
@@ -88,6 +89,10 @@ pub struct TraderStateSubaccountSnapshot {
     pub collateral: String,
     #[serde(default)]
     pub spot_collaterals: Vec<TraderStateSpotCollateralSnapshot>,
+    /// Complete current lock entry in quote lots. Zero amounts clear a previous
+    /// lock. Absent on older servers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locked_deposit: Option<TraderStateLockedDeposit>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<TraderStateCapabilities>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -102,6 +107,18 @@ pub struct TraderStateSubaccountSnapshot {
     pub triggers: Vec<TraderStateTriggerSnapshot>,
 }
 
+/// Current subaccount lock. The cross-margin entry owns the grant; isolated
+/// entries hold snapshots and must not be added to the total granted amount.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraderStateLockedDeposit {
+    /// Original amount of the current entry, in quote lots (not lifetime
+    /// grants).
+    pub locked_quote_lots: JsSafeU64,
+    /// Consumed amount of this entry, in quote lots.
+    pub consumed_quote_lots: JsSafeU64,
+}
+
 /// Row-level delta set for a specific subaccount.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -112,6 +129,10 @@ pub struct TraderStateSubaccountDelta {
     pub collateral: String,
     #[serde(default)]
     pub spot_collaterals: Vec<TraderStateSpotCollateralSnapshot>,
+    /// Complete current lock entry in quote lots. Zero amounts clear a previous
+    /// lock. Absent on older servers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locked_deposit: Option<TraderStateLockedDeposit>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<TraderStateCapabilities>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -509,6 +530,23 @@ mod tests {
         assert_eq!(msg.authority, "ABC123");
         assert_eq!(msg.slot, 12345);
         assert!(matches!(msg.content, TraderStatePayload::Snapshot(_)));
+    }
+
+    #[test]
+    fn locked_deposit_amounts_preserve_u64_precision_and_reject_invalid_input() {
+        let value = json!({ "lockedQuoteLots": "18446744073709551615", "consumedQuoteLots": "9007199254740993" });
+        let lock: TraderStateLockedDeposit = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(lock.locked_quote_lots.into_inner(), u64::MAX);
+        assert_eq!(lock.consumed_quote_lots.into_inner(), 9_007_199_254_740_993);
+        assert_eq!(serde_json::to_value(lock).unwrap(), value);
+        for invalid in ["-1", "18446744073709551616", "invalid"] {
+            assert!(
+                serde_json::from_value::<TraderStateLockedDeposit>(json!({
+                    "lockedQuoteLots": invalid, "consumedQuoteLots": "0"
+                }))
+                .is_err()
+            );
+        }
     }
 
     #[test]

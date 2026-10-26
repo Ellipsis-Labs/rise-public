@@ -2412,12 +2412,6 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "pastey"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35fb2e5f958ec131621fdd531e9fc186ed768cbe395337403ae56c17a74c68ec"
-
-[[package]]
-name = "pastey"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ee67f1008b1ba2321834326597b8e186293b049a023cdef258527550b9935b4"
@@ -2448,7 +2442,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise"
-version = "0.6.15"
+version = "0.7.0"
 dependencies = [
  "phoenix-rise-accounts",
  "phoenix-rise-api",
@@ -2460,7 +2454,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-accounts"
-version = "0.6.15"
+version = "0.7.0"
 dependencies = [
  "borsh",
  "bs58",
@@ -2474,7 +2468,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-api"
-version = "0.6.15"
+version = "0.7.0"
 dependencies = [
  "async-trait",
  "base64",
@@ -2512,7 +2506,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-core"
-version = "0.6.15"
+version = "0.7.0"
 dependencies = [
  "base64",
  "bytemuck",
@@ -2533,7 +2527,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-ix"
-version = "0.6.15"
+version = "0.7.0"
 dependencies = [
  "borsh",
  "bytemuck",
@@ -2549,7 +2543,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-litesvm-test"
-version = "0.6.15"
+version = "0.7.0"
 dependencies = [
  "base64",
  "borsh",
@@ -2573,12 +2567,12 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-math"
-version = "0.6.15"
+version = "0.7.0"
 dependencies = [
  "borsh",
  "bytemuck",
  "fixed",
- "pastey 0.1.1",
+ "pastey",
  "rust_decimal",
  "serde",
  "sha2-const-stable",
@@ -2588,7 +2582,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-types"
-version = "0.6.15"
+version = "0.7.0"
 dependencies = [
  "chrono",
  "phoenix-rise-math",
@@ -3138,9 +3132,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.45"
+version = "0.23.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
+checksum = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
 dependencies = [
  "once_cell",
  "ring",
@@ -3162,9 +3156,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.15"
+version = "0.103.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3c3cf1d8b1e7d4927e2d154c3fcb02979afb9939629c62cd9048d4f07b60ac2"
+checksum = "4443b1b6d39d7c663139942cc4558262562d2c84123bb6282ef177009ca8b281"
 dependencies = [
  "ring",
  "rustls-pki-types",
@@ -5942,9 +5936,9 @@ dependencies = [
 
 [[package]]
 name = "webpki-roots"
-version = "1.0.8"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf85cb06032201fa7c6f829d7db5a7e5aa45bcc0655327713065f6f0576731bf"
+checksum = "1c1c8e20c8a38fc7d65abfe74eb7280e4aa667e8eec8bc84996d2874810748d9"
 dependencies = [
  "rustls-pki-types",
 ]
@@ -5978,7 +5972,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "66d967db7705dc29120bb6e8ce5b5a2e27734ed5976d1c904e95bd238d1c3c5a"
 dependencies = [
  "bv",
- "pastey 0.2.3",
+ "pastey",
  "proc-macro2",
  "quote",
  "thiserror 2.0.20",
