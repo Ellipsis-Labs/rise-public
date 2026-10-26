@@ -62,6 +62,7 @@ export type ExchangeCacheMarketChangeKind =
   | "fundingParameters"
   | "marketFees"
   | "commodityMetadata"
+  | "displayName"
   | "metadata";
 
 export type ExchangeCacheEvent =

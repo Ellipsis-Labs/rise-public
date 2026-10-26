@@ -48,6 +48,9 @@ export const createMarketStatsV2Adapter = (
         }
         const stats: MarketStatsV2Data[] = entries.map(({ raw, update }) => ({
           ...update,
+          ...(raw.displayName === undefined
+            ? {}
+            : { displayName: raw.displayName }),
           stats: {
             ...update.stats,
             ...(raw.midPrice === undefined ? {} : { midPrice: raw.midPrice }),

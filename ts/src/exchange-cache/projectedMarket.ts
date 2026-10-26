@@ -67,6 +67,7 @@ const toRiskFactors = (market: ExchangeMarketSnapshot): RiskFactors => ({
 
 export interface PhoenixProjectedMarket {
   symbol: Symbol;
+  displayName: string | null;
   assetId: number;
   marketStatus: string;
   marketPubkey: string;
@@ -97,6 +98,7 @@ export const projectPhoenixMarket = (
   const units = toUnits(market);
   const projected: PhoenixProjectedMarket = {
     symbol: symbol(market.symbol),
+    displayName: market.displayName ?? null,
     assetId: market.assetId,
     marketStatus: market.marketStatus,
     marketPubkey: market.marketPubkey,

@@ -509,6 +509,9 @@ const determineMarketChangeKind = (
   ) {
     return "metadata";
   }
+  if (previous.displayName !== next.displayName) {
+    return "displayName";
+  }
   if (toMarketComparable(previous) !== toMarketComparable(next)) {
     return "status";
   }

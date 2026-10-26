@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.6.4 - 2026-10-26
+
+Source Phoenix commit: `9f55713fed206e5d504ff59ec487c6aee437fb58`
+
+### Summary
+
+- Market objects now carry an optional human-readable `displayName`. It is on `ExchangeMarketConfig`, `ExchangeMarketSnapshot`, `MarketView` and `MarketSummary`, and in the `marketStatsV2` WebSocket payloads (`MarketStatsV2WireData` and `MarketStatsV2Data`).
+- The exchange cache projects it as `PhoenixProjectedMarket.displayName` (`string | null`). It also handles a new `displayNameUpdated` market-parameter delta, which sets or clears the name on the cached market and emits a `marketUpdated` event with `change: "displayName"`.
+- The market-stats-v2 adapter passes `displayName` through when the server sends it.
+- `scripts/build-all-ix.ts` adds human-value conversion cases (price and base units to ticks and lots, USD to quote lots) for limit order, stop loss and deposit instructions.
+
+### Breaking Changes
+
+- `PhoenixProjectedMarket` has a new required field, `displayName: string | null`. Code that constructs this type by hand will fail to compile until the field is added.
+- `ExchangeCacheMarketChangeKind` and `ExchangeMarketParameterUpdate` each gain a new member (`"displayName"` and `DisplayNameUpdated`). Exhaustive `switch` statements over either type will fail to compile until they handle the new case.
+- With strict WebSocket schema parsing, an exchange delta carrying `displayNameUpdated` is now a recognized kind rather than an unknown one.
+
+### Consumer Notes
+
+- `displayName` is optional on the raw API and wire types, so existing payloads still parse. Fall back to `symbol` when it is absent. On the projected market it is `null` when unset.
+- Subscribers to cache `marketUpdated` events should handle `change === "displayName"`. A display-name change is classified before the generic `"status"` change.
+- No other public API changes are in the synced diff.
+
 ## v0.6.3 - 2026-10-12
 
 Source Phoenix commit: `8e73680bda296dbe6df5b80ee91402d4cf0d2c8b`
