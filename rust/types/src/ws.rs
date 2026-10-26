@@ -153,6 +153,8 @@ pub struct MarketStatsV2Data {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cumulative_funding_quote_lots_per_base_lot: Option<String>,
     pub symbol: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
     /// Unix timestamp in seconds.
     pub timestamp: u64,
     pub open_interest: f64,
