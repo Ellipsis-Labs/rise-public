@@ -19,15 +19,21 @@ export type {
 } from "./spotCollateral";
 export {
   attributedNativeSolDepositLamports,
+  attributedSpotDeposit,
   nativeSolCollateralHeadroomLamports,
   nativeSolSyncDeltaLamports,
   nativeSolUnaccountedLamports,
+  spotCollateralHeadroom,
+  spotSyncDelta,
 } from "./spotCollateralCaps";
 export type {
   AttributedNativeSolDepositParams,
+  AttributedSpotDepositParams,
   NativeSolAccountStateParams,
   NativeSolCollateralHeadroomParams,
   SpotCollateralCapParams,
+  SpotCollateralHeadroomParams,
+  SpotCustodyStateParams,
 } from "./spotCollateralCaps";
 export {
   computeDraftOrderMarginRequirementFromInputs,

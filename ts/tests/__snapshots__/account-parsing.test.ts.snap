@@ -34,6 +34,15 @@ exports[`raw account parsing > decodes GlobalConfiguration fixtures 1`] = `
     "minLiquidationSlippageBps": 0,
     "minMarginDiscountBps": 0,
     "mintAddress": "11111111111111111111111111111111",
+    "oraclePrice": {
+      "baseLotDecimals": 0,
+      "lastUpdateSlot": "0",
+      "priceExpo": 0,
+      "sequenceNumber": "0",
+      "staleThresholdSlots": "0",
+      "tickSize": "0",
+      "ticks": "0",
+    },
     "perpAssetIndex": 0,
     "positionAuthoritySwapDisabled": false,
     "postLiquidationBuffer": "0",
@@ -5827,6 +5836,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
     "lastUpdateSlot": "380798303",
     "sequenceNumber": "1",
   },
+  "spotCollaterals": [],
 }
 `;
 
@@ -6135,6 +6145,7 @@ exports[`raw account parsing > decodes Trader fixtures 1`] = `
     "lastUpdateSlot": "409067780",
     "sequenceNumber": "57",
   },
+  "spotCollaterals": [],
   "state": {
     "flags": 62,
     "globalPositionSequenceNumber": 139,

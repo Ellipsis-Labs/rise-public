@@ -37,6 +37,7 @@ import type { Symbol } from "@/primitives/Symbol";
 import { getSymbolDecoder } from "@/primitives/Symbol";
 import {
   createDecoder,
+  fixDecoderSize,
   getBooleanDecoder,
   getBytesDecoder,
   getI128Decoder,
@@ -58,6 +59,8 @@ export const ORDERBOOK_CAPACITY = 8192;
 export const CONDITIONAL_ORDER_BITS_LEN = 24;
 const TRADER_POSITION_ENTRY_ASSET_INDEX_BOUND = 0xff000000n;
 const TRADER_POSITION_ENTRY_ASSET_INDEX_MASK = 0xffffffffn;
+const SPOT_ASSET_INDEX_PREFIX = 0xfffe0000n;
+const ASSET_INDEX_BAND_MASK = 0xffff0000n;
 /**
  * Asset index of the native SOL spot collateral entry, as the `bigint` the
  * position-map decoder keys on. Derived from the single authoritative
@@ -666,13 +669,30 @@ export const getTraderPositionDecoder = (): Decoder<TraderPosition> =>
   ]);
 
 /**
+ * One spot collateral balance from the trader position map. Native SOL and SPL
+ * spot assets share this entry layout.
+ */
+export interface TraderSpotCollateral {
+  /** Raw asset-index key: `NATIVE_SOL_ASSET_INDEX` for native SOL, otherwise
+   * in the `0xFFFE_xxxx` spot band. Not a perp asset id. */
+  assetIndex: number;
+  /** Accounted balance in the asset's native units (lamports for SOL). */
+  balance: bigint;
+  /** Trader-specific per-trader cap. It only applies when it raises the cap
+   * above the asset's `maxPerTraderBalance`. */
+  maxPerTraderBalanceOverride: bigint | null;
+}
+
+/**
  * Everything the trader position map holds: the positions themselves plus the
- * header-extension entries that share the map but are not positions.
+ * spot collateral entries that share the map but are not positions.
  */
 export interface TraderEntries {
   positions: ShortEntries<bigint, TraderPosition>;
   /** Accounted native SOL spot collateral, in lamports. */
   nativeSolCollateral: bigint;
+  /** All spot collateral entries, native SOL included, in account order. */
+  spotCollaterals: TraderSpotCollateral[];
 }
 
 export const getTraderEntriesDecoder = (): Decoder<TraderEntries> =>
@@ -686,8 +706,8 @@ export const getTraderEntriesDecoder = (): Decoder<TraderEntries> =>
       const entries: Array<{ key: bigint; value: TraderPosition }> = [];
       const assetIdDecoder = getU64Decoder();
       const positionDecoder = getTraderPositionDecoder();
-      const lamportsDecoder = getU64Decoder();
-      let nativeSolCollateral = 0n;
+      const u64Decoder = getU64Decoder();
+      const spotCollaterals: TraderSpotCollateral[] = [];
       let offset = 0;
       const buffer = new Uint8Array(
         shortMap.data.buffer,
@@ -701,10 +721,19 @@ export const getTraderEntriesDecoder = (): Decoder<TraderEntries> =>
         const assetIndex = assetId & TRADER_POSITION_ENTRY_ASSET_INDEX_MASK;
         if (assetIndex < TRADER_POSITION_ENTRY_ASSET_INDEX_BOUND) {
           entries.push({ key: assetIndex, value });
-        } else if (assetIndex === NATIVE_SOL_ASSET_INDEX) {
-          // A header extension, not a position: its 32-byte value shares the
-          // position slot and opens with the lamport balance.
-          [nativeSolCollateral] = lamportsDecoder.read(buffer, afterAssetId);
+        } else if (
+          assetIndex === NATIVE_SOL_ASSET_INDEX ||
+          (assetIndex & ASSET_INDEX_BAND_MASK) === SPOT_ASSET_INDEX_PREFIX
+        ) {
+          // Not a position: the 32-byte value shares the position slot and
+          // holds the balance then the per-trader cap override (zero = none).
+          const [balance] = u64Decoder.read(buffer, afterAssetId);
+          const [override] = u64Decoder.read(buffer, afterAssetId + 8);
+          spotCollaterals.push({
+            assetIndex: Number(assetIndex),
+            balance,
+            maxPerTraderBalanceOverride: override === 0n ? null : override,
+          });
         }
         offset = afterValue;
       }
@@ -715,7 +744,11 @@ export const getTraderEntriesDecoder = (): Decoder<TraderEntries> =>
           capacity: shortMap.capacity,
           entries,
         },
-        nativeSolCollateral,
+        nativeSolCollateral:
+          spotCollaterals.find(
+            (spot) => BigInt(spot.assetIndex) === NATIVE_SOL_ASSET_INDEX
+          )?.balance ?? 0n,
+        spotCollaterals,
       };
     }
   );
@@ -911,6 +944,7 @@ const getOptionalTicksDecoder = (): Decoder<Ticks | null> =>
  * collection. Perp entries written before the tag existed carry zeroed
  * padding here, which reads as perp. */
 const ASSET_MAP_VARIANT_PERP = 0;
+const ASSET_MAP_VARIANT_SPOT = 1;
 
 interface PerpAssetMetadataInternal extends PerpAssetMetadata {
   shortMapMetadata: {
@@ -976,52 +1010,66 @@ export const getPerpAssetMetadataDecoder = (): Decoder<PerpAssetMetadata> =>
       metadata
   );
 
-export const getPerpAssetMapMetadataEntriesDecoder = (): Decoder<
-  ShortEntries<Symbol, PerpAssetMetadata>
-> =>
-  transformDecoder(
-    getStructDecoder([
-      ["slotsUsed", getU32Decoder()],
-      ["tombstones", getU32Decoder()],
-      ["capacity", getU64Decoder()],
-      [
-        "data",
-        getFixedArrayDecoder(
-          () =>
-            getStructDecoder([
-              ["key", getSymbolDecoder()],
-              ["value", getPerpAssetMetadataInternalDecoder()],
-            ]),
-          MAX_NUMBER_OF_PERP_ASSETS
-        ),
-      ],
-    ]),
-    (raw) => {
-      // Spot collateral collections share the map under a different variant
-      // tag; only active perp slots are perp asset metadata.
-      const entries = raw.data
-        .slice(0, raw.slotsUsed)
-        .filter(
-          (entry) =>
-            entry.value.shortMapMetadata.isTombstoned === 0 &&
-            entry.value.assetMapVariant === ASSET_MAP_VARIANT_PERP
-        )
-        .map((entry) => ({
-          key: entry.key,
-          value: (() => {
-            const { shortMapMetadata, assetMapVariant, ...metadata } =
-              entry.value;
-            return metadata;
-          })(),
-        }));
+const ASSET_MAP_SLOT_VALUE_LEN = 1568;
 
-      return {
-        len: BigInt(entries.length),
-        capacity: raw.capacity,
-        entries,
-      };
-    }
-  );
+export interface PerpAssetMapSlots {
+  metadata: ShortEntries<Symbol, PerpAssetMetadata>;
+  /** Raw values of slots tagged as spot collateral collections, in account
+   * order. */
+  spotCollectionSlots: ReadonlyUint8Array[];
+}
+
+export const getPerpAssetMapMetadataEntriesDecoder =
+  (): Decoder<PerpAssetMapSlots> =>
+    transformDecoder(
+      getStructDecoder([
+        ["slotsUsed", getU32Decoder()],
+        ["tombstones", getU32Decoder()],
+        ["capacity", getU64Decoder()],
+        [
+          "data",
+          getFixedArrayDecoder(
+            () =>
+              getStructDecoder([
+                ["key", getSymbolDecoder()],
+                [
+                  "value",
+                  fixDecoderSize(getBytesDecoder(), ASSET_MAP_SLOT_VALUE_LEN),
+                ],
+              ]),
+            MAX_NUMBER_OF_PERP_ASSETS
+          ),
+        ],
+      ]),
+      (raw): PerpAssetMapSlots => {
+        const perpDecoder = getPerpAssetMetadataInternalDecoder();
+        const entries: Array<{ key: Symbol; value: PerpAssetMetadata }> = [];
+        const spotCollectionSlots: ReadonlyUint8Array[] = [];
+        for (const { key, value } of raw.data.slice(0, raw.slotsUsed)) {
+          const variant = value[ASSET_MAP_SLOT_VALUE_LEN - 1];
+          if (variant === ASSET_MAP_VARIANT_SPOT) {
+            spotCollectionSlots.push(value);
+          }
+          if (variant !== ASSET_MAP_VARIANT_PERP) {
+            continue;
+          }
+          const { shortMapMetadata, assetMapVariant, ...metadata } =
+            perpDecoder.decode(value);
+          if (shortMapMetadata.isTombstoned === 0) {
+            entries.push({ key, value: metadata });
+          }
+        }
+
+        return {
+          metadata: {
+            len: BigInt(entries.length),
+            capacity: raw.capacity,
+            entries,
+          },
+          spotCollectionSlots,
+        };
+      }
+    );
 
 export const getTickRegionDecoder = (): Decoder<TickRegion> =>
   getStructDecoder([

@@ -280,3 +280,5 @@ export {
   AuthoritySetSchema,
   type OrderFill,
 } from "./_exports/public-api-schemas";
+
+export { compareOrderHistorySortKeys } from "./api/orders/types";

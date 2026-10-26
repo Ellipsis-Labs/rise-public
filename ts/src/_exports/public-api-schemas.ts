@@ -56,6 +56,8 @@ export {
   CollateralTotalsResponseSchema,
   type SpotAssetConfig,
   SpotAssetConfigSchema,
+  type SpotOraclePrice,
+  SpotOraclePriceSchema,
 } from "../api/collateral/types";
 
 export {
@@ -432,6 +434,12 @@ export {
   type OrderHistoryV2Item,
   type OrderHistoryV2Response,
   OrderHistoryV2ResponseSchema,
+  type OrganizedOrderHistoryV2Data,
+  OrganizedOrderHistoryV2DataSchema,
+  type OrganizedOrderHistoryV2Response,
+  OrganizedOrderHistoryV2ResponseSchema,
+  type TwapParentOrderHistoryItem,
+  TwapParentOrderHistoryItemSchema,
   type OrderFill,
   type OrderModifiedEvent,
   type PnLEvent,
