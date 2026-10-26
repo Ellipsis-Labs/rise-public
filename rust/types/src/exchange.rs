@@ -165,6 +165,8 @@ pub struct MarketStatsSnapshot {
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeMarketConfig {
     pub symbol: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
     pub asset_id: u32,
     pub market_status: MarketStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -449,6 +451,7 @@ mod tests {
     fn test_fee_fields() {
         let config = ExchangeMarketConfig {
             symbol: "SOL".to_string(),
+            display_name: None,
             asset_id: 0,
             market_status: MarketStatus::Active,
             metadata: None,
@@ -480,6 +483,7 @@ mod tests {
             "SOL".to_string(),
             ExchangeMarketConfig {
                 symbol: "SOL".to_string(),
+                display_name: None,
                 asset_id: 0,
                 market_status: MarketStatus::Active,
                 metadata: None,

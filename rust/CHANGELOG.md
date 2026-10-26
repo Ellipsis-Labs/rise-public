@@ -3,6 +3,27 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.6.15 - 2026-10-26
+
+Source Phoenix commit: `9f55713fed206e5d504ff59ec487c6aee437fb58`
+
+### Summary
+
+- Rust market types now carry an optional `display_name` (a human-readable market name). It appears on `ExchangeMarketConfig`, `ExchangeMarketSnapshot`, `MarketInfo`, `MarketSummary`, and the `MarketStatsV2Data` WebSocket payload. The field is `Option<String>`. It deserializes to `None` when the server omits it, and it is left out of serialized output when `None`.
+- The WebSocket exchange-state delta stream adds a `DisplayNameUpdated { previous, new }` market parameter update. `api` applies it to the cached market's `display_name` and emits a `MarketUpdated` cache event with the new `DisplayName` change kind.
+- `ExchangeMarketConfig::from(&ExchangeMarketSnapshot)` now copies `display_name` across.
+- This is a shared release at version 0.6.15. All Rise crates, including `sdk`, `api`, `core`, `types`, and `litesvm-test`, move together from 0.6.14.
+
+### Breaking Changes
+
+- Source-breaking for Rust code that builds these structs with literal syntax (`ExchangeMarketConfig { .. }`, `ExchangeMarketSnapshot { .. }`, `MarketInfo { .. }`, `MarketSummary { .. }`, `MarketStatsV2Data { .. }`). These types gain a public `display_name` field, so each literal needs `display_name: None` or a value. Exhaustive struct patterns without `..` also need updating.
+- `ExchangeMarketParameterUpdate` and `ExchangeCacheMarketChangeKind` each gain a new variant (`DisplayNameUpdated` and `DisplayName`). Exhaustive `match` expressions over either enum must add an arm or a wildcard. Unrecognized update kinds already fall back to `Unknown`, so JSON deserialization is unaffected.
+
+### Consumer Notes
+
+- No wire-format migration is needed. Existing payloads without `displayName` still deserialize, and `None` values are not serialized.
+- If you subscribe to cache events, handle `ExchangeCacheMarketChangeKind::DisplayName` to pick up display-name changes. The cache's market entry updates automatically.
+
 ## v0.6.14 - 2026-10-12
 
 Source Phoenix commit: `dcad55ef9df91589b8c5e4b03047af27ccab244e`

@@ -2357,6 +2357,7 @@ mod tests {
     fn mock_market(symbol: &str) -> ExchangeMarketConfig {
         ExchangeMarketConfig {
             symbol: symbol.to_string(),
+            display_name: None,
             asset_id: 1,
             market_status: MarketStatus::Active,
             metadata: None,

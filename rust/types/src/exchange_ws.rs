@@ -149,6 +149,8 @@ pub struct ExchangeStateSnapshot {
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeMarketSnapshot {
     pub symbol: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
     pub asset_id: u32,
     pub market_status: MarketStatus,
     pub market_pubkey: String,
@@ -322,6 +324,10 @@ pub enum ExchangeMarketParameterUpdate {
         previous: ExchangeWsCommodityMetadata,
         new: ExchangeWsCommodityMetadata,
     },
+    DisplayNameUpdated {
+        previous: Option<String>,
+        new: Option<String>,
+    },
     #[serde(other)]
     Unknown,
 }
@@ -469,6 +475,7 @@ impl From<&ExchangeMarketSnapshot> for ExchangeMarketConfig {
     fn from(market: &ExchangeMarketSnapshot) -> Self {
         Self {
             symbol: market.symbol.clone(),
+            display_name: market.display_name.clone(),
             asset_id: market.asset_id,
             market_status: market.market_status,
             metadata: market.metadata.clone(),
@@ -570,6 +577,7 @@ mod tests {
             },
             markets: vec![ExchangeMarketSnapshot {
                 symbol: "SOL-PERP".to_string(),
+                display_name: None,
                 asset_id: 1,
                 market_status: MarketStatus::Active,
                 metadata: None,
