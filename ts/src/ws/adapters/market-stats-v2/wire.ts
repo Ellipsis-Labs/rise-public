@@ -8,10 +8,12 @@ import {
 import type { MarketStatsUpdate } from "../market-stats/wire";
 
 export interface MarketStatsV2WireData extends MarketStatsWireData {
+  displayName?: string;
   midPrice?: number;
 }
 
 export interface MarketStatsV2Data extends MarketStatsUpdate {
+  displayName?: string;
   stats: MarketStats & { midPrice?: number };
 }
 
@@ -28,11 +30,13 @@ export interface MarketStatsV2Update {
 
 export const MarketStatsV2WireDataSchema: z.ZodType<MarketStatsV2WireData> =
   marketStatsWireDataSchema.extend({
+    displayName: z.string().optional(),
     midPrice: z.number().optional(),
   });
 
 const marketStatsV2DataSchema: z.ZodType<MarketStatsV2Data> = z.object({
   symbol: z.string(),
+  displayName: z.string().optional(),
   stats: marketStatsSchema.extend({
     midPrice: z.number().optional(),
   }),
