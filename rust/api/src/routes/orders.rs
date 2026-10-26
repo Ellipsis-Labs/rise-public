@@ -1,4 +1,7 @@
 use phoenix_rise_ix::types::{IsolatedCollateralFlow, Side};
+use phoenix_rise_types::order_history_v2::{
+    OrderHistoryV2QueryParams, OrderHistoryV2Response, OrganizedOrderHistoryV2Response,
+};
 use phoenix_rise_types::prelude::{
     ApiInstructionResponse, CancelConditionalOrderRequest, CancelStopLossOrderRequest,
     OrderHistoryQueryParams, OrderHistoryResponse, PlaceAttachedConditionalOrderRequest,
@@ -7,6 +10,7 @@ use phoenix_rise_types::prelude::{
     PlaceIsolatedMarketOrderRequest, PlaceIsolatedMarketOrderV2Request,
     PlacePositionConditionalOrderRequest, PlaceStopLossOrderRequest, TpSlOrderConfig,
 };
+use serde::de::DeserializeOwned;
 use solana_instruction::{AccountMeta, Instruction};
 use solana_pubkey::Pubkey;
 
@@ -16,6 +20,13 @@ use crate::trader_key::TraderKey;
 
 pub struct OrdersClient<'a> {
     pub(crate) http: &'a HttpClientInner,
+}
+
+#[derive(serde::Serialize)]
+struct OrderHistoryV2Query<'a> {
+    #[serde(flatten)]
+    params: &'a OrderHistoryV2QueryParams,
+    organize_twap_orders: bool,
 }
 
 impl OrdersClient<'_> {
@@ -44,6 +55,92 @@ impl OrdersClient<'_> {
     ) -> Result<OrderHistoryResponse, PhoenixHttpError> {
         self.http
             .get_json_with_query(&format!("/v1/trader/{}/order-history", authority), &params)
+            .await
+    }
+
+    /// Fetch flat V2 history for a wallet authority, including TWAP children.
+    pub async fn get_user_order_history_v2(
+        &self,
+        authority: &Pubkey,
+        params: OrderHistoryV2QueryParams,
+    ) -> Result<OrderHistoryV2Response, PhoenixHttpError> {
+        self.get_order_history_v2_internal(
+            &format!("/v1/users/{authority}/orders_v2"),
+            params,
+            false,
+        )
+        .await
+    }
+
+    /// Fetch flat V2 history for an actual trader PDA, not its wallet
+    /// authority.
+    pub async fn get_trader_order_history_v2(
+        &self,
+        trader_pda: &Pubkey,
+        params: OrderHistoryV2QueryParams,
+    ) -> Result<OrderHistoryV2Response, PhoenixHttpError> {
+        let params = OrderHistoryV2QueryParams {
+            trader_pda_index: None,
+            ..params
+        };
+        self.get_order_history_v2_internal(
+            &format!("/v1/traders/{trader_pda}/orders_v2"),
+            params,
+            false,
+        )
+        .await
+    }
+
+    /// Fetch terminal TWAP parents and standalone orders for a wallet
+    /// authority. Start without a cursor when switching between flat and
+    /// organized history.
+    pub async fn get_user_organized_order_history_v2(
+        &self,
+        authority: &Pubkey,
+        params: OrderHistoryV2QueryParams,
+    ) -> Result<OrganizedOrderHistoryV2Response, PhoenixHttpError> {
+        self.get_order_history_v2_internal(
+            &format!("/v1/users/{authority}/orders_v2"),
+            params,
+            true,
+        )
+        .await
+    }
+
+    /// Fetch terminal TWAP parents and standalone orders for an actual trader
+    /// PDA. Start without a cursor when switching between flat and
+    /// organized history.
+    pub async fn get_trader_organized_order_history_v2(
+        &self,
+        trader_pda: &Pubkey,
+        params: OrderHistoryV2QueryParams,
+    ) -> Result<OrganizedOrderHistoryV2Response, PhoenixHttpError> {
+        let params = OrderHistoryV2QueryParams {
+            trader_pda_index: None,
+            ..params
+        };
+        self.get_order_history_v2_internal(
+            &format!("/v1/traders/{trader_pda}/orders_v2"),
+            params,
+            true,
+        )
+        .await
+    }
+
+    async fn get_order_history_v2_internal<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        params: OrderHistoryV2QueryParams,
+        organize_twap_orders: bool,
+    ) -> Result<T, PhoenixHttpError> {
+        self.http
+            .get_json_with_query(
+                path,
+                &OrderHistoryV2Query {
+                    params: &params,
+                    organize_twap_orders,
+                },
+            )
             .await
     }
 

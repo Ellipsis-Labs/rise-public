@@ -25,8 +25,8 @@ pub use preferences::{
 };
 
 use super::common::{
-    PhoenixAccountDecodeError, SequenceNumber, borrow_pod, borrow_prefix, borrow_slice, read_i56,
-    read_i64, read_prefix, read_u64, verify_discriminant,
+    PhoenixAccountDecodeError, SequenceNumber, borrow_pod, borrow_prefix, borrow_slice,
+    read_prefix, read_u64, verify_discriminant,
 };
 use super::discriminants::PhoenixAccount;
 #[cfg(feature = "serde")]
@@ -38,6 +38,9 @@ const TRADER_POSITION_MAP_PREFIX_LEN: usize = 16;
 const TRADER_POSITION_ENTRY_LEN: usize = 40;
 const TRADER_POSITION_ENTRIES_START: usize = TRADER_HEADER_LEN + TRADER_POSITION_MAP_PREFIX_LEN;
 const POSITION_ENTRY_ASSET_INDEX_BOUND: u32 = 0xFF00_0000;
+/// Upper 16 bits of every SPL spot collateral asset index.
+const SPOT_ASSET_INDEX_PREFIX: u32 = 0xFFFE_0000;
+const ASSET_INDEX_BAND_MASK: u32 = 0xFFFF_0000;
 
 pub use phoenix_rise_math::NATIVE_SOL_ASSET_INDEX;
 
@@ -172,18 +175,6 @@ fn validate_position_map_header(
     Ok(())
 }
 
-fn read_position_map_header(
-    data: &[u8],
-) -> Result<TraderPositionMapHeader, PhoenixAccountDecodeError> {
-    let prefix = position_map_prefix(data)?;
-    let position_map_header = TraderPositionMapHeader {
-        len: read_u64(prefix, 0),
-        capacity: read_u64(prefix, 8),
-    };
-    validate_position_map_header(&position_map_header)?;
-    Ok(position_map_header)
-}
-
 fn borrow_position_map_header(
     data: &[u8],
 ) -> Result<&TraderPositionMapHeader, PhoenixAccountDecodeError> {
@@ -235,8 +226,10 @@ const fn is_position_entry_asset_id(raw_asset_id: u64) -> bool {
 }
 
 #[inline(always)]
-const fn is_native_sol_entry_asset_id(raw_asset_id: u64) -> bool {
-    position_entry_asset_index(raw_asset_id) == NATIVE_SOL_ASSET_INDEX
+const fn is_spot_collateral_entry_asset_id(raw_asset_id: u64) -> bool {
+    let asset_index = position_entry_asset_index(raw_asset_id);
+    asset_index == NATIVE_SOL_ASSET_INDEX
+        || asset_index & ASSET_INDEX_BAND_MASK == SPOT_ASSET_INDEX_PREFIX
 }
 
 impl TraderHeader {
@@ -461,20 +454,22 @@ struct TraderPositionEntryRaw {
 
 const_assert_eq!(core::mem::size_of::<TraderPositionEntryRaw>(), 40);
 
-/// Value payload of a header-extension entry. Shares the 32-byte value slot
-/// with [`TraderPositionRaw`], which is why it can be cast from one.
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Pod, Zeroable)]
-struct TraderHeaderExtensionRaw {
-    native_sol_collateral: u64,
-    _padding: [u64; 3],
+/// One spot collateral balance from the trader position map.
+///
+/// Native SOL and SPL spot assets share this entry layout; they differ only in
+/// the asset-index band of the key.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TraderSpotCollateral {
+    /// Raw asset-index key: [`NATIVE_SOL_ASSET_INDEX`] for native SOL,
+    /// otherwise in the `0xFFFE_xxxx` spot band. Not a perp asset id.
+    pub asset_index: u32,
+    /// Accounted balance in the asset's native units (lamports for SOL).
+    pub balance: u64,
+    /// Trader-specific per-trader cap. It only applies when it raises the cap
+    /// above the asset's `max_per_trader_balance`.
+    pub max_per_trader_balance_override: Option<u64>,
 }
-
-const_assert_eq!(core::mem::size_of::<TraderHeaderExtensionRaw>(), 32);
-const_assert_eq!(
-    core::mem::size_of::<TraderHeaderExtensionRaw>(),
-    core::mem::size_of::<TraderPositionRaw>()
-);
 
 #[derive(Clone, Copy, Debug)]
 pub struct TraderPositionRef<'a> {
@@ -728,149 +723,115 @@ impl<'a> Trader<'a> {
             .map(|entry| (entry.asset_id(), entry.position()))
     }
 
-    /// Native SOL spot collateral, in lamports.
+    /// Spot collateral entries (native SOL and SPL spot assets) in account
+    /// order.
     ///
-    /// The balance is stored as a header-extension entry in the position map
-    /// rather than as a position, so it never appears in [`Self::positions`].
-    /// Zero when the trader holds none.
+    /// These are stored in the position map but are not positions, so they
+    /// never appear in [`Self::positions`].
+    pub fn spot_collaterals(&self) -> impl Iterator<Item = TraderSpotCollateral> + '_ {
+        self.active_position_entries_raw()
+            .iter()
+            .filter_map(|raw| read_spot_collateral_entry(bytemuck::bytes_of(raw)))
+    }
+
+    /// Native SOL spot collateral, in lamports. Zero when the trader holds
+    /// none.
     ///
     /// This is the *accounted* balance. Lamports sitting in the account above
     /// it (rent plus any excess a capped credit could not take) are not
     /// collateral and carry no margin value.
+    #[deprecated(
+        since = "0.7.0",
+        note = "use `spot_collaterals` and pick the `NATIVE_SOL_ASSET_INDEX` entry"
+    )]
     pub fn native_sol_collateral(&self) -> u64 {
-        self.active_position_entries_raw()
-            .iter()
-            .find(|raw| is_native_sol_entry_asset_id(raw.asset_id))
-            .map(|raw| {
-                bytemuck::cast_ref::<TraderPositionRaw, TraderHeaderExtensionRaw>(&raw.position)
-                    .native_sol_collateral
-            })
-            .unwrap_or(0)
+        self.spot_collaterals()
+            .find(|spot| spot.asset_index == NATIVE_SOL_ASSET_INDEX)
+            .map_or(0, |spot| spot.balance)
     }
 }
 
 /// Borrowed view over a trader's dynamic position map.
+#[deprecated(
+    since = "0.7.0",
+    note = "use `Trader`; `Trader::position_entries` yields the same entries"
+)]
 #[derive(Clone, Copy, Debug)]
-pub struct TraderPositions<'a> {
-    entries: &'a [u8],
-    len: u64,
-    capacity: u64,
-}
+pub struct TraderPositions<'a>(Trader<'a>);
 
+#[allow(deprecated)]
 impl<'a> TraderPositions<'a> {
-    /// Decode a borrowed view over a trader account's dynamic position map.
-    ///
-    /// The view borrows `data`; each iterator item is copied out of the account
-    /// bytes so callers do not rely on the input slice being aligned to the
-    /// on-chain struct layout.
     pub fn try_from_account_bytes(data: &'a [u8]) -> Result<Self, PhoenixAccountDecodeError> {
-        TraderHeader::try_read_from_account_bytes(data)?;
-        let position_map_header = read_position_map_header(data)?;
-        let position_count = usize::try_from(position_map_header.len()).map_err(|_| {
-            PhoenixAccountDecodeError::InvalidData {
-                account: TRADER_ACCOUNT,
-                reason: "position map length does not fit usize",
-            }
-        })?;
-        let entries_len = position_count
-            .checked_mul(TRADER_POSITION_ENTRY_LEN)
-            .ok_or(PhoenixAccountDecodeError::InvalidData {
-                account: TRADER_ACCOUNT,
-                reason: "position map length overflow",
-            })?;
-        let entries_end = TRADER_POSITION_ENTRIES_START
-            .checked_add(entries_len)
-            .ok_or(PhoenixAccountDecodeError::InvalidData {
-                account: TRADER_ACCOUNT,
-                reason: "position entries end offset overflow",
-            })?;
-        let entries = data.get(TRADER_POSITION_ENTRIES_START..entries_end).ok_or(
-            PhoenixAccountDecodeError::AccountTooSmall {
-                account: TRADER_ACCOUNT,
-                expected: entries_end,
-                actual: data.len(),
-            },
-        )?;
-        Ok(Self {
-            entries,
-            len: position_map_header.len(),
-            capacity: position_map_header.capacity(),
-        })
+        Trader::try_from_account_bytes(data).map(Self)
     }
 
     #[inline(always)]
     pub fn len(&self) -> u64 {
-        self.iter().count() as u64
+        self.0.len()
     }
 
     #[inline(always)]
     pub const fn raw_len(&self) -> u64 {
-        self.len
+        self.0.raw_len()
     }
 
     #[inline(always)]
     pub const fn capacity(&self) -> u64 {
-        self.capacity
+        self.0.capacity()
     }
 
     #[inline(always)]
     pub fn is_empty(&self) -> bool {
-        self.iter().next().is_none()
+        self.0.is_empty()
     }
 
     /// Iterate copied position entries in account order.
     #[inline(always)]
     pub fn iter(&self) -> TraderPositionIter<'a> {
         TraderPositionIter {
-            remaining: self.entries,
+            remaining: self.0.active_position_entries_raw(),
         }
     }
 
-    /// Native SOL spot collateral, in lamports. See
-    /// [`Trader::native_sol_collateral`]; [`Self::iter`] deliberately skips
-    /// this entry, so it needs its own scan.
     pub fn native_sol_collateral(&self) -> u64 {
-        self.entries
-            .chunks_exact(TRADER_POSITION_ENTRY_LEN)
-            .find(|entry| is_native_sol_entry_asset_id(read_u64(entry, 0)))
-            .map(|entry| read_u64(entry, 8))
-            .unwrap_or(0)
+        self.0.native_sol_collateral()
     }
 }
 
+#[deprecated(since = "0.7.0", note = "use `Trader::position_entries`")]
 pub struct TraderPositionIter<'a> {
-    remaining: &'a [u8],
+    remaining: &'a [TraderPositionEntryRaw],
 }
 
+#[allow(deprecated)]
 impl Iterator for TraderPositionIter<'_> {
     type Item = TraderPositionEntry;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(entry) = self.remaining.get(..TRADER_POSITION_ENTRY_LEN) {
-            self.remaining = &self.remaining[TRADER_POSITION_ENTRY_LEN..];
-            if let Some(entry) = read_trader_position_entry(entry) {
-                return Some(entry);
+        while let Some((raw, rest)) = self.remaining.split_first() {
+            self.remaining = rest;
+            let entry = TraderPositionEntryRef { raw };
+            if entry.is_position() {
+                return Some(entry.to_entry());
             }
         }
         None
     }
 }
 
-fn read_trader_position_entry(data: &[u8]) -> Option<TraderPositionEntry> {
+/// Value layout: `balance: u64`, `max_per_trader_balance_override: u64` (zero
+/// means none), 16 bytes of padding.
+fn read_spot_collateral_entry(data: &[u8]) -> Option<TraderSpotCollateral> {
     let raw_asset_id = read_u64(data, 0);
-    if !is_position_entry_asset_id(raw_asset_id) {
+    if !is_spot_collateral_entry_asset_id(raw_asset_id) {
         return None;
     }
-
-    Some(TraderPositionEntry {
-        asset_id: position_entry_asset_index(raw_asset_id) as u64,
-        position: TraderPosition {
-            base_lot_position: SignedBaseLots::new(read_i64(data, 8)),
-            virtual_quote_lot_position: SignedQuoteLots::new(read_i64(data, 16)),
-            cumulative_funding_snapshot: SignedQuoteLotsPerBaseLot::new(read_i64(data, 24)),
-            position_sequence_number: data[32],
-            accumulated_funding_for_active_position: SignedQuoteLots::new(read_i56(data, 33)),
-        },
+    let max_per_trader_balance_override = read_u64(data, 16);
+    Some(TraderSpotCollateral {
+        asset_index: position_entry_asset_index(raw_asset_id),
+        balance: read_u64(data, 8),
+        max_per_trader_balance_override: (max_per_trader_balance_override != 0)
+            .then_some(max_per_trader_balance_override),
     })
 }
 
@@ -980,39 +941,6 @@ impl serde::Serialize for Trader<'_> {
         state.serialize_field("position_capacity", &self.capacity())?;
         state.serialize_field("has_position_capacity", &self.has_position_capacity())?;
         state.serialize_field("positions", &TraderPositionEntryRefs(self))?;
-        state.end()
-    }
-}
-
-#[cfg(feature = "serde")]
-struct TraderPositionEntries<'a>(&'a TraderPositions<'a>);
-
-#[cfg(feature = "serde")]
-impl serde::Serialize for TraderPositionEntries<'_> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let len = usize::try_from(self.0.len()).ok();
-        let mut seq = serializer.serialize_seq(len)?;
-        for entry in self.0.iter() {
-            seq.serialize_element(&entry)?;
-        }
-        seq.end()
-    }
-}
-
-#[cfg(feature = "serde")]
-impl serde::Serialize for TraderPositions<'_> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state = serializer.serialize_struct("TraderPositions", 4)?;
-        state.serialize_field("len", &self.len())?;
-        state.serialize_field("capacity", &self.capacity())?;
-        state.serialize_field("is_empty", &self.is_empty())?;
-        state.serialize_field("entries", &TraderPositionEntries(self))?;
         state.end()
     }
 }
@@ -1214,23 +1142,6 @@ mod tests {
         write_position_entry(data, 2, 0xFFFF_0000, 99, 99, 99, 99, 99);
 
         let data = bytemuck::cast_slice::<u64, u8>(&words);
-        let positions = TraderPositions::try_from_account_bytes(data).unwrap();
-
-        assert_eq!(positions.raw_len(), 3);
-        assert_eq!(positions.len(), 2);
-        let entries = positions.iter().collect::<Vec<_>>();
-        assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0].asset_id, 42);
-        assert_eq!(entries[1].asset_id, 44);
-        assert_eq!(
-            entries[1].position.base_lot_position,
-            SignedBaseLots::new(6)
-        );
-        assert_eq!(
-            entries[1].position.accumulated_funding_for_active_position,
-            SignedQuoteLots::new(-321)
-        );
-
         let trader = Trader::try_from_account_bytes(data).unwrap();
         assert_eq!(trader.raw_len(), 3);
         assert_eq!(trader.len(), 2);
@@ -1249,65 +1160,57 @@ mod tests {
     }
 
     #[test]
-    fn native_sol_collateral_reads_the_header_extension_entry_without_leaking_a_position() {
-        let mut words = aligned_trader_account_data(3, 3);
+    fn spot_collaterals_read_native_sol_and_spl_entries_without_leaking_positions() {
+        let mut words = aligned_trader_account_data(4, 4);
         let data = bytemuck::cast_slice_mut::<u64, u8>(&mut words);
 
+        // Spot collateral values reuse the position slot:
+        // `write_position_entry` writes the balance as
+        // `base_lot_position` and the per-trader cap override as
+        // `virtual_quote_lot_position`.
         write_position_entry(data, 0, 42, -5, 10, 11, 9, 123);
-        write_position_entry(data, 1, 43, 6, -12, 13, 10, -321);
-        // The header-extension value reuses the position slot: its first u64 is
-        // the lamport balance. `write_position_entry` writes that u64 as
-        // `base_lot_position`.
         write_position_entry(
             data,
-            2,
+            1,
             NATIVE_SOL_ASSET_INDEX as u64,
             1_234_567_890,
-            0,
+            5_000_000_000,
             0,
             0,
             0,
         );
+        write_position_entry(data, 2, 0xFFFE_4001, 777, 0, 0, 0, 0);
+        write_position_entry(data, 3, 43, 6, -12, 13, 10, -321);
 
         let data = bytemuck::cast_slice::<u64, u8>(&words);
+        let expected = vec![
+            TraderSpotCollateral {
+                asset_index: NATIVE_SOL_ASSET_INDEX,
+                balance: 1_234_567_890,
+                max_per_trader_balance_override: Some(5_000_000_000),
+            },
+            TraderSpotCollateral {
+                asset_index: 0xFFFE_4001,
+                balance: 777,
+                max_per_trader_balance_override: None,
+            },
+        ];
 
         let trader = Trader::try_from_account_bytes(data).unwrap();
-        assert_eq!(trader.native_sol_collateral(), 1_234_567_890);
-        assert_eq!(trader.position_entries().count(), 2);
+        assert_eq!(trader.spot_collaterals().collect::<Vec<_>>(), expected);
+        #[allow(deprecated)]
+        let legacy_positions = TraderPositions::try_from_account_bytes(data)
+            .unwrap()
+            .iter()
+            .map(|entry| entry.asset_id)
+            .collect::<Vec<_>>();
+        assert_eq!(legacy_positions, vec![42, 43]);
         assert_eq!(
             trader
                 .positions()
                 .map(|(asset_id, _)| asset_id)
                 .collect::<Vec<_>>(),
             vec![42, 43]
-        );
-
-        let positions = TraderPositions::try_from_account_bytes(data).unwrap();
-        assert_eq!(positions.native_sol_collateral(), 1_234_567_890);
-        assert_eq!(positions.iter().count(), 2);
-    }
-
-    #[test]
-    fn native_sol_collateral_is_zero_without_a_header_extension_entry() {
-        let mut words = aligned_trader_account_data(2, 2);
-        let data = bytemuck::cast_slice_mut::<u64, u8>(&mut words);
-
-        write_position_entry(data, 0, 42, -5, 10, 11, 9, 123);
-        write_position_entry(data, 1, 43, 6, -12, 13, 10, -321);
-
-        let data = bytemuck::cast_slice::<u64, u8>(&words);
-
-        assert_eq!(
-            Trader::try_from_account_bytes(data)
-                .unwrap()
-                .native_sol_collateral(),
-            0
-        );
-        assert_eq!(
-            TraderPositions::try_from_account_bytes(data)
-                .unwrap()
-                .native_sol_collateral(),
-            0
         );
     }
 

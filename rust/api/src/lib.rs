@@ -77,7 +77,7 @@ pub use client_types::{
 };
 pub use conversions::{
     calculator_for_metadata, decimal_from_quote_lots, decimal_from_signed_base_lots,
-    decimal_from_signed_quote_lots, decimal_str_to_quote_lots, price_to_decimal,
+    decimal_from_signed_quote_lots, price_to_decimal,
 };
 pub use env::PhoenixEnv;
 pub use exchange_cache::{

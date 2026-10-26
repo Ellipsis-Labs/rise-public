@@ -26,6 +26,7 @@ use phoenix_rise_api::types::prelude::{
     AuthoritySetView, ExchangeKeysView, ExchangeMarketConfig, ExchangeRiskFactors, ExchangeView,
     MarketStatus,
 };
+use phoenix_rise_math::Price;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use solana_instruction::{AccountMeta, Instruction};
@@ -175,42 +176,16 @@ impl FixtureMarket {
 
     /// Convert a fixture price into this market's Phoenix tick value.
     pub fn price_to_ticks(&self, price: FixturePrice, quote_decimals: u8) -> u64 {
-        let scaled_value = if price.expo < quote_decimals {
-            let factor = 10_u64
-                .checked_pow((quote_decimals - price.expo) as u32)
-                .expect("price scale factor should not overflow");
-            price
-                .value
-                .checked_mul(factor)
-                .expect("scaled price should not overflow")
-        } else {
-            let factor = 10_u64
-                .checked_pow((price.expo - quote_decimals) as u32)
-                .expect("price scale factor should not overflow");
-            price.value / factor
-        };
-
-        if self.base_lot_decimals >= 0 {
-            let base_lots_per_unit = 10_u64
-                .checked_pow(self.base_lot_decimals as u32)
-                .expect("base-lot scale should not overflow");
-            scaled_value
-                .checked_div(
-                    self.tick_size_in_quote_lots_per_base_lot
-                        .checked_mul(base_lots_per_unit)
-                        .expect("tick denominator should not overflow"),
-                )
-                .expect("tick denominator should not be zero")
-        } else {
-            let base_units_per_lot = 10_u64
-                .checked_pow((-self.base_lot_decimals) as u32)
-                .expect("base-lot scale should not overflow");
-            scaled_value
-                .checked_mul(base_units_per_lot)
-                .expect("tick numerator should not overflow")
-                .checked_div(self.tick_size_in_quote_lots_per_base_lot)
-                .expect("tick denominator should not be zero")
+        Price {
+            value: price.value,
+            expo: price.expo,
         }
+        .to_ticks(
+            self.tick_size_in_quote_lots_per_base_lot,
+            self.base_lot_decimals,
+            quote_decimals,
+        )
+        .expect("fixture price should convert to ticks")
     }
 }
 

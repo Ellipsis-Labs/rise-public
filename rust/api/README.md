@@ -30,6 +30,22 @@ default, server-relative finalized window, and 2,500-bar server limit. The v2
 method defaults to 1,000 bars per page and accepts explicit page sizes up to
 10,000.
 
+### Order History V2
+
+Use `orders().get_user_order_history_v2(...)` for wallet-authority history or
+`orders().get_trader_order_history_v2(...)` for an actual trader PDA. Both return
+flat packets, including TWAP children, and accept `OrderHistoryV2QueryParams`.
+The corresponding `get_user_organized_order_history_v2(...)` and
+`get_trader_organized_order_history_v2(...)` methods return terminal TWAP parents
+with nested children in `data.twap_orders`, plus `data.single_orders`.
+The page limit counts parents and standalone orders, not nested children.
+
+V2 methods are also available on `PhoenixHttpClient`. Keep cursors opaque and
+start without a cursor when switching views. Existing legacy Order History
+methods are unchanged. Live `OrderHistoryDelta` rows retain optional
+`parent_order_id` and `parent_order_type`; callers constructing these rows with
+struct literals must initialize the new fields (usually `None`).
+
 ## Crate Links
 
 [`phoenix-rise`](../sdk/README.md) |

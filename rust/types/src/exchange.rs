@@ -6,7 +6,10 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use phoenix_rise_math::{BasisPoints, SpotCollateralParams};
+use phoenix_rise_math::{
+    BasisPoints, QuoteLotsPerBaseLotPerTick, SpotCollateralParams, SpotCollateralPricing,
+    SpotPrice, Ticks,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::js_safe_ints::{JsSafeI64, JsSafeU64};
@@ -212,11 +215,11 @@ pub struct CollateralAssetMetadata {
 impl CollateralAssetMetadata {
     /// The margin engine's view of this asset, or `None` when it does not
     /// currently count toward margin (the quote asset, an inactive spot asset,
-    /// or one not yet bound to a perp market).
+    /// or one with neither a perp market nor an oracle price).
     ///
     /// This is the **canonical** DTO → [`SpotCollateralParams`] conversion:
     /// the two types deliberately differ (wire integers vs math quantities,
-    /// liquidation bounds the margin engine never reads, and `perp_symbol`,
+    /// liquidation bounds the margin engine never reads, and the perp symbol,
     /// which is a join through the market map rather than a wire field), and
     /// every consumer should go through here so the shapes cannot drift apart
     /// silently.
@@ -232,20 +235,30 @@ impl CollateralAssetMetadata {
         let Some(spot) = &self.spot else {
             return Ok(None);
         };
-        let Some(perp_asset_index) = spot.perp_asset_index.filter(|_| spot.is_active) else {
+        if !spot.is_active {
             return Ok(None);
+        }
+        let pricing = match (spot.perp_asset_index, &spot.oracle_price) {
+            (Some(perp_asset_index), _) => SpotCollateralPricing::Perp {
+                symbol: resolve_perp_symbol(perp_asset_index).ok_or_else(|| {
+                    format!(
+                        "Collateral {} references unknown perp asset {perp_asset_index}",
+                        self.symbol
+                    )
+                })?,
+            },
+            (None, Some(oracle)) => SpotCollateralPricing::Oracle(SpotPrice {
+                ticks: Ticks::new(oracle.ticks.into_inner()),
+                tick_size: QuoteLotsPerBaseLotPerTick::new(oracle.tick_size.into_inner()),
+                base_lot_decimals: oracle.base_lot_decimals,
+            }),
+            (None, None) => return Ok(None),
         };
-        let perp_symbol = resolve_perp_symbol(perp_asset_index).ok_or_else(|| {
-            format!(
-                "Collateral {} references unknown perp asset {perp_asset_index}",
-                self.symbol
-            )
-        })?;
         Ok(Some(SpotCollateralParams {
             asset_index: u32::try_from(self.asset_index)
                 .map_err(|_| format!("Invalid collateral asset index: {}", self.asset_index))?,
             symbol: self.symbol.clone(),
-            perp_symbol,
+            pricing,
             decimals: self.decimals,
             max_per_trader_balance: spot.max_per_trader_balance.into_inner(),
             max_global_balance: spot.max_global_balance.into_inner(),
@@ -271,6 +284,21 @@ pub struct SpotAssetConfig {
     pub max_liquidation_discount_bps: u32,
     pub min_liquidation_slippage_bps: u32,
     pub max_liquidation_size: JsSafeU64,
+    /// The asset's own oracle price. Present only for assets not priced by a
+    /// perp market (`perp_asset_index` absent) whose price scale is set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oracle_price: Option<SpotOraclePriceView>,
+}
+
+/// Oracle price of a spot collateral asset, quoted per synthetic base lot:
+/// one base lot (`10^(decimals - base_lot_decimals)` native units) is worth
+/// `ticks * tick_size` quote lots.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SpotOraclePriceView {
+    pub ticks: JsSafeU64,
+    pub tick_size: JsSafeU64,
+    pub base_lot_decimals: i8,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

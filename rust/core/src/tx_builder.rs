@@ -34,7 +34,7 @@ use phoenix_rise_ix::prelude::{
     get_associated_token_address, get_conditional_orders_address, get_ember_state_address,
     get_stop_loss_address, usdc_mint,
 };
-use phoenix_rise_math::MathError;
+use phoenix_rise_math::{MathError, quote_usd_to_quote_lots};
 use solana_instruction::Instruction;
 use solana_pubkey::Pubkey;
 use solana_rpc_client::nonblocking::rpc_client::RpcClient;
@@ -49,7 +49,6 @@ use crate::{
     CROSS_MARGIN_SUBACCOUNT_IDX, ExchangeMarketConfig, PhoenixMetadata, Trader, TraderKey,
 };
 
-const USDC_NATIVE_DECIMALS: f64 = 1_000_000.0;
 const DEFAULT_CONDITIONAL_ORDERS_CAPACITY: u8 = 8;
 const MAX_METADATA_ACCOUNT_KEYS: usize = 256;
 /// Errors that can occur when building Phoenix transactions.
@@ -434,7 +433,7 @@ impl<'a> PhoenixTxBuilder<'a> {
             .iter()
             .map(|(price, size)| {
                 Ok(CondensedOrder {
-                    price_in_ticks: calc.price_to_ticks(*price)?.as_inner(),
+                    price_in_ticks: calc.order_price_to_ticks(*price, Side::Bid)?.as_inner(),
                     size_in_base_lots: *size,
                     last_valid_slot: None,
                 })
@@ -445,7 +444,7 @@ impl<'a> PhoenixTxBuilder<'a> {
             .iter()
             .map(|(price, size)| {
                 Ok(CondensedOrder {
-                    price_in_ticks: calc.price_to_ticks(*price)?.as_inner(),
+                    price_in_ticks: calc.order_price_to_ticks(*price, Side::Ask)?.as_inner(),
                     size_in_base_lots: *size,
                     last_valid_slot: None,
                 })
@@ -524,20 +523,21 @@ impl<'a> PhoenixTxBuilder<'a> {
 
         let addrs = self.parse_addresses(market)?;
 
-        let to_orders =
-            |levels: &[(f64, u64)]| -> Result<Vec<CondensedOrderV2>, PhoenixTxBuilderError> {
-                let mut orders = Vec::with_capacity(levels.len());
-                for (price, size) in levels {
-                    orders.push(CondensedOrderV2::new(
-                        calc.price_to_ticks(*price)?.as_inner(),
-                        *size,
-                        None,
-                        slide,
-                        reduce_only,
-                    ));
-                }
-                Ok(orders)
-            };
+        let to_orders = |levels: &[(f64, u64)],
+                         side: Side|
+         -> Result<Vec<CondensedOrderV2>, PhoenixTxBuilderError> {
+            let mut orders = Vec::with_capacity(levels.len());
+            for (price, size) in levels {
+                orders.push(CondensedOrderV2::new(
+                    calc.order_price_to_ticks(*price, side)?.as_inner(),
+                    *size,
+                    None,
+                    slide,
+                    reduce_only,
+                ));
+            }
+            Ok(orders)
+        };
 
         let params = MultiLimitOrderParamsV2::builder()
             .trader(authority)
@@ -547,8 +547,8 @@ impl<'a> PhoenixTxBuilder<'a> {
             .spline_collection(addrs.spline_collection)
             .global_trader_index(addrs.global_trader_index)
             .active_trader_buffer(addrs.active_trader_buffer)
-            .bids(to_orders(bids)?)
-            .asks(to_orders(asks)?)
+            .bids(to_orders(bids, Side::Bid)?)
+            .asks(to_orders(asks, Side::Ask)?)
             .scale_set_id(scale_set_id)
             .symbol(symbol)
             .build()?;
@@ -966,9 +966,19 @@ impl<'a> PhoenixTxBuilder<'a> {
         trader_pda: Pubkey,
         usdc_amount: f64,
     ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
-        // Convert USDC amount to base units (6 decimals)
-        let amount = (usdc_amount * 1_000_000.0) as u64;
+        self.build_deposit_funds_lots(
+            authority,
+            trader_pda,
+            quote_usd_to_quote_lots(usdc_amount)?.as_inner(),
+        )
+    }
 
+    fn build_deposit_funds_lots(
+        &self,
+        authority: Pubkey,
+        trader_pda: Pubkey,
+        amount: u64,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
         // Get exchange keys from metadata
         let keys = self.metadata.keys();
         let canonical_mint = Pubkey::from_str(&keys.canonical_mint)?;
@@ -1047,8 +1057,7 @@ impl<'a> PhoenixTxBuilder<'a> {
         trader_pda: Pubkey,
         usdc_amount: f64,
     ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
-        // Convert USDC amount to base units (6 decimals)
-        let amount = (usdc_amount * 1_000_000.0) as u64;
+        let amount = quote_usd_to_quote_lots(usdc_amount)?.as_inner();
         self.build_withdraw_funds_base_units(authority, trader_pda, amount)
     }
 
@@ -1064,7 +1073,7 @@ impl<'a> PhoenixTxBuilder<'a> {
         trader_pda: Pubkey,
         usdc_amount: f64,
     ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
-        let amount = (usdc_amount * USDC_NATIVE_DECIMALS) as u64;
+        let amount = quote_usd_to_quote_lots(usdc_amount)?.as_inner();
         self.build_request_withdraw_funds_base_units(authority, trader_pda, amount)
     }
 
@@ -1112,7 +1121,7 @@ impl<'a> PhoenixTxBuilder<'a> {
         authority: Pubkey,
         usdc_amount: f64,
     ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
-        let amount = (usdc_amount * USDC_NATIVE_DECIMALS) as u64;
+        let amount = quote_usd_to_quote_lots(usdc_amount)?.as_inner();
         self.build_complete_withdraw_funds_base_units(authority, amount)
     }
 
@@ -1453,8 +1462,21 @@ impl<'a> PhoenixTxBuilder<'a> {
         dst_trader_pda: Pubkey,
         usdc_amount: f64,
     ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
-        let amount = (usdc_amount * 1_000_000.0) as u64;
+        self.build_transfer_collateral_lots(
+            authority,
+            src_trader_pda,
+            dst_trader_pda,
+            quote_usd_to_quote_lots(usdc_amount)?.as_inner(),
+        )
+    }
 
+    fn build_transfer_collateral_lots(
+        &self,
+        authority: Pubkey,
+        src_trader_pda: Pubkey,
+        dst_trader_pda: Pubkey,
+        amount: u64,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
         let keys = self.metadata.keys();
         let perp_asset_map = Pubkey::from_str(&keys.perp_asset_map)?;
         let global_trader_index = parse_global_trader_index_pubkeys(&keys.global_trader_index)?;
@@ -1609,18 +1631,20 @@ impl<'a> PhoenixTxBuilder<'a> {
                         });
                     }
 
-                    let usdc_amount = transfer_amount as f64 / USDC_NATIVE_DECIMALS;
-                    ixs.extend(self.build_transfer_collateral(
+                    ixs.extend(self.build_transfer_collateral_lots(
                         sub_key.authority(),
                         trader.key.pda(),
                         sub_key.pda(),
-                        usdc_amount,
+                        transfer_amount,
                     )?);
                 }
             }
             Some(IsolatedCollateralFlow::Deposit { usdc_amount }) => {
-                let usdc = *usdc_amount as f64 / USDC_NATIVE_DECIMALS;
-                ixs.extend(self.build_deposit_funds(sub_key.authority(), sub_key.pda(), usdc)?);
+                ixs.extend(self.build_deposit_funds_lots(
+                    sub_key.authority(),
+                    sub_key.pda(),
+                    *usdc_amount,
+                )?);
             }
             None => {}
         }
@@ -1811,7 +1835,7 @@ impl<'a> PhoenixTxBuilder<'a> {
             .get_market_calculator(symbol)
             .ok_or_else(|| PhoenixTxBuilderError::UnknownSymbol(symbol.to_string()))?;
 
-        let price_in_ticks = calc.price_to_ticks(price)?.as_inner();
+        let price_in_ticks = calc.order_price_to_ticks(price, side)?.as_inner();
 
         let params = IsolatedLimitOrderParams {
             side,
@@ -1983,7 +2007,9 @@ impl<'a> PhoenixTxBuilder<'a> {
         let mut resolved_legs = Vec::new();
 
         if let Some(stop_loss) = &bracket.stop_loss {
-            let trigger_ticks = calc.price_to_ticks(stop_loss.price)?.as_inner();
+            let trigger_ticks = calc
+                .order_price_to_ticks(stop_loss.price, bracket_trade_side)?
+                .as_inner();
             let order_kind = stop_loss.resolved_order_kind(StopLossOrderKind::IOC);
             let execution_ticks = bracket_leg_execution_ticks(
                 &calc,
@@ -2005,7 +2031,9 @@ impl<'a> PhoenixTxBuilder<'a> {
         }
 
         if let Some(take_profit) = &bracket.take_profit {
-            let trigger_ticks = calc.price_to_ticks(take_profit.price)?.as_inner();
+            let trigger_ticks = calc
+                .order_price_to_ticks(take_profit.price, bracket_trade_side)?
+                .as_inner();
             let order_kind = take_profit.resolved_order_kind(StopLossOrderKind::Limit);
             let execution_ticks = bracket_leg_execution_ticks(
                 &calc,
@@ -2526,6 +2554,88 @@ mod tests {
         assert_eq!(params.price_in_ticks(), 150);
         assert_eq!(params.num_base_lots(), 10);
         assert_eq!(params.order_flags(), OrderFlags::ReduceOnly);
+    }
+
+    #[test]
+    fn test_off_tick_prices_round_by_side_and_usd_amounts_convert_exactly() {
+        let keys = mock_exchange_keys();
+        let market = mock_market("SOL");
+        let calc = MarketCalculator::new(
+            market.base_lots_decimals,
+            QuoteLotsPerBaseLotPerTick::new(market.tick_size),
+        );
+        for (side, price, ticks) in [(Side::Bid, 150.6, 150), (Side::Ask, 150.4, 151)] {
+            let params = LimitOrderTicket::builder()
+                .authority(Pubkey::new_unique())
+                .trader_account(Pubkey::new_unique())
+                .symbol("SOL")
+                .side(side)
+                .price(price)
+                .num_base_lots(10)
+                .build()
+                .unwrap()
+                .to_params(OrderTicketMetadata {
+                    market_calc: &calc,
+                    market_config: &market,
+                    exchange_keys: &keys,
+                })
+                .unwrap();
+            assert_eq!(params.price_in_ticks(), ticks, "{side:?}");
+        }
+
+        let metadata = mock_metadata("SOL");
+        let builder = PhoenixTxBuilder::new(&metadata);
+        let authority = Pubkey::new_unique();
+        let trader = Pubkey::new_unique();
+
+        let multi = |bid, ask| {
+            let (bids, asks) = ([(bid, 1)], [(ask, 1)]);
+            let v1 = builder
+                .build_multi_limit_order(authority, trader, "SOL", &bids, &asks, false)
+                .unwrap();
+            let v2 = builder
+                .build_multi_limit_order_v2(authority, trader, "SOL", &bids, &asks, false, false, 0)
+                .unwrap();
+            (v1, v2)
+        };
+        assert_eq!(multi(150.6, 150.4), multi(150.0, 151.0));
+        assert_ne!(multi(150.6, 150.4), multi(151.0, 150.0));
+
+        let stop_loss = |primary_side, trigger_price, execution_price| {
+            let bracket = BracketLegOrders {
+                stop_loss: Some(
+                    BracketLeg::new(trigger_price).with_execution_price(execution_price),
+                ),
+                take_profit: None,
+            };
+            let (greater, less) = builder
+                .build_bracket_trigger_orders("SOL", primary_side, &bracket)
+                .unwrap();
+            let order = greater.or(less).unwrap();
+            (order.trigger_price(), order.execution_price())
+        };
+        assert_eq!(stop_loss(Side::Bid, 120.0, 118.4), (120, 119));
+        assert_eq!(stop_loss(Side::Ask, 120.0, 121.6), (120, 121));
+        assert_eq!(stop_loss(Side::Bid, 120.4, 120.4), (121, 121));
+        assert_eq!(stop_loss(Side::Ask, 120.6, 120.6), (120, 120));
+
+        assert_eq!(
+            builder.build_deposit_funds(authority, trader, 8.2).unwrap(),
+            builder
+                .build_deposit_funds_lots(authority, trader, 8_200_000)
+                .unwrap()
+        );
+        assert_ne!(
+            builder.build_deposit_funds(authority, trader, 8.2).unwrap(),
+            builder
+                .build_deposit_funds_lots(authority, trader, 8_199_999)
+                .unwrap()
+        );
+        assert!(
+            builder
+                .build_deposit_funds(authority, trader, -1.0)
+                .is_err()
+        );
     }
 
     #[test]

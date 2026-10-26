@@ -25,6 +25,7 @@ borsh                    = { workspace = true }
 litesvm                  = { workspace = true }
 phoenix-rise-api         = { workspace = true }
 phoenix-rise-ix          = { workspace = true, features = ["accounts", "solana"] }
+phoenix-rise-math        = { workspace = true }
 serde                    = { workspace = true }
 serde_json               = { workspace = true }
 sha2                     = { workspace = true }
