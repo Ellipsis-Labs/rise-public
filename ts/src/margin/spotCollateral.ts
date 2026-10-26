@@ -2,13 +2,13 @@
  * Spot collateral valuation.
  *
  * Spot collateral is collateral held in an asset other than the quote token.
- * Native SOL is the only spot asset today. Its margin value is the balance
- * marked at the bound perp market's **index** price (not its mark price),
- * haircut by a balance-dependent discount curve:
+ * Its margin value is the balance marked at either the bound perp market's
+ * **index** price (not its mark price) or, for an asset not bound to a perp,
+ * the asset's own oracle price, haircut by a balance-dependent discount curve:
  *
  * ```text
  * nativeUnitsPerBaseLot = 10^(decimals - baseLotDecimals)
- * priceQuoteLotsPerBaseLot = indexPriceTicks * tickSize
+ * priceQuoteLotsPerBaseLot = priceTicks * tickSize
  * notional   = floor(balance * priceQuoteLotsPerBaseLot / nativeUnitsPerBaseLot)
  * retainedBps(b) = (10000 - minMarginDiscountBps)
  *                - floor((maxMarginDiscountBps - minMarginDiscountBps)

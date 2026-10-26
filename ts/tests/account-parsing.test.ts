@@ -439,6 +439,93 @@ describe("raw account parsing", () => {
     expect(decoded.positions.entries[1]?.key).toBe(12n);
   });
 
+  it("decodes native SOL and SPL spot collateral entries from the Trader position map", () => {
+    const bytes = loadMockBytes("trader.json");
+    writeU64LE(bytes, TRADER_POSITION_MAP_LEN_OFFSET, 3n);
+    const solEntryOffset =
+      TRADER_POSITION_ENTRIES_OFFSET + TRADER_POSITION_ENTRY_BYTES;
+    writeU64LE(bytes, solEntryOffset, BigInt(HEADER_EXTENSION_ASSET_ID));
+    writeU64LE(bytes, solEntryOffset + 8, 1_234_567_890n);
+    writeU64LE(bytes, solEntryOffset + 16, 5_000_000_000n);
+    const splEntryOffset = solEntryOffset + TRADER_POSITION_ENTRY_BYTES;
+    writeU64LE(bytes, splEntryOffset, 0xfffe4001n);
+    writeU64LE(bytes, splEntryOffset + 8, 777n);
+    writeU64LE(bytes, splEntryOffset + 16, 0n);
+
+    const decoded = decodeTrader(bytes);
+
+    expect(decoded.positions.entries.map((entry) => entry.key)).toEqual([11n]);
+    expect(decoded.nativeSolCollateral).toBe(1_234_567_890n);
+    expect(decoded.spotCollaterals).toEqual([
+      {
+        assetIndex: HEADER_EXTENSION_ASSET_ID,
+        balance: 1_234_567_890n,
+        maxPerTraderBalanceOverride: 5_000_000_000n,
+      },
+      {
+        assetIndex: 0xfffe4001,
+        balance: 777n,
+        maxPerTraderBalanceOverride: null,
+      },
+    ]);
+  });
+
+  it("decodes spot collateral collections from PerpAssetMap slots", () => {
+    const bytes = loadMockBytes("perp_asset_map.json");
+    const slotsUsedOffset = 32;
+    const slotsStart = 48;
+    const slotBytes = 1584;
+    const slotsUsed = new DataView(bytes.buffer, bytes.byteOffset).getUint32(
+      slotsUsedOffset,
+      true
+    );
+    writeU32LE(bytes, slotsUsedOffset, slotsUsed + 1);
+    const slot = slotsStart + slotsUsed * slotBytes;
+    bytes.fill(0, slot, slot + slotBytes);
+    bytes.set(new TextEncoder().encode("SPOT-0"), slot);
+    const writeSpotEntry = (
+      subIndex: number,
+      symbol: string,
+      assetIndex: number,
+      decimals: number
+    ): void => {
+      // Map key (16) + collection short-map metadata (8), then 344-byte entries.
+      const entry = slot + 24 + subIndex * 344;
+      bytes.set(new TextEncoder().encode(symbol), entry);
+      writeU32LE(bytes, entry + 16, assetIndex);
+      // SpotCollateralMetadata starts at +24; decimals follow the 32-byte mint.
+      writeU32LE(bytes, entry + 24 + 32, decimals);
+      // Own oracle price at +112: ticks +16, base lot decimals +25, tick
+      // size +72.
+      const oracle = entry + 24 + 112;
+      writeU64LE(bytes, oracle + 16, 1_234n);
+      bytes[oracle + 25] = 0xfe;
+      writeU64LE(bytes, oracle + 72, 100n);
+    };
+    writeSpotEntry(0, "USDT", 0xfffe0000 + slotsUsed, 6);
+    writeSpotEntry(2, "JitoSOL", 0xfffe8000 + slotsUsed, 9);
+    bytes[slot + slotBytes - 1] = 1;
+
+    const decoded = decodePerpAssetMap(bytes);
+
+    expect(decoded.metadata.len).toBe(BigInt(slotsUsed));
+    expect(
+      decoded.spotCollaterals.map((spot) => [
+        spot.assetIndex,
+        spot.symbol,
+        spot.metadata.decimals,
+      ])
+    ).toEqual([
+      [0xfffe0000 + slotsUsed, "USDT", 6],
+      [0xfffe8000 + slotsUsed, "JitoSOL", 9],
+    ]);
+    expect(decoded.spotCollaterals[0]?.metadata.oraclePrice).toMatchObject({
+      ticks: 1_234n,
+      baseLotDecimals: -2,
+      tickSize: 100n,
+    });
+  });
+
   it(
     "decodes Orderbook fixtures",
     () => {

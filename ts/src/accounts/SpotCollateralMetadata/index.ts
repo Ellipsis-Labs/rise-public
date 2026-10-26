@@ -1,4 +1,4 @@
-export type { SpotCollateralMetadata } from "./types";
+export type { SpotCollateralAsset, SpotCollateralMetadata } from "./types";
 
 export {
   SPOT_COLLATERAL_FLAG_DISABLE_POSITION_AUTHORITY_SWAP,
@@ -7,4 +7,7 @@ export {
   getSpotCollateralAssetId,
 } from "./types";
 
-export { getSpotCollateralMetadataDecoder } from "./codec";
+export {
+  getSpotCollateralCollectionDecoder,
+  getSpotCollateralMetadataDecoder,
+} from "./codec";

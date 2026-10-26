@@ -98,11 +98,28 @@ export interface MarginCalculationOptions {
   spotCollateralParams?: SpotCollateralParams[];
 }
 
-/** Exchange configuration for one spot collateral asset. */
+/**
+ * A spot asset's own oracle price, quoted per synthetic base lot: one base lot
+ * (`10^(decimals - baseLotDecimals)` native units) is worth `ticks * tickSize`
+ * quote lots.
+ */
+export interface SpotOraclePriceParams {
+  ticks: bigint;
+  tickSize: bigint;
+  baseLotDecimals: number;
+}
+
+/**
+ * Exchange configuration for one spot collateral asset. Exactly one of
+ * `perpSymbol` and `oraclePrice` is set.
+ */
 export interface SpotCollateralParams {
   assetIndex: number;
   symbol: string;
-  perpSymbol: string;
+  /** Perp market whose index price values the asset. */
+  perpSymbol?: string;
+  /** The asset's own oracle price, for an asset not bound to a perp market. */
+  oraclePrice?: SpotOraclePriceParams;
   decimals: number;
   maxPerTraderBalance: bigint;
   maxGlobalBalance: bigint;
@@ -112,10 +129,10 @@ export interface SpotCollateralParams {
 }
 
 /**
- * One spot collateral asset (native SOL today) with the context needed to
- * value it the way the on-chain RiskView does: balance at the pricing perp
- * market's index price, discounted along the linear margin-discount curve.
- * The curve parameters come from `/v1/collateral/assets`.
+ * One spot collateral asset with the context needed to value it the way the
+ * on-chain RiskView does: balance at the pricing perp market's index price, or
+ * at the asset's own oracle price, discounted along the linear margin-discount
+ * curve. The curve parameters come from `/v1/collateral/assets`.
  */
 export interface SpotCollateralMarginInput {
   assetIndex: number;
@@ -126,9 +143,19 @@ export interface SpotCollateralMarginInput {
   /** Native-unit decimals of the asset (9 for SOL). */
   decimals: number;
   /**
-   * Perp market whose price values the asset. Defaults to `symbol`.
+   * Perp market whose price values the asset. Defaults to `symbol`. Ignored
+   * when `oraclePrice` is set.
    */
   pricingMarketSymbol?: string;
+  /**
+   * The asset's own oracle price, for an asset not bound to a perp market.
+   * When set, no pricing market is consulted.
+   */
+  oraclePrice?: {
+    ticks: string;
+    tickSize: string;
+    baseLotDecimals: number;
+  };
   /**
    * Valuation price in ticks of the pricing market. Defaults to the pricing
    * market's index price. A nonzero balance without an index price fails valuation.
@@ -265,8 +292,9 @@ export interface OrderMarginResult {
 export interface SpotCollateralMarginResult {
   assetIndex: number;
   symbol: string;
-  /** Perp market whose price values this collateral. */
-  pricingMarketSymbol: string;
+  /** Perp market whose price values this collateral; absent for an asset
+   * priced by its own oracle, whose value does not move with any market. */
+  pricingMarketSymbol?: string;
   /** Balance in the asset's native units. */
   balance: string;
   /** Native units represented by one base lot of the pricing market. */
