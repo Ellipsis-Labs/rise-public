@@ -36,6 +36,7 @@ pub struct Trader {
     pub native_sol_collateral: u64,
     /// All spot collateral entries, native SOL included.
     pub spot_collaterals: Vec<borrowed::TraderSpotCollateral>,
+    pub locked_deposit: Option<borrowed::TraderLockedDeposit>,
     pub positions: ShortEntries<u64, TraderPosition>,
 }
 
@@ -78,6 +79,7 @@ impl From<borrowed::Trader<'_>> for Trader {
             conditional_order_bits,
             native_sol_collateral: trader.native_sol_collateral(),
             spot_collaterals: trader.spot_collaterals().collect(),
+            locked_deposit: trader.locked_deposit(),
             positions: ShortEntries {
                 len: entries.len() as u64,
                 capacity: trader.capacity(),

@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.7.1 - 2026-10-30
+
+Source Phoenix commit: `1a5e1b01974e5b11a7efe59f95dbcdd8e32fb60e`
+
+### Summary
+
+- `accounts`: Added `Trader::locked_deposit()`, which reads the locked-deposit entry from the trader position map. It returns the new `TraderLockedDeposit` type, which has `locked_quote_lots`, `consumed_quote_lots`, `is_isolated` and `remaining_quote_lots()`. The entry never appears in `positions()`. The new `LOCKED_DEPOSIT_ASSET_INDEX` constant and the new type are exported through the prelude.
+- `accounts`: The owned `Trader` now carries `locked_deposit: Option<TraderLockedDeposit>`.
+- `types`: Added pending escrow request support to trader-state WebSocket payloads. This adds `TraderStateEscrowRequest`, which has an `is_expired(current_slot)` helper, and `TraderStateEscrowAction` (`Noop`, `Cash`, `LockedDeposit`). Both are exported through the prelude. Snapshots and deltas carry the complete current set of requests, ordered by sequence number.
+- `api` / `sdk`: `SubaccountState` now tracks `escrow_requests`. Snapshots replace the list. Deltas replace it only when the field is present, and an empty list clears it. A delta that omits the field leaves the list unchanged.
+
+### Breaking Changes
+
+- `types`: `TraderStateSubaccountSnapshot` has a new public field, `escrow_requests: Vec<TraderStateEscrowRequest>`. `TraderStateSubaccountDelta` has a new public field, `escrow_requests: Option<Vec<TraderStateEscrowRequest>>`. Code that builds these structs with struct literals must add the fields. Deserialization is unaffected, because both fields default when absent.
+- `accounts`: The owned `Trader` struct has a new public `locked_deposit` field. `api`: `SubaccountState` has a new public `escrow_requests` field. Struct-literal construction of either type must add the new field.
+
+### Consumer Notes
+
+- Rust crates move from 0.7.0 to 0.7.1 across the workspace. There are no MSRV or dependency changes.
+- Escrow request amounts are raw on-chain units. For `Cash` and `LockedDeposit` actions these are quote lots. `expiration_slot` is inclusive, and `None` means the request never expires.
+- A locked deposit with `is_isolated` set stays in the account after it is fully consumed. A cross-margin lock is removed instead.
+
 ## v0.7.0 - 2026-10-26
 
 Source Phoenix commit: `961469f9d494b060caae4d0c7f10bf59068340da`

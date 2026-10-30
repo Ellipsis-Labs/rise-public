@@ -67,8 +67,9 @@ pub mod prelude {
     pub use super::trader::capabilities::*;
     pub use super::trader::preferences::*;
     pub use super::trader::{
-        Trader, TraderHeader, TraderPosition, TraderPositionEntry, TraderPositionEntryRef,
-        TraderPositionMapHeader, TraderPositionRef, TraderSpotCollateral, TraderState,
+        LOCKED_DEPOSIT_ASSET_INDEX, Trader, TraderHeader, TraderLockedDeposit, TraderPosition,
+        TraderPositionEntry, TraderPositionEntryRef, TraderPositionMapHeader, TraderPositionRef,
+        TraderSpotCollateral, TraderState,
     };
     #[allow(deprecated)]
     pub use super::trader::{TraderPositionIter, TraderPositions};
