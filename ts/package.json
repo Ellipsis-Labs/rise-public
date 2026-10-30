@@ -1,7 +1,7 @@
 {
   "name": "@ellipsis-labs/rise",
-  "version": "0.6.7",
-  "packageManager": "bun@1.4.2",
+  "version": "0.6.8",
+  "packageManager": "bun@1.4.4",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Ellipsis-Labs/rise-public.git",
@@ -12,7 +12,7 @@
     "access": "public"
   },
   "engines": {
-    "bun": ">=1.4.2"
+    "bun": ">=1.4.4"
   },
   "license": "MIT",
   "description": "Rise SDK - Phoenix HTTP client",
