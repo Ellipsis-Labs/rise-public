@@ -63,8 +63,9 @@ On-chain CPI examples:
 
 These onboarding routes are not interchangeable:
 
-- Use `POST /v1/invite/activate` when you have an access code / allowlist code.
-  Send that value as `code`.
+- Use `POST /v1/referral/activate` (`invite().activateReferral(...)` in
+  TypeScript, `invite().activate_referral(...)` in Rust) when you have a
+  referral code and an authenticated user session for the trader authority.
 - Use `POST /v1/referral/activate-tx` when you have a referral code and want
   delegated onboarding. The referral code is required, and the trader authority
   must sign the transaction.
@@ -85,46 +86,10 @@ examples are also available in
 [referral_activation_tx.rs](./rust/sdk/examples/referral_activation_tx.rs), and
 [builder_onboarding_tx.rs](./rust/sdk/examples/builder_onboarding_tx.rs).
 
-The access-code route remains simpler because the user already has an allowlist
-code:
-
-TypeScript:
-
-```ts
-import { PhoenixHttpClient } from "@ellipsis-labs/rise";
-
-const client = new PhoenixHttpClient({
-  apiUrl: "https://perp-api.phoenix.trade",
-  auth: true,
-});
-
-const authority = "AUTHORITY_PUBKEY";
-
-const activatedWithAccessCode = await client.invite().activateInvite({
-  authority,
-  code: "ACCESS_CODE",
-});
-```
-
-Rust:
-
-```rust
-use phoenix_rise::api::PhoenixHttpClient;
-use solana_pubkey::Pubkey;
-use std::str::FromStr;
-
-let client = PhoenixHttpClient::new_from_env_with_auth()?;
-let authority = Pubkey::from_str("AUTHORITY_PUBKEY")?;
-
-let trader_from_access = client
-    .invite()
-    .activate_invite(&authority, "ACCESS_CODE")
-    .await?;
-```
-
-Use
-[register_trader.rs](./rust/sdk/examples/register_trader.rs)
-when you want a ready-to-run Rust version of this flow.
+Access-code activation (`POST /v1/invite/activate`) has been retired. Use
+referral activation instead;
+[register_trader.rs](./rust/sdk/examples/register_trader.rs) is a ready-to-run
+Rust version of `POST /v1/referral/activate`.
 
 ## Fetching Exchange, Market, and Trader State
 

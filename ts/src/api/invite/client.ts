@@ -9,26 +9,20 @@ import {
   type BuildActivateReferralTxRequestWithClientParams,
 } from "./referralActivationTx";
 import type {
-  ActivateInviteRequest,
   ActivateInviteResponse,
   ActivateReferralRequest,
   ActivateReferralTxRequest,
   ActivateReferralTxResponse,
   CheckWalletResponse,
   ReferralActivationPermissionResponse,
-  ValidateInviteRequest,
-  ValidateInviteResponse,
 } from "./types";
 import {
-  ActivateInviteRequestSchema,
   ActivateInviteResponseSchema,
   ActivateReferralRequestSchema,
   ActivateReferralTxRequestSchema,
   ActivateReferralTxResponseSchema,
   CheckWalletResponseSchema,
   ReferralActivationPermissionResponseSchema,
-  ValidateInviteRequestSchema,
-  ValidateInviteResponseSchema,
 } from "./types";
 
 const REFERRAL_ACTIVATION_AUTH_MESSAGE =
@@ -61,35 +55,11 @@ function withReferralActivationAuthContext(error: unknown): never {
 export class V1InviteClient {
   constructor(private readonly http: HttpTransport) {}
 
-  async validateInvite(
-    request: ValidateInviteRequest
-  ): Promise<ValidateInviteResponse> {
-    const payload = ValidateInviteRequestSchema.parse(request);
-    return post(
-      this.http,
-      "/v1/invite/validate",
-      ValidateInviteResponseSchema,
-      payload
-    );
-  }
-
   async checkWallet(wallet: string): Promise<CheckWalletResponse> {
     return get(
       this.http,
       `/v1/invite/check/${wallet}`,
       CheckWalletResponseSchema
-    );
-  }
-
-  async activateInvite(
-    request: ActivateInviteRequest
-  ): Promise<ActivateInviteResponse> {
-    const payload = ActivateInviteRequestSchema.parse(request);
-    return post(
-      this.http,
-      "/v1/invite/activate",
-      ActivateInviteResponseSchema,
-      payload
     );
   }
 

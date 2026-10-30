@@ -1,31 +1,5 @@
 import z from "zod";
 
-export interface ValidateInviteRequest {
-  code: string;
-  wallet_address: string;
-  transaction_signature?: string;
-}
-
-export const ValidateInviteRequestSchema: z.ZodType<ValidateInviteRequest> =
-  z.object({
-    code: z.string(),
-    wallet_address: z.string(),
-    transaction_signature: z.string().optional(),
-  });
-
-export interface ValidateInviteResponse {
-  success: boolean;
-  message: string;
-  whitelisted: boolean;
-}
-
-export const ValidateInviteResponseSchema: z.ZodType<ValidateInviteResponse> =
-  z.object({
-    success: z.boolean(),
-    message: z.string(),
-    whitelisted: z.boolean(),
-  });
-
 export interface CheckWalletResponse {
   whitelisted: boolean;
   whitelisted_at?: string | null;
@@ -37,17 +11,6 @@ export const CheckWalletResponseSchema: z.ZodType<CheckWalletResponse> =
     whitelisted: z.boolean(),
     whitelisted_at: z.string().nullable().optional(),
     invite_code_used: z.string().nullable().optional(),
-  });
-
-export interface ActivateInviteRequest {
-  authority: string;
-  code: string;
-}
-
-export const ActivateInviteRequestSchema: z.ZodType<ActivateInviteRequest> =
-  z.object({
-    authority: z.string(),
-    code: z.string(),
   });
 
 export interface ActivateReferralRequest {
