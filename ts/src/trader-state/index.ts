@@ -1,3 +1,5 @@
+export { isEscrowRequestExpired } from "./escrowRequests";
+export { getLockedDepositTotals } from "./lockedDeposits";
 export { createPhoenixTraderStateManager } from "./manager";
 export {
   createTraderStateStore,

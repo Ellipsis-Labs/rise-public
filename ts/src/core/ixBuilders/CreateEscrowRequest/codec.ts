@@ -27,7 +27,8 @@ import type { EscrowAction } from "./types";
 
 export type InternalEscrowAction =
   | { __kind: "noop"; _padding0: number[]; _padding1: number[] }
-  | { __kind: "cash"; amount: bigint | number; _padding0: number[] };
+  | { __kind: "cash"; amount: bigint | number; _padding0: number[] }
+  | { __kind: "lockedDeposit"; amount: bigint | number; _padding0: number[] };
 
 const getEscrowActionEncoder = () =>
   getDiscriminatedUnionEncoder([
@@ -40,6 +41,13 @@ const getEscrowActionEncoder = () =>
     ],
     [
       "cash",
+      getStructEncoder([
+        ["amount", getU64Encoder()],
+        ["_padding0", getArrayEncoder(getU8Encoder(), { size: 128 })],
+      ]),
+    ],
+    [
+      "lockedDeposit",
       getStructEncoder([
         ["amount", getU64Encoder()],
         ["_padding0", getArrayEncoder(getU8Encoder(), { size: 128 })],
@@ -58,6 +66,13 @@ const getEscrowActionDecoder = () =>
     ],
     [
       "cash",
+      getStructDecoder([
+        ["amount", getU64Decoder()],
+        ["_padding0", getArrayDecoder(getU8Decoder(), { size: 128 })],
+      ]),
+    ],
+    [
+      "lockedDeposit",
       getStructDecoder([
         ["amount", getU64Decoder()],
         ["_padding0", getArrayDecoder(getU8Decoder(), { size: 128 })],
@@ -83,6 +98,14 @@ export const normalizeActions = (
         __kind: "noop",
         _padding0: new Array<number>(8).fill(0),
         _padding1: new Array<number>(128).fill(0),
+      };
+    }
+
+    if (action.kind === "lockedDeposit") {
+      return {
+        __kind: "lockedDeposit",
+        amount: action.amount,
+        _padding0: new Array<number>(128).fill(0),
       };
     }
 

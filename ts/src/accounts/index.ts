@@ -132,6 +132,7 @@ export type {
   TraderPosition,
   TraderPositionEntry,
   TraderPositionId,
+  TraderLockedDeposit,
   TraderSpotCollateral,
   TraderState,
   TransferFeeTier,

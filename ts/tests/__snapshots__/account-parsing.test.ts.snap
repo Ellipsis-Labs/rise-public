@@ -6118,6 +6118,7 @@ exports[`raw account parsing > decodes Trader fixtures 1`] = `
   "fundingKey": "FuWL4WbMMA9Einm1tRLcmqKysEYShuL8VjfDvWM6M2bP",
   "key": "JBUARfdh3GNpFxnMxKsxonK8Ge8796j6DD47JZfAUr5e",
   "lastDepositSlot": "408215792",
+  "lockedDeposit": null,
   "maxPositions": 128,
   "nativeSolCollateral": "0",
   "numMarketsWithSplines": 0,

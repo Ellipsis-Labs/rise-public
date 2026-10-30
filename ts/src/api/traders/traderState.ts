@@ -231,6 +231,37 @@ export interface TraderStateSpotCollateral {
   maxBalance?: string;
 }
 
+/** Current lock entry, in raw quote lots. Isolated entries are snapshots,
+ * not additional grants. Zero amounts clear a previous lock. */
+export interface TraderStateLockedDeposit {
+  lockedQuoteLots: string;
+  consumedQuoteLots: string;
+}
+
+/** Escrow action carried by a pending request. Amounts are raw on-chain
+ * units (quote lots for cash and locked deposits), as digit strings. */
+export type TraderStateEscrowAction =
+  | { kind: "noop" }
+  | { kind: "cash"; amount: string }
+  | { kind: "lockedDeposit"; amount: string };
+
+/** Pending escrow request addressed to a subaccount. It is removed from the
+ * list once `expirationSlot` has passed. */
+export interface TraderStateEscrowRequest {
+  sequenceNumber: string;
+  senderAuthority: string;
+  senderPdaIndex: number;
+  senderSubaccountIndex: number;
+  /** `null` never expires. */
+  expirationOffset: number | null;
+  initialSlot: string;
+  /** Last slot at which the request can be accepted (inclusive),
+   * `initialSlot + expirationOffset`; `null` never expires. */
+  expirationSlot: string | null;
+  /** Non-noop actions only. */
+  actions: TraderStateEscrowAction[];
+}
+
 export interface TraderStateSubaccountSnapshot {
   subaccountIndex: number;
   sequence: number;
@@ -238,6 +269,9 @@ export interface TraderStateSubaccountSnapshot {
   collateral: string;
   /** The SOL row is always present, even at zero balance. */
   spotCollaterals?: TraderStateSpotCollateral[];
+  lockedDeposit?: TraderStateLockedDeposit | null;
+  /** Complete current set, ordered by sequence number. */
+  escrowRequests?: TraderStateEscrowRequest[];
   capabilities?: TraderStateCapabilities;
   cooldownStatus?: CooldownStatus;
   positions: TraderStatePositionSnapshot[];
@@ -253,6 +287,10 @@ export interface TraderStateSubaccountDelta {
   collateral: string;
   /** Carries the full current list, not a diff. */
   spotCollaterals?: TraderStateSpotCollateral[];
+  lockedDeposit?: TraderStateLockedDeposit | null;
+  /** Carries the full current list, not a diff. Present only when the list
+   * changed; an empty list clears it. */
+  escrowRequests?: TraderStateEscrowRequest[] | null;
   capabilities?: TraderStateCapabilities;
   cooldownStatus?: CooldownStatus;
   positions: TraderStatePositionDelta[];
@@ -536,6 +574,35 @@ const TraderStateOrderHistoryDeltaSchema: z.ZodType<TraderStateOrderHistoryDelta
     filledSize: z.string(),
   });
 
+// Unsigned integer strings preserve u64 precision and can be parsed as bigint.
+const TraderStateLockedDepositSchema: z.ZodType<TraderStateLockedDeposit> =
+  z.object({
+    lockedQuoteLots: z.string().regex(/^\d+$/),
+    consumedQuoteLots: z.string().regex(/^\d+$/),
+  });
+
+const TraderStateEscrowActionSchema: z.ZodType<TraderStateEscrowAction> =
+  z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("noop") }),
+    z.object({ kind: z.literal("cash"), amount: z.string().regex(/^\d+$/) }),
+    z.object({
+      kind: z.literal("lockedDeposit"),
+      amount: z.string().regex(/^\d+$/),
+    }),
+  ]);
+
+const TraderStateEscrowRequestSchema: z.ZodType<TraderStateEscrowRequest> =
+  z.object({
+    sequenceNumber: z.string().regex(/^\d+$/),
+    senderAuthority: z.string(),
+    senderPdaIndex: z.number(),
+    senderSubaccountIndex: z.number(),
+    expirationOffset: z.number().nullable(),
+    initialSlot: z.string().regex(/^\d+$/),
+    expirationSlot: z.string().regex(/^\d+$/).nullable(),
+    actions: z.array(TraderStateEscrowActionSchema),
+  });
+
 const TraderStateSpotCollateralSchema: z.ZodType<TraderStateSpotCollateral> =
   z.object({
     assetIndex: z.number(),
@@ -551,6 +618,8 @@ const TraderStateSubaccountSnapshotSchema: z.ZodType<TraderStateSubaccountSnapsh
     sequence: z.number(),
     collateral: z.string(),
     spotCollaterals: z.array(TraderStateSpotCollateralSchema).default([]),
+    lockedDeposit: TraderStateLockedDepositSchema.nullish(),
+    escrowRequests: z.array(TraderStateEscrowRequestSchema).default([]),
     capabilities: TraderStateCapabilitiesSchema.optional(),
     cooldownStatus: CooldownStatusSchema.optional(),
     positions: z.array(TraderStatePositionSnapshotSchema).default([]),
@@ -565,6 +634,8 @@ const TraderStateSubaccountDeltaSchema: z.ZodType<TraderStateSubaccountDelta> =
     sequence: z.number(),
     collateral: z.string(),
     spotCollaterals: z.array(TraderStateSpotCollateralSchema).default([]),
+    lockedDeposit: TraderStateLockedDepositSchema.nullish(),
+    escrowRequests: z.array(TraderStateEscrowRequestSchema).nullish(),
     capabilities: TraderStateCapabilitiesSchema.optional(),
     cooldownStatus: CooldownStatusSchema.optional(),
     positions: z.array(TraderStatePositionDeltaSchema).default([]),

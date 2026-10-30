@@ -138,6 +138,9 @@ describe("margin spot collateral valuation", () => {
     // With no margin requirement the withdrawable amount is the quote balance,
     // not the spot on top of it.
     expect(margin.margin.withdrawableQuoteCollateralQuoteLots).toBe("1000000");
+    expect(margin.margin.withdrawableQuoteCollateralPreLockQuoteLots).toBe(
+      "1000000"
+    );
     expect(margin.spotCollaterals).toEqual([
       {
         assetIndex: 4294901760,

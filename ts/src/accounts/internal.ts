@@ -61,6 +61,8 @@ const TRADER_POSITION_ENTRY_ASSET_INDEX_BOUND = 0xff000000n;
 const TRADER_POSITION_ENTRY_ASSET_INDEX_MASK = 0xffffffffn;
 const SPOT_ASSET_INDEX_PREFIX = 0xfffe0000n;
 const ASSET_INDEX_BAND_MASK = 0xffff0000n;
+const LOCKED_DEPOSIT_ASSET_INDEX = 0xffff0001n;
+const LOCKED_DEPOSIT_ISOLATED_FLAG = 1n;
 /**
  * Asset index of the native SOL spot collateral entry, as the `bigint` the
  * position-map decoder keys on. Derived from the single authoritative
@@ -686,8 +688,22 @@ export interface TraderSpotCollateral {
 }
 
 /**
+ * The trader's locked deposit from the trader position map, in quote lots.
+ * `lockedQuoteLots` of the trader's quote collateral must stay in the account
+ * until losses and fees consume it; `consumedQuoteLots` never exceeds it.
+ */
+export interface TraderLockedDeposit {
+  lockedQuoteLots: bigint;
+  consumedQuoteLots: bigint;
+  /** Set on an isolated subaccount's lock, which stays in the account after
+   * it is fully consumed; a cross-margin lock is removed instead. */
+  isIsolated: boolean;
+}
+
+/**
  * Everything the trader position map holds: the positions themselves plus the
- * spot collateral entries that share the map but are not positions.
+ * spot collateral and locked-deposit entries that share the map but are not
+ * positions.
  */
 export interface TraderEntries {
   positions: ShortEntries<bigint, TraderPosition>;
@@ -695,6 +711,8 @@ export interface TraderEntries {
   nativeSolCollateral: bigint;
   /** All spot collateral entries, native SOL included, in account order. */
   spotCollaterals: TraderSpotCollateral[];
+  /** The locked deposit, or `null` when the trader has none. */
+  lockedDeposit: TraderLockedDeposit | null;
 }
 
 export const getTraderEntriesDecoder = (): Decoder<TraderEntries> =>
@@ -710,6 +728,7 @@ export const getTraderEntriesDecoder = (): Decoder<TraderEntries> =>
       const positionDecoder = getTraderPositionDecoder();
       const u64Decoder = getU64Decoder();
       const spotCollaterals: TraderSpotCollateral[] = [];
+      let lockedDeposit: TraderLockedDeposit | null = null;
       let offset = 0;
       const buffer = new Uint8Array(
         shortMap.data.buffer,
@@ -736,6 +755,16 @@ export const getTraderEntriesDecoder = (): Decoder<TraderEntries> =>
             balance,
             maxPerTraderBalanceOverride: override === 0n ? null : override,
           });
+        } else if (assetIndex === LOCKED_DEPOSIT_ASSET_INDEX) {
+          // Value layout: locked, consumed, flags (bit 0 = isolated), padding.
+          const [locked] = u64Decoder.read(buffer, afterAssetId);
+          const [consumed] = u64Decoder.read(buffer, afterAssetId + 8);
+          const [flags] = u64Decoder.read(buffer, afterAssetId + 16);
+          lockedDeposit = {
+            lockedQuoteLots: locked,
+            consumedQuoteLots: consumed,
+            isIsolated: (flags & LOCKED_DEPOSIT_ISOLATED_FLAG) !== 0n,
+          };
         }
         offset = afterValue;
       }
@@ -751,6 +780,7 @@ export const getTraderEntriesDecoder = (): Decoder<TraderEntries> =>
             (spot) => BigInt(spot.assetIndex) === NATIVE_SOL_ASSET_INDEX
           )?.balance ?? 0n,
         spotCollaterals,
+        lockedDeposit,
       };
     }
   );

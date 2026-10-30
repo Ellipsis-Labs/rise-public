@@ -192,9 +192,11 @@ export interface TraderView {
   /** Maximum quote collateral currently withdrawable: the tighter of
    * effectiveCollateralForWithdrawals plus discounted spot collateral minus
    * initialMarginForWithdrawals, and the positive part of
-   * effectiveCollateralForWithdrawals. Defaults to zero for API versions that
-   * predate the field. */
+   * effectiveCollateralForWithdrawals, less lockedDepositRemaining and floored
+   * at zero. Defaults to zero for API versions that predate the field. */
   withdrawableQuoteCollateral: TokenAmount;
+  /** Current per-account lock reserve in quote units. */
+  lockedDepositRemaining?: TokenAmount;
   unrealizedPnl: TokenAmount;
   discountedUnrealizedPnl: TokenAmount;
   unsettledFundingOwed: TokenAmount;
@@ -235,6 +237,11 @@ export const TraderViewSchema: z.ZodType<TraderView> = z
     effectiveCollateral: TokenAmountSchema,
     effectiveCollateralForWithdrawals: TokenAmountSchema,
     withdrawableQuoteCollateral: TokenAmountSchema.optional().default({
+      value: 0,
+      decimals: 6,
+      ui: "0",
+    }),
+    lockedDepositRemaining: TokenAmountSchema.optional().default({
       value: 0,
       decimals: 6,
       ui: "0",

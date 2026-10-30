@@ -311,12 +311,17 @@ export const computeSubaccountMarginFromInputs = (
     effectiveCollateralForWithdrawals > 0n
       ? effectiveCollateralForWithdrawals
       : 0n;
-  const withdrawableQuoteCollateral =
+  const unlockedWithdrawalBound =
     withdrawalMarginBound < withdrawalPayoutBound
       ? withdrawalMarginBound > 0n
         ? withdrawalMarginBound
         : 0n
       : withdrawalPayoutBound;
+  const locked = BigInt(inputs.lockedDeposit?.lockedQuoteLots ?? "0");
+  const consumed = BigInt(inputs.lockedDeposit?.consumedQuoteLots ?? "0");
+  const reserve = locked > consumed ? locked - consumed : 0n;
+  const withdrawableQuoteCollateral =
+    unlockedWithdrawalBound > reserve ? unlockedWithdrawalBound - reserve : 0n;
   const portfolioValue =
     collateralBalance +
     totalUnrealizedPnl +
@@ -338,6 +343,8 @@ export const computeSubaccountMarginFromInputs = (
     effectiveCollateralQuoteLots: effectiveCollateral.toString(),
     effectiveCollateralForWithdrawalsQuoteLots:
       effectiveCollateralForWithdrawals.toString(),
+    withdrawableQuoteCollateralPreLockQuoteLots:
+      unlockedWithdrawalBound.toString(),
     withdrawableQuoteCollateralQuoteLots:
       withdrawableQuoteCollateral.toString(),
     portfolioValueQuoteLots: portfolioValue.toString(),
@@ -1133,6 +1140,9 @@ const buildScopedSubaccountInput = (
       collateralBalanceQuoteLots:
         scope.isolatedCollateralBalanceQuoteLots ??
         subaccount.collateralBalanceQuoteLots,
+      lockedDeposit: subaccount.lockedDeposit
+        ? { ...subaccount.lockedDeposit }
+        : undefined,
       // Spot collateral only backs cross margin, so isolated scopes drop it.
       markets: [cloneMarketInput(currentMarket ?? { symbol })],
     };
@@ -1245,6 +1255,10 @@ const applyFillPositionAction = (
     projection.realizedPnlQuoteLots -
     feeQuoteLots
   ).toString();
+  // The realized loss and the fee each consume the lock; a realized gain does
+  // not offset the fee.
+  consumeLockedDeposit(subaccount, -projection.realizedPnlQuoteLots);
+  consumeLockedDeposit(subaccount, feeQuoteLots);
   marketInput.position = projectedPosition ?? undefined;
 
   return {
@@ -1602,6 +1616,27 @@ const computeMarginSimulationDelta = (
   ),
 });
 
+/**
+ * Mirrors on-chain loss charging: each quote loss consumes the same amount of
+ * the locked deposit, clamped to the locked amount. Credits (non-positive
+ * `lossQuoteLots`) never restore it.
+ */
+const consumeLockedDeposit = (
+  subaccount: SubaccountMarginInputs,
+  lossQuoteLots: bigint
+): void => {
+  const lock = subaccount.lockedDeposit;
+  if (!lock || lossQuoteLots <= 0n) {
+    return;
+  }
+  const locked = BigInt(lock.lockedQuoteLots);
+  const consumed = BigInt(lock.consumedQuoteLots) + lossQuoteLots;
+  subaccount.lockedDeposit = {
+    lockedQuoteLots: lock.lockedQuoteLots,
+    consumedQuoteLots: (consumed < locked ? consumed : locked).toString(),
+  };
+};
+
 const settleFundingForActionScope = (
   subaccount: SubaccountMarginInputs,
   scope: SimulationScope,
@@ -1624,6 +1659,8 @@ const settleFundingForActionScope = (
       marketInput.position.unsettledFundingQuoteLots
     );
     settledFundingQuoteLots += unsettledFundingQuoteLots;
+    // Each market's funding settles separately on-chain.
+    consumeLockedDeposit(subaccount, -unsettledFundingQuoteLots);
     marketInput.position = {
       ...marketInput.position,
       unsettledFundingQuoteLots: "0",
@@ -1817,6 +1854,9 @@ export const cloneSubaccountInput = (
 ): SubaccountMarginInputs => ({
   subaccountIndex: subaccount.subaccountIndex,
   collateralBalanceQuoteLots: subaccount.collateralBalanceQuoteLots,
+  lockedDeposit: subaccount.lockedDeposit
+    ? { ...subaccount.lockedDeposit }
+    : undefined,
   markets: subaccount.markets.map((marketInput) =>
     cloneMarketInput(marketInput)
   ),

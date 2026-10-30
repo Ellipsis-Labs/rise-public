@@ -73,6 +73,7 @@ export const getTraderDecoder = (): Decoder<Trader> =>
         positions: entries.positions,
         nativeSolCollateral: entries.nativeSolCollateral,
         spotCollaterals: entries.spotCollaterals,
+        lockedDeposit: entries.lockedDeposit,
         conditionalOrderBits,
         occupiedConditionalOrderIndices:
           getOccupiedConditionalOrderIndices(conditionalOrderBits),

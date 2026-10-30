@@ -3,6 +3,33 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.6.6 - 2026-10-30
+
+Source Phoenix commit: `1a5e1b01974e5b11a7efe59f95dbcdd8e32fb60e`
+
+### Summary
+
+- Adds locked-deposit support. `Trader` accounts now decode `lockedDeposit`. Trader-state snapshots and deltas carry `lockedDeposit`. `SubaccountMarginInputs` and the margin snapshot builders accept it. `getLockedDepositTotals` aggregates it across a trader PDA.
+- Margin calculations now subtract the remaining locked deposit from `withdrawableQuoteCollateralQuoteLots`. The new `withdrawableQuoteCollateralPreLockQuoteLots` field holds the value before that subtraction. Margin simulations consume the lock on realized losses, fees, and paid funding.
+- Adds pending escrow requests to trader state. The snapshot and delta schemas, the store, and the new `isEscrowRequestExpired` helper cover them. The `lockedDeposit` escrow action kind is supported in the `CreateEscrowRequest` builder and in API view schemas.
+- Adds `buildTransferCollateralFlow`, which emits a `ReallocTrader` instruction before transfers from subaccount 0 to an isolated subaccount. An optional `payer` sets who pays rent. The place limit, market, and multi-limit order flows now also emit `reallocTrader` ahead of the funding transfer.
+- Adds `lockedDepositRemaining` to `TraderView`, defaulting to zero when the API omits it.
+
+### Breaking Changes
+
+- `withdrawableQuoteCollateralQuoteLots` (margin output) and `TraderView.withdrawableQuoteCollateral` now exclude the remaining locked deposit, so values for accounts with a lock are lower than before.
+- The `EscrowAction` and `EscrowActionView` unions gain a `lockedDeposit` variant. Exhaustive `switch` statements over `kind` will fail to compile.
+- Interfaces gain required fields. Code that constructs or mocks `Trader` (`lockedDeposit`) or `TraderStateSubaccountState` (`escrowRequests`) must now supply them.
+- Order flows with a funding transfer (`buildPlaceLimitOrderFlow`, `buildPlaceMarketOrderFlow`, `buildPlaceMultiLimitOrderFlow`) now include an extra `ReallocTrader` instruction before the transfer. Code that depends on instruction count or order, or that assumes `authority` is the only signer, must account for it.
+
+### Consumer Notes
+
+- `lockedDeposit` and `escrowRequests` are optional on the wire. When a delta omits them, the manager keeps the previous values. An explicit zero lock or an empty `escrowRequests` array clears them.
+- Use `withdrawableQuoteCollateralPreLockQuoteLots` to size cross-to-isolated transfers. Use `withdrawableQuoteCollateralQuoteLots` for withdrawals.
+- `getLockedDepositTotals` counts only subaccount 0's grant. It sums consumption across all subaccounts and clamps the remainder at zero.
+- `buildTransferCollateralFlow` and the new types are exported from the public SDK entry. `TraderStateLockedDeposit`, `TraderStateEscrowRequest`, and `TraderStateEscrowAction` are exported from the API schemas entry.
+- The `vitest` dev dependency moves to `^4.1.12`. This does not affect published package behavior.
+
 ## v0.6.5 - 2026-10-30
 
 Source Phoenix commit: `21a268ef95e72fc18a88714d0603ece0f34aed2d`

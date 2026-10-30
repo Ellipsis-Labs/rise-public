@@ -2,9 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   createTraderStateStore,
   createPhoenixTraderStateManager,
+  isEscrowRequestExpired,
+  type TraderStateEscrowRequest,
   type TraderStateSnapshotResponse,
   type TraderStateUpdate,
 } from "@/index";
+import {
+  TraderStateSubaccountDeltaSchema,
+  TraderStateSubaccountSnapshotSchema,
+} from "@/api/traders/traderState";
 
 const CAPABILITIES = {
   flags: 1,
@@ -240,6 +246,128 @@ describe("createPhoenixTraderStateManager", () => {
 
     release();
     expect(resource.status().isConnected).toBe(false);
+    manager.close();
+  });
+
+  it("propagates lock snapshots, retains omitted deltas and clears explicit zeroes", async () => {
+    const port = createPushPort();
+    const snapshot = createSnapshotResponse();
+    const lock = { lockedQuoteLots: "100", consumedQuoteLots: "20" };
+    snapshot.snapshot.subaccounts[0].lockedDeposit = lock;
+    const manager = createPhoenixTraderStateManager({
+      api: { getTraderStateSnapshot: async () => snapshot },
+      traderState: port.traderState,
+    });
+    const resource = manager.resource({
+      authority: "authority-1",
+      traderPdaIndex: 0,
+    });
+    const release = resource.retain();
+    await resource.ready();
+    expect(resource.marginInputs()?.subaccounts[0].lockedDeposit).toEqual(lock);
+    for (const [sequence, lockedDeposit] of [
+      [2, undefined],
+      [3, { lockedQuoteLots: "0", consumedQuoteLots: "0" }],
+    ] as const) {
+      port.push({
+        authority: "authority-1",
+        traderPdaIndex: 0,
+        slot: BigInt(sequence + 10),
+        messageType: "delta",
+        subaccounts: [],
+        deltas: [
+          {
+            subaccountIndex: 0,
+            sequence,
+            collateral: "1000",
+            lockedDeposit,
+            positions: [],
+            orders: [],
+            splines: [],
+            triggers: [],
+            tradeHistory: [],
+            orderHistory: [],
+          },
+        ],
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(resource.subaccount(0)?.lockedDeposit).toEqual(
+        lockedDeposit ?? lock
+      );
+      expect(resource.snapshot()?.subaccounts[0].lockedDeposit).toEqual(
+        lockedDeposit ?? lock
+      );
+      expect(resource.marginInputs()?.subaccounts[0].lockedDeposit).toEqual(
+        lockedDeposit ?? lock
+      );
+    }
+    release();
+    manager.close();
+  });
+
+  it("replaces escrow requests from snapshots and deltas that carry them", async () => {
+    const port = createPushPort();
+    const snapshot = createSnapshotResponse();
+    const request: TraderStateEscrowRequest = {
+      sequenceNumber: "7",
+      senderAuthority: "sender-1",
+      senderPdaIndex: 0,
+      senderSubaccountIndex: 0,
+      expirationOffset: 5,
+      initialSlot: "10",
+      expirationSlot: "15",
+      actions: [{ kind: "lockedDeposit", amount: "100" }],
+    };
+    snapshot.snapshot.subaccounts[0] =
+      TraderStateSubaccountSnapshotSchema.parse({
+        ...snapshot.snapshot.subaccounts[0],
+        escrowRequests: [request],
+      });
+    const manager = createPhoenixTraderStateManager({
+      api: { getTraderStateSnapshot: async () => snapshot },
+      traderState: port.traderState,
+    });
+    const resource = manager.resource({
+      authority: "authority-1",
+      traderPdaIndex: 0,
+    });
+    const release = resource.retain();
+    await resource.ready();
+    expect(resource.subaccount(0)?.escrowRequests).toEqual([request]);
+    // The expiration slot is the last slot the request can be accepted.
+    expect(isEscrowRequestExpired(request, 15n)).toBe(false);
+    expect(isEscrowRequestExpired(request, 16n)).toBe(true);
+    expect(isEscrowRequestExpired({ expirationSlot: null }, 2n ** 63n)).toBe(
+      false
+    );
+    // Omitted (older server) keeps the list; an empty list clears it.
+    for (const [sequence, escrowRequests] of [
+      [2, undefined],
+      [3, []],
+    ] as const) {
+      const delta = TraderStateSubaccountDeltaSchema.parse({
+        subaccountIndex: 0,
+        sequence,
+        collateral: "1000",
+        escrowRequests,
+      });
+      port.push({
+        authority: "authority-1",
+        traderPdaIndex: 0,
+        slot: BigInt(sequence + 10),
+        messageType: "delta",
+        subaccounts: [],
+        deltas: [delta],
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(resource.subaccount(0)?.escrowRequests).toEqual(
+        escrowRequests ?? [request]
+      );
+      expect(resource.snapshot()?.subaccounts[0].escrowRequests).toEqual(
+        escrowRequests ?? [request]
+      );
+    }
+    release();
     manager.close();
   });
 
