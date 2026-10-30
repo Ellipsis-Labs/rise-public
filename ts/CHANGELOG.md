@@ -3,6 +3,25 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.6.8 - 2026-10-30
+
+Source Phoenix commit: `c06f80f1cf4bf433bcc3287631930d833ff6ba0d`
+
+### Summary
+
+- Bumped `@ellipsis-labs/rise` from `0.6.7` to `0.6.8`.
+- Raised the minimum supported Bun version from `1.4.2` to `1.4.4`.
+
+### Breaking Changes
+
+- The `engines.bun` requirement changed from `>=1.4.2` to `>=1.4.4`. Consumers on Bun `1.4.2` or `1.4.3` may see engine warnings or install failures, depending on their engine-strictness settings.
+
+### Consumer Notes
+
+- Upgrade Bun to `1.4.4` or later before installing this release.
+- The diff has no public export, type, HTTP client, or runtime changes.
+- The `packageManager` field now pins `bun@1.4.4`. This affects repository tooling and does not change the published runtime API.
+
 ## v0.6.7 - 2026-10-30
 
 Source Phoenix commit: `f792ed49ccbab9b603d26a746902d89b24037195`
