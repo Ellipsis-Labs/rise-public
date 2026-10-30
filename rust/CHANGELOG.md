@@ -3,6 +3,33 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.8.1 - 2026-10-30
+
+Source Phoenix commit: `5d208723c66907f0b5641333d6ec13d7e7251117`
+
+### Summary
+
+- **Funding clamp support (`accounts`, `events`, `math`):** `FundingAccumulator` now exposes `funding_clamp_center`, `funding_clamp_band_radius`, `funding_divisor` and `funding_remainder`, taken from what was previously padding. The struct size stays 96 bytes. It also gains `is_paused()`, and the serialized form adds the four new fields. A new `FundingParametersUpdatedWithClamp` market event carries the clamp parameters. `FundingCalculator::projected_rate_percentage` projects the rate that settles at the next funding boundary and applies the clamp, divisor and carried remainder.
+- **Trader preference updates (`ix`):** The new `update_trader_preference_bits` module provides `create_update_trader_preference_bits_ix`. A wallet-signed instruction toggles `CollateralSweep` and `PositionAuthoritySwap` through `TraderPreferenceToggleTarget`. `PhoenixInstruction::UpdateTraderPreferenceBits` is added and the module is re-exported in the prelude.
+- **Withdrawable collateral (`math`):** `TraderPortfolioMargin::calculate_withdrawable_collateral` now accounts for unsettled funding losses, because settlement consumes the remaining locked deposit before the margin check. Each market's loss is counted separately and credits in other markets don't offset it.
+- **Docs (`sdk`):** The README now documents the collateral asset registry semantics and says the exchange cache subscription explicitly requests JSON snapshots.
+
+### Breaking Changes
+
+- `FundingCalculator::new` takes three new arguments: `funding_clamp_center`, `funding_clamp_band_radius` and `funding_divisor`. Pass `0, 0, 1` to keep the previous unclamped behavior.
+- `FundingParametersUpdated` (event, enum variant and struct) is deprecated in favor of `FundingParametersUpdatedWithClamp`. `MarketEvent` and `MarketEventType` gain new variants, so exhaustive `match` statements must handle them.
+- `RegisterTraderParams` and `OnboardTraderParams` now mask `trader_preference_bits` to the `DisableCollateralSweep` bit only. Any other bits are silently dropped. Set them afterwards with `update_trader_preference_bits`.
+- `calculate_withdrawable_collateral` can return larger values than before for traders with unsettled funding losses and a remaining locked deposit.
+- The `PhoenixInstruction` variant count rises from 110 to 111. The new variant is inserted mid-enum, after `DelegateTrader`.
+- `FundingAccumulator` serialization has four additional fields, which may affect strict downstream schemas.
+
+### Consumer Notes
+
+- Upgrade all Rise crates together to 0.8.1.
+- Indexers and event consumers should decode `FundingParametersUpdatedWithClamp` (borsh tag 74). The clamp center and band radius are in hundredths of a basis point of price.
+- Callers that relied on `RegisterTrader` or `OnboardTrader` to set preferences other than the collateral-sweep bit must now send a follow-up `update_trader_preference_bits` instruction signed by the trader wallet.
+- To display funding for the current interval, use `projected_rate_percentage`. It needs the accumulator, remainder, `last_diff`, timestamps, mark price and index price, and it returns `0.0` for paused markets. `current_rate_percentage` does not apply the clamp.
+
 ## v0.8.0 - 2026-10-30
 
 Source Phoenix commit: `42b97feb2da38be7e95b4f3284ccff1c97ecb6b7`

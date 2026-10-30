@@ -16,6 +16,10 @@ const_assert_eq!(core::mem::size_of::<LeverageTier>(), 24);
 const_assert_eq!(core::mem::size_of::<TransferFeeTier>(), 16);
 const_assert_eq!(core::mem::size_of::<RiskParams>(), 200);
 const_assert_eq!(core::mem::size_of::<FundingAccumulator>(), 96);
+const_assert_eq!(
+    core::mem::offset_of!(FundingAccumulator, funding_remainder),
+    88
+);
 const_assert_eq!(core::mem::size_of::<OpenInterestParams>(), 16);
 const_assert_eq!(core::mem::size_of::<StableIndexedShortMapMetadata>(), 8);
 const_assert_eq!(core::mem::size_of::<PerpAssetMetadataLayout>(), 1568);
@@ -74,6 +78,7 @@ pub struct RiskParams {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Pod, Zeroable)]
 pub struct FundingAccumulator {
+    /// Time-integrated premium plus the carried settlement remainder.
     pub acc: SignedQuoteLotsPerBaseLotUpcasted,
     pub last_diff: SignedQuoteLotsPerBaseLotUpcasted,
     pub cumulative_funding_rate: SignedQuoteLotsPerBaseLot,
@@ -83,7 +88,19 @@ pub struct FundingAccumulator {
     pub funding_period_seconds: FundingRateUnitInSeconds,
     pub max_funding_rate: SignedQuoteLotsPerBaseLot,
     pub flags: u8,
-    _padding: [u8; 15],
+    /// Funding after the clamp band is divided by this; zero is treated as
+    /// one.
+    pub funding_divisor: u8,
+    /// Funding rate, in hundredths of a bp of price, charged while the
+    /// interval's average mark/index premium is within
+    /// `funding_clamp_band_radius` of it.
+    pub funding_clamp_center: u16,
+    /// Half-width, in hundredths of a bp of price, of the band around
+    /// `funding_clamp_center`. Zero disables the clamp.
+    pub funding_clamp_band_radius: u16,
+    _padding: [u8; 2],
+    /// Remainder from settled funding, already included in `acc`.
+    pub funding_remainder: i64,
 }
 
 #[repr(C)]
@@ -324,13 +341,21 @@ impl serde::Serialize for RiskParams {
     }
 }
 
+impl FundingAccumulator {
+    /// Whether funding accumulation is paused. A paused market settles no
+    /// funding, so its projected rate is zero.
+    pub fn is_paused(&self) -> bool {
+        self.flags & 1 != 0
+    }
+}
+
 #[cfg(feature = "serde")]
 impl serde::Serialize for FundingAccumulator {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_struct("FundingAccumulator", 9)?;
+        let mut state = serializer.serialize_struct("FundingAccumulator", 13)?;
         state.serialize_field("acc", &self.acc)?;
         state.serialize_field("last_diff", &self.last_diff)?;
         state.serialize_field("cumulative_funding_rate", &self.cumulative_funding_rate)?;
@@ -343,6 +368,10 @@ impl serde::Serialize for FundingAccumulator {
         state.serialize_field("funding_period_seconds", &self.funding_period_seconds)?;
         state.serialize_field("max_funding_rate", &self.max_funding_rate)?;
         state.serialize_field("flags", &self.flags)?;
+        state.serialize_field("funding_clamp_center", &self.funding_clamp_center)?;
+        state.serialize_field("funding_clamp_band_radius", &self.funding_clamp_band_radius)?;
+        state.serialize_field("funding_divisor", &self.funding_divisor)?;
+        state.serialize_field("funding_remainder", &self.funding_remainder)?;
         state.end()
     }
 }

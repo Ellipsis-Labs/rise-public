@@ -38,6 +38,7 @@
 //! - Trader lifecycle and views:
 //!   [`register_trader::create_register_trader_ix`],
 //!   [`delegate_trader::create_delegate_trader_ix`],
+//!   [`update_trader_preference_bits::create_update_trader_preference_bits_ix`],
 //!   [`conditional_order::create_create_conditional_orders_account_ix`],
 //!   [`hawkeye::create_hawkeye_view_margin_ix`], and
 //!   [`hawkeye::decode_hawkeye_return_data`].
@@ -118,6 +119,7 @@ pub mod transfer_collateral;
 pub mod twap;
 pub mod types;
 pub mod uncross_crank;
+pub mod update_trader_preference_bits;
 pub mod withdraw_funds;
 
 pub use constants::{
@@ -169,6 +171,7 @@ pub mod prelude {
     pub use super::twap::*;
     pub use super::types::*;
     pub use super::uncross_crank::*;
+    pub use super::update_trader_preference_bits::*;
     pub use super::withdraw_funds::*;
 }
 

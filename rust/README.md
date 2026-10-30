@@ -102,6 +102,23 @@ higher-level reconnecting client.
 - `subscribe_to_trader_state(authority)`
 - `subscribe_to_trader_state_with_pda(authority, trader_pda_index)`
 
+The exchange cache subscription requests JSON snapshots explicitly; the
+server's default for raw `exchange` subscriptions is `base64+zstd`.
+
+Collateral asset registry (`SharedExchangeCacheStore::spot_collaterals()`, or
+`PhoenixHttpClient::collateral().get_assets()`):
+
+- It lists every registered asset, including inactive ones. An asset accepts
+  deposits only when `spot` is `Some` and `spot.is_active`; the quote asset
+  (USDC) has no `spot`.
+- `spot.mint` is the SPL mint; native SOL has none. The USDC mint is the
+  exchange state's `usdc_mint`, not a registry field.
+- A `SpotCollateralsUpdated` delta carries the complete registry and replaces
+  the previous list.
+- A trader-state `spot_collaterals[].max_balance` is that trader's effective
+  cap; the exchange-wide cap (`max_global_balance - curr_global_balance`) may
+  bind first.
+
 ### `PhoenixClient`
 
 Use this when you want the higher-level Rust client that combines HTTP

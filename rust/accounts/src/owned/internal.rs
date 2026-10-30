@@ -356,6 +356,10 @@ pub struct FundingAccumulator {
     pub funding_interval_seconds: FundingRateUnitInSeconds,
     pub funding_period_seconds: FundingRateUnitInSeconds,
     pub max_funding_rate: SignedQuoteLotsPerBaseLot,
+    pub funding_clamp_center: u16,
+    pub funding_clamp_band_radius: u16,
+    pub funding_divisor: u8,
+    pub funding_remainder: i64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -1175,6 +1179,10 @@ impl From<&borrowed_perp::FundingAccumulator> for FundingAccumulator {
             funding_interval_seconds: value.funding_interval_seconds,
             funding_period_seconds: value.funding_period_seconds,
             max_funding_rate: value.max_funding_rate,
+            funding_clamp_center: value.funding_clamp_center,
+            funding_clamp_band_radius: value.funding_clamp_band_radius,
+            funding_divisor: value.funding_divisor,
+            funding_remainder: value.funding_remainder,
         }
     }
 }
