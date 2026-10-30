@@ -3,6 +3,24 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.6.7 - 2026-10-30
+
+Source Phoenix commit: `f792ed49ccbab9b603d26a746902d89b24037195`
+
+### Summary
+
+- Bumped the `zod` dependency from `4.4.3` to `4.6.7`. It's pinned exactly, so installing `@ellipsis-labs/rise` 0.6.7 pulls in the newer version.
+- Released as `0.6.7`. The synced diff has no changes to the package's own source, exports, or API schemas.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- If your app imports `zod` and expects `4.4.3`, check that it works with `4.6.7`. Other packages that rely on the exact earlier version may also need checking. Run your type checks after upgrading.
+- Nothing in the diff changes the SDK's public types, HTTP clients, WebSocket adapters, or runtime and bundling support.
+
 ## v0.6.6 - 2026-10-30
 
 Source Phoenix commit: `1a5e1b01974e5b11a7efe59f95dbcdd8e32fb60e`
