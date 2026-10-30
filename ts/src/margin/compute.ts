@@ -154,11 +154,16 @@ export const createMarginCalculator = (
         normalized,
         withSpotCollaterals()
       ),
-    simulateMargin: (inputs) => simulateMarginFromInputs(inputs, normalized),
+    simulateMargin: (inputs) =>
+      simulateMarginFromInputs(inputs, normalized, withSpotCollaterals()),
     simulateMarginScenarios: (inputs) =>
-      simulateMarginScenariosFromInputs(inputs, normalized),
+      simulateMarginScenariosFromInputs(
+        inputs,
+        normalized,
+        withSpotCollaterals()
+      ),
     simulatePositionFill: (inputs) =>
-      simulatePositionFillFromInputs(inputs, normalized),
+      simulatePositionFillFromInputs(inputs, normalized, withSpotCollaterals()),
   };
 };
 
@@ -819,7 +824,8 @@ export interface SimulateMarginScenariosResult {
  */
 export const simulatePositionFillFromInputs = (
   input: SimulatePositionFillInput,
-  marketsBySymbol: NormalizedMarketParamsBySymbol
+  marketsBySymbol: NormalizedMarketParamsBySymbol,
+  options?: MarginCalculationOptions
 ): SimulatedPositionFillResult => {
   const marketParams = marketsBySymbol[input.symbol];
   if (!marketParams) {
@@ -846,7 +852,8 @@ export const simulatePositionFillFromInputs = (
         },
       ],
     },
-    marketsBySymbol
+    marketsBySymbol,
+    options
   );
 
   const fillReport = simulation.actionReports.find(
@@ -882,7 +889,8 @@ export const simulatePositionFillFromInputs = (
 
 export const simulateMarginFromInputs = (
   input: SimulateMarginInput,
-  marketsBySymbol: NormalizedMarketParamsBySymbol
+  marketsBySymbol: NormalizedMarketParamsBySymbol,
+  options?: MarginCalculationOptions
 ): SimulateMarginResult => {
   const scope = resolveSimulationScope(input, marketsBySymbol);
   const scenarioMarketsBySymbol =
@@ -894,7 +902,8 @@ export const simulateMarginFromInputs = (
   );
   const before = computeSubaccountMarginFromInputs(
     projectedSubaccountInput,
-    scenarioMarketsBySymbol
+    scenarioMarketsBySymbol,
+    options
   );
   const actionReports: MarginSimulationActionReport[] = [];
 
@@ -910,7 +919,8 @@ export const simulateMarginFromInputs = (
 
   const after = computeSubaccountMarginFromInputs(
     projectedSubaccountInput,
-    scenarioMarketsBySymbol
+    scenarioMarketsBySymbol,
+    options
   );
 
   return {
@@ -937,7 +947,8 @@ export const simulateMarginFromInputs = (
  */
 export const simulateMarginScenariosFromInputs = (
   input: SimulateMarginScenariosInput,
-  marketsBySymbol: NormalizedMarketParamsBySymbol
+  marketsBySymbol: NormalizedMarketParamsBySymbol,
+  options?: MarginCalculationOptions
 ): SimulateMarginScenariosResult => {
   const baseActions = input.baseActions ?? [];
   const combinedActions = [
@@ -963,7 +974,8 @@ export const simulateMarginScenariosFromInputs = (
   );
   const before = computeSubaccountMarginFromInputs(
     baseSubaccountInput,
-    baseMarketsBySymbol
+    baseMarketsBySymbol,
+    options
   );
 
   const baseActionReports: MarginSimulationActionReport[] = [];
@@ -978,7 +990,8 @@ export const simulateMarginScenariosFromInputs = (
   }
   const base = computeSubaccountMarginFromInputs(
     baseSubaccountInput,
-    baseMarketsBySymbol
+    baseMarketsBySymbol,
+    options
   );
 
   const scenarios: MarginScenarioResult[] = input.scenarios.map((scenario) => {
@@ -997,7 +1010,8 @@ export const simulateMarginScenariosFromInputs = (
     }
     const after = computeSubaccountMarginFromInputs(
       scenarioSubaccountInput,
-      scenarioMarketsBySymbol
+      scenarioMarketsBySymbol,
+      options
     );
 
     return {

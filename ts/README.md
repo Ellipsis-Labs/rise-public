@@ -376,6 +376,26 @@ Default behavior:
 For Flight-specific order-routing examples, see
 [src/flight/README.md](./src/flight/README.md).
 
+### Collateral asset registry
+
+`client.exchange.spotCollaterals()` (and `client.api.collateral().getAssets()`)
+returns every registered collateral asset, including inactive ones:
+
+- An asset accepts deposits only when `spot` is non-null and `spot.isActive`
+  is true. The quote asset (USDC) has no `spot`.
+- `spot.mint` is the SPL mint; native SOL has no mint. The USDC mint is
+  `exchange.usdcMint` in exchange state, not a registry field.
+- A `spotCollateralsUpdated` exchange delta carries the complete registry and
+  replaces the previous list. The cache emits an `exchangeUpdated` event with
+  `change: "spotCollaterals"`.
+- A trader-state `spotCollaterals[].maxBalance` is that trader's effective
+  cap; the exchange-wide cap (`maxGlobalBalance - currGlobalBalance`) may bind
+  first.
+
+The `exchange` stream decodes the server's default `base64+zstd` snapshots
+transparently. Raw WebSocket clients must decode them or subscribe with
+`"encoding": "json"`.
+
 ## Flame Deposit Funding
 
 For sponsored USDC deposits that should avoid creating user-owned rent accounts,

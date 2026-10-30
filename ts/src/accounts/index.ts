@@ -11,6 +11,7 @@ export {
   fetchGlobalConfiguration,
   decodeGlobalConfiguration,
   getGlobalConfigurationDecoder,
+  GLOBAL_FEATURE_NATIVE_SOL_COLLATERALS,
   getExchangeRunningState,
   isExchangeEffectivelyActive,
   type GlobalConfiguration,

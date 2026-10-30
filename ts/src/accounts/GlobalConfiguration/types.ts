@@ -11,6 +11,10 @@ import type { QuoteLots } from "@/primitives/_numberTypes";
 import type { AuthoritySet } from "../internal";
 import type { SpotCollateralMetadata } from "../SpotCollateralMetadata";
 
+/** Native SOL counts as margin collateral (together with its metadata's
+ * `isActive`). */
+export const GLOBAL_FEATURE_NATIVE_SOL_COLLATERALS: number = 1 << 1;
+
 export interface GlobalConfiguration {
   accountKey: GlobalConfigurationAddress;
   currentAuthorities: AuthoritySet;
@@ -25,6 +29,8 @@ export interface GlobalConfiguration {
   exchangeStatus: number;
   quoteDecimals: number;
   withdrawalMarginFactorBps: number;
+  /** Exchange feature bits; see the `GLOBAL_FEATURE_*` constants. */
+  featureSet: number;
   depositCooldownPeriodInSlots: bigint;
   pendingAuthorities: AuthoritySet;
   /**

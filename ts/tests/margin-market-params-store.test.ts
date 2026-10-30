@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MarketResponse } from "@/api/markets/types";
+import { PhoenixHttpError } from "@/errors";
 import {
   MarginMarketParamsStore,
   priceUsdToTicks,
@@ -132,9 +133,22 @@ describe("margin market params store", () => {
     expect(
       BigInt(margin.margin.spotCollateralDiscountedQuoteLots ?? "0")
     ).toBeGreaterThan(0n);
+
+    // Live updates between refreshes: index prices move without touching
+    // marks, and a registry update replaces the spot collateral params.
+    store.updateIndexPrices({ "SOL-PERP": 45 });
+    const updated = await store.getSnapshot();
+    expect(updated.paramsBySymbol["SOL-PERP"]?.indexPriceTicks).toBe(
+      "45000000"
+    );
+    expect(updated.paramsBySymbol["SOL-PERP"]?.markPriceTicks).toBe(
+      "100000000"
+    );
+    store.updateSpotCollaterals({ assets: [] });
+    expect((await store.getSnapshot()).spotCollaterals).toEqual([]);
   });
 
-  it("degrades to zero spot collateral when the assets endpoint is unavailable", async () => {
+  it("degrades to zero spot collateral when the assets endpoint does not exist", async () => {
     // Servers that predate /v1/collateral/assets must not take the whole
     // market-params refresh down: mark and index prices still flow, and spot
     // collateral is valued at zero (fail-open to under-valuation).
@@ -155,7 +169,7 @@ describe("margin market params store", () => {
       },
       collateral: {
         async getAssets(): Promise<never> {
-          throw new Error("404 Not Found");
+          throw new PhoenixHttpError(404, "Not Found");
         },
       },
     };
@@ -179,6 +193,12 @@ describe("margin market params store", () => {
     });
     expect(margin.margin.spotCollateralDiscountedQuoteLots).toBeUndefined();
     expect(margin.spotCollaterals).toBeUndefined();
+
+    // Any other failure must surface instead of valuing spot at zero.
+    client.collateral.getAssets = async (): Promise<never> => {
+      throw new PhoenixHttpError(500, "Internal Server Error");
+    };
+    await expect(store.refresh()).rejects.toThrow("Internal Server Error");
   });
 });
 
