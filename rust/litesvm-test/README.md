@@ -1,18 +1,18 @@
 # Phoenix Rise LiteSVM Test
 
-`phoenix-rise-litesvm-test` contains Rise fixture and LiteSVM localnet helpers
-used by SDK tests.
+`phoenix-rise-litesvm-test` provides Rise fixtures and LiteSVM localnet helpers
+for SDK tests.
 
 Most users should start with [`phoenix-rise`](../sdk/README.md). Protocol
 documentation lives at [docs.phoenix.trade](https://docs.phoenix.trade/).
 
 ## Use This Crate When
 
-- You are testing an integration against canonical Rise fixtures.
-- You need LiteSVM helpers used by the Rise SDK test suite.
-- You want fixture coverage without depending on internal Phoenix repositories.
+- You test an integration against canonical Rise fixtures.
+- You need the LiteSVM helpers used by the Rise SDK test suite.
+- You need fixture coverage without internal Phoenix repository dependencies.
 
-This crate is intended for tests and integration harnesses, not production
+Use this crate only in tests and integration harnesses, not in production
 runtime code.
 
 ## Crate Links

@@ -163,6 +163,16 @@ pub struct MarketStatsV2Data {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mid_price: Option<f64>,
     pub oracle_price: f64,
+    /// Oldest slot in the newest quorum of oracle updates behind
+    /// `oraclePrice`; its age is the batch `slot` minus this, in slots.
+    /// Omitted until the market has a full oracle quorum.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oracle_price_slot: Option<u64>,
+    /// Last slot in which `markPrice` was updated on-chain; its age is
+    /// the batch `slot` minus this, in slots. Omitted once the
+    /// market is closed and `markPrice` is final.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mark_price_slot: Option<u64>,
     pub prev_day_mark_price: f64,
     pub day_volume_usd: f64,
     pub day_volume_base: f64,
@@ -196,6 +206,11 @@ pub struct MarketStatsV2Update {
     /// Canonical subscription filter. Omitted for an all-markets subscription.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub symbols: Option<Vec<String>>,
+    /// Latest chain slot the server had processed when this batch was sent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slot: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slot_index: Option<u32>,
     pub stats: Vec<MarketStatsV2Data>,
 }
 
@@ -618,6 +633,8 @@ mod tests {
         let message: ServerMessage = serde_json::from_value(serde_json::json!({
             "channel": "marketStatsV2",
             "symbols": ["SOL-PERP"],
+            "slot": 100,
+            "slotIndex": 3,
             "stats": [{
                 "symbol": "SOL-PERP",
                 "timestamp": 1,
@@ -625,6 +642,7 @@ mod tests {
                 "markPrice": 3.0,
                 "midPrice": 3.5,
                 "oraclePrice": 4.0,
+                "oraclePriceSlot": 98,
                 "prevDayMarkPrice": 5.0,
                 "dayVolumeUsd": 6.0,
                 "dayVolumeBase": 7.0,
@@ -640,6 +658,10 @@ mod tests {
         assert_eq!(message.symbols, Some(vec!["SOL-PERP".to_string()]));
         assert_eq!(message.stats[0].mark_price, 3.0);
         assert_eq!(message.stats[0].mid_price, Some(3.5));
+        assert_eq!(message.slot, Some(100));
+        assert_eq!(message.slot_index, Some(3));
+        assert_eq!(message.stats[0].oracle_price_slot, Some(98));
+        assert_eq!(message.stats[0].mark_price_slot, None);
         assert_eq!(
             message.stats[0].cumulative_funding_quote_lots_per_base_lot,
             None

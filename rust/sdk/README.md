@@ -2,15 +2,15 @@
 
 `phoenix-rise` is the facade crate for the Phoenix Rise Rust SDK. It re-exports
 the account, instruction, math, type, API, event, and transaction-builder crates
-behind feature profiles so integrators can choose a compact on-chain surface or
-a batteries-included off-chain SDK.
+behind feature flags for both on-chain CPI programs and off-chain clients.
 
-For protocol concepts and product documentation, see
+Protocol documentation lives at
 [docs.phoenix.trade](https://docs.phoenix.trade/).
 
 ## Crate Navigation
 
-- [`phoenix-rise`](../sdk/README.md): facade SDK and examples
+- [Workspace guide](../README.md): crate architecture, feature flags, and
+  examples
 - [`phoenix-rise-accounts`](../accounts/README.md): account byte views,
   discriminators, PDA helpers, and optional serde output
 - [`phoenix-rise-ix`](../ix/README.md): instruction builders, discriminants,
@@ -21,37 +21,35 @@ For protocol concepts and product documentation, see
 - [`phoenix-rise-types`](../types/README.md): API and websocket DTOs
 - [`phoenix-rise-api`](../api/README.md): HTTP, websocket, auth, and transport
   clients
-- [`phoenix-rise-core`](../core/README.md): account fetchers, order tickets,
-  and transaction builders
-- [`phoenix-rise-litesvm-test`](../litesvm-test/README.md): fixture and
-  LiteSVM localnet helpers
+- [`phoenix-rise-core`](../core/README.md): account fetchers, order tickets, and
+  transaction builders
+- [`phoenix-rise-litesvm-test`](../litesvm-test/README.md): fixture and LiteSVM
+  localnet helpers
 - [`phoenix-rise-cli`](../cli/README.md): command-line API, websocket, and RPC
   account inspection
 
 ## Feature Profiles
 
-- `default = ["api", "ws", "sdk", "tx-builder"]`: HTTP/websocket clients,
+- `default = ["api", "ws", "sdk", "tx-builder"]`: HTTP and websocket clients,
   account fetchers, transaction builders, account views, instruction builders,
   math, and API types.
 - `sdk`: account views, instruction builders, math, and API/domain types without
   API transport or RPC clients.
-- `api`: enables `phoenix-rise-api` HTTP/auth route clients.
-- `ws`: enables websocket clients and live trader-state helpers on top of
-  `api`.
-- `tx-builder`: enables `phoenix-rise-core` account fetchers and transaction
-  builders.
+- `api`: `phoenix-rise-api` HTTP and auth route clients.
+- `ws`: websocket clients and live trader-state helpers on top of `api`.
+- `tx-builder`: `phoenix-rise-core` account fetchers and transaction builders.
 - `core`: compatibility alias for `tx-builder`.
-- `events`: enables market event parsing and core transaction adapters.
-- `cpi`: program-friendly profile for account byte decoders, instruction
-  layouts, and CPI helpers without the API/RPC/websocket stack.
+- `events`: market event parsing and core transaction adapters.
+- `cpi`: on-chain profile with account decoders, instruction layouts, and CPI
+  helpers without the API, RPC, or websocket stack.
 - `serde`: JSON serialization for account views, instruction params, math
   wrappers, and API DTOs.
-- `opentelemetry`: enables OpenTelemetry parent context propagation and trace
-  headers for API HTTP and websocket clients.
+- `opentelemetry`: OpenTelemetry parent context propagation and trace headers
+  for HTTP and websocket clients.
 - `utoipa`: OpenAPI schema derivations for API DTOs.
 
-Compatibility aliases `solana-keypair`, `ed25519-dalek`, and `types-sdk` are
-retained for existing manifests.
+Compatibility aliases `solana-keypair`, `ed25519-dalek`, and `types-sdk` remain
+available for existing manifests.
 
 ## Common Imports
 
@@ -64,7 +62,7 @@ use phoenix_rise::{
 };
 ```
 
-For on-chain or CPI-oriented code, prefer a narrower dependency:
+For on-chain or CPI programs, use a minimal feature set:
 
 ```toml
 [dependencies]
@@ -80,7 +78,7 @@ phoenix-rise = { version = "0.2", default-features = false, features = ["api"] }
 
 ## Examples
 
-Run examples from `rise/rust/`:
+Run examples from `rust/`:
 
 ```bash
 cargo run -p phoenix-rise --example http_client --features api
@@ -89,5 +87,4 @@ cargo run -p phoenix-rise --example send_market_order --features api,tx-builder 
 cargo run -p phoenix-rise --example fetch_on_chain_accounts --features api,tx-builder
 ```
 
-The CLI has its own README with script-friendly commands:
-[`phoenix-rise-cli`](../cli/README.md).
+See [`phoenix-rise-cli`](../cli/README.md) for script-friendly CLI commands.

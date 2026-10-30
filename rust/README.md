@@ -1,13 +1,11 @@
 # Rust Rise SDK
 
-`rise/rust` is the Rust SDK workspace for Phoenix perpetuals. It contains the
-published `phoenix-rise` facade crate plus separately usable account, ix, math,
-types, and API crates. The facade keeps the ergonomic SDK surface while the
-lower-level crates can be enabled independently by CPI integrations, API-only
-users, and math consumers.
+This directory is the Rust SDK workspace for Phoenix perpetuals. Its crates are
+published to crates.io: the `phoenix-rise` facade crate exposes the ergonomic
+SDK surface, while the account, ix, math, types, and API crates can be used
+independently by CPI integrations, API-only callers, and math consumers.
 
-Protocol and product documentation lives at
-[docs.phoenix.trade](https://docs.phoenix.trade/).
+Protocol and product docs: [docs.phoenix.trade](https://docs.phoenix.trade/).
 
 ## Package Structure
 
@@ -34,38 +32,37 @@ rust/
 ## Package Targets
 
 - [`phoenix-rise`](sdk/README.md): facade crate imported as `phoenix_rise`,
-  exposing the high-level SDK surface plus optional reexports of the
-  lower-level crates
-- [`phoenix-rise-accounts`](accounts/README.md): borrowed account views,
-  account discriminators, PDA helpers, and account layout helpers
+  exposing the high-level SDK surface and optional lower-level crate reexports
+- [`phoenix-rise-accounts`](accounts/README.md): borrowed Phoenix account views,
+  optional owned readers, account discriminators, PDA helpers, and account
+  layout helpers
 - [`phoenix-rise-ix`](ix/README.md): Phoenix, Ember, Flight, and Hawkeye
-  instruction builders and instruction/account metadata
-- [`phoenix-rise-math`](math/README.md): market math, margin/risk
+  instruction builders, account metas, CPI helpers, and ix payloads
+- [`phoenix-rise-math`](math/README.md): pure market math, margin and risk
   calculations, funding helpers, price conversions, and quantity wrappers
-- [`phoenix-rise-events`](events/README.md): market event parsing from Phoenix
+- [`phoenix-rise-events`](events/README.md): Phoenix market event parsing from
   `Log` and `LogEventLengths` batches
 - [`phoenix-rise-types`](types/README.md): owned/materialized API, websocket,
   trader, market, and account snapshot types
 - [`phoenix-rise-api`](api/README.md): HTTP, websocket, auth, exchange-cache,
   Flight, Hawkeye, and transport clients
-- [`phoenix-rise-core`](core/README.md): account fetchers, order tickets, and
-  transaction builders
-- [`phoenix-rise-cli`](cli/README.md): CLI package for HTTP API calls,
-  websocket probes, RPC account deserialization, and PerpAssetMap metadata
-  inspection
+- [`phoenix-rise-core`](core/README.md): off-chain account fetchers, order
+  tickets, and transaction builders
+- [`phoenix-rise-cli`](cli/README.md): CLI for HTTP API calls, websocket probes,
+  RPC account deserialization, and PerpAssetMap metadata inspection
 - [`phoenix-rise-litesvm-test`](litesvm-test/README.md): LiteSVM fixture and
-  localnet helpers for tests
+  localnet helpers for testing Rise program integrations
 
 ## Changelog
 
-The public Rust SDK changelog is published at
+Public Rust SDK changelog:
 <https://github.com/Ellipsis-Labs/rise-public/blob/master/rust/CHANGELOG.md>.
 
 ## Main SDK Surfaces
 
 ### `PhoenixHttpClient`
 
-Use this when you want typed REST access without the reconnecting live runtime.
+Typed REST access without the reconnecting live runtime.
 
 - Exchange and market data: `exchange()`, `markets()`, `candles()`
 - Trader and history routes: `traders()`, `orders()`, `trades()`,
@@ -77,21 +74,19 @@ Use this when you want typed REST access without the reconnecting live runtime.
 
 #### Atomic isolated market entry with TP/SL v2
 
-Rust callers opt in with `PlaceIsolatedMarketOrderV2Request` and
+Opt in with `PlaceIsolatedMarketOrderV2Request` and
 `build_isolated_market_order_tx_v2_with_request()` (or
 `build_isolated_market_order_tx_enhanced_v2_with_request()`) on the HTTP client
-or its `orders()` client. Existing `PlaceIsolatedMarketOrderRequest` struct
-literals and request methods remain source-compatible and use the legacy
-request shape. The HTTP endpoints and JSON field names are unchanged.
+or `orders()`. Existing `PlaceIsolatedMarketOrderRequest` struct literals and
+request methods remain source-compatible on the legacy request shape. HTTP
+endpoints and JSON field names are unchanged.
 
-Supply `size_percent: Some(100)` and either or both of `greater_trigger` and
-`less_trigger`; do not combine these with `tp_sl`. This requires a backend
-release containing PRO-829.
+Pass `size_percent: Some(100)` with `greater_trigger`, `less_trigger`, or both;
+do not combine with `tp_sl`. Requires a backend release containing PRO-829.
 
 ### `PhoenixWSClient`
 
-Use this when you want direct typed websocket subscriptions without the
-higher-level reconnecting client.
+Direct typed websocket subscriptions without the reconnecting client.
 
 - `subscribe_to_all_mids()`
 - `subscribe_to_funding_rate(symbol)`
@@ -102,27 +97,27 @@ higher-level reconnecting client.
 - `subscribe_to_trader_state(authority)`
 - `subscribe_to_trader_state_with_pda(authority, trader_pda_index)`
 
-The exchange cache subscription requests JSON snapshots explicitly; the
-server's default for raw `exchange` subscriptions is `base64+zstd`.
+The exchange cache subscription requests JSON snapshots explicitly; the server's
+default for raw `exchange` subscriptions is `base64+zstd`.
 
 Collateral asset registry (`SharedExchangeCacheStore::spot_collaterals()`, or
 `PhoenixHttpClient::collateral().get_assets()`):
 
-- It lists every registered asset, including inactive ones. An asset accepts
+- Lists every registered asset, including inactive ones. An asset accepts
   deposits only when `spot` is `Some` and `spot.is_active`; the quote asset
   (USDC) has no `spot`.
-- `spot.mint` is the SPL mint; native SOL has none. The USDC mint is the
-  exchange state's `usdc_mint`, not a registry field.
-- A `SpotCollateralsUpdated` delta carries the complete registry and replaces
-  the previous list.
-- A trader-state `spot_collaterals[].max_balance` is that trader's effective
-  cap; the exchange-wide cap (`max_global_balance - curr_global_balance`) may
-  bind first.
+- `spot.mint` is the SPL mint; native SOL has none. The USDC mint is on exchange
+  state (`usdc_mint`), not the registry.
+- `SpotCollateralsUpdated` deltas carry the complete registry and replace the
+  prior list.
+- Trader-state `spot_collaterals[].max_balance` is that trader's effective cap;
+  the exchange-wide cap (`max_global_balance - curr_global_balance`) may bind
+  first.
 
 ### `PhoenixClient`
 
-Use this when you want the higher-level Rust client that combines HTTP
-bootstrap with a reconnecting live subscription runtime.
+High-level client combining HTTP bootstrap with a reconnecting live subscription
+runtime.
 
 - Bootstraps exchange metadata over HTTP
 - Reconnects websocket subscriptions automatically
@@ -131,8 +126,8 @@ bootstrap with a reconnecting live subscription runtime.
 
 ### `PhoenixTxBuilder`
 
-Use this when you want local Solana instruction construction from cached
-metadata rather than server-assisted order helpers.
+Local Solana instruction construction from cached metadata (instead of
+server-assisted order helpers).
 
 - Cross-margin order placement: `place_market_order(...)`,
   `place_limit_order(...)`
@@ -148,22 +143,21 @@ metadata rather than server-assisted order helpers.
 
 ### `PhoenixFlightClient`
 
-Use this when you want to wrap supported Phoenix placement instructions
-through Flight with `try_wrap_order_instruction(ix, signer,
-use_position_authority)`. The `use_position_authority` flag declares the
-signer kind and is the one rule deciding the collateral-transfer tail — never
-the wrapped instruction's discriminant. Set it iff `signer` is the trader's
-position authority (a delegate key) rather than the owner, i.e.
-`position_authority.is_some_and(|pa| pa != owner)`; owner-signed orders
-(including owner-signed `PlaceMarketOrderDelegated`) leave it `false` and
-carry no tail. Position-authority wraps append the collateral-transfer
-accounts, with the permission PDA derived from the current Phoenix root
-authority.
+Wrap supported Phoenix placement instructions through Flight with
+`try_wrap_order_instruction(ix, signer, use_position_authority)`.
+`use_position_authority` declares the signer kind and alone decides whether to
+append the collateral-transfer tail — never the wrapped instruction's
+discriminant. Set it iff `signer` is the trader's position authority (a delegate
+key) rather than the owner, i.e.
+`position_authority.is_some_and(|pa| pa != owner)`. Owner-signed orders
+(including owner-signed `PlaceMarketOrderDelegated`) leave it `false` and carry
+no tail. Position-authority wraps append the collateral-transfer accounts with
+the permission PDA derived from the current Phoenix root authority.
 
-The root authority comes from a single source: a `SharedExchangeCacheStore`
-passed to `PhoenixFlightClient::from_exchange_store(...)`. It is re-resolved
-from the store at wrap time, so on-chain root-authority rotations are picked
-up automatically. Obtain the store from the websocket client:
+The root authority is resolved at wrap time from the `SharedExchangeCacheStore`
+passed to `PhoenixFlightClient::from_exchange_store(...)`, picking up on-chain
+root-authority rotations automatically. Obtain the store from the websocket
+client:
 
 ```rust
 let ws = PhoenixWSClient::new_from_env()?;
@@ -178,40 +172,37 @@ let flight = PhoenixFlightClient::from_exchange_store(
 );
 ```
 
-`exchange_store()` is memoized: repeated calls return the same store backed
-by a single exchange subscription, and there is no pump guard to hold or
-forget. It has no internal timeout — wrap it in `tokio::time::timeout` if
-the first snapshot may never arrive. The advanced path for custom stores is
-manual construction (`SharedExchangeCacheStore::new(snapshot)` seeded from
-`PhoenixHttpClient::get_exchange_snapshot()`, or
-`SharedExchangeCacheStore::new_empty()`) fed via
-`PhoenixWSClient::subscribe_to_exchange_cache`, whose pump handle you must
-keep alive yourself. Clients built with `PhoenixFlightClient::new(...)`
-carry no store, and position-authority wraps fail with
-`MissingRootAuthority`.
+`exchange_store()` is memoized: repeated calls return the same store backed by
+one exchange subscription, with no separate pump guard to hold. It has no
+internal timeout — wrap it in `tokio::time::timeout` if the initial snapshot may
+not arrive. For custom stores, construct
+`SharedExchangeCacheStore::new(snapshot)` (seeded from
+`PhoenixHttpClient::get_exchange_snapshot()`) or
+`SharedExchangeCacheStore::new_empty()`, feed it via
+`PhoenixWSClient::subscribe_to_exchange_cache`, and keep the returned pump
+handle alive. Clients built with `PhoenixFlightClient::new(...)` carry no store,
+so position-authority wraps fail with `MissingRootAuthority`.
 
-Builder fee overrides come in two modes: configure a client-level default
-with `with_fee_bps_override(...)`, applied by every
-`try_wrap_order_instruction` call, or pass a per-call override to
-`try_wrap_order_instruction_with_fee_bps_override(...)`, whose explicit
-argument wins over the client-level configuration for that call. Either mode
-wraps routable orders in Flight's `proxy_instruction_with_fee_override`
-variant instead of the builder's registered fee.
+Builder fee overrides support two modes: set a client-level default with
+`with_fee_bps_override(...)` (applied by `try_wrap_order_instruction`), or pass
+a per-call override to `try_wrap_order_instruction_with_fee_bps_override(...)`
+(which takes precedence over the client default). Either mode wraps routable
+orders in Flight's `proxy_instruction_with_fee_override` variant instead of
+using the builder's registered fee.
 
-> **Use embedded wallets for Flight integrations.** Integrators are strongly
-> encouraged to provision an embedded wallet per user rather than routing
-> Flight orders through the user's raw/external wallet. A raw wallet shares
-> its Phoenix trader state with every other dapp the user trades on, which
-> results in bad UX (positions, balances, and orders bleeding across
-> integrations). Embedded wallets isolate per-integration state.
+> **Use embedded wallets for Flight integrations.** Provision an embedded wallet
+> per user rather than routing Flight orders through the user's raw/external
+> wallet. A raw wallet shares its Phoenix trader state across every dapp the
+> user trades on, causing positions, balances, and orders to bleed across
+> integrations. Embedded wallets isolate per-integration state.
 
 ## Crate Internals By Area
 
 ### `accounts/src/`
 
-- Raw views for Phoenix account data: `trader.rs`,
-  `perp_asset_map.rs`, `global_config.rs`, `permission.rs`,
-  `conditional_orders.rs`, `stop_losses.rs`, and withdrawal/escrow layouts
+- Raw views for Phoenix account data: `trader.rs`, `perp_asset_map.rs`,
+  `global_config.rs`, `permission.rs`, `conditional_orders.rs`,
+  `stop_losses.rs`, and withdrawal/escrow layouts
 - `owned/`: optional serde-backed owned account readers for off-chain decoding
 - `discriminants.rs`: account discriminator constants
 - `common.rs`: shared parsing and account-data helpers
@@ -233,10 +224,8 @@ variant instead of the builder's registered fee.
 ### `math/src/`
 
 - Price and lot conversions: `market_math.rs`, `price.rs`
-- Margin and risk: `margin.rs`, `margin_calc.rs`, `risk.rs`,
-  `leverage_tiers.rs`
-- Portfolio state: `portfolio.rs`, `trader_position.rs`,
-  `limit_order_state.rs`
+- Margin and risk: `margin.rs`, `margin_calc.rs`, `risk.rs`, `leverage_tiers.rs`
+- Portfolio state: `portfolio.rs`, `trader_position.rs`, `limit_order_state.rs`
 - Quantity wrappers: `quantities/`
 
 ### `types/src/`
@@ -274,49 +263,48 @@ variant instead of the builder's registered fee.
 
 - `phoenix-rise`
   - `default = ["api", "ws", "sdk", "tx-builder"]`: HTTP/websocket clients,
-    account fetchers, transaction builders, account views, instruction
-    builders, and math
-  - `sdk`: account views, instruction builders, math, and domain types,
-    without API transport or RPC dependencies
-  - `api`: enables the `phoenix-rise-api` HTTP/auth surface
-  - `ws`: enables websocket clients and live trader-state helpers on top of
-    `api`
-  - `tx-builder`: enables local transaction helpers and RPC-backed bracket
-    flows plus account fetchers through `phoenix-rise-core`
+    account fetchers, transaction builders, account views, instruction builders,
+    and math
+  - `sdk`: account views, instruction builders, math, and domain types without
+    API transport or RPC dependencies
+  - `api`: `phoenix-rise-api` typed HTTP/auth clients and API route helpers
+  - `ws`: websocket clients and live trader-state helpers on top of `api`
+  - `tx-builder`: local transaction builder helpers, RPC-backed bracket flows,
+    and account fetchers via `phoenix-rise-core`
   - `core`: compatibility alias for `tx-builder`
-  - `events`: enables market event parsing and core adapters for RPC and
+  - `events`: market event parsing and core adapters for RPC and
     Yellowstone-style transaction instruction streams
   - `cpi`: program-friendly facade profile for account byte decoders,
-    instruction layouts, and Pinocchio CPI helpers without API, RPC,
-    websocket, math, type DTO, or `solana-instruction` dependencies
-  - `types-sdk`: enables client-side owned API/domain helpers such as
-    `TraderKey`, `Trader`, and `PhoenixMetadata`
+    instruction layouts, and Pinocchio CPI helpers without API, RPC, websocket,
+    math, type DTO, or `solana-instruction` dependencies
+  - `types-sdk`: compatibility alias for `types`, which enables the
+    client-side owned DTOs from `phoenix-rise-types`
   - `solana-keypair`, `ed25519-dalek`: compatibility aliases for `api`
-  - `opentelemetry`: enables API trace propagation and trace headers
+  - `opentelemetry`: API trace propagation and trace headers
   - `serde`: JSON serialization for account views, instruction params, math
     wrappers, and API DTOs
-  - `utoipa`: enables OpenAPI schema derivations where needed
+  - `utoipa`: OpenAPI schema derivations for API types
 
 ## Examples
 
-Use `rise/rust/sdk/examples/` as the main reference set:
+Reference examples in `rust/sdk/examples/`:
 
 - HTTP and auth: `http_client.rs`, `register_trader.rs`
 - WebSocket subscriptions: `subscribe_trader_state.rs`,
-  `subscribe_market_stats.rs`, `subscribe_l2_book.rs`,
-  `subscribe_candles.rs`, `subscribe_trades.rs`, `ws_debug_cli.rs`
+  `subscribe_market_stats.rs`, `subscribe_l2_book.rs`, `subscribe_candles.rs`,
+  `subscribe_trades.rs`, `ws_debug_cli.rs`
 - Transaction building and trading: `send_limit_order.rs`,
   `send_market_order.rs`, `send_flight_market_order.rs`, `cancel_order.rs`,
   `cancel_stop_loss.rs`, `deposit_funds.rs`, `referral_activation_tx.rs`,
   `builder_onboarding_tx.rs`, `onboard_trader_delegated.rs`
-- Isolated flows: `isolated_limit_order.rs`,
-  `isolated_market_order_client.rs`, `isolated_market_order_server.rs`
+- Isolated flows: `isolated_limit_order.rs`, `isolated_market_order_client.rs`,
+  `isolated_market_order_server.rs`
 - Broader reference flows: `phoenix_client.rs`, `market_maker.rs`,
   `compute_trader_margin.rs`, `fetch_on_chain_accounts.rs`
 
 ## Build And Run
 
-Run commands from `rise/rust/`:
+Run from `rust/`:
 
 ```bash
 cargo build
@@ -329,7 +317,7 @@ cargo test
 cargo run -p phoenix-rise --example http_client --features api
 cargo run -p phoenix-rise --example subscribe_l2_book --features ws -- SOL
 cargo run -p phoenix-rise --example subscribe_trader_state --features ws
-cargo run -p phoenix-rise --example referral_activation_tx --features api,tx-builder -- \
+cargo run -p phoenix-rise --example referral_activation_tx --features api,tx-builder,solana-keypair -- \
     REFERRAL_CODE --trader-keypair-path ~/.config/solana/id.json
 cargo run -p phoenix-rise --example builder_onboarding_tx --features api -- \
     --fee-payer-keypair-path ~/.config/solana/id.json \
@@ -345,24 +333,23 @@ cargo run -p phoenix-rise-cli -- --rpc-url http://localhost:8899 --json rpc perp
     --perp-asset-map <PERP_ASSET_MAP_PUBKEY> --symbol SOL
 ```
 
-`referral_activation_tx` uses `/v1/referral/activate-tx` when the user has a
-referral code. `builder_onboarding_tx` uses
-`/v1/exchange/build-register-ixs` and `/v1/exchange/send-register-ixs` to
-register a trader authority public key without a referral code. Only the fee
-payer signs the transaction locally before the API adds the onboarder
-signature. The fee-payer keypair path defaults to
-`~/.config/solana/id.json` and can be overridden with
-`--fee-payer-keypair-path`. The `--trader-authority` argument is optional and
-defaults to the fee payer's public key when omitted.
+`referral_activation_tx` calls `/v1/referral/activate-tx` when the user has a
+referral code. `builder_onboarding_tx` calls `/v1/exchange/build-register-ixs`
+and `/v1/exchange/send-register-ixs` to register a trader authority pubkey
+without a referral code; only the fee payer signs locally before the API adds
+the onboarder signature. `--fee-payer-keypair-path` defaults to
+`~/.config/solana/id.json`; `--trader-authority` is optional and defaults to the
+fee payer's pubkey.
 
 ### Trader-state triggers
 
 `SubaccountState::triggers` holds the canonical trigger rows keyed by market,
 including markets without an open position. Each row exposes legacy TP/SL and
-advanced conditional TP/SL, including attached order sequence, sizing, fill
-progress, and percentage sizing. Snapshots replace this map; deltas update or
-remove individual markets. Position rows also retain the compatibility trigger
-fields returned by the API. Missing lists in older payloads default to empty.
+advanced conditional TP/SL (attached order sequence, sizing, fill progress, and
+percentage sizing). Snapshots replace this map; deltas update or remove
+individual markets. Position rows retain the compatibility trigger fields
+returned by the API, and missing lists in older payloads default to empty.
 
-When constructing `Position`, `TraderStatePositionRow`, or trader-state subaccount
-snapshot/delta structs directly, initialize the new trigger fields as well.
+Initialize the trigger fields when constructing `Position`,
+`TraderStatePositionRow`, or trader-state subaccount snapshot/delta structs
+directly.
