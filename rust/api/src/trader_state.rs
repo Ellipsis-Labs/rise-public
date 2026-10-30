@@ -818,7 +818,11 @@ mod escrow_request_tests {
             "expirationOffset": 5,
             "initialSlot": "10",
             "expirationSlot": "15",
-            "actions": [{"kind": "lockedDeposit", "amount": "100"}, {"kind": "cash", "amount": "5"}]
+            "actions": [
+                {"kind": "lockedDeposit", "amount": "100"},
+                {"kind": "futureEscrowAction", "amount": "200"},
+                {"kind": "cash", "amount": "5"}
+            ]
         });
         let mut subaccount = SubaccountState::default();
         let snapshot: TraderStateSubaccountSnapshot = serde_json::from_value(serde_json::json!({
@@ -834,6 +838,7 @@ mod escrow_request_tests {
             stored.actions,
             vec![
                 TraderStateEscrowAction::LockedDeposit { amount: 100.into() },
+                TraderStateEscrowAction::Unknown,
                 TraderStateEscrowAction::Cash { amount: 5.into() },
             ]
         );

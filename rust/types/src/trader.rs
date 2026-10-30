@@ -129,8 +129,16 @@ pub struct TraderStateLockedDeposit {
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum TraderStateEscrowAction {
     Noop,
-    Cash { amount: JsSafeU64 },
-    LockedDeposit { amount: JsSafeU64 },
+    Cash {
+        amount: JsSafeU64,
+    },
+    LockedDeposit {
+        amount: JsSafeU64,
+    },
+    /// An action this SDK cannot interpret. Requests containing it must not
+    /// be treated as having only the effects of their known actions.
+    #[serde(other)]
+    Unknown,
 }
 
 /// Pending escrow request addressed to a subaccount.
@@ -550,6 +558,53 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn unknown_escrow_actions_do_not_drop_known_trader_deltas() {
+        let message: TraderStateServerMessage = serde_json::from_value(json!({
+            "authority": "authority", "traderPdaIndex": 0, "slot": 11,
+            "messageType": "delta",
+            "deltas": [{
+                "subaccountIndex": 0, "sequence": 2, "collateral": "105",
+                "futureDeltaField": {"value": "200"},
+                "escrowRequests": [{
+                    "sequenceNumber": "7", "senderAuthority": "sender",
+                    "senderPdaIndex": 0, "senderSubaccountIndex": 0,
+                    "expirationOffset": null, "initialSlot": "10", "expirationSlot": null,
+                    "actions": [
+                        {"kind": "futureEscrowAction", "amount": "200"},
+                        {"kind": "cash", "amount": "5"}
+                    ]
+                }]
+            }]
+        }))
+        .unwrap();
+        let TraderStatePayload::Delta(delta) = message.content else {
+            panic!("expected a trader delta");
+        };
+        assert_eq!(delta.deltas[0].sequence, 2);
+        assert_eq!(delta.deltas[0].collateral, "105");
+        assert_eq!(
+            delta.deltas[0].escrow_requests.as_ref().unwrap()[0].actions,
+            vec![
+                TraderStateEscrowAction::Unknown,
+                TraderStateEscrowAction::Cash { amount: 5.into() }
+            ]
+        );
+    }
+
+    #[test]
+    fn malformed_known_escrow_actions_are_not_treated_as_unknown() {
+        for action in [
+            json!({"kind": "cash"}),
+            json!({"kind": "lockedDeposit", "amount": {}}),
+            json!({"kind": 123, "amount": 5}),
+            json!({"amount": 5}),
+            json!(null),
+        ] {
+            assert!(serde_json::from_value::<TraderStateEscrowAction>(action).is_err());
+        }
+    }
 
     #[test]
     fn test_deserialize_trader_state_snapshot() {

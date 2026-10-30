@@ -312,6 +312,7 @@ mod tests {
             global_trader_index: vec!["gti-0".to_string()],
             active_trader_buffer: vec!["atb-0".to_string()],
             withdraw_queue: "withdraw-queue".to_string(),
+            pending_withdraw_throttle_replenishment: 0_u64.into(),
             exchange_status_bits: 129,
             exchange_status_features: vec!["initialized".to_string(), "active".to_string()],
             running_state: ExchangeRunningState::Active,

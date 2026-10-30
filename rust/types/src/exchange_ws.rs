@@ -135,6 +135,8 @@ pub struct ExchangeStateSnapshot {
     pub global_trader_index: Vec<String>,
     pub active_trader_buffer: Vec<String>,
     pub withdraw_queue: String,
+    #[serde(default)]
+    pub pending_withdraw_throttle_replenishment: JsSafeU64,
     pub exchange_status_bits: u8,
     pub exchange_status_features: Vec<String>,
     #[serde(default)]
@@ -568,6 +570,7 @@ mod tests {
                 global_trader_index: vec!["gti-0".to_string()],
                 active_trader_buffer: vec!["atb-0".to_string()],
                 withdraw_queue: "withdraw-queue".to_string(),
+                pending_withdraw_throttle_replenishment: 0_u64.into(),
                 exchange_status_bits: 129,
                 exchange_status_features: vec!["active".to_string()],
                 running_state: ExchangeRunningState::Active,

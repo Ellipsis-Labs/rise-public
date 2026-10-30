@@ -134,7 +134,7 @@ pub struct EarningsDate {
     pub time: Option<EarningsTime>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketPublicMetadata {
     /// Known earnings timestamps in ascending order; date-only values use
@@ -166,6 +166,9 @@ pub struct MarketPublicMetadata {
     pub calendar: Option<MarketCalendar>,
     #[serde(default)]
     pub display_color: Option<String>,
+    /// Circulating supply or shares outstanding in underlying asset units.
+    #[serde(default)]
+    pub circulating_supply: Option<f64>,
 }
 
 // ============================================================================
@@ -298,6 +301,9 @@ impl CollateralAssetMetadata {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotAssetConfig {
+    /// SPL Token mint; absent for native SOL.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mint: Option<String>,
     pub is_active: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub perp_asset_index: Option<u32>,
@@ -439,6 +445,7 @@ mod tests {
             tokens_xyz_asset_id: None,
             calendar: None,
             display_color: None,
+            circulating_supply: None,
         })
         .unwrap();
         assert_eq!(json["searchAliases"], serde_json::json!(["XAU"]));
