@@ -925,6 +925,7 @@ mod tests {
     fn sample_public_metadata(name: &str) -> MarketPublicMetadata {
         MarketPublicMetadata {
             earnings_dates: Vec::new(),
+            earnings_dates_v2: Vec::new(),
             name: Some(name.to_string()),
             description: Some("Solana perpetual market".to_string()),
             search_aliases: vec!["SOL".to_string()],
@@ -1022,7 +1023,11 @@ mod tests {
             })
         ));
 
-        let metadata = sample_public_metadata("Updated Solana Perp");
+        let mut metadata = sample_public_metadata("Updated Solana Perp");
+        metadata.earnings_dates_v2 = vec![phoenix_rise_types::exchange::EarningsDate {
+            date: "2026-10-20".parse().unwrap(),
+            time: Some(phoenix_rise_types::exchange::EarningsTime::Amc),
+        }];
         let metadata_events = cache
             .apply_delta(&build_market_metadata_delta(12, Some(metadata.clone())))
             .expect("metadata delta should apply");

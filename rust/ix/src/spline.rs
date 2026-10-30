@@ -531,6 +531,166 @@ impl UpdateSplinePriceParamsWithOrderingBuilder {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct UpdateSplinePriceWithMetadataParams {
+    pub new_mid_price: u32,
+    pub user_update_slot: Option<u64>,
+    pub refresh_regions: bool,
+    pub user_sequence_number: u64,
+    pub client_order_id: [u8; 16],
+    pub override_sequence_number: bool,
+    pub bid_width: Option<u32>,
+    pub ask_width: Option<u32>,
+}
+
+impl UpdateSplinePriceWithMetadataParams {
+    pub fn builder() -> UpdateSplinePriceWithMetadataParamsBuilder {
+        UpdateSplinePriceWithMetadataParamsBuilder::new()
+    }
+
+    /// Encode the fixed 32-byte params followed by the 16-byte client order ID.
+    /// The instruction discriminator is not included.
+    pub fn encode(&self) -> Vec<u8> {
+        let flags = u32::from(self.refresh_regions)
+            | (u32::from(self.override_sequence_number) << 1)
+            | (u32::from(self.user_update_slot.is_some()) << 2)
+            | (u32::from(self.bid_width.is_some()) << 3)
+            | (u32::from(self.ask_width.is_some()) << 4);
+        let mut data = Vec::with_capacity(48);
+        data.extend_from_slice(&self.new_mid_price.to_le_bytes());
+        data.extend_from_slice(&flags.to_le_bytes());
+        data.extend_from_slice(&self.user_sequence_number.to_le_bytes());
+        data.extend_from_slice(&self.user_update_slot.unwrap_or(0).to_le_bytes());
+        data.extend_from_slice(&self.bid_width.unwrap_or(0).to_le_bytes());
+        data.extend_from_slice(&self.ask_width.unwrap_or(0).to_le_bytes());
+        data.extend_from_slice(&self.client_order_id);
+        data
+    }
+
+    /// Decode the fixed params and optional client order ID tail.
+    /// A missing or incomplete client order ID is reported as zero.
+    pub fn decode(data: &[u8]) -> Result<Self, PhoenixIxError> {
+        let (data, tail) = data
+            .split_first_chunk::<32>()
+            .ok_or(PhoenixIxError::InvalidSplinePriceMetadata)?;
+        let flags = u32::from_le_bytes(data[4..8].try_into().unwrap());
+        // Bits above the five defined flags are reserved and must be zero.
+        if flags >> 5 != 0 {
+            return Err(PhoenixIxError::InvalidSplinePriceMetadata);
+        }
+        Ok(Self {
+            new_mid_price: u32::from_le_bytes(data[..4].try_into().unwrap()),
+            user_sequence_number: u64::from_le_bytes(data[8..16].try_into().unwrap()),
+            refresh_regions: flags & 1 != 0,
+            override_sequence_number: flags & 2 != 0,
+            user_update_slot: (flags & 4 != 0)
+                .then(|| u64::from_le_bytes(data[16..24].try_into().unwrap())),
+            bid_width: (flags & 8 != 0)
+                .then(|| u32::from_le_bytes(data[24..28].try_into().unwrap())),
+            ask_width: (flags & 16 != 0)
+                .then(|| u32::from_le_bytes(data[28..32].try_into().unwrap())),
+            client_order_id: tail.first_chunk::<16>().copied().unwrap_or_default(),
+        })
+    }
+
+    /// Decode complete instruction data, including its discriminator.
+    /// The returned input params retain `client_order_id` for off-chain
+    /// tracking.
+    pub fn decode_instruction_data(data: &[u8]) -> Result<Self, PhoenixIxError> {
+        let (discriminator, payload) = data
+            .split_first_chunk::<8>()
+            .ok_or(PhoenixIxError::InvalidSplinePriceMetadata)?;
+        if *discriminator != PhoenixInstruction::UpdateSplinePriceWithMetadata.discriminant() {
+            return Err(PhoenixIxError::InvalidSplinePriceMetadata);
+        }
+        Self::decode(payload)
+    }
+}
+
+#[derive(Default)]
+pub struct UpdateSplinePriceWithMetadataParamsBuilder {
+    new_mid_price: Option<u32>,
+    user_update_slot: Option<u64>,
+    refresh_regions: Option<bool>,
+    user_sequence_number: Option<u64>,
+    client_order_id: Option<[u8; 16]>,
+    override_sequence_number: Option<bool>,
+    bid_width: Option<u32>,
+    ask_width: Option<u32>,
+}
+
+impl UpdateSplinePriceWithMetadataParamsBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn new_mid_price(mut self, new_mid_price: u32) -> Self {
+        self.new_mid_price = Some(new_mid_price);
+        self
+    }
+
+    pub fn user_update_slot(mut self, user_update_slot: u64) -> Self {
+        self.user_update_slot = Some(user_update_slot);
+        self
+    }
+
+    pub fn refresh_regions(mut self, refresh_regions: bool) -> Self {
+        self.refresh_regions = Some(refresh_regions);
+        self
+    }
+
+    pub fn user_sequence_number(mut self, user_sequence_number: u64) -> Self {
+        self.user_sequence_number = Some(user_sequence_number);
+        self
+    }
+
+    pub fn client_order_id(mut self, client_order_id: [u8; 16]) -> Self {
+        self.client_order_id = Some(client_order_id);
+        self
+    }
+
+    pub fn override_sequence_number(mut self, override_sequence_number: bool) -> Self {
+        self.override_sequence_number = Some(override_sequence_number);
+        self
+    }
+
+    /// Omission preserves the bid width; zero resets it.
+    pub fn bid_width(mut self, bid: u32) -> Self {
+        self.bid_width = Some(bid);
+        self
+    }
+
+    pub fn ask_width(mut self, ask: u32) -> Self {
+        self.ask_width = Some(ask);
+        self
+    }
+
+    /// Set both widths; (0, 0) resets them.
+    pub fn base_widths(mut self, bid: u32, ask: u32) -> Self {
+        self.bid_width = Some(bid);
+        self.ask_width = Some(ask);
+        self
+    }
+
+    pub fn build(self) -> Result<UpdateSplinePriceWithMetadataParams, PhoenixIxError> {
+        Ok(UpdateSplinePriceWithMetadataParams {
+            new_mid_price: self
+                .new_mid_price
+                .ok_or(PhoenixIxError::MissingField("new_mid_price"))?,
+            user_update_slot: self.user_update_slot,
+            refresh_regions: self.refresh_regions.unwrap_or(true),
+            user_sequence_number: self
+                .user_sequence_number
+                .ok_or(PhoenixIxError::MissingField("user_sequence_number"))?,
+            client_order_id: self.client_order_id.unwrap_or([0u8; 16]),
+            override_sequence_number: self.override_sequence_number.unwrap_or(false),
+            bid_width: self.bid_width,
+            ask_width: self.ask_width,
+        })
+    }
+}
+
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UpdateSplineParametersParamsWithOrdering {
@@ -840,6 +1000,20 @@ pub fn create_update_spline_price_with_ordering_ix(
     })
 }
 
+pub fn create_update_spline_price_with_metadata_ix(
+    accounts: SplineUpdateAccounts,
+    params: UpdateSplinePriceWithMetadataParams,
+) -> Result<Instruction, PhoenixIxError> {
+    let mut data = Vec::with_capacity(8 + 48);
+    data.extend_from_slice(&PhoenixInstruction::UpdateSplinePriceWithMetadata.discriminant());
+    data.extend_from_slice(&params.encode());
+    Ok(Instruction {
+        program_id: *PHOENIX_PROGRAM_ID,
+        accounts: build_spline_update_accounts(&accounts),
+        data,
+    })
+}
+
 pub fn create_update_spline_parameters_with_ordering_ix(
     accounts: SplineUpdateAccounts,
     params: UpdateSplineParametersParamsWithOrdering,
@@ -1037,6 +1211,58 @@ mod tests {
         assert_eq!(&ix.data[18..26], &7u64.to_le_bytes());
         assert_eq!(&ix.data[26..42], &[3; 16]);
         assert_eq!(ix.data[42], 0);
+    }
+
+    #[test]
+    fn spline_metadata_codec_matches_wire_fixtures() {
+        let fixtures: serde_json::Value =
+            serde_json::from_str(include_str!("../tests/fixtures/spline-price-metadata.json"))
+                .unwrap();
+        for fixture in fixtures.as_array().unwrap() {
+            let params = UpdateSplinePriceWithMetadataParams {
+                new_mid_price: 123_456,
+                refresh_regions: true,
+                user_sequence_number: 42,
+                override_sequence_number: false,
+                client_order_id: [0xab; 16],
+                user_update_slot: fixture["slot"].as_str().map(|slot| slot.parse().unwrap()),
+                bid_width: fixture["bidWidth"]
+                    .as_u64()
+                    .map(|width| width.try_into().unwrap()),
+                ask_width: fixture["askWidth"]
+                    .as_u64()
+                    .map(|width| width.try_into().unwrap()),
+            };
+            let expected: Vec<u8> = fixture["hex"]
+                .as_str()
+                .unwrap()
+                .as_bytes()
+                .chunks_exact(2)
+                .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+                .collect();
+            assert_eq!(params.encode(), expected, "{}", fixture["name"]);
+            assert_eq!(
+                UpdateSplinePriceWithMetadataParams::decode(&expected).unwrap(),
+                params
+            );
+            let ix =
+                create_update_spline_price_with_metadata_ix(update_accounts(), params).unwrap();
+            assert_eq!(&ix.data[8..], expected);
+            assert_eq!(
+                &ix.data[..8],
+                &PhoenixInstruction::UpdateSplinePriceWithMetadata.discriminant()
+            );
+        }
+    }
+
+    #[test]
+    fn spline_metadata_decoder_rejects_invalid_payloads() {
+        for length in 0..80 {
+            assert_eq!(
+                UpdateSplinePriceWithMetadataParams::decode(&vec![0; length]).is_ok(),
+                length >= 32,
+            );
+        }
     }
 
     #[test]

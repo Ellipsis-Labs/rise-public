@@ -64,10 +64,10 @@ pub mod prelude {
     };
     pub use super::core::{Decimal, PaginatedResponse, Price, Side};
     pub use super::exchange::{
-        AuthoritySetView, CollateralAssetMetadata, CollateralAssetsResponse, ExchangeKeysView,
-        ExchangeLeverageTier, ExchangeMarketConfig, ExchangeResponse, ExchangeRiskFactors,
-        ExchangeStatusView, ExchangeView, MarketCalendar, MarketPublicMetadata,
-        MarketStatsSnapshot, SpotAssetConfig, SpotOraclePriceView,
+        AuthoritySetView, CollateralAssetMetadata, CollateralAssetsResponse, EarningsDate,
+        EarningsTime, ExchangeKeysView, ExchangeLeverageTier, ExchangeMarketConfig,
+        ExchangeResponse, ExchangeRiskFactors, ExchangeStatusView, ExchangeView, MarketCalendar,
+        MarketPublicMetadata, MarketStatsSnapshot, SpotAssetConfig, SpotOraclePriceView,
     };
     pub use super::exchange_ws::{
         AuthoritySet, CommodityMarketState, ExchangeDeltaMessage, ExchangeDeltaOp,
@@ -122,13 +122,13 @@ pub mod prelude {
         CapabilityAccess, CooldownStatus, OrderHistoryDelta, TradeHistoryDelta,
         TraderCapabilitiesView, TraderStateCapabilities, TraderStateConditionalStopLossTrigger,
         TraderStateConditionalTakeProfitTrigger, TraderStateConditionalTrigger, TraderStateDelta,
-        TraderStateLimitOrderEvent, TraderStateMarketLimitOrderEvent, TraderStatePayload,
-        TraderStatePositionDelta, TraderStatePositionRow, TraderStatePositionSnapshot,
-        TraderStateRowChangeKind, TraderStateServerMessage, TraderStateSnapshot,
-        TraderStateSplineDelta, TraderStateSplineRow, TraderStateSplineSnapshot,
-        TraderStateSpotCollateralSnapshot, TraderStateStopLossTrigger, TraderStateSubaccountDelta,
-        TraderStateSubaccountSnapshot, TraderStateTakeProfitTrigger, TraderStateTickRegion,
-        TraderStateTrigger, TraderStateTriggerDelta, TraderStateTriggerRow,
+        TraderStateLimitOrderEvent, TraderStateLockedDeposit, TraderStateMarketLimitOrderEvent,
+        TraderStatePayload, TraderStatePositionDelta, TraderStatePositionRow,
+        TraderStatePositionSnapshot, TraderStateRowChangeKind, TraderStateServerMessage,
+        TraderStateSnapshot, TraderStateSplineDelta, TraderStateSplineRow,
+        TraderStateSplineSnapshot, TraderStateSpotCollateralSnapshot, TraderStateStopLossTrigger,
+        TraderStateSubaccountDelta, TraderStateSubaccountSnapshot, TraderStateTakeProfitTrigger,
+        TraderStateTickRegion, TraderStateTrigger, TraderStateTriggerDelta, TraderStateTriggerRow,
         TraderStateTriggerSnapshot,
     };
     pub use super::trader_http::{

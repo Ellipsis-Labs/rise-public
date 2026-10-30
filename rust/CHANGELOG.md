@@ -3,6 +3,40 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.7.0 - 2026-10-26
+
+Source Phoenix commit: `961469f9d494b060caae4d0c7f10bf59068340da`
+
+### Summary
+
+- **Locked deposits:** Trader state now carries a per-subaccount locked-deposit reserve. This adds the `LockedDepositState` and `TraderStateLockedDeposit` types, the `locked_deposit` field on subaccount snapshots and deltas, `Trader::locked_deposit_{total,consumed,remaining}`, and `TraderView::locked_deposit_remaining`. The `events` and `accounts` components add `LockedDepositChanged`, plus a `LockedDeposit` escrow action kind and a `locked_deposit_amount` accessor. `math` simulations now consume the reserve on realized losses, fees, and funding payments.
+- **Spline base widths:** `accounts` reads `bid_base_width` and `ask_base_width` from the spline account, using bytes that were previously padding. Materialized liquidity regions are shifted by the side's base width.
+- **New `ix` instruction:** `UpdateSplinePriceWithMetadata` adds a params type with a builder, an `encode`/`decode`/`decode_instruction_data` codec, `create_update_spline_price_with_metadata_ix`, and a new `PhoenixIxError::InvalidSplinePriceMetadata` variant. It supports optional bid and ask widths and a client order ID.
+- **Earnings metadata:** `types` adds `MarketPublicMetadata::earnings_dates_v2`, with `EarningsDate` and `EarningsTime` (`amc`/`bmo`). The field defaults to empty, so older payloads still decode.
+- **Dependencies:** `pastey` is bumped to 0.2.3, and the lockfiles move to `rustls` 0.23.46, `rustls-webpki` 0.103.16, and `webpki-roots` 1.0.10. `deny.toml` now bans vulnerable `webpki-roots` versions.
+
+### Breaking Changes
+
+- `TraderPortfolioMargin::calculate_transferable_collateral` now deducts the locked-deposit reserve, which changes its result. It is deprecated in favor of `calculate_withdrawable_collateral`. For cross-margin to isolated transfers within one trader PDA, use `calculate_withdrawable_collateral_pre_lock`, which returns the old value.
+- New public fields break struct-literal construction:
+  - `TraderPortfolio` and `TraderPortfolioMargin` gain `locked_deposit_remaining`.
+  - `TraderStateSubaccountSnapshot` and `TraderStateSubaccountDelta` gain `locked_deposit`.
+  - `MarketPublicMetadata` gains `earnings_dates_v2`.
+  - `SubaccountState` gains `locked_deposit`.
+  - The owned `Spline` gains `bid_base_width` and `ask_base_width`.
+- New variants break exhaustive matches: `MarketEvent::LockedDepositChanged`, `MarketEventType::LockedDepositChanged`, `EscrowActionKind::LockedDeposit`, and `events::EscrowAction::LockedDeposit`.
+- The serialized `EscrowAction` gains a `locked_deposit_amount` field, and the serialized `Spline` gains `bid_base_width` and `ask_base_width`.
+- The shared `PhoenixInstruction` enum gains a variant, so `PhoenixInstruction::ALL` grows from 109 to 110 entries. Exhaustive matches and code that depends on the count need updating.
+- `PhoenixIxError` gains a variant, which breaks exhaustive matches.
+- The workspace `pastey` requirement moves from 0.1 to 0.2.3. Consumers who pin `pastey` 0.1 alongside these crates may see duplicate versions.
+
+### Consumer Notes
+
+- Use `Trader::locked_deposit_remaining()` or the per-subaccount `locked_deposit.remaining()` when computing withdrawals. `calculate_withdrawable_collateral` already applies the reserve.
+- Servers that predate `lockedDeposit` omit the field, and the SDK treats a missing entry as no lock. The lock amounts are `JsSafeU64` strings on the wire, so u64 precision is preserved.
+- Builders default `refresh_regions` to `true` for `UpdateSplinePriceWithMetadata`, matching `UpdateSplinePrice`. For widths, omission preserves the current value and `0` resets it.
+- `UpdateSplinePriceWithMetadataParams::decode` accepts a missing or short client order ID tail and reports it as zero.
+
 ## v0.6.15 - 2026-10-26
 
 Source Phoenix commit: `9f55713fed206e5d504ff59ec487c6aee437fb58`

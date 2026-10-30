@@ -107,11 +107,15 @@ pub struct TickRegion {
 }
 
 impl TickRegion {
+    /// Starting offset in ticks (inclusive). The distance from mid price is
+    /// this offset plus the side's base width.
     #[inline(always)]
     pub const fn start_offset(&self) -> Ticks {
         self.start_offset
     }
 
+    /// Ending offset in ticks (exclusive). The distance from mid price is this
+    /// offset plus the side's base width.
     #[inline(always)]
     pub const fn end_offset(&self) -> Ticks {
         self.end_offset
@@ -191,11 +195,21 @@ pub struct Spline {
     leverage_decrease_in_bps: u32,
     max_position_size_long: u32,
     max_position_size_short: u32,
-    _padding2: [u64; 28],
+    bid_base_width: Ticks,
+    ask_base_width: Ticks,
+    _padding2: [u64; 26],
 }
 
 impl Spline {
     const MAX_POSITION_SIZE_ACTIVE: u32 = 1 << 0;
+
+    pub const fn bid_base_width(&self) -> Ticks {
+        self.bid_base_width
+    }
+
+    pub const fn ask_base_width(&self) -> Ticks {
+        self.ask_base_width
+    }
 
     #[inline(always)]
     pub const fn trader(&self) -> [u8; 32] {
@@ -500,11 +514,13 @@ impl serde::Serialize for Spline {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_struct("Spline", 21)?;
+        let mut state = serializer.serialize_struct("Spline", 23)?;
         state.serialize_field("trader", &pubkey_string(&self.trader()))?;
         state.serialize_field("is_active", &self.is_active())?;
         state.serialize_field("is_enabled", &self.is_enabled())?;
         state.serialize_field("mid_price", &self.mid_price())?;
+        state.serialize_field("bid_base_width", &self.bid_base_width())?;
+        state.serialize_field("ask_base_width", &self.ask_base_width())?;
         state.serialize_field("sequence_number", &self.sequence_number())?;
         state.serialize_field("user_update_slot", &self.user_update_slot())?;
         state.serialize_field("bid_offset", &self.bid_offset())?;

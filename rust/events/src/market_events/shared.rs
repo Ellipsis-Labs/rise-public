@@ -413,4 +413,9 @@ pub enum EscrowAction {
         #[cfg_attr(feature = "serde", serde(skip, default = "zero_padding_128"))]
         _padding0: [u8; 128],
     },
+    LockedDeposit {
+        amount: u64,
+        #[cfg_attr(feature = "serde", serde(skip, default = "zero_padding_128"))]
+        _padding0: [u8; 128],
+    },
 }

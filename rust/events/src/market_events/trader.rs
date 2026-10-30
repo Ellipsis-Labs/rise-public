@@ -130,6 +130,20 @@ pub struct TraderWithdrawCancelledEvent {
     pub withdraw_queue_prev_sequence_number_slot: u64,
 }
 
+/// A trader's locked-deposit entry changed: a grant, a loss consuming it, or a
+/// parent/child sync or sweep. Values are the entry before and after the
+/// change; `new_locked_usdc == 0` means the entry was removed, and zero
+/// `previous_*` values mean the trader had no entry before.
+#[derive(Debug, Copy, Clone, BorshDeserialize, BorshSerialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct LockedDepositChangedEvent {
+    pub trader: Pubkey,
+    pub previous_locked_usdc: QuoteLots,
+    pub previous_consumed: QuoteLots,
+    pub new_locked_usdc: QuoteLots,
+    pub new_consumed: QuoteLots,
+}
+
 /// Collateral was transferred between trader accounts.
 #[derive(Debug, Copy, Clone, BorshDeserialize, BorshSerialize)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

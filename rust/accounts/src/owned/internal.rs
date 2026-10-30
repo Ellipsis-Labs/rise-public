@@ -401,7 +401,9 @@ pub struct TraderPositionEntry {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct TickRegion {
+    /// Inclusive; the distance from mid price adds the side's base width.
     pub start_offset: Ticks,
+    /// Exclusive; the distance from mid price adds the side's base width.
     pub end_offset: Ticks,
     pub density: BaseLotsPerTick,
     pub top_level_hidden_take_size: BaseLotsPerTick,
@@ -416,6 +418,8 @@ pub struct Spline {
     pub trader: Pubkey,
     pub is_active: bool,
     pub mid_price: Ticks,
+    pub bid_base_width: Ticks,
+    pub ask_base_width: Ticks,
     pub sequence_number: SequenceNumber,
     pub user_update_slot: u64,
     pub bid_offset: u64,
@@ -580,6 +584,8 @@ impl Spline {
             trader: self.trader,
             enabled: self.is_enabled(),
             mid_price: self.mid_price,
+            bid_base_width: self.bid_base_width,
+            ask_base_width: self.ask_base_width,
             user_update_slot: self.user_update_slot,
             bid_filled_amount: self.bid_filled_amount,
             ask_filled_amount: self.ask_filled_amount,
@@ -620,6 +626,8 @@ struct SplineLiquidityParts<'a> {
     trader: Pubkey,
     enabled: bool,
     mid_price: Ticks,
+    bid_base_width: Ticks,
+    ask_base_width: Ticks,
     user_update_slot: u64,
     bid_filled_amount: BaseLots,
     ask_filled_amount: BaseLots,
@@ -635,6 +643,7 @@ fn liquidity_at_slot_from_parts(parts: SplineLiquidityParts<'_>) -> SplineLiquid
             SplineSide::Bid,
             liquidity_levels_from_regions(
                 parts.mid_price,
+                parts.bid_base_width,
                 SplineSide::Bid,
                 parts.bid_regions,
                 parts.user_update_slot,
@@ -650,6 +659,7 @@ fn liquidity_at_slot_from_parts(parts: SplineLiquidityParts<'_>) -> SplineLiquid
             SplineSide::Ask,
             liquidity_levels_from_regions(
                 parts.mid_price,
+                parts.ask_base_width,
                 SplineSide::Ask,
                 parts.ask_regions,
                 parts.user_update_slot,
@@ -697,6 +707,7 @@ fn nonnegative_i128_to_base_lots(value: i128) -> BaseLots {
 
 fn liquidity_levels_from_regions(
     mid_price: Ticks,
+    base_width: Ticks,
     side: SplineSide,
     regions: &[TickRegion],
     user_update_slot: u64,
@@ -718,8 +729,8 @@ fn liquidity_levels_from_regions(
         let lots_per_tick = density * Ticks::ONE;
 
         let mut fills_to_consume = region.filled_size;
-        let mut current_tick = region.start_offset;
-        let end_tick = region.end_offset;
+        let mut current_tick = region.start_offset.saturating_add(base_width);
+        let end_tick = region.end_offset.saturating_add(base_width);
 
         while current_tick < end_tick && lots_remaining > BaseLots::ZERO {
             if fills_to_consume >= lots_per_tick {
@@ -1248,11 +1259,15 @@ pub(crate) fn read_spline(reader: &mut Reader<'_>) -> Result<Spline, AccountDese
     let leverage_decrease_in_bps = BasisPoints::new(u64::from(reader.read_u32()?));
     let max_position_size_long = BaseLots::new(u64::from(reader.read_u32()?));
     let max_position_size_short = BaseLots::new(u64::from(reader.read_u32()?));
-    reader.skip(8 * 28)?;
+    let bid_base_width = Ticks::new(reader.read_u64()?);
+    let ask_base_width = Ticks::new(reader.read_u64()?);
+    reader.skip(8 * 26)?;
     Ok(Spline {
         trader,
         is_active,
         mid_price,
+        bid_base_width,
+        ask_base_width,
         sequence_number,
         user_update_slot,
         bid_offset,
@@ -1417,6 +1432,8 @@ mod tests {
             trader: Pubkey::new_unique(),
             is_active: true,
             mid_price: Ticks::new(100),
+            bid_base_width: Ticks::ZERO,
+            ask_base_width: Ticks::ZERO,
             sequence_number: SequenceNumber {
                 sequence_number: 0,
                 last_update_slot: 0,
@@ -1484,5 +1501,36 @@ mod tests {
         let limited = spline.liquidity_at_slot_with_position_limits(10, 12);
         assert_eq!(limited.available_bid_lots(), BaseLots::new(3));
         assert_eq!(limited.available_ask_lots(), BaseLots::new(7));
+    }
+
+    #[test]
+    fn base_widths_shift_materialized_liquidity() {
+        let mut spline = test_spline();
+        let before = spline.liquidity_at_slot_with_capacity(10, SplineRiskCapacity::unlimited());
+        spline.bid_base_width = Ticks::new(5);
+        spline.ask_base_width = Ticks::new(9);
+        let after = spline.liquidity_at_slot_with_capacity(10, SplineRiskCapacity::unlimited());
+        assert_eq!(before.available_bid_lots(), after.available_bid_lots());
+        assert_eq!(before.available_ask_lots(), after.available_ask_lots());
+        for (old, new) in before.bid_regions.iter().zip(&after.bid_regions) {
+            assert_eq!(
+                new.start_price_ticks,
+                old.start_price_ticks.saturating_sub(Ticks::new(5))
+            );
+            assert_eq!(
+                new.end_price_ticks,
+                old.end_price_ticks.saturating_sub(Ticks::new(5))
+            );
+        }
+        for (old, new) in before.ask_regions.iter().zip(&after.ask_regions) {
+            assert_eq!(
+                new.start_price_ticks,
+                old.start_price_ticks.saturating_add(Ticks::new(9))
+            );
+            assert_eq!(
+                new.end_price_ticks,
+                old.end_price_ticks.saturating_add(Ticks::new(9))
+            );
+        }
     }
 }

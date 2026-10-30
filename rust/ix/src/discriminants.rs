@@ -299,6 +299,7 @@ define_instruction_discriminants! {
         RegisterSpline => "register_spline",
         UpdateCommodityMarketState => "update_commodity_market_state",
         UpdateSplinePrice => "update_spline_price",
+        UpdateSplinePriceWithMetadata => "update_spline_price_with_metadata",
         UpdateSplineParameters => "update_spline_parameters",
         UpdateOraclePricesWithOrdering => "update_oracle_prices_with_ordering",
         UpdatePerpIsolatedOnly => "update_perp_isolated_only",

@@ -479,7 +479,7 @@ fn phoenix_instruction_discriminants_round_trip() {
         );
     }
 
-    assert_eq!(PhoenixInstruction::ALL.len(), 109);
+    assert_eq!(PhoenixInstruction::ALL.len(), 110);
     assert_eq!(
         PhoenixInstruction::ReallocTrader.discriminant(),
         compute_discriminant("global:realloc_trader")
