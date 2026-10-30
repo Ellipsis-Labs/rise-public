@@ -159,6 +159,47 @@ describe("orderbook bypassExecutionBand subscriptions", () => {
     });
   });
 
+  it.each([
+    {
+      name: "l2Book",
+      subscribe: (ws: WsClient) => createL2BookAdapter(ws)("SOL-PERP"),
+      routingKey: "l2Book:sol-perp",
+      frame: {
+        channel: "l2Book",
+        coin: "SOL-PERP",
+        timestamp: 1_700_000_000_000,
+        slot: 4398,
+        slotIndex: 7,
+        bids: [[100, 1]],
+        asks: [[101, 1]],
+      },
+    },
+    {
+      name: "orderbook",
+      subscribe: (ws: WsClient) => createOrderbookAdapter(ws)("SOL-PERP"),
+      routingKey: "orderbook:sol-perp",
+      frame: {
+        channel: "orderbook",
+        symbol: "SOL-PERP",
+        orderbook: { bids: [[100, 1]], asks: [[101, 1]], mid: 100.5 },
+        slot: 4398,
+        slotIndex: 7,
+      },
+    },
+  ])(
+    "surfaces slot and slotIndex on $name updates",
+    async ({ subscribe, routingKey, frame }) => {
+      const mock = createMockWsClient();
+      const next = subscribe(mock.ws)[Symbol.asyncIterator]().next();
+
+      findSubscription(mock.subscriptions, routingKey)?.onMessage(frame);
+
+      await expect(next).resolves.toMatchObject({
+        value: { slot: 4398n, slotIndex: 7 },
+      });
+    }
+  );
+
   it("routes plugin keys by bypassExecutionBand mode", () => {
     const l2BookPlugin = createL2BookPlugin();
     const orderbookPlugin = createOrderbookPlugin();

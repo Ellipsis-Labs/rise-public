@@ -67,6 +67,8 @@ export const createOrderbookAdapter = (
         return {
           symbol: message.symbol,
           orderbook: message.orderbook,
+          slot: message.slot,
+          slotIndex: message.slotIndex,
           bypassExecutionBand: message.bypassExecutionBand,
         };
       },

@@ -1,13 +1,12 @@
 # Rise Example Program
 
-This Pinocchio program exercises the `phoenix-rise` CPI surface from an
-on-chain caller. Its integration tests run against the generated Rise localnet
+Pinocchio example program exercising the `phoenix-rise` CPI surface from an
+on-chain caller. Integration tests run against the generated Rise localnet
 fixture and cover deposits, withdrawals, market orders with return data, limit
 orders, stop losses, Hawkeye margin reads after market orders, and isolated
 subaccount collateral flows.
 
-The program is intentionally an example, not a reusable business-logic crate.
-Each instruction uses a simple fixed account prefix with dynamic
-`global_trader_index` and `active_trader_buffer` accounts at the tail, then
-adapts those accounts into the typed CPI contexts exposed by
-`phoenix-rise::ix::cpi`.
+This crate is a reference example, not a reusable library. Each instruction
+takes a fixed account prefix followed by dynamic `global_trader_index` and
+`active_trader_buffer` accounts at the tail, then adapts them into the typed CPI
+contexts in `phoenix_rise::ix::cpi`.

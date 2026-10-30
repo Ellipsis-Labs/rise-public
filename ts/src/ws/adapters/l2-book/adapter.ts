@@ -72,6 +72,7 @@ export const createL2BookAdapter = (
             market: message.coin,
             ts,
             slot: BigInt(message.slot),
+            slotIndex: message.slotIndex,
             bids: message.bids,
             asks: message.asks,
             bypassExecutionBand: message.bypassExecutionBand,

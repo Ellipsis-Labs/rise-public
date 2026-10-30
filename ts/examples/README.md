@@ -1,16 +1,15 @@
 # Rise TS Examples
 
-This directory contains runnable TypeScript examples for `@ellipsis-labs/rise`.
+Runnable TypeScript examples for `@ellipsis-labs/rise`.
 
-When an example asks for `SYMBOL`, use the route-style symbol like `SOL` or
-`BTC`, not `SOL-PERP`. The ix-building example resolves `SOL` vs `SOL-PERP`
-from exchange metadata for you.
+Pass route-style symbols like `SOL` or `BTC` for `SYMBOL`, not `SOL-PERP`. The
+ix-building example resolves `SOL` vs `SOL-PERP` from exchange metadata.
 
 ## Quick Start
 
 ### 01-http-client.ts
 
-Minimal HTTP client setup mirroring `rise/rust/sdk/examples/http_client.rs`.
+Minimal HTTP client setup mirroring `rust/sdk/examples/http_client.rs`.
 
 ```bash
 bun examples/01-http-client.ts [TRADER_PUBKEY]
@@ -18,7 +17,7 @@ bun examples/01-http-client.ts [TRADER_PUBKEY]
 
 ### 02-ws-fills.ts
 
-Minimal WebSocket setup mirroring `rise/rust/sdk/examples/subscribe_trades.rs`.
+Minimal WebSocket setup mirroring `rust/sdk/examples/subscribe_trades.rs`.
 
 ```bash
 bun examples/02-ws-fills.ts [SYMBOL]
@@ -26,49 +25,47 @@ bun examples/02-ws-fills.ts [SYMBOL]
 
 ### 03-build-limit-order-ix.ts
 
-Creates a client, loads exchange metadata, builds a limit-order packet, and
-builds a place-limit-order instruction.
+Loads exchange metadata, builds a limit-order packet, and builds a
+place-limit-order instruction.
 
 ```bash
 bun examples/03-build-limit-order-ix.ts [AUTHORITY_PUBKEY] [SYMBOL]
 ```
 
-If `AUTHORITY_PUBKEY` is omitted, the example uses the all-ones System Program
-address because instruction building only needs an authority address.
+Omitting `AUTHORITY_PUBKEY` defaults to the all-ones System Program address,
+since instruction building only needs an authority address.
 
 ### 04-trader-state-store.ts
 
 Creates a `TraderState` store from `createPhoenixClient(...)`, retains the
-resource so it subscribes through `client.streams.traderState(...)`, and reads
-live values from the store.
+resource to subscribe via `client.streams.traderState(...)`, and reads live
+store values.
 
 ```bash
 bun examples/04-trader-state-store.ts [AUTHORITY_PUBKEY] [TRADER_PDA_INDEX] [--watch]
 ```
 
-If `AUTHORITY_PUBKEY` is omitted, the example uses the all-ones System Program
-address and exits after the first live update. Pass `--watch` to keep the
-subscription open until `Ctrl+C`.
+Omitting `AUTHORITY_PUBKEY` defaults to the all-ones System Program address.
+Exits after the first live update unless `--watch` is passed (`Ctrl+C` to stop).
 
 ### 05-cancel-all-conditional-orders.ts
 
-Loads a trader's conditional-orders account, builds a cancel instruction for
-every active trigger leg, and submits them in batches.
+Loads a trader's conditional-orders account and batch-submits cancel
+instructions for every active trigger leg.
 
 ```bash
 bun examples/05-cancel-all-conditional-orders.ts <AUTHORITY_PUBKEY> [options]
 ```
 
-Running this example with no arguments prints safety guidance instead of
-submitting live transactions.
+Running without arguments prints safety guidance instead of submitting live
+transactions.
 
 ### 06-flight-market-order.ts
 
 Configures `createPhoenixClient(...)` with a builder authority and builds a
-Flight-routed market-order instruction so builder fees would be credited to the
-configured builder trader account. This example only builds the instruction; the
-runnable Rust counterpart in `rise/rust/sdk/examples/send_flight_market_order.rs`
-also submits it.
+Flight-routed market-order instruction that credits builder fees to the builder
+trader account. Builds the instruction only; the Rust counterpart in
+`rust/sdk/examples/send_flight_market_order.rs` also submits it.
 
 ```bash
 bun examples/06-flight-market-order.ts <BUILDER_AUTHORITY> <TRADER_AUTHORITY> <SYMBOL> <bid|ask> <NUM_BASE_LOTS> [PRICE_LIMIT_TICKS]
@@ -77,36 +74,35 @@ bun examples/06-flight-market-order.ts <BUILDER_AUTHORITY> <TRADER_AUTHORITY> <S
 ### 07-onboard-trader-delegated.ts
 
 Loads a trader-onboarder keypair, derives its permission PDA from the current
-risk authority, registers the target trader account if needed, and submits the
+risk authority, registers the trader account if needed, and submits the
 delegated onboarding instruction.
 
 ```bash
 bun examples/07-onboard-trader-delegated.ts <TRADER_AUTHORITY> [options]
 ```
 
-Running this example with no arguments prints safety guidance instead of
-submitting live transactions.
+Running without arguments prints safety guidance instead of submitting live
+transactions.
 
 ### 08-delegated-trader-management-onboarding.ts
 
-Shows the external team flow where Phoenix grants `user_key` a
-trader-onboarding permission budget, then `user_key` signs the transaction that
-registers and onboards a trader.
+External team flow: Phoenix grants `user_key` a trader-onboarding permission
+budget, and `user_key` signs the transaction that registers and onboards a
+trader.
 
 ```bash
 bun examples/08-delegated-trader-management-onboarding.ts <TRADER_AUTHORITY> [options]
 ```
 
-Pass `--grant-manager-keypair-path` and `--grant-uses N` to include the
-Phoenix-side `SetPermissionDelegated` grant before the user-side onboarding
-transaction.
+Pass `--grant-manager-keypair-path` and `--grant-uses N` to run the Phoenix-side
+`SetPermissionDelegated` grant before the onboarding transaction.
 
 ### 09-referral-activation-tx.ts
 
-Builds and submits the `/v1/referral/activate-tx` flow with the trader authority
-keypair. If the trader account is missing, the signed transaction includes
-`register_trader` followed by delegated onboarding. If the trader account
-already exists, the signed transaction only includes delegated onboarding.
+Builds and submits the `/v1/referral/activate-tx` transaction signed by the
+trader authority keypair. Includes `register_trader` before delegated onboarding
+when the trader account is missing, or delegated onboarding alone when it
+already exists.
 
 ```bash
 PHOENIX_API_URL=http://127.0.0.1:8080 PHOENIX_RPC_URL=<RPC_URL> \
@@ -115,13 +111,12 @@ bun examples/09-referral-activation-tx.ts <REFERRAL_CODE> [TRADER_KEYPAIR_PATH]
 
 ### 10-builder-onboarding-tx.ts
 
-Builds and submits the `/v1/exchange/build-register-ixs` and
-`/v1/exchange/send-register-ixs` flow without a referral code. The example
-accepts the trader authority as a public key and signs only with the transaction
-fee payer locally. The API then validates, signs as onboarder, simulates, and
-sends it. The fee-payer keypair path defaults to
-`~/.config/solana/id.json`; the trader authority is optional and defaults to
-the fee payer's public key.
+Registers and onboards a trader without a referral code via
+`/v1/exchange/build-register-ixs` and `/v1/exchange/send-register-ixs`. Takes
+the trader authority as a public key and signs locally only with the fee payer;
+the API validates, adds the onboarder signature, simulates, and submits the
+transaction. `--fee-payer-keypair-path` defaults to `~/.config/solana/id.json`;
+`--trader-authority` defaults to the fee payer's public key.
 
 ```text
 PHOENIX_API_URL=http://127.0.0.1:8080 PHOENIX_RPC_URL=<RPC_URL> \

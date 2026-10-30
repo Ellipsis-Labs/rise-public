@@ -1,109 +1,134 @@
 # Rise SDK
 
-Rise is the developer-facing SDK surface for Phoenix perpetuals. It currently
-ships as:
+TypeScript, Rust, and on-chain CPI SDKs for Phoenix perpetuals.
 
-- `rise/ts`: the TypeScript SDK, with HTTP route clients, a unified
-  exchange-aware client, instruction builders, Flight helpers, and WebSocket
+[![Rise CI](https://github.com/Ellipsis-Labs/rise-public/actions/workflows/ci.yaml/badge.svg)](https://github.com/Ellipsis-Labs/rise-public/actions/workflows/ci.yaml)
+[![crates.io](https://img.shields.io/crates/v/phoenix-rise.svg)](https://crates.io/crates/phoenix-rise)
+[![npm](https://img.shields.io/npm/v/@ellipsis-labs/rise.svg)](https://www.npmjs.com/package/@ellipsis-labs/rise)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+
+Rise is the developer SDK for Phoenix perpetuals. The TypeScript package (`ts`,
+`@ellipsis-labs/rise`) provides HTTP route clients, a unified exchange-aware
+client, instruction builders, Flight helpers, and WebSocket adapters. The Rust
+workspace (`rust`, centered on `phoenix-rise`) provides typed HTTP/WS clients,
+transaction builders, math helpers, low-level instruction builders, and
+zero-copy account views for on-chain CPI programs (`programs`).
+
+Documentation: [docs.phoenix.trade](https://docs.phoenix.trade) ·
+[ts/README.md](./ts/README.md) · [rust/README.md](./rust/README.md) ·
+[rust/CRATES.md](./rust/CRATES.md) ·
+[ts/examples/README.md](./ts/examples/README.md)
+
+Where to start:
+
+- `PhoenixHttpClient` / `client.api`: public HTTP data and referral activation
+- `createPhoenixClient(...)`: exchange metadata, PDA derivation, order-packet
+  helpers, and `client.ixs`
+- `client.streams` or `createPhoenixWsClient(...)`: typed live WebSocket
   adapters
-- `rise/rust`: the Rust workspace, centered on the `phoenix-rise` crate, with
-  typed HTTP/WS clients, transaction builders, math helpers, and low-level
-  instruction builders
+- `PhoenixTxBuilder` (Rust): build and sign Solana instructions
+- `phoenix_rise::accounts::{Trader, TraderHeader, PerpAssetMap, GlobalConfig, PermissionAccount}`:
+  borrowed Phoenix account views for on-chain CPI integrations without pulling
+  in the full off-chain SDK
 
-If you are deciding where to start:
+## Install
 
-- Reach for `PhoenixHttpClient` / `client.api` when you need public HTTP data or
-  invite activation
-- Reach for `createPhoenixClient(...)` when you want exchange metadata, PDA
-  derivation, order-packet helpers, and `client.ixs`
-- Reach for `client.streams` or `createPhoenixWsClient(...)` when you want
-  typed live adapters
-- Reach for `PhoenixTxBuilder` in Rust when you want to construct and sign your
-  own Solana instructions
-- Reach for `phoenix_rise::accounts::{Trader, TraderHeader,
-PerpAssetMap, GlobalConfig, PermissionAccount}` when an on-chain CPI integration needs
-  borrowed Phoenix account views without pulling in the full off-chain SDK
-  surface
+TypeScript:
+
+```bash
+npm install @ellipsis-labs/rise
+```
+
+Rust:
+
+```bash
+cargo add phoenix-rise
+```
 
 ## Runnable Entry Points
 
 TypeScript:
 
-- [rise/ts/examples/01-http-client.ts](./ts/examples/01-http-client.ts)
-- [rise/ts/examples/02-ws-fills.ts](./ts/examples/02-ws-fills.ts)
-- [rise/ts/examples/03-build-limit-order-ix.ts](./ts/examples/03-build-limit-order-ix.ts)
-- [rise/ts/examples/04-trader-state-store.ts](./ts/examples/04-trader-state-store.ts)
-- [rise/ts/examples/05-cancel-all-conditional-orders.ts](./ts/examples/05-cancel-all-conditional-orders.ts)
-- [rise/ts/examples/06-flight-market-order.ts](./ts/examples/06-flight-market-order.ts)
-- [rise/ts/examples/09-referral-activation-tx.ts](./ts/examples/09-referral-activation-tx.ts)
-- [rise/ts/examples/10-builder-onboarding-tx.ts](./ts/examples/10-builder-onboarding-tx.ts)
-- [rise/ts/examples/phoenix-client-example.ts](./ts/examples/phoenix-client-example.ts)
-- [rise/ts/examples/phoenix-ws-example.ts](./ts/examples/phoenix-ws-example.ts)
-- [rise/ts/README.md](./ts/README.md)
-- [rise/ts/examples/README.md](./ts/examples/README.md)
+| Entry point                                                                                          | Description                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| [ts/examples/01-http-client.ts](./ts/examples/01-http-client.ts)                                     | Query exchange keys, SOL market config, candles, and trader state over HTTP                                                      |
+| [ts/examples/02-ws-fills.ts](./ts/examples/02-ws-fills.ts)                                           | Subscribe to live market trade fills over WebSocket                                                                              |
+| [ts/examples/03-build-limit-order-ix.ts](./ts/examples/03-build-limit-order-ix.ts)                   | Load exchange metadata, encode a limit-order packet, and build a place-limit-order instruction                                   |
+| [ts/examples/04-trader-state-store.ts](./ts/examples/04-trader-state-store.ts)                       | Maintain a live `TraderState` store backed by `client.streams.traderState(...)`                                                  |
+| [ts/examples/05-cancel-all-conditional-orders.ts](./ts/examples/05-cancel-all-conditional-orders.ts) | Fetch a trader's conditional-orders account and batch-cancel active trigger legs                                                 |
+| [ts/examples/06-flight-market-order.ts](./ts/examples/06-flight-market-order.ts)                     | Build a Flight-routed market-order instruction that credits fees to a builder trader account                                     |
+| [ts/examples/09-referral-activation-tx.ts](./ts/examples/09-referral-activation-tx.ts)               | Build and submit a `/v1/referral/activate-tx` delegated onboarding transaction signed by the trader authority                    |
+| [ts/examples/10-builder-onboarding-tx.ts](./ts/examples/10-builder-onboarding-tx.ts)                 | Register and onboard a trader without a referral code via `/v1/exchange/build-register-ixs` and `/v1/exchange/send-register-ixs` |
+| [ts/examples/phoenix-client-example.ts](./ts/examples/phoenix-client-example.ts)                     | Walkthrough of HTTP routes covering markets, trader views, history, and PnL                                                      |
+| [ts/examples/phoenix-ws-example.ts](./ts/examples/phoenix-ws-example.ts)                             | Interactive WebSocket demo for the built-in stream adapters                                                                      |
+| [ts/README.md](./ts/README.md)                                                                       | TypeScript SDK package guide and API overview                                                                                    |
+| [ts/examples/README.md](./ts/examples/README.md)                                                     | CLI flags and run instructions for all TypeScript examples                                                                       |
 
 Rust:
 
-- [rise/rust/README.md](./rust/README.md)
-- [rise/rust/sdk/examples/register_trader.rs](./rust/sdk/examples/register_trader.rs)
-- [rise/rust/sdk/examples/http_client.rs](./rust/sdk/examples/http_client.rs)
-- [rise/rust/sdk/examples/send_limit_order.rs](./rust/sdk/examples/send_limit_order.rs)
-- [rise/rust/sdk/examples/send_market_order.rs](./rust/sdk/examples/send_market_order.rs)
-- [rise/rust/sdk/examples/send_flight_market_order.rs](./rust/sdk/examples/send_flight_market_order.rs)
-- [rise/rust/sdk/examples/referral_activation_tx.rs](./rust/sdk/examples/referral_activation_tx.rs)
-- [rise/rust/sdk/examples/builder_onboarding_tx.rs](./rust/sdk/examples/builder_onboarding_tx.rs)
+| Entry point                                                                                      | Description                                                                                                                      |
+| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| [rust/README.md](./rust/README.md)                                                               | Rust workspace guide, crate architecture, feature flags, and CLI usage                                                           |
+| [rust/sdk/examples/register_trader.rs](./rust/sdk/examples/register_trader.rs)                   | Authenticate and activate a referral code via `POST /v1/referral/activate`                                                       |
+| [rust/sdk/examples/http_client.rs](./rust/sdk/examples/http_client.rs)                           | Query exchange keys, market config, trade history, and trader PnL over REST                                                      |
+| [rust/sdk/examples/send_limit_order.rs](./rust/sdk/examples/send_limit_order.rs)                 | Build and submit a signed limit-order transaction with `PhoenixTxBuilder`                                                        |
+| [rust/sdk/examples/send_market_order.rs](./rust/sdk/examples/send_market_order.rs)               | Build and submit a signed market-order transaction with `PhoenixTxBuilder`                                                       |
+| [rust/sdk/examples/send_flight_market_order.rs](./rust/sdk/examples/send_flight_market_order.rs) | Wrap a market order in Flight routing and submit the transaction                                                                 |
+| [rust/sdk/examples/referral_activation_tx.rs](./rust/sdk/examples/referral_activation_tx.rs)     | Build and submit a `/v1/referral/activate-tx` delegated onboarding transaction signed by the trader authority                    |
+| [rust/sdk/examples/builder_onboarding_tx.rs](./rust/sdk/examples/builder_onboarding_tx.rs)       | Register and onboard a trader without a referral code via `/v1/exchange/build-register-ixs` and `/v1/exchange/send-register-ixs` |
 
 On-chain CPI examples:
 
-- [rise/programs/close-position-and-withdraw](./programs/close-position-and-withdraw)
-- [rise/programs/example-program](./programs/example-program)
-- [rise/programs/trader-onboarder](./programs/trader-onboarder)
+| Program                                                                        | Description                                                                                                                                           |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [programs/close-position-and-withdraw](./programs/close-position-and-withdraw) | Pinocchio CPI example that closes a position (optionally via Flight), reads Hawkeye margin data, withdraws collateral, and converts to USDC via Ember |
+| [programs/example-program](./programs/example-program)                         | Reference Pinocchio program exercising deposits, withdrawals, market/limit orders, stop losses, Hawkeye reads, and isolated subaccount flows          |
+| [programs/trader-onboarder](./programs/trader-onboarder)                       | Pinocchio CPI program using a static program PDA to hold Phoenix trader-onboarding delegation                                                         |
 
 ## Onboarding Paths
 
 These onboarding routes are not interchangeable:
 
-- Use `POST /v1/referral/activate` (`invite().activateReferral(...)` in
-  TypeScript, `invite().activate_referral(...)` in Rust) when you have a
-  referral code and an authenticated user session for the trader authority.
-- Use `POST /v1/referral/activate-tx` when you have a referral code and want
-  delegated onboarding. The referral code is required, and the trader authority
-  must sign the transaction.
-- Use `POST /v1/exchange/build-register-ixs` followed by
-  `POST /v1/exchange/send-register-ixs` when a builder wants to register and
-  onboard a trader without a referral code. The trader authority is only a
-  public key, the builder's fee payer is the sole local signer, and the API
-  adds the onboarder signature only after validating and simulating the
-  submitted transaction. In both examples, `--fee-payer-keypair-path` defaults
-  to `~/.config/solana/id.json`, while `--trader-authority` is optional and
-  defaults to that fee payer's public key.
+- `POST /v1/referral/activate` (`invite().activateReferral(...)` in TypeScript,
+  `invite().activate_referral(...)` in Rust): requires a referral code and an
+  authenticated user session for the trader authority.
+- `POST /v1/referral/activate-tx`: delegated onboarding with a required referral
+  code; the trader authority must sign the transaction.
+- `POST /v1/exchange/build-register-ixs` followed by
+  `POST /v1/exchange/send-register-ixs`: builder onboarding without a referral
+  code. The trader authority is passed only as a public key, the builder's fee
+  payer is the sole local signer, and the API adds the onboarder signature after
+  validating and simulating the submitted transaction. In the TypeScript and
+  Rust builder-onboarding examples, `--fee-payer-keypair-path` defaults to
+  `~/.config/solana/id.json` and `--trader-authority` defaults to that fee
+  payer's public key.
 
-For copyable Rust and TypeScript examples of both delegated onboarding paths,
-see [sdk/delegated-onboarding.mdx](../sdk/delegated-onboarding.mdx). Runnable
-examples are also available in
-[09-referral-activation-tx.ts](./ts/examples/09-referral-activation-tx.ts),
+See the [Trader onboarding guide](https://docs.phoenix.trade/sdk/register) for
+copyable Rust and TypeScript walkthroughs of both delegated onboarding paths, or
+run [09-referral-activation-tx.ts](./ts/examples/09-referral-activation-tx.ts),
 [10-builder-onboarding-tx.ts](./ts/examples/10-builder-onboarding-tx.ts),
 [referral_activation_tx.rs](./rust/sdk/examples/referral_activation_tx.rs), and
 [builder_onboarding_tx.rs](./rust/sdk/examples/builder_onboarding_tx.rs).
 
-Access-code activation (`POST /v1/invite/activate`) has been retired. Use
-referral activation instead;
-[register_trader.rs](./rust/sdk/examples/register_trader.rs) is a ready-to-run
-Rust version of `POST /v1/referral/activate`.
+Access-code activation (`POST /v1/invite/activate`) is retired. Use
+`POST /v1/referral/activate` instead (see
+[register_trader.rs](./rust/sdk/examples/register_trader.rs) for a runnable Rust
+example).
 
 ## Fetching Exchange, Market, and Trader State
 
-The HTTP surface is intentionally split by what kind of state you want:
+HTTP routes are split by state scope:
 
-- `exchange().getSnapshot()`: exchange-wide state plus every market's current
+- `exchange().getSnapshot()`: exchange-wide state and every market's current
   config snapshot
-- `exchange().getMarket(symbol)`: one market's fees, risk, funding cadence, and
+- `exchange().getMarket(symbol)`: single-market fees, risk, funding cadence, and
   configuration
-- `orderbook().getOrderbook(symbol)`: an HTTP L2 snapshot for one market
-- `traders().getTraderStateSnapshot(...)` in TypeScript: a trader-centric view
-  of collateral, positions, orders, and triggers
-- `markets().getMarketStatsHistory(...)` and `funding().getFundingRateHistory(...)`:
-  time-series data for frontends, vault products, and analytics
+- `orderbook().getOrderbook(symbol)`: single-market HTTP L2 snapshot
+- `traders().getTraderStateSnapshot(...)` (TypeScript): trader collateral,
+  positions, orders, and triggers
+- `markets().getMarketStatsHistory(...)` and
+  `funding().getFundingRateHistory(...)`: time-series data for frontends,
+  vaults, and analytics
 
 TypeScript:
 
@@ -140,20 +165,18 @@ let market = client.markets().get_market("SOL").await?;
 let pnl = client.traders().get_trader_pnl(&authority, Default::default()).await?;
 ```
 
-For broader TypeScript walkthroughs, see
-[01-http-client.ts](./ts/examples/01-http-client.ts)
-and
-[phoenix-client-example.ts](./ts/examples/phoenix-client-example.ts).
+See [01-http-client.ts](./ts/examples/01-http-client.ts) and
+[phoenix-client-example.ts](./ts/examples/phoenix-client-example.ts) for full
+TypeScript walkthroughs.
 
 ## Order Placement and Cancellation
 
-The SDK intentionally separates packet construction from instruction
-construction:
+Order placement separates packet encoding from Solana instruction assembly:
 
-- build packet sizes and prices with `client.orderPackets`
-- build or wrap the actual Solana instructions with `client.ixs`
-- use the lower-level builders when you need conditional-account setup or other
-  specialized flows
+- Build packet sizes and prices with `client.orderPackets`.
+- Build or wrap Solana instructions with `client.ixs`.
+- Use the lower-level builders for conditional-account setup and other
+  specialized flows.
 
 TypeScript:
 
@@ -224,10 +247,10 @@ const cancelStopLossIx = await client.ixs.buildCancelStopLoss({
 });
 ```
 
-`buildPlaceStopLoss` / `buildCancelStopLoss` are deprecated in favour of the
+`buildPlaceStopLoss` and `buildCancelStopLoss` are deprecated in favor of the
 conditional-order builders (`buildPlacePositionConditionalOrder`,
-`buildCancelConditionalOrder`). `buildPlaceStopLoss(...)` takes tick-based trigger prices. When you are starting
-from USD prices, convert them from market metadata first, or reuse the
+`buildCancelConditionalOrder`). `buildPlaceStopLoss(...)` expects a tick-based
+trigger price; convert USD prices using market metadata first, or follow the
 conditional-order patterns in
 [05-cancel-all-conditional-orders.ts](./ts/examples/05-cancel-all-conditional-orders.ts).
 
@@ -303,29 +326,24 @@ Runnable examples:
 
 ## Flight Builder Activation and Routed Orders
 
-Flight is the builder-routing layer. The important pieces are:
+Flight routes orders through a registered builder:
 
-- the builder still needs a Phoenix trader account
-- builder registration is its own on-chain instruction
-- the builder's associated trader account is the fee collector for Flight-routed
-  orders
-- once a client is configured with `flight: { builderAuthority, ... }`,
-  supported order instructions are wrapped automatically
-- `flight.buildSetOnboarderSignerIx`/`create_set_onboarder_signer_ix` set the
-  builder's onboarder signer, and `flight.buildOnboardTraderIx`/
-  `create_onboard_trader_ix` onboard a trader from the builder's own backend
-  (co-signed by that onboarder key)
+- Register a Phoenix trader account for the builder first, then submit the
+  separate on-chain builder registration instruction.
+- Builder fees from Flight-routed orders accrue to the builder's associated
+  trader account and are withdrawable from the Phoenix frontend.
+- Configuring a client with `flight: { builderAuthority, ... }` wraps supported
+  order instructions automatically.
+- `flight.buildSetOnboarderSignerIx` / `create_set_onboarder_signer_ix` sets the
+  builder's onboarder signer; `flight.buildOnboardTraderIx` /
+  `create_onboard_trader_ix` onboards a trader from the builder's backend
+  (co-signed by that onboarder key).
 
-When you register Flight against a builder authority and its associated trader
-account, all builder fees from Flight-routed orders accrue to that builder
-trader account. Those fees are withdrawable from the Phoenix frontend.
-
-> **Use embedded wallets for Flight integrations.** Integrators are strongly
-> encouraged to provision an embedded wallet per user rather than routing
-> Flight orders through the user's raw/external wallet. A raw wallet shares
-> its Phoenix trader state with every other dapp the user trades on, which
-> results in bad UX (positions, balances, and orders bleeding across
-> integrations). Embedded wallets isolate per-integration state.
+> **Use embedded wallets for Flight integrations.** Provision an embedded wallet
+> per user instead of routing Flight orders through the user's external wallet.
+> External wallets share Phoenix trader state across every dapp the user trades
+> on, causing positions, balances, and orders to bleed across integrations.
+> Embedded wallets isolate per-integration state.
 
 TypeScript:
 
@@ -413,41 +431,40 @@ Runnable Flight examples:
 - [06-flight-market-order.ts](./ts/examples/06-flight-market-order.ts)
 - [send_flight_market_order.rs](./rust/sdk/examples/send_flight_market_order.rs)
 
-For more Flight-specific TypeScript examples, see
-[rise/ts/src/flight/README.md](./ts/src/flight/README.md).
+See [ts/src/flight/README.md](./ts/src/flight/README.md) for additional
+Flight-specific TypeScript examples.
 
 ## API and WebSocket Compatibility
 
 Unknown WebSocket channels and unfamiliar `messageType` values are skipped
 without ending the stream, closing the connection, or emitting an error event.
-A new message type must not consume sequence numbers needed by existing delta
+New message types must not consume sequence numbers needed by existing delta
 streams or replace updates that existing clients require.
 
 Response objects may gain fields. Default JSON decoders ignore unfamiliar
-fields, and exchange deltas tolerate unfamiliar operation kinds while applying
-the known operations and advancing their sequence. Existing field types,
-meanings, and sequence rules must remain compatible within a protocol version.
-A new operation must not replace the existing update for state that older
-clients already maintain.
+fields, and exchange deltas skip unfamiliar operation kinds while applying known
+operations and advancing their sequence. Within a protocol version, existing
+field types, meanings, and sequence rules must remain compatible, and new
+operations must not replace updates for state that older clients maintain.
 
 Escrow actions with unfamiliar `kind` values decode as `Unknown` in Rust and
-`{ kind: "unknown" }` in TypeScript. They remain in the request's action list;
-they are not no-ops. Inspect for this marker before presenting or accepting a
-request: a client cannot explain the complete effects of an unfamiliar action.
+`{ kind: "unknown" }` in TypeScript. They stay in the request's action list and
+are not no-ops; check for this marker before presenting or accepting a request,
+because a client cannot explain the full effect of an unfamiliar action.
 Malformed payloads for known action kinds still fail validation. TypeScript's
 opt-in strict mode can reject added object fields and is intended for schema
 diagnostics rather than forward-compatible production decoding.
 
-This policy protects clients that have installed a release supporting these
-fallbacks; it cannot change previously installed SDK versions. Adding data that
-changes existing margin, withdrawal, or trading semantics requires a compatible
-versioned or negotiated contract. Successfully ignoring a new field does not
-prove that an older client's financial calculations remain correct.
+This policy only protects clients running a release that includes these
+fallbacks; it cannot retroactively update older installed SDK versions. Adding
+data that changes existing margin, withdrawal, or trading semantics requires a
+compatible versioned or negotiated contract. Ignoring an unfamiliar field does
+not guarantee that an older client's financial calculations remain correct.
 
 ## Live Market Data
 
-Use the typed WebSocket adapters when you want continuous updates instead of a
-single HTTP snapshot.
+Use the typed WebSocket adapters for continuous updates instead of a single HTTP
+snapshot.
 
 TypeScript:
 
@@ -464,7 +481,18 @@ for await (const update of client.streams!.l2Book("SOL-PERP")) {
 }
 ```
 
-Ready-to-run TypeScript stream examples:
+Runnable TypeScript stream examples:
 
 - [02-ws-fills.ts](./ts/examples/02-ws-fills.ts)
 - [phoenix-ws-example.ts](./ts/examples/phoenix-ws-example.ts)
+
+## Release notes
+
+- TypeScript:
+  [ts/CHANGELOG.md](https://github.com/Ellipsis-Labs/rise-public/blob/master/ts/CHANGELOG.md)
+- Rust:
+  [rust/CHANGELOG.md](https://github.com/Ellipsis-Labs/rise-public/blob/master/rust/CHANGELOG.md)
+
+## License
+
+MIT, see [LICENSE](./LICENSE).
