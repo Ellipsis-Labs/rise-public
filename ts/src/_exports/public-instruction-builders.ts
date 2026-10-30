@@ -321,6 +321,15 @@ export {
   buildUpdateSplinePositionLimitsConfigIx,
   buildUpdateSplinePriceIx,
   buildUpdateSplinePriceWithOrderingIx,
+  buildUpdateSplinePriceWithMetadataIx,
+  getUpdateSplinePriceWithMetadataCodec,
+  getUpdateSplinePriceWithMetadataDecoder,
+  getUpdateSplinePriceWithMetadataEncoder,
+  getUpdateSplinePriceWithMetadataParamsCodec,
+  getUpdateSplinePriceWithMetadataParamsDecoder,
+  getUpdateSplinePriceWithMetadataParamsEncoder,
+  getUpdateSplinePriceWithOrderingDecoder,
+  getUpdateSplinePriceParamsWithOrderingDecoder,
   MAX_SPLINE_REGIONS,
   type DeactivateSplineAccounts,
   type DeactivateSplineIx,
@@ -340,7 +349,9 @@ export {
   type UpdateSplinePriceIx,
   type UpdateSplinePriceParams,
   type UpdateSplinePriceParamsWithOrdering,
+  type UpdateSplinePriceWithMetadataParams,
   type UpdateSplinePriceWithOrderingIx,
+  type UpdateSplinePriceWithMetadataIx,
 } from "../core/ixBuilders/Spline";
 
 export {

@@ -260,6 +260,8 @@ export interface Spline {
   trader: TraderAddress;
   isActive: boolean;
   midPrice: Ticks;
+  bidBaseWidth: Ticks;
+  askBaseWidth: Ticks;
   sequenceNumber: SequenceNumber;
   userUpdateSlot: bigint;
   bidOffset: Ticks;
@@ -1118,7 +1120,9 @@ export const getSplineDecoder = (): Decoder<Spline> =>
         "maxPositionSizeShort",
         transformDecoder(getU32Decoder(), (v) => BigInt(v) as BaseLots),
       ],
-      ["_padding2", getFixedArrayDecoder(getU64Decoder, 28)],
+      ["bidBaseWidth", getTicksDecoder()],
+      ["askBaseWidth", getTicksDecoder()],
+      ["_padding2", getFixedArrayDecoder(getU64Decoder, 26)],
     ]),
     ({ _padding, _padding2, flags, ...spline }): Spline => ({
       ...spline,

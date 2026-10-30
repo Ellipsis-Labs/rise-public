@@ -56,6 +56,9 @@ export const DISCRIMINANTS: DiscriminantMap = {
   SWAP_SPOT_WITH_SPOT: sha2_const("global:swap_spot_with_spot"),
   REGISTER_SPLINE: sha2_const("global:register_spline"),
   DEACTIVATE_SPLINE: sha2_const("global:deactivate_spline"),
+  UPDATE_SPLINE_PRICE_WITH_METADATA: sha2_const(
+    "global:update_spline_price_with_metadata"
+  ),
   UPDATE_SPLINE_PRICE: sha2_const("global:update_spline_price"),
   UPDATE_SPLINE_PARAMETERS: sha2_const("global:update_spline_parameters"),
   UPDATE_SPLINE_POSITION_LIMITS_CONFIG: sha2_const(

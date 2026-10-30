@@ -5852,6 +5852,7 @@ exports[`raw account parsing > decodes SplineCollection fixtures 1`] = `
   },
   "splines": [
     {
+      "askBaseWidth": "0",
       "askFilledAmount": "0",
       "askNumRegions": "10",
       "askOffset": "0",
@@ -5957,6 +5958,7 @@ exports[`raw account parsing > decodes SplineCollection fixtures 1`] = `
           "totalSize": "29811",
         },
       ],
+      "bidBaseWidth": "0",
       "bidFilledAmount": "0",
       "bidNumRegions": "10",
       "bidOffset": "0",

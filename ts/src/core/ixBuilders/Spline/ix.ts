@@ -16,6 +16,7 @@ import {
   getUpdateSplinePositionLimitsConfigEncoder,
   getUpdateSplinePriceEncoder,
   getUpdateSplinePriceWithOrderingEncoder,
+  getUpdateSplinePriceWithMetadataEncoder,
 } from "./codec";
 import type {
   DeactivateSplineAccounts,
@@ -34,6 +35,8 @@ import type {
   UpdateSplinePriceParams,
   UpdateSplinePriceParamsWithOrdering,
   UpdateSplinePriceWithOrderingIx,
+  UpdateSplinePriceWithMetadataIx,
+  UpdateSplinePriceWithMetadataParams,
 } from "./types";
 import { MAX_SPLINE_REGIONS } from "./types";
 
@@ -119,6 +122,19 @@ export const buildUpdateSplinePriceWithOrderingIx = (
     programAddress: getPhoenixInstructionAddresses(accounts).programAddress,
     accounts: buildSplineUpdateAccountMetas(accounts),
     data: getUpdateSplinePriceWithOrderingEncoder().encode(params),
+  };
+};
+
+export const buildUpdateSplinePriceWithMetadataIx = (
+  accounts: SplineUpdateAccounts,
+  params: UpdateSplinePriceWithMetadataParams
+): UpdateSplinePriceWithMetadataIx => {
+  validateSplineUpdateAccounts(accounts);
+
+  return {
+    programAddress: getPhoenixInstructionAddresses(accounts).programAddress,
+    accounts: buildSplineUpdateAccountMetas(accounts),
+    data: getUpdateSplinePriceWithMetadataEncoder().encode(params),
   };
 };
 

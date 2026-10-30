@@ -83,6 +83,8 @@ export {
   ExchangeMarketConfigSchema,
   type MarketCalendar,
   MarketCalendarSchema,
+  type EarningsDate,
+  EarningsDateSchema,
   type MarketPublicMetadata,
   MarketPublicMetadataSchema,
   type MarketStatsSnapshot,

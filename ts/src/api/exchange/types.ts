@@ -266,9 +266,23 @@ export const MarketCalendarSchema: z.ZodType<MarketCalendar> = z.object({
   nextMarketTransitionUtc: z.string().nullable().optional(),
 });
 
+export interface EarningsDate {
+  /** Reporting date in YYYY-MM-DD format. */
+  date: string;
+  /** Reporting session; null when unknown. This is not an exact release time. */
+  time: "amc" | "bmo" | null;
+}
+
+export const EarningsDateSchema: z.ZodType<EarningsDate> = z.object({
+  date: z.iso.date(),
+  time: z.enum(["amc", "bmo"]).nullable(),
+});
+
 export interface MarketPublicMetadata {
   /** Sorted earnings timestamps; date-only values use midnight UTC. Filter against the current time for upcoming dates. */
   earningsDates?: string[];
+  /** Sorted reporting dates and sessions, retained through the reporting date in America/New_York. */
+  earningsDatesV2?: EarningsDate[];
   name?: string | null;
   description?: string | null;
   searchAliases?: string[] | null;
@@ -286,6 +300,7 @@ export interface MarketPublicMetadata {
 export const MarketPublicMetadataSchema: z.ZodType<MarketPublicMetadata> =
   z.object({
     earningsDates: z.array(z.string().datetime({ offset: true })).optional(),
+    earningsDatesV2: z.array(EarningsDateSchema).optional(),
     name: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
     searchAliases: z.array(z.string()).nullable().optional(),

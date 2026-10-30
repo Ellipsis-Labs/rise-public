@@ -384,6 +384,16 @@
     {
       "program": "phoenix-eternal",
       "enumName": "PhoenixInstruction",
+      "instructionName": "UpdateSplinePriceWithMetadata",
+      "snakeCaseName": "update_spline_price_with_metadata",
+      "preimage": "global:update_spline_price_with_metadata",
+      "tag": "16149442881659118233",
+      "discriminatorHex": "99a2c0c9bc581ee0",
+      "discriminatorBase64": "maLAybxYHuA="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
       "instructionName": "UpdateSplineParameters",
       "snakeCaseName": "update_spline_parameters",
       "preimage": "global:update_spline_parameters",

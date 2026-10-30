@@ -21,11 +21,17 @@ export {
   getUpdateSplinePriceParamsDecoder,
   getUpdateSplinePriceParamsEncoder,
   getUpdateSplinePriceParamsWithOrderingCodec,
+  getUpdateSplinePriceWithMetadataParamsCodec,
   getUpdateSplinePriceParamsWithOrderingDecoder,
+  getUpdateSplinePriceWithMetadataParamsDecoder,
   getUpdateSplinePriceParamsWithOrderingEncoder,
+  getUpdateSplinePriceWithMetadataParamsEncoder,
   getUpdateSplinePriceWithOrderingCodec,
+  getUpdateSplinePriceWithMetadataCodec,
   getUpdateSplinePriceWithOrderingDecoder,
+  getUpdateSplinePriceWithMetadataDecoder,
   getUpdateSplinePriceWithOrderingEncoder,
+  getUpdateSplinePriceWithMetadataEncoder,
 } from "./codec";
 export {
   buildDeactivateSplineIx,
@@ -34,6 +40,7 @@ export {
   buildUpdateSplinePositionLimitsConfigIx,
   buildUpdateSplinePriceIx,
   buildUpdateSplinePriceWithOrderingIx,
+  buildUpdateSplinePriceWithMetadataIx,
 } from "./ix";
 export type {
   DeactivateSplineAccounts,
@@ -54,6 +61,8 @@ export type {
   UpdateSplinePriceIx,
   UpdateSplinePriceParams,
   UpdateSplinePriceParamsWithOrdering,
+  UpdateSplinePriceWithMetadataParams,
   UpdateSplinePriceWithOrderingIx,
+  UpdateSplinePriceWithMetadataIx,
 } from "./types";
 export { MAX_SPLINE_REGIONS } from "./types";

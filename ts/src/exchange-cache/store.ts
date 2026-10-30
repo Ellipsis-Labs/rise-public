@@ -240,10 +240,18 @@ const sameMarketPublicMetadata = (
   left: MarketPublicMetadata | null | undefined,
   right: MarketPublicMetadata | null | undefined
 ): boolean => {
+  const leftEarnings = left?.earningsDatesV2 ?? [];
+  const rightEarnings = right?.earningsDatesV2 ?? [];
   const leftCalendar = left?.calendar ?? null;
   const rightCalendar = right?.calendar ?? null;
   return (
     sameStringArray(left?.earningsDates, right?.earningsDates) &&
+    leftEarnings.length === rightEarnings.length &&
+    leftEarnings.every(
+      (entry, index) =>
+        entry.date === rightEarnings[index]?.date &&
+        entry.time === rightEarnings[index]?.time
+    ) &&
     (left?.name ?? null) === (right?.name ?? null) &&
     (left?.description ?? null) === (right?.description ?? null) &&
     sameStringArray(left?.searchAliases, right?.searchAliases) &&
