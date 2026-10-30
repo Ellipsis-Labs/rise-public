@@ -9,7 +9,10 @@ import type { PhoenixInstructionAddressOverrides } from "@/core/constants";
 import type { InstructionsWithAccountsAndData } from "@/primitives/_utilityTypes";
 import type { AccountMeta, Address } from "@solana/kit";
 
-export type EscrowAction = { kind: "noop" } | { kind: "cash"; amount: bigint };
+export type EscrowAction =
+  | { kind: "noop" }
+  | { kind: "cash"; amount: bigint }
+  | { kind: "lockedDeposit"; amount: bigint };
 
 export interface CreateEscrowRequestParams extends PhoenixInstructionAddressOverrides {
   senderWallet: Authority;

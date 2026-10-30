@@ -266,6 +266,32 @@ export interface WithdrawFlowResult {
   named: WithdrawFlowInstructions;
 }
 
+export interface TransferCollateralFlowParams {
+  authority: Authority;
+  positionAuthority?: Authority;
+  permissionAddress?: Address;
+  traderPdaIndex?: number;
+  srcSubaccountIndex: number;
+  dstSubaccountIndex: number;
+  amount: bigint;
+  /**
+   * Pays rent if the destination account grows. Defaults to the transfer
+   * signer: `positionAuthority` when set, otherwise `authority`.
+   */
+  payer?: Authority;
+}
+
+export interface TransferCollateralFlowInstructions {
+  /** Present when moving collateral from subaccount 0 to an isolated subaccount. */
+  reallocTrader?: InstructionsWithAccountsAndData;
+  transferCollateral: InstructionsWithAccountsAndData;
+}
+
+export interface TransferCollateralFlowResult {
+  instructions: InstructionsWithAccountsAndData[];
+  named: TransferCollateralFlowInstructions;
+}
+
 export interface PlaceLimitOrderFlowParams {
   authority: Authority;
   positionAuthority?: Authority;
@@ -284,6 +310,8 @@ export interface PlaceLimitOrderFlowParams {
 }
 
 export interface PlaceLimitOrderFlowInstructions {
+  /** Isolated-only: reserves a map entry on the child before funding it. */
+  reallocTrader?: InstructionsWithAccountsAndData;
   transferCollateral?: InstructionsWithAccountsAndData;
   placeLimitOrder: InstructionsWithAccountsAndData;
   transferCollateralChildToParent?: InstructionsWithAccountsAndData;
@@ -313,6 +341,8 @@ export interface PlaceMarketOrderFlowParams {
 }
 
 export interface PlaceMarketOrderFlowInstructions {
+  /** Isolated-only: reserves a map entry on the child before funding it. */
+  reallocTrader?: InstructionsWithAccountsAndData;
   transferCollateral?: InstructionsWithAccountsAndData;
   placeMarketOrder: InstructionsWithAccountsAndData;
   transferCollateralChildToParent?: InstructionsWithAccountsAndData;
@@ -385,6 +415,8 @@ export interface PlaceMultiLimitOrderFlowBatchInstructions {
   registerTrader?: InstructionsWithAccountsAndData;
   /** Isolated-only: syncs parent (cross) state into the child before funding. */
   syncParentToChild?: InstructionsWithAccountsAndData;
+  /** Isolated-only: reserves a map entry on the child before funding it. */
+  reallocTrader?: InstructionsWithAccountsAndData;
   transferCollateral?: InstructionsWithAccountsAndData;
   placeMultiLimitOrder: InstructionsWithAccountsAndData;
   transferCollateralChildToParent?: InstructionsWithAccountsAndData;
@@ -1048,6 +1080,65 @@ const resolveSubaccount = async (
   };
 };
 
+/**
+ * Move quote collateral between two subaccounts of one trader PDA.
+ *
+ * A transfer from subaccount 0 to an isolated subaccount can add a map entry
+ * to the destination, so `ReallocTrader` reserves the slot first. It is a
+ * no-op when the account already has room.
+ */
+export const buildTransferCollateralFlow = async (
+  params: TransferCollateralFlowParams,
+  client: PhoenixInstructionClient
+): Promise<TransferCollateralFlowResult> => {
+  const {
+    authority,
+    positionAuthority,
+    permissionAddress,
+    traderPdaIndex = 0,
+    srcSubaccountIndex,
+    dstSubaccountIndex,
+    amount,
+  } = params;
+
+  const fundsIsolatedSubaccount =
+    srcSubaccountIndex === 0 && dstSubaccountIndex !== 0;
+  const reallocTrader = fundsIsolatedSubaccount
+    ? buildReallocTraderIx({
+        ...clientPhoenixInstructionAddresses(client),
+        payer: params.payer ?? positionAuthority ?? authority,
+        trader: authority,
+        traderAccount: await getPhoenixTraderSubaccountAddress({
+          authority,
+          traderPdaIndex,
+          subaccountIndex: dstSubaccountIndex,
+          phoenixProgramAddress: client.addresses.phoenixProgramAddress,
+        }),
+      })
+    : undefined;
+
+  const transferCollateral = await buildTransferCollateral(
+    {
+      authority,
+      positionAuthority,
+      permissionAddress,
+      traderPdaIndex,
+      srcSubaccountIndex,
+      dstSubaccountIndex,
+      amount,
+    },
+    client
+  );
+
+  return {
+    instructions: [
+      ...(reallocTrader ? [reallocTrader] : []),
+      transferCollateral,
+    ],
+    named: { reallocTrader, transferCollateral },
+  };
+};
+
 export const buildPlaceLimitOrderFlow = async (
   params: PlaceLimitOrderFlowParams,
   client: PhoenixInstructionClient
@@ -1088,6 +1179,17 @@ export const buildPlaceLimitOrderFlow = async (
     {} as PlaceLimitOrderFlowResult["named"];
 
   if (transferAmount !== undefined && transferAmount > 0n) {
+    // Funding the child can add a map entry to it; reserve the slot first.
+    // A no-op when the account already has room.
+    const reallocIx = buildReallocTraderIx({
+      ...clientPhoenixInstructionAddresses(client),
+      payer: authority,
+      trader: authority,
+      traderAccount: subaccountAddress,
+    });
+    instructions.push(reallocIx);
+    named.reallocTrader = reallocIx;
+
     const transferIx = await buildTransferCollateral(
       {
         authority,
@@ -1235,6 +1337,17 @@ export const buildPlaceMarketOrderFlow = async (
     {} as PlaceMarketOrderFlowResult["named"];
 
   if (transferAmount !== undefined && transferAmount > 0n) {
+    // Funding the child can add a map entry to it; reserve the slot first.
+    // A no-op when the account already has room.
+    const reallocIx = buildReallocTraderIx({
+      ...clientPhoenixInstructionAddresses(client),
+      payer: authority,
+      trader: authority,
+      traderAccount: subaccountAddress,
+    });
+    instructions.push(reallocIx);
+    named.reallocTrader = reallocIx;
+
     const transferIx = await buildTransferCollateral(
       {
         authority,
@@ -1497,6 +1610,18 @@ export const buildPlaceMultiLimitOrderFlow = async (
       )
     : undefined;
 
+  // Funding the child can add a map entry to it; reserve the slot first. A
+  // no-op when the account already has room.
+  const reallocIx =
+    transferAmount !== undefined && transferAmount > 0n
+      ? buildReallocTraderIx({
+          ...clientPhoenixInstructionAddresses(client),
+          payer: resolveFlowPayer(params),
+          trader: authority,
+          traderAccount: subaccountAddress,
+        })
+      : undefined;
+
   const transferIx =
     transferAmount !== undefined && transferAmount > 0n
       ? await buildTransferCollateral(
@@ -1597,7 +1722,7 @@ export const buildPlaceMultiLimitOrderFlow = async (
 
     if (i === 0) {
       // Isolated setup runs once, before the first placement: register (if
-      // new) → sync parent→child → fund the child.
+      // new) → sync parent→child → reserve a slot → fund the child.
       if (registerIx !== undefined) {
         instructions.push(registerIx);
         named.registerTrader = registerIx;
@@ -1605,6 +1730,10 @@ export const buildPlaceMultiLimitOrderFlow = async (
       if (syncIx !== undefined) {
         instructions.push(syncIx);
         named.syncParentToChild = syncIx;
+      }
+      if (reallocIx !== undefined) {
+        instructions.push(reallocIx);
+        named.reallocTrader = reallocIx;
       }
       if (transferIx !== undefined) {
         instructions.push(transferIx);

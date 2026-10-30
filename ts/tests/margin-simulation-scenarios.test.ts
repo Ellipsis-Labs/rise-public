@@ -285,3 +285,145 @@ describe("margin simulation scenarios", () => {
     ).toBe(quoteLots(1_030));
   });
 });
+
+describe("isolated simulation locked deposits", () => {
+  const subaccount: SubaccountMarginInputs = {
+    subaccountIndex: 1,
+    collateralBalanceQuoteLots: "200",
+    lockedDeposit: { lockedQuoteLots: "100", consumedQuoteLots: "20" },
+    markets: [],
+  };
+
+  it("preserves the reserve and clones the lock in a scoped simulation", () => {
+    const result = calculator.simulateMargin({
+      subaccount,
+      marginMode: "isolated",
+      isolatedSymbol: "SOL-PERP",
+      actions: [],
+    });
+    expect(result.before.margin.withdrawableQuoteCollateralQuoteLots).toBe(
+      "120"
+    );
+    expect(result.after.margin.withdrawableQuoteCollateralQuoteLots).toBe(
+      "120"
+    );
+    expect(
+      result.after.margin.withdrawableQuoteCollateralPreLockQuoteLots
+    ).toBe("200");
+    expect(result.projectedSubaccountInput.lockedDeposit).toEqual(
+      subaccount.lockedDeposit
+    );
+    expect(result.projectedSubaccountInput.lockedDeposit).not.toBe(
+      subaccount.lockedDeposit
+    );
+  });
+
+  it("preserves the reserve across independent scenarios and collateral overrides", () => {
+    const result = calculator.simulateMarginScenarios({
+      subaccount,
+      marginMode: "isolated",
+      isolatedSymbol: "SOL-PERP",
+      isolatedCollateralBalanceQuoteLots: "150",
+      scenarios: [
+        { label: "baseline", actions: [] },
+        {
+          label: "deposit",
+          actions: [{ type: "adjustCollateral", quoteLotsDelta: "50" }],
+        },
+      ],
+    });
+    expect(result.before.margin.withdrawableQuoteCollateralQuoteLots).toBe(
+      "70"
+    );
+    expect(result.base.margin.withdrawableQuoteCollateralQuoteLots).toBe("70");
+    expect(
+      result.scenarios.map(
+        ({ simulation }) =>
+          simulation.after.margin.withdrawableQuoteCollateralQuoteLots
+      )
+    ).toEqual(["70", "120"]);
+    for (const { simulation } of result.scenarios) {
+      expect(simulation.projectedSubaccountInput.lockedDeposit).toEqual(
+        subaccount.lockedDeposit
+      );
+      expect(simulation.projectedSubaccountInput.lockedDeposit).not.toBe(
+        subaccount.lockedDeposit
+      );
+    }
+    expect(
+      result.scenarios[0]?.simulation.projectedSubaccountInput.lockedDeposit
+    ).not.toBe(
+      result.scenarios[1]?.simulation.projectedSubaccountInput.lockedDeposit
+    );
+    expect(subaccount.collateralBalanceQuoteLots).toBe("200");
+  });
+});
+
+describe("simulation lock consumption", () => {
+  const lockedLongSubaccount = (
+    unsettledFundingQuoteLots = "0"
+  ): SubaccountMarginInputs => ({
+    subaccountIndex: 0,
+    collateralBalanceQuoteLots: quoteLots(100),
+    lockedDeposit: { lockedQuoteLots: quoteLots(50), consumedQuoteLots: "0" },
+    markets: [
+      {
+        symbol: "SOL-PERP",
+        position: {
+          basePositionLots: baseLots(1),
+          virtualQuotePositionLots: quoteLots(-100),
+          entryPriceTicks: priceTicks(100),
+          unsettledFundingQuoteLots,
+          accumulatedFundingQuoteLots: "0",
+        },
+      },
+    ],
+  });
+
+  it.each([
+    // close price, fee, consumed after, withdrawable after
+    [70, 0, 30, 50],
+    [70, 5, 35, 50],
+    [130, 5, 5, 80],
+  ])(
+    "closing at $%d with fee $%d consumes $%d and leaves $%d withdrawable",
+    (price, fee, consumed, withdrawable) => {
+      const result = calculator.simulateMargin({
+        subaccount: lockedLongSubaccount(),
+        actions: [
+          {
+            type: "closePosition",
+            symbol: "SOL-PERP",
+            priceTicks: priceTicks(price),
+            feeQuoteLots: quoteLots(fee),
+          },
+        ],
+      });
+      expect(result.projectedSubaccountInput.lockedDeposit).toEqual({
+        lockedQuoteLots: quoteLots(50),
+        consumedQuoteLots: quoteLots(consumed),
+      });
+      expect(result.after.margin.withdrawableQuoteCollateralQuoteLots).toBe(
+        quoteLots(withdrawable)
+      );
+    }
+  );
+
+  it("consumes the lock with negative settled funding only", () => {
+    const paid = calculator.simulateMargin({
+      subaccount: lockedLongSubaccount(quoteLots(-10)),
+      actions: [{ type: "settleFunding", symbol: "SOL-PERP" }],
+    });
+    expect(paid.projectedSubaccountInput.lockedDeposit?.consumedQuoteLots).toBe(
+      quoteLots(10)
+    );
+
+    const received = calculator.simulateMargin({
+      subaccount: lockedLongSubaccount(quoteLots(10)),
+      actions: [{ type: "settleFunding", symbol: "SOL-PERP" }],
+    });
+    expect(
+      received.projectedSubaccountInput.lockedDeposit?.consumedQuoteLots
+    ).toBe("0");
+  });
+});

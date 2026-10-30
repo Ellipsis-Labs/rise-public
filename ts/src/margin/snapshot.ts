@@ -1,3 +1,4 @@
+import type { TraderStateLockedDeposit } from "@/api/traders/traderState";
 import type {
   LimitOrderMarginInput,
   MarginPositionState,
@@ -43,6 +44,7 @@ export interface MarginSnapshotSpotCollateral {
 export interface MarginSnapshotSubaccount {
   subaccountIndex: number;
   collateral?: string | null;
+  lockedDeposit?: TraderStateLockedDeposit | null;
   spotCollaterals?: MarginSnapshotSpotCollateral[];
   positions?: MarginSnapshotPosition[];
   orders?: MarginSnapshotLimitOrderEvent[];
@@ -149,6 +151,7 @@ export const buildSubaccountMarginInputsFromSnapshot = (
   return {
     subaccountIndex: subaccount.subaccountIndex,
     collateralBalanceQuoteLots: subaccount.collateral ?? "0",
+    lockedDeposit: subaccount.lockedDeposit ?? undefined,
     markets,
     ...(Object.keys(spotCollateralBalances).length > 0
       ? { spotCollateralBalances }

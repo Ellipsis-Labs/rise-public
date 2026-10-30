@@ -2,6 +2,7 @@ import type { Authority, TraderAddress } from "@/primitives/_addressTypes";
 import type {
   SequenceNumber,
   ShortEntries,
+  TraderLockedDeposit,
   TraderPosition,
   TraderSpotCollateral,
   TraderState,
@@ -33,4 +34,6 @@ export interface Trader {
   nativeSolCollateral: bigint;
   /** All spot collateral entries, native SOL included, in account order. */
   spotCollaterals: TraderSpotCollateral[];
+  /** The locked deposit, or `null` when the trader has none. */
+  lockedDeposit: TraderLockedDeposit | null;
 }

@@ -377,12 +377,14 @@ export const TraderMarketPnLSeriesSchema: z.ZodType<TraderMarketPnLSeries> =
 
 export type EscrowActionView =
   | { kind: "noop" }
-  | { kind: "cash"; amount: number };
+  | { kind: "cash"; amount: number }
+  | { kind: "lockedDeposit"; amount: number };
 
 export const EscrowActionViewSchema: z.ZodType<EscrowActionView> =
   z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("noop") }),
     z.object({ kind: z.literal("cash"), amount: z.number() }),
+    z.object({ kind: z.literal("lockedDeposit"), amount: z.number() }),
   ]);
 
 export interface PendingEscrowRequestView {

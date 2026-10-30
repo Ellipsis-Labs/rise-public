@@ -3162,6 +3162,7 @@
     "withdrawQueueNode": null,
     "disablePositionAuthoritySwap": false,
     "nativeSolCollateral": "0",
-    "spotCollaterals": []
+    "spotCollaterals": [],
+    "lockedDeposit": null
   }
 }

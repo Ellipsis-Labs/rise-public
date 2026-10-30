@@ -439,9 +439,9 @@ describe("raw account parsing", () => {
     expect(decoded.positions.entries[1]?.key).toBe(12n);
   });
 
-  it("decodes native SOL and SPL spot collateral entries from the Trader position map", () => {
+  it("decodes native SOL, SPL spot collateral, and locked-deposit entries from the Trader position map", () => {
     const bytes = loadMockBytes("trader.json");
-    writeU64LE(bytes, TRADER_POSITION_MAP_LEN_OFFSET, 3n);
+    writeU64LE(bytes, TRADER_POSITION_MAP_LEN_OFFSET, 4n);
     const solEntryOffset =
       TRADER_POSITION_ENTRIES_OFFSET + TRADER_POSITION_ENTRY_BYTES;
     writeU64LE(bytes, solEntryOffset, BigInt(HEADER_EXTENSION_ASSET_ID));
@@ -451,6 +451,12 @@ describe("raw account parsing", () => {
     writeU64LE(bytes, splEntryOffset, 0xfffe4001n);
     writeU64LE(bytes, splEntryOffset + 8, 777n);
     writeU64LE(bytes, splEntryOffset + 16, 0n);
+    // Locked deposit: locked 500, consumed 120, isolated flag set.
+    const lockedEntryOffset = splEntryOffset + TRADER_POSITION_ENTRY_BYTES;
+    writeU64LE(bytes, lockedEntryOffset, 0xffff0001n);
+    writeU64LE(bytes, lockedEntryOffset + 8, 500n);
+    writeU64LE(bytes, lockedEntryOffset + 16, 120n);
+    writeU64LE(bytes, lockedEntryOffset + 24, 1n);
 
     const decoded = decodeTrader(bytes);
 
@@ -468,6 +474,11 @@ describe("raw account parsing", () => {
         maxPerTraderBalanceOverride: null,
       },
     ]);
+    expect(decoded.lockedDeposit).toEqual({
+      lockedQuoteLots: 500n,
+      consumedQuoteLots: 120n,
+      isIsolated: true,
+    });
   });
 
   it("decodes spot collateral collections from PerpAssetMap slots", () => {

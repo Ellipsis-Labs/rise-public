@@ -2,6 +2,8 @@ import type { StoreApi } from "zustand/vanilla";
 import type {
   CooldownStatus,
   TraderStateCapabilities,
+  TraderStateEscrowRequest,
+  TraderStateLockedDeposit,
   TraderStateMarketLimitOrderRow,
   TraderStateOrderHistoryDelta,
   TraderStatePositionSnapshot,
@@ -80,6 +82,8 @@ export interface TraderStateSubaccountState {
   sequence: number;
   collateral: string;
   spotCollaterals: readonly TraderStateSpotCollateral[];
+  lockedDeposit?: TraderStateLockedDeposit;
+  escrowRequests: readonly TraderStateEscrowRequest[];
   capabilities?: TraderStateCapabilities;
   cooldownStatus?: CooldownStatus;
   positionSymbols: readonly string[];

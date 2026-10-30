@@ -1,3 +1,4 @@
+import type { TraderStateLockedDeposit } from "@/api/traders/traderState";
 export interface LeverageTierParams {
   upperBoundSize: string;
   maxLeverage: string;
@@ -172,6 +173,7 @@ export interface SpotCollateralMarginInput {
 export interface SubaccountMarginInputs {
   subaccountIndex: number;
   collateralBalanceQuoteLots: string;
+  lockedDeposit?: TraderStateLockedDeposit;
   markets: MarketMarginInputs[];
   spotCollaterals?: SpotCollateralMarginInput[];
   /**
@@ -208,12 +210,19 @@ export interface MarginTotals {
   collateralBalanceQuoteLots: string;
   effectiveCollateralQuoteLots: string;
   effectiveCollateralForWithdrawalsQuoteLots: string;
+  /** Maximum quote collateral transferable from cross margin to an isolated
+   * subaccount in the same trader PDA. Applies margin and payout bounds but
+   * ignores the locked-deposit reserve. Use withdrawableQuoteCollateralQuoteLots
+   * for withdrawals or transfers outside this scope. Swaps must preserve the
+   * locked reserve in withdrawal capacity after both collateral legs. */
+  withdrawableQuoteCollateralPreLockQuoteLots?: string;
   /**
    * Maximum quote collateral withdrawable, mirroring the on-chain
    * get_max_quote_withdrawable_amount: the tighter of
    * effectiveCollateralForWithdrawals + spotCollateralDiscounted -
    * initialMarginForWithdrawals (spot backs the margin) and the positive part
-   * of effectiveCollateralForWithdrawals (spot is never paid out as quote).
+   * of effectiveCollateralForWithdrawals (spot is never paid out as quote),
+   * minus the remaining locked deposit, saturating at zero.
    */
   withdrawableQuoteCollateralQuoteLots: string;
   portfolioValueQuoteLots: string;

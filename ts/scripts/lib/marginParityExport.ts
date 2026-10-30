@@ -76,6 +76,7 @@ export type MarginParitySnapshotFile = {
       traderSubaccountIndex: number;
       input: {
         collateralBalanceQuoteLots: string;
+        lockedDeposit?: SubaccountMarginInputs["lockedDeposit"];
         nativeSolCollateralLamports?: string;
         spotCollateralBalances?: Record<string, string>;
         markets: Array<{
@@ -456,6 +457,7 @@ export const buildMarginParityOutput = (
       const inputs: SubaccountMarginInputs = {
         subaccountIndex: subaccount.traderSubaccountIndex,
         collateralBalanceQuoteLots: subaccount.input.collateralBalanceQuoteLots,
+        lockedDeposit: subaccount.input.lockedDeposit,
         nativeSolCollateralLamports:
           subaccount.input.nativeSolCollateralLamports ?? "0",
         spotCollateralBalances: subaccount.input.spotCollateralBalances,
