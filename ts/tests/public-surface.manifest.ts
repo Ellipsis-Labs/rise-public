@@ -57,7 +57,7 @@ export const HTTP_RESOURCE_PRESENT_METHODS = {
   orderbook: ["getOrderbook"],
   funding: ["getTraderFundingHistory", "getUserFundingHourly"],
   invite: [
-    "activateInvite",
+    "activateReferral",
     "activateReferralTx",
     "buildActivateReferralTxRequest",
     "getReferralActivationPermission",
@@ -98,6 +98,7 @@ export const HTTP_RESOURCE_PRESENT_METHODS = {
 } as const;
 
 export const HTTP_RESOURCE_ABSENT_METHODS = {
+  invite: ["activateInvite", "validateInvite"],
   markets: ["getPriceHistory"],
   orders: ["getOrderDetails"],
   traders: ["getActiveTraders", "getTraderPendingEscrowRequests"],

@@ -756,25 +756,11 @@ describe("public client route mapping", () => {
           },
         ],
         [
-          "/v1/invite/validate",
-          {
-            success: true,
-            message: "ok",
-            whitelisted: true,
-          },
-        ],
-        [
           "/v1/invite/check/wallet-abc",
           {
             whitelisted: false,
             whitelisted_at: null,
             invite_code_used: null,
-          },
-        ],
-        [
-          "/v1/invite/activate",
-          {
-            trader_pda: "trader-pda-123",
           },
         ],
         [
@@ -943,16 +929,7 @@ describe("public client route mapping", () => {
       endTime: 60_000,
       limit: 100,
     });
-    await invite.validateInvite({
-      code: "invite-123",
-      wallet_address: "wallet-abc",
-      transaction_signature: "sig-123",
-    });
     await invite.checkWallet("wallet-abc");
-    await invite.activateInvite({
-      authority: "authority-abc",
-      code: "invite-123",
-    });
     await invite.activateReferral({
       authority: "authority-abc",
       referral_code: "ref-789",
@@ -1167,29 +1144,10 @@ describe("public client route mapping", () => {
         body: undefined,
       },
       {
-        method: "POST",
-        endpoint: "/v1/invite/validate",
-        params: undefined,
-        body: {
-          code: "invite-123",
-          wallet_address: "wallet-abc",
-          transaction_signature: "sig-123",
-        },
-      },
-      {
         method: "GET",
         endpoint: "/v1/invite/check/wallet-abc",
         params: undefined,
         body: undefined,
-      },
-      {
-        method: "POST",
-        endpoint: "/v1/invite/activate",
-        params: undefined,
-        body: {
-          authority: "authority-abc",
-          code: "invite-123",
-        },
       },
       {
         method: "POST",
@@ -1400,7 +1358,7 @@ describe("public client route mapping", () => {
     );
   });
 
-  it("uses the server-built instruction and invite routes", async () => {
+  it("uses the server-built instruction routes", async () => {
     const records: RequestRecord[] = [];
     const transport = createTransport(
       new Map<string, unknown>([
@@ -1570,13 +1528,11 @@ describe("public client route mapping", () => {
             },
           ],
         ],
-        ["/v1/invite/activate", { trader_pda: "trader-pda" }],
       ]),
       records
     );
 
     const orders = new V1OrdersClient(transport);
-    const invite = new V1InviteClient(transport);
 
     const limitIxs = await orders.placeIsolatedLimitOrder({
       authority: "authority",
@@ -1660,7 +1616,6 @@ describe("public client route mapping", () => {
       conditionalOrderIndex: 7,
       executionDirection: "greater_than",
     });
-    await invite.activateInvite({ authority: "authority", code: "code" });
 
     expect(limitIxs).toHaveLength(1);
     expect(marketIxs).toHaveLength(1);
@@ -1804,15 +1759,6 @@ describe("public client route mapping", () => {
           symbol: "SOL",
           conditionalOrderIndex: 7,
           executionDirection: "greater_than",
-        },
-      },
-      {
-        method: "POST",
-        endpoint: "/v1/invite/activate",
-        params: undefined,
-        body: {
-          authority: "authority",
-          code: "code",
         },
       },
     ]);

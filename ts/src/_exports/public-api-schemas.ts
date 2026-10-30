@@ -186,8 +186,6 @@ export {
 } from "../api/funding/types";
 
 export {
-  type ActivateInviteRequest,
-  ActivateInviteRequestSchema,
   type ActivateInviteResponse,
   ActivateInviteResponseSchema,
   type ActivateReferralRequest,
@@ -202,10 +200,6 @@ export {
   CheckWalletResponseSchema,
   type ReferralActivationPermissionResponse,
   ReferralActivationPermissionResponseSchema,
-  type ValidateInviteRequest,
-  ValidateInviteRequestSchema,
-  type ValidateInviteResponse,
-  ValidateInviteResponseSchema,
 } from "../api/invite/types";
 
 export { type NotificationsSubscriptionParams as NotificationsSubscriptionRequest } from "../ws/adapters/notifications/ports";

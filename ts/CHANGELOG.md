@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.7.3 - 2026-10-30
+
+Source Phoenix commit: `bf2da711175758799b1faf6a2b6627214b8b9fc5`
+
+### Summary
+
+- Access-code activation has been retired from the TypeScript SDK. `invite().activateInvite(...)` (`POST /v1/invite/activate`) and `invite().validateInvite(...)` (`POST /v1/invite/validate`) are removed, along with their request and response types and schemas.
+- Referral activation is the supported onboarding path: `invite().activateReferral(...)` (`POST /v1/referral/activate`) for a referral code plus an authenticated user session, or `activateReferralTx` for delegated onboarding.
+- `checkWallet`, `activateReferral`, `activateReferralTx`, `buildActivateReferralTxRequest` and `getReferralActivationPermission` are unchanged.
+- The README onboarding section now describes referral activation and notes that access-code activation is retired.
+
+### Breaking Changes
+
+- Removed methods on the invite client: `activateInvite` and `validateInvite`. Calls to either will fail to compile, or fail at runtime in untyped code.
+- Removed exports from the public API schemas entrypoint: `ActivateInviteRequest`, `ActivateInviteRequestSchema`, `ValidateInviteRequest`, `ValidateInviteRequestSchema`, `ValidateInviteResponse` and `ValidateInviteResponseSchema`.
+- `ActivateInviteResponse` and `ActivateInviteResponseSchema` are still exported. `activateReferral` still returns this type.
+
+### Consumer Notes
+
+- Replace `client.invite().activateInvite({ authority, code })` with `client.invite().activateReferral({ authority, referral_code })`. The client needs an authenticated user session for the trader authority.
+- For delegated onboarding where the trader authority signs a transaction, use `activateReferralTx`.
+- Remove any use of `validateInvite` and the removed request and response types or schemas. The diff shows no replacement for invite-code validation.
+
 ## v0.7.2 - 2026-10-30
 
 Source Phoenix commit: `5d208723c66907f0b5641333d6ec13d7e7251117`
