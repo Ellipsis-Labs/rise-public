@@ -316,7 +316,7 @@ describe("createPhoenixTraderStateManager", () => {
       expirationOffset: 5,
       initialSlot: "10",
       expirationSlot: "15",
-      actions: [{ kind: "lockedDeposit", amount: "100" }],
+      actions: [{ kind: "lockedDeposit", amount: "100" }, { kind: "unknown" }],
     };
     snapshot.snapshot.subaccounts[0] =
       TraderStateSubaccountSnapshotSchema.parse({

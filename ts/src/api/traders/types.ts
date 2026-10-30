@@ -1,6 +1,10 @@
 import z from "zod";
 import type { TraderView } from "@/types/trader";
 import { TraderViewSchema } from "@/types/trader";
+import {
+  createEscrowActionSchema,
+  type EscrowAction,
+} from "@/api/utils/escrowAction";
 
 // ---------------------------------------------------------------------------
 // Re-exports from core types (already defined in rise)
@@ -375,17 +379,10 @@ export const TraderMarketPnLSeriesSchema: z.ZodType<TraderMarketPnLSeries> =
 // Escrow: pending requests
 // ---------------------------------------------------------------------------
 
-export type EscrowActionView =
-  | { kind: "noop" }
-  | { kind: "cash"; amount: number }
-  | { kind: "lockedDeposit"; amount: number };
+export type EscrowActionView = EscrowAction<number>;
 
 export const EscrowActionViewSchema: z.ZodType<EscrowActionView> =
-  z.discriminatedUnion("kind", [
-    z.object({ kind: z.literal("noop") }),
-    z.object({ kind: z.literal("cash"), amount: z.number() }),
-    z.object({ kind: z.literal("lockedDeposit"), amount: z.number() }),
-  ]);
+  createEscrowActionSchema(z.number());
 
 export interface PendingEscrowRequestView {
   sequenceNumber: number;

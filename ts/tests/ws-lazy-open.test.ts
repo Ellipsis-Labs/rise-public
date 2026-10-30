@@ -33,6 +33,89 @@ afterEach(() => {
 });
 
 describe("rise ws lazy connection mode", () => {
+  it("keeps the subscription and socket open across unfamiliar messages", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", MockWebSocket);
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const warnings = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const onServerError = vi.fn();
+    const streams = createPhoenixWsClient({
+      url: "wss://example.com/v1/ws",
+      authMode: "anonymous",
+      connectMode: "lazy",
+      onServerError,
+    });
+    const abort = new AbortController();
+    const updates = streams.traderState("authority", 0, abort.signal);
+    const iterator = updates[Symbol.asyncIterator]();
+    const next = iterator.next();
+    await vi.advanceTimersByTimeAsync(0);
+    const socket = MockWebSocket.instances[0]!;
+    for (const message of [
+      { channel: "futureChannel", messageType: "futureMessage" },
+      { channel: "exchange", messageType: "futureMessage" },
+      { channel: "traderState", messageType: "futureMessage" },
+      {
+        channel: "traderState",
+        authority: "authority",
+        traderPdaIndex: 0,
+        slot: "11",
+        messageType: "delta",
+        deltas: [
+          {
+            subaccountIndex: 0,
+            sequence: 2,
+            collateral: "105",
+            futureField: true,
+            escrowRequests: [
+              {
+                sequenceNumber: "7",
+                senderAuthority: "sender",
+                senderPdaIndex: 0,
+                senderSubaccountIndex: 0,
+                expirationOffset: null,
+                initialSlot: "10",
+                expirationSlot: null,
+                actions: [
+                  { kind: "futureAction" },
+                  { kind: "cash", amount: "5" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ]) {
+      socket.onmessage?.({ data: JSON.stringify(message) });
+      await vi.advanceTimersByTimeAsync(0);
+    }
+    await expect(next).resolves.toMatchObject({
+      done: false,
+      value: {
+        messageType: "delta",
+        slot: 11n,
+        deltas: [
+          {
+            sequence: 2,
+            collateral: "105",
+            escrowRequests: [
+              { actions: [{ kind: "unknown" }, { kind: "cash", amount: "5" }] },
+            ],
+          },
+        ],
+      },
+    });
+    expect(MockWebSocket.instances).toHaveLength(1);
+    expect(socket.closeCalls).toBe(0);
+    expect(onServerError).not.toHaveBeenCalled();
+    expect(errors).not.toHaveBeenCalled();
+    expect(warnings).not.toHaveBeenCalled();
+    abort.abort();
+    streams.close();
+    errors.mockRestore();
+    warnings.mockRestore();
+  });
+
   it("opens on first subscription and closes after the idle timeout", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("WebSocket", MockWebSocket as unknown as typeof WebSocket);

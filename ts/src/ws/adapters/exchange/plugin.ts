@@ -3,6 +3,7 @@ import type { MessageHandlerPlugin } from "@/ws/plugins/types";
 
 export const createExchangePlugin = (): MessageHandlerPlugin => ({
   channel: "exchange",
+  messageTypes: ["snapshot", "encodedSnapshot", "delta"],
   validate: (message: unknown): boolean => {
     return typeof message === "object" && message !== null;
   },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import wireFixtures from "../../rust/ix/tests/fixtures/spline-price-metadata.json";
+import wireFixtures from "../test-fixtures/spline-price-metadata.json";
 import {
   getUpdateSplinePriceWithMetadataCodec,
   getUpdateSplinePriceWithMetadataDecoder,

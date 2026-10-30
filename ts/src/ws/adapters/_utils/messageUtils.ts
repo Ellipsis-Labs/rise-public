@@ -21,3 +21,15 @@ export const getBooleanField = (
   const field = value[key];
   return typeof field === "boolean" ? field : null;
 };
+
+export const isUnknownMessageType = (
+  message: unknown,
+  messageTypes: readonly string[] | undefined
+): boolean => {
+  const messageType = getStringField(message, "messageType");
+  return (
+    messageType !== null &&
+    messageTypes !== undefined &&
+    !messageTypes.includes(messageType)
+  );
+};

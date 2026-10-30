@@ -451,6 +451,34 @@ Runnable Flight examples:
 For more Flight-specific TypeScript examples, see
 [rise/ts/src/flight/README.md](./ts/src/flight/README.md).
 
+## API and WebSocket Compatibility
+
+Unknown WebSocket channels and unfamiliar `messageType` values are skipped
+without ending the stream, closing the connection, or emitting an error event.
+A new message type must not consume sequence numbers needed by existing delta
+streams or replace updates that existing clients require.
+
+Response objects may gain fields. Default JSON decoders ignore unfamiliar
+fields, and exchange deltas tolerate unfamiliar operation kinds while applying
+the known operations and advancing their sequence. Existing field types,
+meanings, and sequence rules must remain compatible within a protocol version.
+A new operation must not replace the existing update for state that older
+clients already maintain.
+
+Escrow actions with unfamiliar `kind` values decode as `Unknown` in Rust and
+`{ kind: "unknown" }` in TypeScript. They remain in the request's action list;
+they are not no-ops. Inspect for this marker before presenting or accepting a
+request: a client cannot explain the complete effects of an unfamiliar action.
+Malformed payloads for known action kinds still fail validation. TypeScript's
+opt-in strict mode can reject added object fields and is intended for schema
+diagnostics rather than forward-compatible production decoding.
+
+This policy protects clients that have installed a release supporting these
+fallbacks; it cannot change previously installed SDK versions. Adding data that
+changes existing margin, withdrawal, or trading semantics requires a compatible
+versioned or negotiated contract. Successfully ignoring a new field does not
+prove that an older client's financial calculations remain correct.
+
 ## Live Market Data
 
 Use the typed WebSocket adapters when you want continuous updates instead of a

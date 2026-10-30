@@ -1,0 +1,44 @@
+[
+  {
+    "name": "none",
+    "slot": null,
+    "hex": "40e20100010000002a0000000000000000000000000000000000000000000000abababababababababababababababab",
+    "bidWidth": null,
+    "askWidth": null
+  },
+  {
+    "name": "slot_only",
+    "slot": "0",
+    "hex": "40e20100050000002a0000000000000000000000000000000000000000000000abababababababababababababababab",
+    "bidWidth": null,
+    "askWidth": null
+  },
+  {
+    "name": "widths_only",
+    "slot": null,
+    "hex": "40e20100190000002a00000000000000000000000000000000000000ffffffffabababababababababababababababab",
+    "bidWidth": 0,
+    "askWidth": 4294967295
+  },
+  {
+    "name": "both",
+    "slot": "18446744073709551615",
+    "hex": "40e201001d0000002a00000000000000ffffffffffffffff110000001d000000abababababababababababababababab",
+    "bidWidth": 17,
+    "askWidth": 29
+  },
+  {
+    "name": "bid_only",
+    "slot": null,
+    "bidWidth": 0,
+    "askWidth": null,
+    "hex": "40e20100090000002a0000000000000000000000000000000000000000000000abababababababababababababababab"
+  },
+  {
+    "name": "ask_only",
+    "slot": "0",
+    "bidWidth": null,
+    "askWidth": 29,
+    "hex": "40e20100150000002a000000000000000000000000000000000000001d000000abababababababababababababababab"
+  }
+]
