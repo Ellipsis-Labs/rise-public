@@ -71,6 +71,29 @@ pub enum WsCommand {
         #[command(flatten)]
         listen: WsListenArgs,
     },
+    /// Subscribe to one market's l2Book feed.
+    L2Book {
+        #[arg(long)]
+        symbol: String,
+        #[arg(long, default_value_t = false)]
+        bypass_execution_band: bool,
+        #[command(flatten)]
+        listen: WsListenArgs,
+    },
+    /// Subscribe to one market's mark-price feed.
+    MarkPrice {
+        #[arg(long)]
+        symbol: String,
+        #[command(flatten)]
+        listen: WsListenArgs,
+    },
+    /// Subscribe to fills for one market, or every market without `--symbol`.
+    Fills {
+        #[arg(long)]
+        symbol: Option<String>,
+        #[command(flatten)]
+        listen: WsListenArgs,
+    },
     /// Subscribe to one market metadata feed.
     Market {
         #[arg(long)]
@@ -235,10 +258,31 @@ pub async fn run(cmd: WsCommand, ctx: &CommandCtx) -> Result<(), Box<dyn Error>>
             bypass_execution_band,
             listen,
         } => {
+            #[allow(deprecated)]
             let (mut rx, _handle) =
                 client.subscribe_to_orderbook_with_options(symbol, bypass_execution_band)?;
             let (message, _) = recv_last_or_timeout(&mut rx, &listen, "orderbook").await?;
             print_json(&ServerMessage::Orderbook(message), ctx.output)?;
+        }
+        WsCommand::L2Book {
+            symbol,
+            bypass_execution_band,
+            listen,
+        } => {
+            let (mut rx, _handle) =
+                client.subscribe_to_l2_book_with_options(symbol, bypass_execution_band)?;
+            let (message, _) = recv_last_or_timeout(&mut rx, &listen, "l2Book").await?;
+            print_json(&ServerMessage::L2Book(message), ctx.output)?;
+        }
+        WsCommand::MarkPrice { symbol, listen } => {
+            let (mut rx, _handle) = client.subscribe_to_mark_price(symbol)?;
+            let (message, _) = recv_last_or_timeout(&mut rx, &listen, "markPrice").await?;
+            print_json(&ServerMessage::MarkPrice(message), ctx.output)?;
+        }
+        WsCommand::Fills { symbol, listen } => {
+            let (mut rx, _handle) = client.subscribe_to_fills(symbol)?;
+            let (message, _) = recv_last_or_timeout(&mut rx, &listen, "fills").await?;
+            print_json(&ServerMessage::Fills(message), ctx.output)?;
         }
         WsCommand::Market { symbol, listen } => {
             let (mut rx, _handle) = client.subscribe_to_market(symbol)?;

@@ -44,13 +44,13 @@ fn apply_market_event(event: PhoenixClientEvent, market_state: &mut Option<Marke
             market.apply_market_stats_update(&update);
             *market_state = Some(market);
         }
-        PhoenixClientEvent::OrderbookUpdate {
+        PhoenixClientEvent::L2BookUpdate {
             symbol,
             prev_market,
             update,
         } => {
             let mut market = prev_market.unwrap_or_else(|| Market::from_symbol(symbol));
-            market.apply_l2_book_update(&update);
+            market.apply_l2_book_message(&update);
             *market_state = Some(market);
         }
         _ => {}

@@ -3,7 +3,7 @@
 use solana_pubkey::Pubkey;
 
 use crate::types::prelude::{
-    CandleData, FundingRateMessage, L2BookUpdate, MarketStatsUpdate, Timeframe,
+    CandleData, FundingRateMessage, L2BookMessage, L2BookUpdate, MarketStatsUpdate, Timeframe,
     TraderStateServerMessage, TradesMessage,
 };
 
@@ -17,6 +17,16 @@ pub enum SubscriptionKey {
     Orderbook {
         symbol: String,
         bypass_execution_band: bool,
+    },
+    L2Book {
+        symbol: String,
+        bypass_execution_band: bool,
+    },
+    MarkPrice {
+        symbol: String,
+    },
+    Fills {
+        symbol: Option<String>,
     },
     TraderState {
         authority: String,
@@ -46,6 +56,14 @@ impl SubscriptionKey {
                 symbol,
                 bypass_execution_band,
             } => Self::orderbook_with_options(symbol.to_ascii_lowercase(), *bypass_execution_band),
+            Self::L2Book {
+                symbol,
+                bypass_execution_band,
+            } => Self::l2_book_with_options(symbol.to_ascii_lowercase(), *bypass_execution_band),
+            Self::MarkPrice { symbol } => Self::mark_price(symbol.to_ascii_lowercase()),
+            Self::Fills { symbol } => {
+                Self::fills(symbol.as_ref().map(|symbol| symbol.to_ascii_lowercase()))
+            }
             Self::Market { symbol } => Self::market(symbol.to_ascii_lowercase()),
             Self::Trades { symbol } => Self::trades(symbol.to_ascii_lowercase()),
             Self::Candles { symbol, timeframe } => {
@@ -96,6 +114,32 @@ impl SubscriptionKey {
             symbol: msg.symbol.clone(),
             bypass_execution_band: msg.bypass_execution_band,
         }
+    }
+
+    pub fn l2_book(symbol: String) -> Self {
+        Self::l2_book_with_options(symbol, false)
+    }
+
+    pub fn l2_book_with_options(symbol: String, bypass_execution_band: bool) -> Self {
+        Self::L2Book {
+            symbol,
+            bypass_execution_band,
+        }
+    }
+
+    pub fn l2_book_from_message(msg: &L2BookMessage) -> Self {
+        Self::L2Book {
+            symbol: msg.coin.clone(),
+            bypass_execution_band: msg.bypass_execution_band,
+        }
+    }
+
+    pub fn mark_price(symbol: String) -> Self {
+        Self::MarkPrice { symbol }
+    }
+
+    pub fn fills(symbol: Option<String>) -> Self {
+        Self::Fills { symbol }
     }
 
     pub fn trader(authority: &Pubkey, trader_pda_index: u8) -> Self {

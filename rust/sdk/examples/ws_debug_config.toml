@@ -13,8 +13,8 @@ all_mids = true
 
 # Symbol lists.
 funding_rate = ["SOL"]
+l2_book      = ["SOL"]
 market       = ["SOL"]
-orderbook    = ["SOL"]
 trades       = ["SOL"]
 
 # Candles subscriptions.

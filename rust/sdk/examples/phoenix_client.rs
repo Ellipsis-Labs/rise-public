@@ -73,9 +73,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     PhoenixClientEvent::MarketUpdate { symbol, update, .. } => {
                         println!("{} mark={:.4} funding={:.8}", symbol, update.mark_price, update.funding_rate);
                     }
-                    PhoenixClientEvent::OrderbookUpdate { symbol, update, .. } => {
-                        let best_bid = update.orderbook.bids.first().map(|(px, _)| *px);
-                        let best_ask = update.orderbook.asks.first().map(|(px, _)| *px);
+                    PhoenixClientEvent::L2BookUpdate { symbol, update, .. } => {
+                        let best_bid = update.bids.first().map(|(px, _)| *px);
+                        let best_ask = update.asks.first().map(|(px, _)| *px);
                         println!("{} book bid={:?} ask={:?}", symbol, best_bid, best_ask);
                     }
                     PhoenixClientEvent::FundingRateUpdate { symbol, update, .. } => {

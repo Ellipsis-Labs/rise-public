@@ -3,6 +3,36 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.9.0 - 2026-10-30
+
+Source Phoenix commit: `af192e9878960010bbdd5bbff8190b03e7a6c578`
+
+### Summary
+
+- Added `l2Book`, `markPrice` and `fills` WebSocket channels to the Rust SDK. New `PhoenixWSClient` methods are `subscribe_to_l2_book`, `subscribe_to_l2_book_with_options`, `subscribe_to_mark_price` and `subscribe_to_fills(Option<symbol>)`. Passing `None` to `subscribe_to_fills` receives fills for every market.
+- Added matching `types` and `api` support. `types` gains `L2BookMessage`, `MarkPriceUpdate`, `FillsMessage`, `FillRecord` and the new subscription request types, all exported through the prelude. `api` gains `SubscriptionKey::l2_book`, `SubscriptionKey::mark_price` and `SubscriptionKey::fills`, plus `PhoenixClientEvent::{L2BookUpdate, MarkPriceUpdate, FillsUpdate}`.
+- `L2Book` and `Market` can now apply `L2BookMessage` snapshots through `apply_l2_book_message`. `L2Book::slot()` and `slot_index()` expose the slot of the last applied l2Book message. They return `None` after an orderbook-channel update.
+- Added `ws l2-book`, `ws mark-price` and `ws fills` commands to the `cli`. The `sdk` examples and READMEs now use the l2Book channel.
+- The `orderbook` channel APIs are deprecated in favor of l2Book. This covers `PhoenixWSClient::subscribe_to_orderbook`, `subscribe_to_orderbook_with_options` and `PhoenixClientEvent::OrderbookUpdate`.
+
+### Breaking Changes
+
+- `PhoenixClientEvent::OrderbookUpdate` is no longer emitted for market subscriptions. They now depend on `SubscriptionKey::l2_book` and emit `PhoenixClientEvent::L2BookUpdate` instead. The update payload is `L2BookMessage`, not `L2BookUpdate`, so book fields are read directly as `update.bids` and `update.asks`. Code that handles `OrderbookUpdate` for market subscriptions must switch to `L2BookUpdate`.
+- Exhaustive `match` expressions fail to compile on the new variants of these public enums:
+  - `ServerMessage`: `L2Book`, `MarkPrice`, `Fills`.
+  - `SubscriptionRequest`: `L2Book`, `MarkPrice`, `Fills`.
+  - `SubscriptionKey`: `L2Book`, `MarkPrice`, `Fills`.
+  - `PhoenixClientEvent`: `L2BookUpdate`, `MarkPriceUpdate`, `FillsUpdate`.
+- The `ws_debug_cli` example config key `orderbook` is renamed to `l2_book`. Existing example configs need updating.
+
+### Consumer Notes
+
+- To migrate, replace `subscribe_to_orderbook*` with `subscribe_to_l2_book*`. Replace `SubscriptionKey::orderbook` with `SubscriptionKey::l2_book`. Replace `apply_update` and `apply_l2_book_update` with `apply_l2_book_message` for l2Book messages.
+- `L2BookMessage` carries `slot`, an optional `slot_index` and `bypass_execution_band`. The l2Book subscription request uses `coin` and an optional `bypassExecutionBand`.
+- Fills subscriptions use an optional `marketSymbol`. A fill message for a market is delivered to both that market's subscribers and all-markets subscribers.
+- Routing keys are case-insensitive by symbol for the new channels.
+- The deprecated orderbook APIs still compile but emit deprecation warnings. Crates that use `#![deny(warnings)]` will need to migrate or allow the lint.
+
 ## v0.8.3 - 2026-10-30
 
 Source Phoenix commit: `5ade6930ff3c7a2bf769435b3d3de8cc5e91af53`

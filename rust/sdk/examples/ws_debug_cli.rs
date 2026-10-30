@@ -14,7 +14,7 @@ use std::{env, fs};
 
 use phoenix_rise::api::{PhoenixEnv, PhoenixWSClient, SubscriptionHandle, WsConnectionStatus};
 use phoenix_rise::types::prelude::{
-    AllMidsData, CandleData, FundingRateMessage, L2BookUpdate, MarketStatsUpdate, ServerMessage,
+    AllMidsData, CandleData, FundingRateMessage, L2BookMessage, MarketStatsUpdate, ServerMessage,
     Timeframe, TraderStatePayload, TraderStateServerMessage, TradesMessage,
 };
 use serde::Deserialize;
@@ -49,7 +49,7 @@ struct SubscriptionsConfig {
     #[serde(default)]
     funding_rate: Vec<String>,
     #[serde(default)]
-    orderbook: Vec<String>,
+    l2_book: Vec<String>,
     #[serde(default)]
     market: Vec<String>,
     #[serde(default)]
@@ -77,7 +77,7 @@ enum IncomingEvent {
     Status(WsConnectionStatus),
     AllMids(AllMidsData),
     FundingRate(FundingRateMessage),
-    Orderbook(L2BookUpdate),
+    L2Book(L2BookMessage),
     Market(MarketStatsUpdate),
     Trades(TradesMessage),
     Candles(CandleData),
@@ -90,7 +90,7 @@ struct Metrics {
     status: u64,
     all_mids: u64,
     funding_rate: u64,
-    orderbook: u64,
+    l2_book: u64,
     market: u64,
     trades: u64,
     candles: u64,
@@ -121,7 +121,7 @@ impl Metrics {
             }
             IncomingEvent::AllMids(_) => self.all_mids += 1,
             IncomingEvent::FundingRate(_) => self.funding_rate += 1,
-            IncomingEvent::Orderbook(_) => self.orderbook += 1,
+            IncomingEvent::L2Book(_) => self.l2_book += 1,
             IncomingEvent::Market(_) => self.market += 1,
             IncomingEvent::Trades(_) => self.trades += 1,
             IncomingEvent::Candles(_) => self.candles += 1,
@@ -171,11 +171,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         spawn_forwarder(rx, event_tx.clone(), IncomingEvent::FundingRate);
     }
 
-    for symbol in config.subscriptions.orderbook {
-        let (rx, handle) = client.subscribe_to_orderbook(symbol)?;
+    for symbol in config.subscriptions.l2_book {
+        let (rx, handle) = client.subscribe_to_l2_book(symbol)?;
         _handles.push(handle);
         configured_streams += 1;
-        spawn_forwarder(rx, event_tx.clone(), IncomingEvent::Orderbook);
+        spawn_forwarder(rx, event_tx.clone(), IncomingEvent::L2Book);
     }
 
     for symbol in config.subscriptions.market {
@@ -319,11 +319,8 @@ fn print_event_json(event: IncomingEvent) -> Result<(), serde_json::Error> {
                 serde_json::to_string(&ServerMessage::FundingRate(msg))?
             );
         }
-        IncomingEvent::Orderbook(msg) => {
-            println!(
-                "📚 {}",
-                serde_json::to_string(&ServerMessage::Orderbook(msg))?
-            );
+        IncomingEvent::L2Book(msg) => {
+            println!("📚 {}", serde_json::to_string(&ServerMessage::L2Book(msg))?);
         }
         IncomingEvent::Market(msg) => {
             println!("📊 {}", serde_json::to_string(&ServerMessage::Market(msg))?);
@@ -388,7 +385,7 @@ fn print_stats(metrics: &Metrics, started: Instant) {
     print_metric("🔌", "status", metrics.status);
     print_metric("📈", "all_mids", metrics.all_mids);
     print_metric("💸", "funding_rate", metrics.funding_rate);
-    print_metric("📚", "orderbook", metrics.orderbook);
+    print_metric("📚", "l2_book", metrics.l2_book);
     print_metric("📊", "market", metrics.market);
     print_metric("💱", "trades", metrics.trades);
     print_metric("🕯️", "candles", metrics.candles);
