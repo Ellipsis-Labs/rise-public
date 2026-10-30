@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::candles::{CandleData, Timeframe};
 use crate::exchange_ws::{ExchangeMessage, ExchangeSnapshotEncoding};
-use crate::market::{L2BookUpdate, MarketStatsUpdate};
+use crate::market::{L2BookUpdate, L2Orderbook, MarketStatsUpdate};
 use crate::trader::TraderStateServerMessage;
 use crate::trades::{TradesMessage, TradesSubscriptionRequest};
 
@@ -36,6 +36,37 @@ pub struct OrderbookSubscriptionRequest {
     /// unfiltered subscribers receive independent snapshot streams.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bypass_execution_band: Option<bool>,
+}
+
+/// Subscription request for the l2Book channel.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub struct L2OrderbookSubscriptionRequest {
+    /// Market symbol (e.g., "SOL" or "BTC")
+    pub coin: String,
+    /// Opt in to receive the full orderbook during commodities after-hours,
+    /// bypassing the tradeable execution price band filter. Filtered and
+    /// unfiltered subscribers receive independent snapshot streams.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bypass_execution_band: Option<bool>,
+}
+
+/// Subscription request for the markPrice channel.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub struct MarkPriceSubscriptionRequest {
+    /// Market symbol (e.g., "SOL" or "BTC")
+    pub symbol: String,
+}
+
+/// Subscription request for the fills channel.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub struct FillsSubscriptionRequest {
+    /// Market symbol to filter fills (e.g., "SOL"); `None` receives every
+    /// market.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub market_symbol: Option<String>,
 }
 
 /// Subscription request for the trader-state channel.
@@ -92,6 +123,12 @@ pub enum SubscriptionRequest {
     FundingRate(FundingRateSubscriptionRequest),
     #[serde(rename = "orderbook")]
     Orderbook(OrderbookSubscriptionRequest),
+    #[serde(rename = "l2Book")]
+    L2Book(L2OrderbookSubscriptionRequest),
+    #[serde(rename = "markPrice")]
+    MarkPrice(MarkPriceSubscriptionRequest),
+    #[serde(rename = "fills")]
+    Fills(FillsSubscriptionRequest),
     #[serde(rename = "traderState")]
     TraderState(TraderStateSubscriptionRequest),
     #[serde(rename = "market")]
@@ -230,6 +267,71 @@ impl MarketStatsV2Update {
     }
 }
 
+/// L2 orderbook snapshot from the l2Book channel.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct L2BookMessage {
+    pub coin: String,
+    /// Unix timestamp in seconds.
+    pub timestamp: u64,
+    pub slot: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slot_index: Option<u32>,
+    pub bids: Vec<(f64, f64)>,
+    pub asks: Vec<(f64, f64)>,
+    /// True when the snapshot bypasses the commodities after-hours
+    /// execution-price-band filter. Clients that subscribe to both
+    /// modes for the same symbol use this to route messages.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub bypass_execution_band: bool,
+}
+
+impl From<&L2BookMessage> for L2BookUpdate {
+    fn from(msg: &L2BookMessage) -> Self {
+        Self {
+            symbol: msg.coin.clone(),
+            orderbook: L2Orderbook {
+                bids: msg.bids.clone(),
+                asks: msg.asks.clone(),
+                mid: None,
+            },
+            bypass_execution_band: msg.bypass_execution_band,
+        }
+    }
+}
+
+/// Mark price update from the markPrice channel.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MarkPriceUpdate {
+    pub slot: u64,
+    pub slot_index: u32,
+    pub symbol: String,
+    pub mark_price: f64,
+}
+
+/// A single fill from the fills channel.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FillRecord {
+    pub market_symbol: String,
+    pub base_qty: String,
+    pub quote_qty: String,
+    pub price: String,
+    /// ISO 8601 datetime.
+    pub timestamp: String,
+    pub transaction_signature: String,
+    pub instruction_type: String,
+}
+
+/// Batch of fills for one market from the fills channel.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FillsMessage {
+    pub symbol: String,
+    pub fills: Vec<FillRecord>,
+}
+
 /// WebSocket message types from server to client.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "channel")]
@@ -241,6 +343,12 @@ pub enum ServerMessage {
     FundingRate(FundingRateMessage),
     #[serde(rename = "orderbook")]
     Orderbook(L2BookUpdate),
+    #[serde(rename = "l2Book")]
+    L2Book(L2BookMessage),
+    #[serde(rename = "markPrice")]
+    MarkPrice(MarkPriceUpdate),
+    #[serde(rename = "fills")]
+    Fills(FillsMessage),
     #[serde(rename = "traderState")]
     TraderState(TraderStateServerMessage),
     #[serde(rename = "market")]
@@ -523,6 +631,43 @@ mod tests {
         } else {
             panic!("Expected Orderbook message");
         }
+    }
+
+    #[test]
+    fn test_l2_book_mark_price_and_fills_subscription_requests() {
+        let l2_book = SubscriptionRequest::L2Book(L2OrderbookSubscriptionRequest {
+            coin: "SOL".to_string(),
+            bypass_execution_band: Some(true),
+        });
+        assert_eq!(
+            serde_json::to_value(l2_book).unwrap(),
+            serde_json::json!({
+                "channel": "l2Book",
+                "coin": "SOL",
+                "bypassExecutionBand": true
+            })
+        );
+        let mark_price = SubscriptionRequest::MarkPrice(MarkPriceSubscriptionRequest {
+            symbol: "SOL".to_string(),
+        });
+        assert_eq!(
+            serde_json::to_value(mark_price).unwrap(),
+            serde_json::json!({ "channel": "markPrice", "symbol": "SOL" })
+        );
+        let fills = SubscriptionRequest::Fills(FillsSubscriptionRequest {
+            market_symbol: Some("SOL".to_string()),
+        });
+        assert_eq!(
+            serde_json::to_value(fills).unwrap(),
+            serde_json::json!({ "channel": "fills", "marketSymbol": "SOL" })
+        );
+        let all_fills = SubscriptionRequest::Fills(FillsSubscriptionRequest {
+            market_symbol: None,
+        });
+        assert_eq!(
+            serde_json::to_value(all_fills).unwrap(),
+            serde_json::json!({ "channel": "fills" })
+        );
     }
 
     #[test]

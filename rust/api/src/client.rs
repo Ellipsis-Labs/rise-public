@@ -638,7 +638,7 @@ impl PhoenixClient {
                     .unwrap_or_else(|| symbol.clone());
 
                 dependencies.insert(SubscriptionKey::market(symbol.clone()));
-                dependencies.insert(SubscriptionKey::orderbook(symbol.clone()));
+                dependencies.insert(SubscriptionKey::l2_book(symbol.clone()));
                 dependencies.insert(SubscriptionKey::funding_rate(symbol.clone()));
 
                 for timeframe in candle_timeframes {
@@ -759,12 +759,46 @@ impl PhoenixClient {
                 bypass_execution_band,
             } => {
                 let (rx, handle) = ws_client
-                    .subscribe_to_orderbook_with_options(symbol.clone(), *bypass_execution_band)?;
+                    .subscribe_to_orderbook_channel(symbol.clone(), *bypass_execution_band)?;
                 ws_handles.insert(key.clone(), handle);
                 ws_streams.insert(
                     key.clone(),
                     UnboundedReceiverStream::new(rx)
                         .map(ServerMessage::Orderbook)
+                        .boxed(),
+                );
+            }
+            SubscriptionKey::L2Book {
+                symbol,
+                bypass_execution_band,
+            } => {
+                let (rx, handle) = ws_client
+                    .subscribe_to_l2_book_with_options(symbol.clone(), *bypass_execution_band)?;
+                ws_handles.insert(key.clone(), handle);
+                ws_streams.insert(
+                    key.clone(),
+                    UnboundedReceiverStream::new(rx)
+                        .map(ServerMessage::L2Book)
+                        .boxed(),
+                );
+            }
+            SubscriptionKey::MarkPrice { symbol } => {
+                let (rx, handle) = ws_client.subscribe_to_mark_price(symbol.clone())?;
+                ws_handles.insert(key.clone(), handle);
+                ws_streams.insert(
+                    key.clone(),
+                    UnboundedReceiverStream::new(rx)
+                        .map(ServerMessage::MarkPrice)
+                        .boxed(),
+                );
+            }
+            SubscriptionKey::Fills { symbol } => {
+                let (rx, handle) = ws_client.subscribe_to_fills(symbol.clone())?;
+                ws_handles.insert(key.clone(), handle);
+                ws_streams.insert(
+                    key.clone(),
+                    UnboundedReceiverStream::new(rx)
+                        .map(ServerMessage::Fills)
                         .boxed(),
                 );
             }
@@ -911,6 +945,44 @@ impl PhoenixClient {
                     subscribers_by_key,
                 ));
             }
+            ServerMessage::MarkPrice(update) => {
+                stale.extend(Self::dispatch_raw_event(
+                    key,
+                    PhoenixClientEvent::MarkPriceUpdate { update },
+                    logical_subscriptions,
+                    subscribers_by_key,
+                ));
+            }
+            ServerMessage::Fills(update) => {
+                stale.extend(Self::dispatch_raw_event(
+                    key,
+                    PhoenixClientEvent::FillsUpdate { update },
+                    logical_subscriptions,
+                    subscribers_by_key,
+                ));
+            }
+            ServerMessage::L2Book(update) => {
+                let symbol = update.coin.clone();
+                let prev_market = runtime_state.markets.get(&symbol).cloned();
+
+                let market = runtime_state
+                    .markets
+                    .entry(symbol.clone())
+                    .or_insert_with(|| Market::from_symbol(symbol.clone()));
+                market.apply_l2_book_message(&update);
+
+                stale.extend(Self::dispatch_raw_event(
+                    key,
+                    PhoenixClientEvent::L2BookUpdate {
+                        symbol,
+                        prev_market,
+                        update,
+                    },
+                    logical_subscriptions,
+                    subscribers_by_key,
+                ));
+            }
+            #[allow(deprecated)]
             ServerMessage::Orderbook(update) => {
                 let symbol = update.symbol.clone();
                 let prev_market = runtime_state.markets.get(&symbol).cloned();

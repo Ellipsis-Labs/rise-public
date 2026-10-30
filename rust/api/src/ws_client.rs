@@ -12,12 +12,13 @@ use opentelemetry_http::HeaderInjector;
 use parking_lot::Mutex;
 use phoenix_rise_types::prelude::{
     AllMidsData, CandleData, CandlesSubscriptionRequest, ClientMessage, ExchangeMessage,
-    ExchangeSnapshotEncoding, ExchangeSubscriptionRequest, FundingRateMessage,
-    FundingRateSubscriptionRequest, L2BookUpdate, MarketStatsUpdate,
-    MarketStatsV2SubscriptionRequest, MarketStatsV2Update, OrderbookSubscriptionRequest,
-    ServerMessage, SubscriptionConfirmedMessage, SubscriptionErrorMessage, SubscriptionRequest,
-    Timeframe, TraderStateServerMessage, TraderStateSubscriptionRequest, TradesMessage,
-    TradesSubscriptionRequest,
+    ExchangeSnapshotEncoding, ExchangeSubscriptionRequest, FillsMessage, FillsSubscriptionRequest,
+    FundingRateMessage, FundingRateSubscriptionRequest, L2BookMessage, L2BookUpdate,
+    L2OrderbookSubscriptionRequest, MarkPriceSubscriptionRequest, MarkPriceUpdate,
+    MarketStatsUpdate, MarketStatsV2SubscriptionRequest, MarketStatsV2Update,
+    OrderbookSubscriptionRequest, ServerMessage, SubscriptionConfirmedMessage,
+    SubscriptionErrorMessage, SubscriptionRequest, Timeframe, TraderStateServerMessage,
+    TraderStateSubscriptionRequest, TradesMessage, TradesSubscriptionRequest,
 };
 use solana_pubkey::Pubkey;
 use tokio::sync::mpsc;
@@ -139,7 +140,10 @@ impl Drop for ExchangeCachePump {
 enum Subscriber {
     AllMids(mpsc::UnboundedSender<AllMidsData>),
     FundingRate(mpsc::UnboundedSender<FundingRateMessage>),
-    L2Book(mpsc::UnboundedSender<L2BookUpdate>),
+    Orderbook(mpsc::UnboundedSender<L2BookUpdate>),
+    L2Book(mpsc::UnboundedSender<L2BookMessage>),
+    MarkPrice(mpsc::UnboundedSender<MarkPriceUpdate>),
+    Fills(mpsc::UnboundedSender<FillsMessage>),
     TraderState(mpsc::UnboundedSender<TraderStateServerMessage>),
     MarketStats(mpsc::UnboundedSender<MarketStatsUpdate>),
     MarketStatsV2(mpsc::UnboundedSender<MarketStatsV2Update>),
@@ -411,6 +415,78 @@ impl PhoenixWSClient {
         Ok((rx, handle))
     }
 
+    /// Subscribe to mark price updates for a given symbol.
+    ///
+    /// # Arguments
+    /// * `symbol` - Market symbol (e.g., "SOL" or "BTC")
+    ///
+    /// Returns a tuple of (receiver, handle). The receiver will receive
+    /// `MarkPriceUpdate` messages. Drop the handle to unsubscribe.
+    pub fn subscribe_to_mark_price(
+        &self,
+        symbol: String,
+    ) -> Result<(mpsc::UnboundedReceiver<MarkPriceUpdate>, SubscriptionHandle), PhoenixWsError>
+    {
+        self.subscribe(
+            SubscriptionKey::mark_price(symbol.clone()),
+            SubscriptionRequest::MarkPrice(MarkPriceSubscriptionRequest { symbol }),
+            Subscriber::MarkPrice,
+        )
+    }
+
+    /// Subscribe to fills for one market, or for every market when `symbol`
+    /// is `None`.
+    ///
+    /// Returns a tuple of (receiver, handle). The receiver will receive
+    /// `FillsMessage` batches. Drop the handle to unsubscribe.
+    pub fn subscribe_to_fills(
+        &self,
+        symbol: Option<String>,
+    ) -> Result<(mpsc::UnboundedReceiver<FillsMessage>, SubscriptionHandle), PhoenixWsError> {
+        self.subscribe(
+            SubscriptionKey::fills(symbol.clone()),
+            SubscriptionRequest::Fills(FillsSubscriptionRequest {
+                market_symbol: symbol,
+            }),
+            Subscriber::Fills,
+        )
+    }
+
+    /// Subscribe to L2 orderbook snapshots for a given symbol.
+    ///
+    /// # Arguments
+    /// * `symbol` - Market symbol (e.g., "SOL" or "BTC")
+    ///
+    /// Returns a tuple of (receiver, handle). The receiver will receive
+    /// `L2BookMessage` messages. Drop the handle to unsubscribe.
+    pub fn subscribe_to_l2_book(
+        &self,
+        symbol: String,
+    ) -> Result<(mpsc::UnboundedReceiver<L2BookMessage>, SubscriptionHandle), PhoenixWsError> {
+        self.subscribe_to_l2_book_with_options(symbol, false)
+    }
+
+    /// Subscribe to L2 orderbook snapshots for a given symbol, optionally
+    /// bypassing the commodities after-hours execution-price-band filter.
+    ///
+    /// Setting `bypass_execution_band = true` routes the subscription to a
+    /// distinct stream that includes price levels outside the tradeable band
+    /// (only observable during commodities after-hours).
+    pub fn subscribe_to_l2_book_with_options(
+        &self,
+        symbol: String,
+        bypass_execution_band: bool,
+    ) -> Result<(mpsc::UnboundedReceiver<L2BookMessage>, SubscriptionHandle), PhoenixWsError> {
+        self.subscribe(
+            SubscriptionKey::l2_book_with_options(symbol.clone(), bypass_execution_band),
+            SubscriptionRequest::L2Book(L2OrderbookSubscriptionRequest {
+                coin: symbol,
+                bypass_execution_band: Some(bypass_execution_band),
+            }),
+            Subscriber::L2Book,
+        )
+    }
+
     /// Subscribe to orderbook updates for a given symbol.
     ///
     /// # Arguments
@@ -418,11 +494,12 @@ impl PhoenixWSClient {
     ///
     /// Returns a tuple of (receiver, handle). The receiver will receive
     /// `L2BookUpdate` messages. Drop the handle to unsubscribe.
+    #[deprecated(note = "use subscribe_to_l2_book")]
     pub fn subscribe_to_orderbook(
         &self,
         symbol: String,
     ) -> Result<(mpsc::UnboundedReceiver<L2BookUpdate>, SubscriptionHandle), PhoenixWsError> {
-        self.subscribe_to_orderbook_with_options(symbol, false)
+        self.subscribe_to_orderbook_channel(symbol, false)
     }
 
     /// Subscribe to orderbook updates for a given symbol, optionally
@@ -431,32 +508,51 @@ impl PhoenixWSClient {
     /// Setting `bypass_execution_band = true` routes the subscription to a
     /// distinct stream that includes price levels outside the tradeable band
     /// (only observable during commodities after-hours).
+    #[deprecated(note = "use subscribe_to_l2_book")]
     pub fn subscribe_to_orderbook_with_options(
         &self,
         symbol: String,
         bypass_execution_band: bool,
     ) -> Result<(mpsc::UnboundedReceiver<L2BookUpdate>, SubscriptionHandle), PhoenixWsError> {
+        self.subscribe_to_orderbook_channel(symbol, bypass_execution_band)
+    }
+
+    pub(crate) fn subscribe_to_orderbook_channel(
+        &self,
+        symbol: String,
+        bypass_execution_band: bool,
+    ) -> Result<(mpsc::UnboundedReceiver<L2BookUpdate>, SubscriptionHandle), PhoenixWsError> {
+        self.subscribe(
+            SubscriptionKey::orderbook_with_options(symbol.clone(), bypass_execution_band),
+            SubscriptionRequest::Orderbook(OrderbookSubscriptionRequest {
+                symbol,
+                bypass_execution_band: Some(bypass_execution_band),
+            }),
+            Subscriber::Orderbook,
+        )
+    }
+
+    fn subscribe<T>(
+        &self,
+        key: SubscriptionKey,
+        request: SubscriptionRequest,
+        subscriber: fn(mpsc::UnboundedSender<T>) -> Subscriber,
+    ) -> Result<(mpsc::UnboundedReceiver<T>, SubscriptionHandle), PhoenixWsError> {
         let subscriber_id = self.next_subscriber_id.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = mpsc::unbounded_channel();
-        let sub_key =
-            SubscriptionKey::orderbook_with_options(symbol.clone(), bypass_execution_band);
-        let request = SubscriptionRequest::Orderbook(OrderbookSubscriptionRequest {
-            symbol,
-            bypass_execution_band: Some(bypass_execution_band),
-        });
 
         self.control_tx
             .send(ControlMessage::Subscribe {
-                key: sub_key.clone(),
+                key: key.clone(),
                 request,
-                subscriber: Subscriber::L2Book(tx),
+                subscriber: subscriber(tx),
                 subscriber_id,
             })
             .map_err(|_| PhoenixWsError::SubscriptionClosed)?;
 
         let handle = SubscriptionHandle {
             control_tx: self.control_tx.clone(),
-            key: sub_key,
+            key,
             subscriber_id,
         };
 
@@ -1337,8 +1433,36 @@ impl PhoenixWSClient {
                 Self::broadcast_to_subscribers(
                     subscribers,
                     &key,
+                    |sub| matches!(sub, Subscriber::Orderbook(tx) if tx.send(msg.clone()).is_err()),
+                );
+            }
+            Ok(ServerMessage::L2Book(msg)) => {
+                let key = SubscriptionKey::l2_book_from_message(&msg);
+                Self::broadcast_to_subscribers(
+                    subscribers,
+                    &key,
                     |sub| matches!(sub, Subscriber::L2Book(tx) if tx.send(msg.clone()).is_err()),
                 );
+            }
+            Ok(ServerMessage::MarkPrice(msg)) => {
+                let key = SubscriptionKey::mark_price(msg.symbol.clone());
+                Self::broadcast_to_subscribers(
+                    subscribers,
+                    &key,
+                    |sub| matches!(sub, Subscriber::MarkPrice(tx) if tx.send(msg.clone()).is_err()),
+                );
+            }
+            Ok(ServerMessage::Fills(msg)) => {
+                for key in [
+                    SubscriptionKey::fills(Some(msg.symbol.clone())),
+                    SubscriptionKey::fills(None),
+                ] {
+                    Self::broadcast_to_subscribers(
+                        subscribers,
+                        &key,
+                        |sub| matches!(sub, Subscriber::Fills(tx) if tx.send(msg.clone()).is_err()),
+                    );
+                }
             }
             Ok(ServerMessage::TraderState(msg)) => {
                 let key = SubscriptionKey::TraderState {
@@ -1730,6 +1854,107 @@ mod tests {
         assert_eq!(legacy_update.mark_price, 3.0);
         assert_eq!(legacy_update.mid_price, 3.5);
         assert!(all_rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn process_message_routes_l2_book_and_mark_price_case_insensitively() {
+        let (book_tx, mut book_rx) = mpsc::unbounded_channel();
+        let (mark_tx, mut mark_rx) = mpsc::unbounded_channel();
+        let subscribers = HashMap::from([
+            (
+                SubscriptionKey::l2_book("KBONK".to_string()).routing_key(),
+                HashMap::from([(1, Subscriber::L2Book(book_tx))]),
+            ),
+            (
+                SubscriptionKey::mark_price("KBONK".to_string()).routing_key(),
+                HashMap::from([(2, Subscriber::MarkPrice(mark_tx))]),
+            ),
+        ]);
+        let (event_tx, _event_rx) = mpsc::unbounded_channel();
+        let book = serde_json::to_vec(&json!({
+            "channel": "l2Book",
+            "coin": "kBONK",
+            "timestamp": 1,
+            "slot": 42,
+            "slotIndex": 3,
+            "bids": [[1.5, 10.0]],
+            "asks": [[1.6, 20.0]]
+        }))
+        .unwrap();
+        let mark = serde_json::to_vec(&json!({
+            "channel": "markPrice",
+            "slot": 43,
+            "slotIndex": 7,
+            "symbol": "kBONK",
+            "markPrice": 1.55
+        }))
+        .unwrap();
+
+        PhoenixWSClient::process_message(&book, &subscribers, &event_tx);
+        PhoenixWSClient::process_message(&mark, &subscribers, &event_tx);
+
+        let book_update = book_rx
+            .try_recv()
+            .expect("l2Book subscriber should receive the snapshot");
+        assert_eq!(book_update.slot, 42);
+        assert_eq!(book_update.slot_index, Some(3));
+        assert_eq!(book_update.asks, vec![(1.6, 20.0)]);
+        let mark_update = mark_rx
+            .try_recv()
+            .expect("markPrice subscriber should receive the update");
+        assert_eq!(mark_update.slot_index, 7);
+        assert_eq!(mark_update.mark_price, 1.55);
+        assert!(book_rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn process_message_routes_fills_to_market_and_all_market_subscribers() {
+        let (bonk_tx, mut bonk_rx) = mpsc::unbounded_channel();
+        let (sol_tx, mut sol_rx) = mpsc::unbounded_channel();
+        let (all_tx, mut all_rx) = mpsc::unbounded_channel();
+        let subscribers = HashMap::from([
+            (
+                SubscriptionKey::fills(Some("KBONK".to_string())).routing_key(),
+                HashMap::from([(1, Subscriber::Fills(bonk_tx))]),
+            ),
+            (
+                SubscriptionKey::fills(Some("SOL".to_string())).routing_key(),
+                HashMap::from([(2, Subscriber::Fills(sol_tx))]),
+            ),
+            (
+                SubscriptionKey::fills(None).routing_key(),
+                HashMap::from([(3, Subscriber::Fills(all_tx))]),
+            ),
+        ]);
+        let (event_tx, _event_rx) = mpsc::unbounded_channel();
+        let fills = serde_json::to_vec(&json!({
+            "channel": "fills",
+            "symbol": "kBONK",
+            "fills": [{
+                "marketSymbol": "kBONK",
+                "baseQty": "10",
+                "quoteQty": "15.5",
+                "price": "1.55",
+                "timestamp": "2026-10-29T18:30:25Z",
+                "transactionSignature": "sig",
+                "instructionType": "PlaceMarketOrder"
+            }]
+        }))
+        .unwrap();
+
+        PhoenixWSClient::process_message(&fills, &subscribers, &event_tx);
+
+        let bonk = bonk_rx
+            .try_recv()
+            .expect("market subscriber should receive kBONK fills");
+        assert_eq!(bonk.fills[0].price, "1.55");
+        assert_eq!(
+            all_rx
+                .try_recv()
+                .expect("all-markets subscriber should receive kBONK fills"),
+            bonk
+        );
+        assert!(sol_rx.try_recv().is_err());
     }
 
     #[tokio::test]

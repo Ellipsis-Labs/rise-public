@@ -3,7 +3,7 @@
 use crate::l2book::L2Book;
 use crate::market::{L2BookUpdate, MarketStatsUpdate};
 use crate::market_stats::MarketStats;
-use crate::ws::ServerMessage;
+use crate::ws::{L2BookMessage, ServerMessage};
 
 /// Combined container for market state including statistics and orderbook.
 #[derive(Debug, Clone)]
@@ -28,6 +28,7 @@ impl Market {
         match msg {
             ServerMessage::Market(update) => self.apply_market_stats_update(update),
             ServerMessage::Orderbook(update) => self.apply_l2_book_update(update),
+            ServerMessage::L2Book(msg) => self.apply_l2_book_message(msg),
             _ => self,
         }
     }
@@ -39,6 +40,11 @@ impl Market {
 
     pub fn apply_l2_book_update(&mut self, msg: &L2BookUpdate) -> &mut Self {
         self.book.apply_update(msg);
+        self
+    }
+
+    pub fn apply_l2_book_message(&mut self, msg: &L2BookMessage) -> &mut Self {
+        self.book.apply_l2_book_message(msg);
         self
     }
 

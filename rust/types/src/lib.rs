@@ -151,7 +151,9 @@ pub mod prelude {
     };
     pub use super::ws::{
         AllMidsData, CandlesSubscriptionRequest, ClientMessage, ErrorMessage,
-        ExchangeSubscriptionRequest, FundingRateMessage, FundingRateSubscriptionRequest,
+        ExchangeSubscriptionRequest, FillRecord, FillsMessage, FillsSubscriptionRequest,
+        FundingRateMessage, FundingRateSubscriptionRequest, L2BookMessage,
+        L2OrderbookSubscriptionRequest, MarkPriceSubscriptionRequest, MarkPriceUpdate,
         MarketStatsV2Data, MarketStatsV2SubscriptionRequest, MarketStatsV2Update,
         MarketSubscriptionRequest, OrderbookSubscriptionRequest, ServerMessage,
         SubscriptionConfirmedMessage, SubscriptionErrorMessage, SubscriptionRequest,

@@ -90,6 +90,9 @@ Direct typed websocket subscriptions without the reconnecting client.
 
 - `subscribe_to_all_mids()`
 - `subscribe_to_funding_rate(symbol)`
+- `subscribe_to_l2_book(symbol)`
+- `subscribe_to_mark_price(symbol)`
+- `subscribe_to_fills(Option<symbol>)`
 - `subscribe_to_orderbook(symbol)`
 - `subscribe_to_market(symbol)`
 - `subscribe_to_trades(symbol)`

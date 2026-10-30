@@ -1,4 +1,4 @@
-//! Example: Subscribe to orderbook updates via WebSocket.
+//! Example: Subscribe to l2Book updates via WebSocket.
 //!
 //! Run with:
 //!   export PHOENIX_WS_URL=wss://perp-api.phoenix.trade/ws
@@ -34,13 +34,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = PhoenixWSClient::new_from_env()?;
 
     println!(
-        "Subscribing to orderbook for: {} (bypass_execution_band={})",
+        "Subscribing to l2Book for: {} (bypass_execution_band={})",
         symbol, bypass_execution_band
     );
 
-    // Subscribe to orderbook updates
+    // Subscribe to l2Book updates
     let (mut rx, _handle) =
-        client.subscribe_to_orderbook_with_options(symbol.clone(), bypass_execution_band)?;
+        client.subscribe_to_l2_book_with_options(symbol.clone(), bypass_execution_band)?;
     println!("Subscribed! Waiting for updates...\n");
 
     // Maintain an L2Book container
@@ -48,9 +48,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Process updates
     while let Some(msg) = rx.recv().await {
-        book.apply_update(&msg);
+        book.apply_l2_book_message(&msg);
 
-        println!("=== {} Orderbook Update ===", book.symbol());
+        println!("=== {} L2Book Update ===", book.symbol());
 
         if let (Some(bid), Some(ask)) = (book.best_bid(), book.best_ask()) {
             println!(

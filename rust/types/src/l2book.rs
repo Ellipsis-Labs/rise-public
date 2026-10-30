@@ -1,6 +1,7 @@
 //! L2 orderbook state container for Phoenix markets.
 
 use crate::market::L2BookUpdate;
+use crate::ws::L2BookMessage;
 
 /// A single price level in the orderbook.
 #[derive(Debug, Clone, Copy)]
@@ -16,11 +17,18 @@ pub struct PriceLevel {
 pub struct L2Book {
     symbol: String,
     data: Option<L2BookUpdate>,
+    slot: Option<u64>,
+    slot_index: Option<u32>,
 }
 
 impl L2Book {
     pub fn new(symbol: String) -> Self {
-        Self { symbol, data: None }
+        Self {
+            symbol,
+            data: None,
+            slot: None,
+            slot_index: None,
+        }
     }
 
     pub fn apply_update(&mut self, msg: &L2BookUpdate) {
@@ -28,10 +36,31 @@ impl L2Book {
             return;
         }
         self.data = Some(msg.clone());
+        self.slot = None;
+        self.slot_index = None;
+    }
+
+    pub fn apply_l2_book_message(&mut self, msg: &L2BookMessage) {
+        if msg.coin != self.symbol {
+            return;
+        }
+        self.data = Some(msg.into());
+        self.slot = Some(msg.slot);
+        self.slot_index = msg.slot_index;
     }
 
     pub fn symbol(&self) -> &str {
         &self.symbol
+    }
+
+    /// Slot of the last applied l2Book message; `None` when the book was
+    /// last fed by an orderbook update.
+    pub fn slot(&self) -> Option<u64> {
+        self.slot
+    }
+
+    pub fn slot_index(&self) -> Option<u32> {
+        self.slot_index
     }
 
     pub fn raw(&self) -> Option<&L2BookUpdate> {
@@ -182,6 +211,27 @@ mod tests {
         assert!(book.raw().is_some());
         assert_eq!(book.best_bid(), Some(150.25));
         assert_eq!(book.best_ask(), Some(150.30));
+    }
+
+    #[test]
+    fn test_l2_book_message_sets_slot_until_orderbook_update() {
+        let mut book = L2Book::new("SOL".to_string());
+        book.apply_l2_book_message(&L2BookMessage {
+            coin: "SOL".to_string(),
+            timestamp: 1,
+            slot: 42,
+            slot_index: Some(3),
+            bids: vec![(150.25, 100.0)],
+            asks: vec![(150.30, 150.0)],
+            bypass_execution_band: false,
+        });
+        assert_eq!(book.slot(), Some(42));
+        assert_eq!(book.slot_index(), Some(3));
+        assert_eq!(book.best_bid(), Some(150.25));
+
+        book.apply_update(&make_l2_update("SOL"));
+        assert_eq!(book.slot(), None);
+        assert_eq!(book.slot_index(), None);
     }
 
     #[test]

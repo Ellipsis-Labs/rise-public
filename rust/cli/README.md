@@ -1437,7 +1437,9 @@ the final materialized trader state.
 ```bash
 phoenix-rise --json ws all-mids
 phoenix-rise --json ws market --symbol SOL
-phoenix-rise --json ws orderbook --symbol SOL --timeout-secs 20 --messages 5
+phoenix-rise --json ws l2-book --symbol SOL --timeout-secs 20 --messages 5
+phoenix-rise --json ws mark-price --symbol SOL
+phoenix-rise --json ws fills --symbol SOL --timeout-secs 60
 phoenix-rise --json ws funding-rate --symbol SOL
 phoenix-rise --json ws trades --symbol SOL
 phoenix-rise --json ws candles --symbol SOL --timeframe 1m

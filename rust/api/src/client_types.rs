@@ -13,8 +13,9 @@ use crate::metadata::PhoenixMetadata;
 use crate::subscription_key::SubscriptionKey;
 use crate::trader_state::Trader;
 use crate::types::prelude::{
-    AllMidsData, CandleData, FundingRateMessage, L2BookUpdate, MarketStatsUpdate,
-    MarketStatsV2Update, Timeframe, TraderStateServerMessage, TradesMessage,
+    AllMidsData, CandleData, FillsMessage, FundingRateMessage, L2BookMessage, L2BookUpdate,
+    MarkPriceUpdate, MarketStatsUpdate, MarketStatsV2Update, Timeframe, TraderStateServerMessage,
+    TradesMessage,
 };
 use crate::ws_error::PhoenixWsError;
 
@@ -118,11 +119,22 @@ pub enum PhoenixClientEvent {
         update: MarketStatsUpdate,
     },
     /// Orderbook update and previous market snapshot.
+    #[deprecated(note = "market subscriptions emit L2BookUpdate; use SubscriptionKey::l2_book")]
     OrderbookUpdate {
         symbol: String,
         prev_market: Option<Market>,
         update: L2BookUpdate,
     },
+    /// L2 book update and previous market snapshot.
+    L2BookUpdate {
+        symbol: String,
+        prev_market: Option<Market>,
+        update: L2BookMessage,
+    },
+    /// Mark price update.
+    MarkPriceUpdate { update: MarkPriceUpdate },
+    /// Batch of fills for one market.
+    FillsUpdate { update: FillsMessage },
     /// Trader state update and previous trader snapshot.
     TraderUpdate {
         key: SubscriptionKey,
