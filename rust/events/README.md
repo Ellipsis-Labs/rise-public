@@ -9,19 +9,18 @@ Most users should start with [`phoenix-rise`](../sdk/README.md) and enable the
 
 ## Use This Crate When
 
-- You need to parse market events from transaction instructions.
-- You want skipped-byte diagnostics through `parse_with_errors`.
-- You want event DTOs without importing internal Phoenix program crates.
+- You parse market events from transaction instructions.
+- You need skipped-byte diagnostics via `parse_with_errors`.
+- You need event DTOs without internal Phoenix program crates.
 
 ## Features
 
-- `serde`: JSON serialization for parsed event types. Quantity wrappers from
-  `phoenix-rise-math` serialize as strings and deserialize from strings or
+- `serde`: JSON serialization for parsed event types. `phoenix-rise-math`
+  quantity wrappers serialize as strings and deserialize from strings or
   numbers.
 
 ## Crate Links
 
-[`phoenix-rise`](../sdk/README.md) |
-[`phoenix-rise-core`](../core/README.md) |
+[`phoenix-rise`](../sdk/README.md) | [`phoenix-rise-core`](../core/README.md) |
 [`phoenix-rise-math`](../math/README.md) |
 [`phoenix-rise-cli`](../cli/README.md)

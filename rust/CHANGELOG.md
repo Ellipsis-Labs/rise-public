@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.8.3 - 2026-10-30
+
+Source Phoenix commit: `5ade6930ff3c7a2bf769435b3d3de8cc5e91af53`
+
+### Summary
+
+- **sdk/types:** `marketStatsV2` websocket updates now carry optional freshness fields: `slot` and `slot_index` on `MarketStatsV2Update`, and `oracle_price_slot` and `mark_price_slot` on `MarketStatsV2Data`. All four are `Option` and are omitted from serialized output when `None`.
+- **api:** `get_trader_subaccount` now returns `Ok(None)` when the API returns a trader view whose `state` is `Uninitialized`. Before, only a 404 gave `None`.
+- **workspace:** All Rust crates move together from `0.8.2` to `0.8.3`.
+- **docs:** The READMEs and `CRATES.md` are reworded. The `referral_activation_tx` example command now lists the `solana-keypair` feature. The CLI README no longer documents the repository-root `mise rise` task.
+
+### Breaking Changes
+
+- **types:** `MarketStatsV2Data` and `MarketStatsV2Update` gained public fields. Code that builds these structs with struct literals must set `slot`, `slot_index`, `oracle_price_slot` and `mark_price_slot`, usually to `None`. The structs are not marked `#[non_exhaustive]` in the diff.
+- **api:** `get_trader_subaccount` previously returned `Some(view)` for an uninitialized subaccount. It now returns `None`. Code that treated `Some` as "the subaccount exists" and read the `Uninitialized` state needs updating.
+
+### Consumer Notes
+
+- The four new `marketStatsV2` fields are optional on the wire, so older and newer servers both deserialize. To compute an age in slots, subtract `oracle_price_slot` or `mark_price_slot` from the batch `slot`.
+- `oracle_price_slot` is omitted until the market has a full oracle quorum. `mark_price_slot` is omitted once the market is closed and `markPrice` is final.
+- If you have a Cargo manifest that pins `0.8.2` for any Rise crate, bump all of them to `0.8.3` together.
+
 ## v0.8.2 - 2026-10-30
 
 Source Phoenix commit: `bf2da711175758799b1faf6a2b6627214b8b9fc5`

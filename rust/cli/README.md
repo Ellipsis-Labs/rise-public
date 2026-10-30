@@ -1,16 +1,16 @@
 # Phoenix Rise CLI
 
-`phoenix-rise-cli` installs the `phoenix-rise` binary for script-friendly
-Phoenix API, websocket, transaction, trading-instruction, and RPC account
-inspection.
+`phoenix-rise-cli` installs the `phoenix-rise` binary to query the Phoenix HTTP
+API and websockets, build trading instructions, parse transactions, and decode
+RPC accounts.
 
-For SDK documentation, see [`phoenix-rise`](../sdk/README.md). For protocol
-concepts and product documentation, see
-[docs.phoenix.trade](https://docs.phoenix.trade/).
+See [`phoenix-rise`](../sdk/README.md) for SDK documentation and
+[docs.phoenix.trade](https://docs.phoenix.trade/) for protocol and product
+documentation.
 
 ## Install
 
-From the Rise Rust workspace:
+From the Rust workspace:
 
 ```bash
 cargo install --path cli
@@ -24,38 +24,36 @@ cargo install phoenix-rise-cli
 
 ## Configuration
 
-- The CLI is built against `phoenix-rise` with the `api`, `ws`, `tx-builder`,
-  `events`, and `serde` features enabled so API responses, websocket streams,
-  parsed transactions, and decoded accounts can be printed as JSON.
+- Built on `phoenix-rise` with the `api`, `ws`, `tx-builder`, `events`, and
+  `serde` features enabled so API responses, websocket streams, parsed
+  transactions, and decoded accounts output as JSON.
 - `--api-url`: Phoenix API URL. Defaults to `PHOENIX_API_URL`, then
   `https://perp-api.phoenix.trade`.
-- `--ws-url`: explicit websocket URL. When omitted, the CLI derives `/v1/ws`
-  from the API URL.
-- `--rpc-url`: Solana RPC URL for `rpc` and `tx` subcommands. Defaults
-  to `PHOENIX_RPC_URL`, then `SOLANA_RPC_URL`, then mainnet-beta.
-- `--keypair`: default signing wallet. It is also the default transaction
-  payer unless `--payer-keypair` is provided. `--keypair-path` remains accepted
-  as an alias.
-- `--payer-keypair`: transaction fee-payer keypair for flows that sign locally.
-- `--ledger`: Ledger locator such as `usb://ledger?key=0/0`. The CLI keeps
-  hardware-wallet dependencies out of SDK crates; instruction-building commands
-  include the locator and required signer pubkeys in their output so Ledger
-  operators can hand the instructions to their signing flow.
-- `--json`: compact JSON only, suitable for shell pipelines.
-- `--pretty`: pretty JSON for interactive inspection.
+- `--ws-url`: explicit websocket URL. Defaults to `/v1/ws` derived from the API
+  URL.
+- `--rpc-url`: Solana RPC URL for `rpc` and `tx` subcommands. Defaults to
+  `PHOENIX_RPC_URL`, then `SOLANA_RPC_URL`, then mainnet-beta.
+- `--keypair`: default signing wallet and transaction fee payer (unless
+  `--payer-keypair` is set). `--keypair-path` is accepted as an alias.
+- `--payer-keypair`: transaction fee-payer keypair for local signing flows.
+- `--ledger`: Ledger locator such as `usb://ledger?key=0/0`.
+  Instruction-building commands include the locator and required signer pubkeys
+  in their output for external signing flows, keeping hardware-wallet
+  dependencies out of SDK crates.
+- `--json`: compact JSON output for shell pipelines.
+- `--pretty`: formatted JSON output for interactive inspection.
 
-Authentication subcommands use `PHOENIX_AUTH_KEYPAIR_PATH`,
-`SOLANA_KEYPAIR_PATH`, or the default Solana keypair path unless
-global `--keypair`, `--keypair-path`, or `--service-credential-file` is
-supplied.
-Access and refresh tokens are cached at
-`~/.config/phoenix/rise-cli/session.json`; use `auth cache-path` to print
-the exact path.
+Authentication subcommands resolve credentials from `--keypair`,
+`--keypair-path`, or `--service-credential-file`, falling back to
+`PHOENIX_AUTH_KEYPAIR_PATH`, `SOLANA_KEYPAIR_PATH`, or the default Solana
+keypair path. Access and refresh tokens are cached at
+`~/.config/phoenix/rise-cli/session.json` (run `auth cache-path` to print the
+exact path).
 
 ## Commands
 
-The CLI uses clap derive comments for `--help`; this README includes generated
-help for common commands plus copy-pasteable examples.
+The CLI derives `--help` from clap comments. Below is generated help for common
+commands followed by runnable examples.
 
 <!-- phoenix-rise-cli-command-docs:start -->
 
@@ -1219,10 +1217,10 @@ phoenix-rise --json market funding-rates --symbol SOL --limit 24
 
 ## History And Candle Examples
 
-Trader history and market candle commands follow cursors and merge pages for
-you. Without `--json` or `--pretty`, they print a compact terminal table. With
+Trader history and market candle commands automatically follow cursors and merge
+pages. Without `--json` or `--pretty`, they print a compact terminal table; with
 `--json`, they print the full merged JSON payload. Time bounds accept unix
-seconds, unix milliseconds, RFC3339, or `YYYY-MM-DD`; `--lookback` accepts
+seconds, unix milliseconds, RFC3339, or `YYYY-MM-DD`. `--lookback` accepts
 compact durations such as `7d`, `24h`, or `1h30m`.
 
 ```bash
@@ -1260,8 +1258,8 @@ phoenix-rise market candles \
 
 ## Flight Builder Examples
 
-Flight builder fees are transferred into the builder's Phoenix trader account
-as collateral. Use `flight withdraw-collateral` or its `withdraw-fees` alias to
+Flight builder fees accrue as collateral in the builder's Phoenix trader
+account. Use `flight withdraw-collateral` (or its `withdraw-fees` alias) to
 build the Phoenix/Ember withdrawal flow for accrued builder fees. `claim-fees`
 is the separate Phoenix risk-authority path for protocol fee claims.
 
@@ -1299,10 +1297,10 @@ phoenix-rise auth logout
 
 ## Register Trader
 
-Without a referral code, the CLI uses
-`/v1/exchange/build-register-ixs`, signs the returned transaction with the
-fee payer, then submits it to `/v1/exchange/send-register-ixs`. The trader
-authority keypair is not required for this builder-onboarding path.
+Without a referral code (builder onboarding), the CLI calls
+`/v1/exchange/build-register-ixs`, signs the returned transaction with the fee
+payer, and submits it to `/v1/exchange/send-register-ixs`. The trader authority
+keypair is not required.
 
 ```bash
 phoenix-rise --keypair ~/.config/solana/payer.json --json trader register \
@@ -1312,9 +1310,9 @@ phoenix-rise --payer-keypair ~/.config/solana/payer.json --json trader register 
   --authority <TRADER_AUTHORITY>
 ```
 
-With a referral code, the trader authority must sign. Use global `--keypair`
-for the authority keypair. If `--payer-keypair` is also provided, it is used as
-the transaction fee payer and the authority is included as an additional signer.
+With a referral code, the trader authority must sign. Pass the authority keypair
+with `--keypair`. When `--payer-keypair` is also set, it signs as the
+transaction fee payer and the authority is added as an additional signer.
 
 ```bash
 phoenix-rise --keypair ~/.config/solana/authority.json --json trader register \
@@ -1342,10 +1340,10 @@ phoenix-rise --json rpc perp-asset \
   --symbol SOL
 ```
 
-Supported account types include `conditional-orders`,
-`global-configuration`, `mint`, `orderbook`, `orderbook-header`,
-`permission`, `perp-asset-map`, `spline-collection`, `stop-losses`,
-`token-account`, `trader`, `withdraw-queue`, and `withdraw-queue-header`.
+Supported account types include `conditional-orders`, `global-configuration`,
+`mint`, `orderbook`, `orderbook-header`, `permission`, `perp-asset-map`,
+`spline-collection`, `stop-losses`, `token-account`, `trader`, `withdraw-queue`,
+and `withdraw-queue-header`.
 
 ## Trader Summary
 
@@ -1378,12 +1376,13 @@ phoenix-rise --json trader funding-hourly \
 
 The summary combines trader state, position diagnostics, recent PnL, orders,
 collateral, funding, and trades. Position diagnostics include stop-loss and
-liquidation distance percentages when the API response has enough price data.
+liquidation distance percentages when the API response has sufficient price
+data.
 
 ## Trading Instruction Examples
 
 These commands call API instruction-building endpoints and print Solana
-instructions. They do not sign or submit transactions.
+instructions without signing or submitting transactions.
 
 ```bash
 phoenix-rise --json trader place-market-order \
@@ -1429,11 +1428,11 @@ as `phoenix-rise-core`.
 
 ## WebSocket Examples
 
-Each websocket command subscribes and prints one message before exiting.
-Use `--messages <N>` to consume multiple messages and print the last one, or
-`--duration-secs <N>` to keep the subscription open for a fixed test window.
-For trader-state subscriptions, the CLI applies snapshots and deltas before
-printing the final materialized trader state.
+Each websocket command subscribes, prints one message, and exits. Pass
+`--messages <N>` to consume multiple messages and print the last one, or
+`--duration-secs <N>` to hold the subscription open for a fixed window. For
+trader-state subscriptions, the CLI applies snapshots and deltas before printing
+the final materialized trader state.
 
 ```bash
 phoenix-rise --json ws all-mids
@@ -1449,28 +1448,18 @@ phoenix-rise --json ws trader-state --authority <AUTHORITY> --trader-pda-index 0
 ## Smoke Checks
 
 ```bash
-rise/rust/cli/scripts/smoke_http_client.sh --symbol SOL
-rise/rust/cli/scripts/smoke_http_client.sh --authority <AUTHORITY> --symbol SOL
+rust/cli/scripts/smoke_http_client.sh --symbol SOL
+rust/cli/scripts/smoke_http_client.sh --authority <AUTHORITY> --symbol SOL
 ```
 
 The smoke script runs public JSON API checks against the local CLI command tree
-and fails if any `--json` command prints malformed JSON. When an authority or
-keypair is available it also exercises auth, trader, and history routes. It
-uses `--calendar-symbol WTIOIL` by default for calendar-specific checks because
-not every market has a configured market calendar.
-
-From the repository root, the `rise` mise task forwards arguments to the local
-CLI binary:
-
-```bash
-mise rise -- market list --json
-mise rise -- trader summary --authority <AUTHORITY> --json
-mise rise -- tx parse --signature <SIGNATURE> --json
-```
+and fails if any `--json` command prints malformed JSON. When given an authority
+or keypair, it also exercises auth, trader, and history routes. Calendar checks
+default to `--calendar-symbol WTIOIL` because not every market configures a
+market calendar.
 
 ## Crate Links
 
-[`phoenix-rise`](../sdk/README.md) |
-[`phoenix-rise-api`](../api/README.md) |
+[`phoenix-rise`](../sdk/README.md) | [`phoenix-rise-api`](../api/README.md) |
 [`phoenix-rise-accounts`](../accounts/README.md) |
 [`phoenix-rise-events`](../events/README.md)

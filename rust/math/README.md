@@ -1,25 +1,24 @@
 # Phoenix Rise Math
 
-`phoenix-rise-math` contains market math, margin/risk helpers, funding helpers,
-price conversion utilities, and type-safe quantity wrappers.
+`phoenix-rise-math` provides market math, margin and risk calculations, funding
+helpers, price conversions, and type-safe quantity wrappers.
 
 Most users should start with [`phoenix-rise`](../sdk/README.md). Protocol
 documentation lives at [docs.phoenix.trade](https://docs.phoenix.trade/).
 
 ## Use This Crate When
 
-- You need price-to-tick or lot conversion helpers.
-- You need offline margin, risk, or funding calculations.
-- You want the source-of-truth Rise quantity wrapper types.
+- You convert between prices, ticks, and lots.
+- You run offline margin, risk, or funding calculations.
+- You need the canonical Rise quantity wrapper types.
 
 ## Features
 
 - `serde`: serializes integer-backed quantity wrappers as decimal strings and
-  accepts strings or numbers on deserialize.
-- `solana`: enables Solana pubkey support where required by helpers.
+  deserializes from strings or numbers.
+- `solana`: enables Solana pubkey support in helpers that require it.
 
-Decimal-backed helpers are part of the crate API and do not require a separate
-feature.
+Decimal-backed helpers are always enabled.
 
 ## Crate Links
 

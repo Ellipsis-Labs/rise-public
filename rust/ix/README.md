@@ -8,9 +8,9 @@ documentation lives at [docs.phoenix.trade](https://docs.phoenix.trade/).
 
 ## Use This Crate When
 
-- You need low-level instruction construction.
-- You are writing an on-chain integration that invokes Phoenix programs.
-- You want CPI helpers without importing API/RPC clients.
+- You build low-level instructions directly.
+- You write an on-chain program that invokes Phoenix via CPI.
+- You need CPI helpers without API or RPC clients.
 
 ## Features
 
@@ -19,22 +19,23 @@ documentation lives at [docs.phoenix.trade](https://docs.phoenix.trade/).
 - `accounts`: enables account layout types from `phoenix-rise-accounts`.
 - `serde`: JSON serialization for instruction params and discriminants.
 
-PDA helpers are always available. On-chain builds use Solana's syscall-backed
-program address derivation; off-chain builds use `solana-pubkey` curve support.
+PDA helpers are always enabled. On-chain builds use Solana's program-address
+syscall; off-chain builds use `solana-pubkey` curve derivation.
 
 ## Native SOL deposits
 
 `native_sol::create_deposit_native_sol_ixs(payer, trader_wallet, lamports, sync_params)`
-returns `ReallocTrader` → System transfer → `SyncNative`. The trader can be
-registered earlier in the same transaction. Reallocation reserves space for
-SOL's non-position entry without increasing its allowed perpetual-position
-count. It uses the contract's bounded growth/no-op rules and never shrinks an
-existing account. `payer` funds additional rent, while `trader_wallet` supplies
-the SOL; use the same wallet for both when no rent sponsor is involved.
+returns `ReallocTrader` → System transfer → `SyncNative`. The trader may be
+registered earlier in the same transaction. Reallocation reserves space for the
+non-position SOL entry without increasing the allowed perpetual-position count;
+it follows the contract's bounded growth/no-op rules and never shrinks an
+existing account. `payer` funds additional rent and `trader_wallet` supplies the
+SOL (pass the same wallet when no rent sponsor is used).
 
-Reallocation must precede the transfer so the deposit principal is not consumed
-by a higher rent floor. For custom instruction bundles,
-`native_sol::create_realloc_trader_ix` exposes the same no-argument instruction.
+Reallocation must precede the transfer so a higher rent floor does not consume
+deposit principal. For custom instruction bundles,
+`native_sol::create_realloc_trader_ix` builds the standalone no-argument
+instruction.
 
 ## Crate Links
 
