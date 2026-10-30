@@ -1,7 +1,7 @@
+import { isUnknownMessageType } from "./adapters/_utils/messageUtils";
 import { handleError } from "./errorHandling";
 import {
   createParseError,
-  createUnknownChannelError,
   InvalidMessageFormatError,
 } from "./errorHandling/errors";
 import type { PluginRegistry } from "./plugins";
@@ -40,10 +40,10 @@ export const createMessageHandler = (pluginRegistry: PluginRegistry) => {
 
       const handler = pluginRegistry.getHandler(message.channel);
       if (!handler) {
-        const error = createUnknownChannelError(message.channel, message, {
-          operation: "message_routing",
-        });
-        await handleError(error);
+        return;
+      }
+
+      if (isUnknownMessageType(message, handler.messageTypes)) {
         return;
       }
 

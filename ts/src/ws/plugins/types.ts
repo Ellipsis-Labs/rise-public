@@ -11,6 +11,8 @@ export type KeyExtractor = (message: unknown) => string;
 
 export interface MessageHandlerPlugin {
   channel: string;
+  /** Unrecognized message types are skipped before validation and routing. */
+  messageTypes?: readonly string[];
   validate: MessageValidator;
   getKey: KeyExtractor;
   handle: MessageHandler;

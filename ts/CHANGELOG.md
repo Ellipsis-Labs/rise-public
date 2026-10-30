@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.7.0 - 2026-10-30
+
+Source Phoenix commit: `42b97feb2da38be7e95b4f3284ccff1c97ecb6b7`
+
+### Summary
+
+- Escrow actions with an unfamiliar `kind` now decode as `{ kind: "unknown" }` instead of failing validation. This applies to REST pending-escrow requests (`EscrowActionView`) and `traderState` WebSocket snapshots and deltas (`TraderStateEscrowAction`). Unknown actions stay in the request's action list, and the other fields of the same message are kept.
+- The WebSocket layer now skips unknown channels and unfamiliar `messageType` values without error. The `exchange` and `traderState` adapters and plugins skip them too. The stream stays open, the connection is not closed, and no error event is emitted. Plugins can declare accepted types through the new optional `messageTypes` field on `MessageHandlerPlugin`.
+- The README has a new "API and WebSocket Compatibility" section describing these forward-compatibility rules. It also notes that TypeScript's opt-in strict mode is meant for schema diagnostics, not production decoding.
+
+### Breaking Changes
+
+- `EscrowAction` (used by `EscrowActionView` and `TraderStateEscrowAction`) gains a `{ kind: "unknown" }` variant. Exhaustive `switch` statements or `never` checks over `kind` will no longer compile until they handle it.
+- Messages on a channel with no registered handler no longer produce an unknown-channel error, so code that relied on that error to detect unregistered channels will no longer see it.
+
+### Consumer Notes
+
+- Treat `{ kind: "unknown" }` as an action whose effects you cannot explain. It is not a no-op, so check for it before showing or accepting an escrow request.
+- Known action kinds with malformed payloads (for example `cash` with no `amount`) still fail validation.
+- This tolerance applies only to releases that include it. Previously installed SDK versions are unchanged.
+- The package version is `0.7.0`.
+
 ## v0.6.8 - 2026-10-30
 
 Source Phoenix commit: `c06f80f1cf4bf433bcc3287631930d833ff6ba0d`

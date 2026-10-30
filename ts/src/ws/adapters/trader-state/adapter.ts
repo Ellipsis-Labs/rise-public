@@ -34,6 +34,7 @@ export const createTraderStateAdapter = (
     {
       channel: "traderState",
       schema,
+      messageTypes: ["snapshot", "delta"],
       buildKey: buildTraderStateSubscriptionKey,
       buildSubParams: (authority, traderPdaIndex) => ({
         authority,

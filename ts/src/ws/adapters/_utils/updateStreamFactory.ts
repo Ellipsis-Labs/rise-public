@@ -1,3 +1,4 @@
+import { isUnknownMessageType } from "./messageUtils";
 import { createAsyncQueue } from "../../AsyncQueue";
 import type { WsClient } from "@/ws/types";
 import type { ZodSchema } from "zod";
@@ -11,6 +12,7 @@ export interface UpdateStreamConfig<
   TParams extends unknown[] = [],
 > {
   channel: string;
+  messageTypes?: readonly string[];
   schema: ZodSchema<TRaw>;
   buildKey: (...params: TParams) => string;
   buildSubParams: (...params: TParams) => Record<string, unknown>;
@@ -84,6 +86,7 @@ export function createUpdateStream<
     };
 
     const onMessage = (raw: unknown) => {
+      if (isUnknownMessageType(raw, config.messageTypes)) return;
       void (async () => {
         const parsed = config.schema.safeParse(raw);
 

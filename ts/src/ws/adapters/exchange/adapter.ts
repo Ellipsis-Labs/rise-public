@@ -33,6 +33,7 @@ export const createExchangeAdapter = (
     {
       channel: "exchange",
       schema,
+      messageTypes: ["snapshot", "encodedSnapshot", "delta"],
       buildKey: () => "exchange",
       buildSubParams: () =>
         opts?.encoding === undefined ? {} : { encoding: opts.encoding },

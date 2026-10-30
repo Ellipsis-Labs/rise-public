@@ -1,6 +1,10 @@
 import z from "zod";
 
 import { ParentTwapIdSchema } from "@/api/utils/parentTwapId";
+import {
+  createEscrowActionSchema,
+  type EscrowAction,
+} from "@/api/utils/escrowAction";
 
 import { TraderCapabilitiesSchema, type TraderCapabilities } from "./types";
 
@@ -240,10 +244,7 @@ export interface TraderStateLockedDeposit {
 
 /** Escrow action carried by a pending request. Amounts are raw on-chain
  * units (quote lots for cash and locked deposits), as digit strings. */
-export type TraderStateEscrowAction =
-  | { kind: "noop" }
-  | { kind: "cash"; amount: string }
-  | { kind: "lockedDeposit"; amount: string };
+export type TraderStateEscrowAction = EscrowAction<string>;
 
 /** Pending escrow request addressed to a subaccount. It is removed from the
  * list once `expirationSlot` has passed. */
@@ -582,14 +583,7 @@ const TraderStateLockedDepositSchema: z.ZodType<TraderStateLockedDeposit> =
   });
 
 const TraderStateEscrowActionSchema: z.ZodType<TraderStateEscrowAction> =
-  z.discriminatedUnion("kind", [
-    z.object({ kind: z.literal("noop") }),
-    z.object({ kind: z.literal("cash"), amount: z.string().regex(/^\d+$/) }),
-    z.object({
-      kind: z.literal("lockedDeposit"),
-      amount: z.string().regex(/^\d+$/),
-    }),
-  ]);
+  createEscrowActionSchema(z.string().regex(/^\d+$/));
 
 const TraderStateEscrowRequestSchema: z.ZodType<TraderStateEscrowRequest> =
   z.object({

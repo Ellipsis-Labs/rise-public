@@ -5,6 +5,7 @@ import { buildTraderStateSubscriptionKey } from "./adapter";
 
 export const createTraderStatePlugin = (): MessageHandlerPlugin => ({
   channel: "traderState",
+  messageTypes: ["snapshot", "delta"],
   validate: (message: unknown): boolean => {
     return (
       getStringField(message, "authority") !== null &&
