@@ -2811,7 +2811,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -2851,7 +2851,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-accounts"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "borsh",
  "bs58",
@@ -2866,7 +2866,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-api"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -2911,7 +2911,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-cli"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "base64 0.22.1",
  "bincode",
@@ -2939,7 +2939,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-core"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "base64 0.22.1",
  "borsh",
@@ -2965,7 +2965,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-events"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "borsh",
  "phoenix-rise-math",
@@ -2976,7 +2976,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-ix"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "borsh",
  "bytemuck",
@@ -2994,7 +2994,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-litesvm-test"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "base64 0.22.1",
  "borsh",
@@ -3018,7 +3018,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-math"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "borsh",
  "bytemuck",
@@ -3036,7 +3036,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-types"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "chrono",
  "phoenix-rise-math",

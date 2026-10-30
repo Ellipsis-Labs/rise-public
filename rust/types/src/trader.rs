@@ -93,6 +93,10 @@ pub struct TraderStateSubaccountSnapshot {
     /// lock. Absent on older servers.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub locked_deposit: Option<TraderStateLockedDeposit>,
+    /// Complete current set of pending escrow requests addressed to this
+    /// subaccount, ordered by sequence number.
+    #[serde(default)]
+    pub escrow_requests: Vec<TraderStateEscrowRequest>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<TraderStateCapabilities>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -119,6 +123,47 @@ pub struct TraderStateLockedDeposit {
     pub consumed_quote_lots: JsSafeU64,
 }
 
+/// Escrow action carried by a pending request. Amounts are raw on-chain
+/// units (quote lots for cash and locked deposits).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum TraderStateEscrowAction {
+    Noop,
+    Cash { amount: JsSafeU64 },
+    LockedDeposit { amount: JsSafeU64 },
+}
+
+/// Pending escrow request addressed to a subaccount.
+///
+/// It is removed from the list once `expiration_slot` has passed.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraderStateEscrowRequest {
+    /// Sequence number of the request in the receiver's escrow account.
+    pub sequence_number: JsSafeU64,
+    /// Sender authority public key.
+    pub sender_authority: String,
+    pub sender_pda_index: u8,
+    pub sender_subaccount_index: u8,
+    /// Slots after `initial_slot` the request stays acceptable; `None` never
+    /// expires.
+    pub expiration_offset: Option<u32>,
+    /// Slot the request was created at.
+    pub initial_slot: JsSafeU64,
+    /// Last slot at which the request can be accepted (inclusive),
+    /// `initial_slot + expiration_offset`; `None` never expires.
+    pub expiration_slot: Option<JsSafeU64>,
+    /// Non-Noop actions only.
+    pub actions: Vec<TraderStateEscrowAction>,
+}
+
+impl TraderStateEscrowRequest {
+    pub fn is_expired(&self, current_slot: u64) -> bool {
+        self.expiration_slot
+            .is_some_and(|expiration_slot| current_slot > *expiration_slot)
+    }
+}
+
 /// Row-level delta set for a specific subaccount.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -133,6 +178,11 @@ pub struct TraderStateSubaccountDelta {
     /// lock. Absent on older servers.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub locked_deposit: Option<TraderStateLockedDeposit>,
+    /// Complete current set of pending escrow requests addressed to this
+    /// subaccount, ordered by sequence number. Present only when the set
+    /// changed; an empty list clears previous requests.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub escrow_requests: Option<Vec<TraderStateEscrowRequest>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<TraderStateCapabilities>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

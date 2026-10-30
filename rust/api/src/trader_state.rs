@@ -15,7 +15,7 @@ use crate::metadata::PhoenixMetadata;
 use crate::trader_key::TraderKey;
 use crate::types::prelude::{
     CooldownStatus, TraderStateCapabilities, TraderStateConditionalStopLossTrigger,
-    TraderStateConditionalTakeProfitTrigger, TraderStateLockedDeposit,
+    TraderStateConditionalTakeProfitTrigger, TraderStateEscrowRequest, TraderStateLockedDeposit,
     TraderStateMarketLimitOrderEvent, TraderStatePayload, TraderStatePositionRow,
     TraderStatePositionSnapshot, TraderStateRowChangeKind, TraderStateServerMessage,
     TraderStateSplineRow, TraderStateSplineSnapshot, TraderStateSpotCollateralSnapshot,
@@ -206,6 +206,9 @@ pub struct SubaccountState {
     /// Raw spot collateral balances keyed by asset index. Both snapshots and
     /// deltas carry the complete current set, so this is replaced wholesale.
     pub spot_collaterals: HashMap<u32, SpotCollateral>,
+    /// Pending escrow requests addressed to this subaccount, ordered by
+    /// sequence number. Replaced wholesale by snapshots and deltas.
+    pub escrow_requests: Vec<TraderStateEscrowRequest>,
     pub capabilities: Option<TraderStateCapabilities>,
     pub cooldown_status: Option<CooldownStatus>,
     /// Positions keyed by market symbol.
@@ -337,6 +340,7 @@ impl SubaccountState {
             .as_ref()
             .map(LockedDepositState::from)
             .unwrap_or_default();
+        self.escrow_requests = snapshot.escrow_requests.clone();
         self.capabilities = snapshot.capabilities.clone();
         self.cooldown_status = snapshot.cooldown_status.clone();
 
@@ -391,6 +395,9 @@ impl SubaccountState {
         self.spot_collaterals = Self::collect_spot_collaterals(&delta.spot_collaterals);
         if let Some(lock) = &delta.locked_deposit {
             self.locked_deposit = lock.into();
+        }
+        if let Some(escrow_requests) = &delta.escrow_requests {
+            self.escrow_requests = escrow_requests.clone();
         }
         if delta.capabilities.is_some() {
             self.capabilities = delta.capabilities.clone();
@@ -791,5 +798,64 @@ mod locked_deposit_tests {
         trader.subaccounts.get_mut(&0).unwrap().apply_delta(&delta);
         assert_eq!(trader.locked_deposit_remaining(), QuoteLots::ZERO);
         assert_eq!(trader.locked_deposit_total(), QuoteLots::ZERO);
+    }
+}
+
+#[cfg(test)]
+mod escrow_request_tests {
+    use super::SubaccountState;
+    use crate::types::prelude::{
+        TraderStateEscrowAction, TraderStateSubaccountDelta, TraderStateSubaccountSnapshot,
+    };
+
+    #[test]
+    fn escrow_requests_are_replaced_by_snapshots_and_present_deltas_only() {
+        let request = serde_json::json!({
+            "sequenceNumber": "7",
+            "senderAuthority": solana_pubkey::Pubkey::default().to_string(),
+            "senderPdaIndex": 0,
+            "senderSubaccountIndex": 0,
+            "expirationOffset": 5,
+            "initialSlot": "10",
+            "expirationSlot": "15",
+            "actions": [{"kind": "lockedDeposit", "amount": "100"}, {"kind": "cash", "amount": "5"}]
+        });
+        let mut subaccount = SubaccountState::default();
+        let snapshot: TraderStateSubaccountSnapshot = serde_json::from_value(serde_json::json!({
+            "subaccountIndex": 0, "sequence": 1, "collateral": "0",
+            "escrowRequests": [request]
+        }))
+        .unwrap();
+        subaccount.apply_snapshot(&snapshot);
+        let [stored] = subaccount.escrow_requests.as_slice() else {
+            panic!("expected one escrow request");
+        };
+        assert_eq!(
+            stored.actions,
+            vec![
+                TraderStateEscrowAction::LockedDeposit { amount: 100.into() },
+                TraderStateEscrowAction::Cash { amount: 5.into() },
+            ]
+        );
+        assert_eq!(stored.sequence_number, 7);
+        assert_eq!(stored.expiration_slot, Some(15.into()));
+        assert!(!stored.is_expired(15));
+        assert!(stored.is_expired(16));
+
+        // Older servers omit the field: keep the current list.
+        let delta: TraderStateSubaccountDelta = serde_json::from_value(serde_json::json!({
+            "subaccountIndex": 0, "sequence": 2, "collateral": "0"
+        }))
+        .unwrap();
+        assert!(subaccount.apply_delta(&delta));
+        assert_eq!(subaccount.escrow_requests.len(), 1);
+
+        // An empty list clears it (accepted, cancelled or expired).
+        let delta: TraderStateSubaccountDelta = serde_json::from_value(serde_json::json!({
+            "subaccountIndex": 0, "sequence": 3, "collateral": "0", "escrowRequests": []
+        }))
+        .unwrap();
+        assert!(subaccount.apply_delta(&delta));
+        assert!(subaccount.escrow_requests.is_empty());
     }
 }

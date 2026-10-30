@@ -41,6 +41,9 @@ const POSITION_ENTRY_ASSET_INDEX_BOUND: u32 = 0xFF00_0000;
 /// Upper 16 bits of every SPL spot collateral asset index.
 const SPOT_ASSET_INDEX_PREFIX: u32 = 0xFFFE_0000;
 const ASSET_INDEX_BAND_MASK: u32 = 0xFFFF_0000;
+/// Position-map key of the locked-deposit entry. Not a perp asset id.
+pub const LOCKED_DEPOSIT_ASSET_INDEX: u32 = 0xFFFF_0001;
+const LOCKED_DEPOSIT_ISOLATED_FLAG: u64 = 1 << 0;
 
 pub use phoenix_rise_math::NATIVE_SOL_ASSET_INDEX;
 
@@ -471,6 +474,29 @@ pub struct TraderSpotCollateral {
     pub max_per_trader_balance_override: Option<u64>,
 }
 
+/// The trader's locked deposit from the trader position map, in quote lots.
+///
+/// `locked_quote_lots` of the trader's quote collateral must stay in the
+/// account until losses and fees consume it; `consumed_quote_lots` never
+/// exceeds it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TraderLockedDeposit {
+    pub locked_quote_lots: u64,
+    pub consumed_quote_lots: u64,
+    /// Set on an isolated subaccount's lock, which stays in the account
+    /// after it is fully consumed; a cross-margin lock is removed instead.
+    pub is_isolated: bool,
+}
+
+impl TraderLockedDeposit {
+    /// Quote lots still locked.
+    pub const fn remaining_quote_lots(&self) -> u64 {
+        self.locked_quote_lots
+            .saturating_sub(self.consumed_quote_lots)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct TraderPositionRef<'a> {
     raw: &'a TraderPositionRaw,
@@ -734,6 +760,16 @@ impl<'a> Trader<'a> {
             .filter_map(|raw| read_spot_collateral_entry(bytemuck::bytes_of(raw)))
     }
 
+    /// The locked deposit, if the trader has one.
+    ///
+    /// Stored in the position map but not a position, so it never appears in
+    /// [`Self::positions`].
+    pub fn locked_deposit(&self) -> Option<TraderLockedDeposit> {
+        self.active_position_entries_raw()
+            .iter()
+            .find_map(|raw| read_locked_deposit_entry(bytemuck::bytes_of(raw)))
+    }
+
     /// Native SOL spot collateral, in lamports. Zero when the trader holds
     /// none.
     ///
@@ -832,6 +868,19 @@ fn read_spot_collateral_entry(data: &[u8]) -> Option<TraderSpotCollateral> {
         balance: read_u64(data, 8),
         max_per_trader_balance_override: (max_per_trader_balance_override != 0)
             .then_some(max_per_trader_balance_override),
+    })
+}
+
+/// Value layout: `locked: u64`, `consumed: u64`, `flags: u64` (bit 0 =
+/// isolated), 8 bytes of padding.
+fn read_locked_deposit_entry(data: &[u8]) -> Option<TraderLockedDeposit> {
+    if position_entry_asset_index(read_u64(data, 0)) != LOCKED_DEPOSIT_ASSET_INDEX {
+        return None;
+    }
+    Some(TraderLockedDeposit {
+        locked_quote_lots: read_u64(data, 8),
+        consumed_quote_lots: read_u64(data, 16),
+        is_isolated: read_u64(data, 24) & LOCKED_DEPOSIT_ISOLATED_FLAG != 0,
     })
 }
 
@@ -1160,8 +1209,8 @@ mod tests {
     }
 
     #[test]
-    fn spot_collaterals_read_native_sol_and_spl_entries_without_leaking_positions() {
-        let mut words = aligned_trader_account_data(4, 4);
+    fn spot_collaterals_and_locked_deposit_read_without_leaking_positions() {
+        let mut words = aligned_trader_account_data(5, 5);
         let data = bytemuck::cast_slice_mut::<u64, u8>(&mut words);
 
         // Spot collateral values reuse the position slot:
@@ -1181,6 +1230,17 @@ mod tests {
         );
         write_position_entry(data, 2, 0xFFFE_4001, 777, 0, 0, 0, 0);
         write_position_entry(data, 3, 43, 6, -12, 13, 10, -321);
+        // Locked deposit: locked 500, consumed 120, isolated flag set.
+        write_position_entry(
+            data,
+            4,
+            LOCKED_DEPOSIT_ASSET_INDEX as u64,
+            500,
+            120,
+            1,
+            0,
+            0,
+        );
 
         let data = bytemuck::cast_slice::<u64, u8>(&words);
         let expected = vec![
@@ -1198,6 +1258,14 @@ mod tests {
 
         let trader = Trader::try_from_account_bytes(data).unwrap();
         assert_eq!(trader.spot_collaterals().collect::<Vec<_>>(), expected);
+        assert_eq!(
+            trader.locked_deposit(),
+            Some(TraderLockedDeposit {
+                locked_quote_lots: 500,
+                consumed_quote_lots: 120,
+                is_isolated: true,
+            })
+        );
         #[allow(deprecated)]
         let legacy_positions = TraderPositions::try_from_account_bytes(data)
             .unwrap()
