@@ -79,6 +79,11 @@ import { type SyncParentToChildIx } from "./core/ixBuilders/SyncParentToChild";
 import { type TransferCollateralChildToParentIx } from "./core/ixBuilders/TransferCollateralChildToParent";
 import { type TransferCollateralIx } from "./core/ixBuilders/TransferCollateral";
 import { type UncrossCrankIx } from "./core/ixBuilders/UncrossCrank";
+import {
+  buildUpdateTraderPreferenceBitsIx,
+  type TraderPreferenceToggle,
+  type UpdateTraderPreferenceBitsIx,
+} from "./core/ixBuilders/UpdateTraderPreferenceBits";
 import { type WithdrawFundsIx } from "./core/ixBuilders/WithdrawFunds";
 import {
   buildDelegateTraderIxResolved,
@@ -575,6 +580,37 @@ export const buildDelegateTrader = async (params: {
       traderAccount,
     },
     newPositionAuthority: params.newPositionAuthority,
+  });
+};
+
+export const buildUpdateTraderPreferenceBits = async (params: {
+  traderWallet: Authority;
+  traderPdaIndex: number;
+  traderSubaccountIndex: number;
+  toggles: TraderPreferenceToggle[];
+  phoenixAddresses?: {
+    phoenixProgramAddress: PhoenixInstructionClient["addresses"]["phoenixProgramAddress"];
+    logAuthorityAddress: PhoenixInstructionClient["addresses"]["logAuthorityAddress"];
+    globalConfigurationAddress: PhoenixInstructionClient["addresses"]["globalConfigurationAddress"];
+  };
+}): Promise<UpdateTraderPreferenceBitsIx> => {
+  const traderAccount = await getPhoenixTraderSubaccountAddress({
+    authority: params.traderWallet,
+    traderPdaIndex: params.traderPdaIndex,
+    subaccountIndex: params.traderSubaccountIndex,
+    phoenixProgramAddress: params.phoenixAddresses?.phoenixProgramAddress,
+  });
+
+  return buildUpdateTraderPreferenceBitsIx({
+    programAddress:
+      params.phoenixAddresses?.phoenixProgramAddress ??
+      getPhoenixProgramAddress(),
+    logAuthorityAddress: params.phoenixAddresses?.logAuthorityAddress,
+    globalConfigurationAddress:
+      params.phoenixAddresses?.globalConfigurationAddress,
+    traderWallet: params.traderWallet,
+    traderAccount,
+    toggles: params.toggles,
   });
 };
 

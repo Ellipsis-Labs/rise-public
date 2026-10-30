@@ -784,6 +784,16 @@
     {
       "program": "phoenix-eternal",
       "enumName": "PhoenixInstruction",
+      "instructionName": "UpdateTraderPreferenceBits",
+      "snakeCaseName": "update_trader_preference_bits",
+      "preimage": "global:update_trader_preference_bits",
+      "tag": "11050179741133175043",
+      "discriminatorHex": "03f9759eed1f5a99",
+      "discriminatorBase64": "A/l1nu0fWpk="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
       "instructionName": "RevokePermission",
       "snakeCaseName": "revoke_permission",
       "preimage": "global:revoke_permission",

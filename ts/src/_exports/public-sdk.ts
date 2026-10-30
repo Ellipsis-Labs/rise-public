@@ -365,6 +365,7 @@ export {
   buildCreateEscrowRequest,
   createEscrowRequest,
   buildDelegateTrader,
+  buildUpdateTraderPreferenceBits,
   buildDepositFunds,
   depositFunds,
   buildEmberDeposit,

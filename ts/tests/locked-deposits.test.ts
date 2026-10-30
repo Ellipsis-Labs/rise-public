@@ -21,6 +21,44 @@ const capabilities = {
 };
 const lockedDeposit = { lockedQuoteLots: "100", consumedQuoteLots: "20" };
 
+// Mark 200 at 20x: one base lot needs 10 quote lots of initial margin.
+const createLockTestMarket = (
+  symbol: string,
+  assetId: number,
+  pnlFactor = 10000
+) => ({
+  symbol,
+  assetId,
+  markPriceTicks: "200",
+  tickSize: "1",
+  baseLotDecimals: 0,
+  leverageTiers: [
+    {
+      upperBoundSize: "1000",
+      maxLeverage: "20",
+      limitOrderRiskFactorBps: "10000",
+    },
+  ],
+  riskFactors: {
+    maintenanceMarginFactorBps: "5000",
+    backstopMarginFactorBps: "10000",
+    highRiskMarginFactorBps: "10000",
+  },
+  cancelOrderRiskFactorBps: "5000",
+  upnlRiskFactor: "10000",
+  upnlRiskFactorForWithdrawals: pnlFactor.toString(),
+  isolatedOnly: false,
+});
+
+const flatLongWithFunding = (symbol: string, funding: number) => ({
+  symbol,
+  basePositionLots: "1",
+  virtualQuotePositionLots: "-200",
+  entryPriceTicks: "200",
+  unsettledFundingQuoteLots: funding.toString(),
+  accumulatedFundingQuoteLots: "0",
+});
+
 describe("locked deposits", () => {
   it("aggregates three isolated children while retaining the parent's local reserve", () => {
     const parent = {
@@ -129,12 +167,16 @@ describe("locked deposits", () => {
     [100, 50, 20, 50, 10000, 0, 140, 110],
     [100, 50, 50, 50, 10000, 0, 140, 140],
     [100, 50, 0, 0, 10000, 50, 140, 90],
-    [100, 50, 0, 0, 10000, -60, 30, 0],
+    // Settling a funding loss consumes the lock before the withdrawal check.
+    [100, 50, 0, 0, 10000, -60, 30, 30],
+    [100, 50, 0, 0, 10000, -20, 70, 40],
+    [100, 50, 20, 0, 10000, -20, 70, 60],
+    [45, 30, 0, 0, 10000, -10, 25, 5],
     [1000, 0, 0, -600, 10000, 0, 390, 390],
     [1000, 100, 0, -600, 10000, 0, 390, 290],
     [100, 150, 0, 0, 10000, 0, 90, 0],
   ])(
-    "subtracts the lock after margin, PnL and funding: %s/%s/%s/%s/%s/%s",
+    "subtracts the post-settlement lock after margin, PnL and funding: %s/%s/%s/%s/%s/%s",
     (
       cash,
       locked,
@@ -146,29 +188,7 @@ describe("locked deposits", () => {
       withdrawable
     ) => {
       const calculator = createMarginCalculator([
-        {
-          symbol: "SOL",
-          assetId: 1,
-          markPriceTicks: "200",
-          tickSize: "1",
-          baseLotDecimals: 0,
-          leverageTiers: [
-            {
-              upperBoundSize: "1000",
-              maxLeverage: "20",
-              limitOrderRiskFactorBps: "10000",
-            },
-          ],
-          riskFactors: {
-            maintenanceMarginFactorBps: "5000",
-            backstopMarginFactorBps: "10000",
-            highRiskMarginFactorBps: "10000",
-          },
-          cancelOrderRiskFactorBps: "5000",
-          upnlRiskFactor: "10000",
-          upnlRiskFactorForWithdrawals: pnlFactor.toString(),
-          isolatedOnly: false,
-        },
+        createLockTestMarket("SOL", 1, pnlFactor),
       ]);
       const inputs = buildSubaccountMarginInputsFromSnapshot({
         subaccountIndex: 0,
@@ -204,6 +224,29 @@ describe("locked deposits", () => {
       );
     }
   );
+
+  it("consumes the lock with each market's funding loss, not the net", () => {
+    const calculator = createMarginCalculator([
+      createLockTestMarket("SOL", 1),
+      createLockTestMarket("ETH", 2),
+    ]);
+    const inputs = buildSubaccountMarginInputsFromSnapshot({
+      subaccountIndex: 0,
+      collateral: "100",
+      lockedDeposit: { lockedQuoteLots: "50", consumedQuoteLots: "0" },
+      positions: [
+        flatLongWithFunding("SOL", -20),
+        flatLongWithFunding("ETH", 20),
+      ],
+    });
+
+    const { margin } = calculator.computeSubaccountMarginFromInputs(inputs);
+
+    // Net funding is zero, so the pre-lock bound is 100 - 2 * 10 = 80. The
+    // SOL loss still consumes 20 of the lock and the ETH credit restores none.
+    expect(margin.withdrawableQuoteCollateralPreLockQuoteLots).toBe("80");
+    expect(margin.withdrawableQuoteCollateralQuoteLots).toBe("50");
+  });
 
   it("subtracts the account reserve from withdrawals without positions", () => {
     const calculator = createMarginCalculator([]);

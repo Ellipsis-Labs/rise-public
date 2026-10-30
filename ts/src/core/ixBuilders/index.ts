@@ -33,5 +33,6 @@ export * from "./TransferCollateral";
 export * from "./TransferCollateralChildToParent";
 export * from "./Twap";
 export * from "./UncrossCrank";
+export * from "./UpdateTraderPreferenceBits";
 export * from "./UpdateTraderState";
 export * from "./WithdrawFunds";

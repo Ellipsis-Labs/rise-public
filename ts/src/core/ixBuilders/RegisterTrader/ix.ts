@@ -107,7 +107,9 @@ const resolveTraderPreferenceBits = (params: RegisterTraderParams): number => {
   } else if (params.disableCollateralSweep === false) {
     traderPreferenceBits &= ~TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP;
   }
-  return traderPreferenceBits;
+  // Registration applies only the collateral-sweep preference; set others with
+  // UpdateTraderPreferenceBits after registering.
+  return traderPreferenceBits & TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP;
 };
 
 const assertIntegerInRange = (

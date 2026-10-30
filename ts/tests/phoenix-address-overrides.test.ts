@@ -269,7 +269,7 @@ describe("phoenix builder address resolution", () => {
       riskAuthority: authority(4),
       marketAuthority: authority(5),
       maxPositions: 128,
-      traderPreferenceBits: 0,
+      traderPreferenceBits: 3,
       globalTraderIndex: [
         address("SysvarRent111111111111111111111111111111111"),
         address("SysvarC1ock11111111111111111111111111111111"),
@@ -286,6 +286,9 @@ describe("phoenix builder address resolution", () => {
     });
     expect(ix.accounts[6]?.address).toBe(BETA_LOG_AUTHORITY_ADDRESS);
     expect(ix.accounts[7]?.address).toBe(BETA_GLOBAL_CONFIGURATION_ADDRESS);
+    // Registration keeps only the collateral-sweep bit (after the 8-byte
+    // discriminant and u32 maxPositions).
+    expect(Array.from(ix.data.slice(12, 16))).toEqual([1, 0, 0, 0]);
 
     const customIx = await flight.buildOnboardTraderIx({
       ...params,

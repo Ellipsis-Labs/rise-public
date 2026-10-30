@@ -216,6 +216,7 @@ export const computeSubaccountMarginFromInputs = (
   let totalDiscountedUnrealizedPnl = 0n;
   let totalDiscountedPnlForWithdrawals = 0n;
   let totalUnsettledFunding = 0n;
+  let unsettledFundingLoss = 0n;
   let totalAccumulatedFunding = 0n;
 
   const seenSymbols = new Set<string>();
@@ -261,6 +262,11 @@ export const computeSubaccountMarginFromInputs = (
     totalDiscountedPnlForWithdrawals +=
       result.margin.discountedPnlForWithdrawals;
     totalUnsettledFunding += result.margin.unsettledFunding;
+    // Each market's funding settles separately on-chain, so a credit in one
+    // market does not offset a loss in another.
+    if (result.margin.unsettledFunding < 0n) {
+      unsettledFundingLoss -= result.margin.unsettledFunding;
+    }
     totalAccumulatedFunding += result.margin.accumulatedFunding;
   }
 
@@ -323,8 +329,14 @@ export const computeSubaccountMarginFromInputs = (
         : 0n
       : withdrawalPayoutBound;
   const locked = BigInt(inputs.lockedDeposit?.lockedQuoteLots ?? "0");
-  const consumed = BigInt(inputs.lockedDeposit?.consumedQuoteLots ?? "0");
-  const reserve = locked > consumed ? locked - consumed : 0n;
+  // A withdrawal settles funding before its margin check, and each settled
+  // loss consumes the lock. Effective collateral already counts the unsettled
+  // funding, so reserve only what remains after settlement.
+  const consumedAfterSettlement =
+    BigInt(inputs.lockedDeposit?.consumedQuoteLots ?? "0") +
+    unsettledFundingLoss;
+  const reserve =
+    locked > consumedAfterSettlement ? locked - consumedAfterSettlement : 0n;
   const withdrawableQuoteCollateral =
     unlockedWithdrawalBound > reserve ? unlockedWithdrawalBound - reserve : 0n;
   const portfolioValue =

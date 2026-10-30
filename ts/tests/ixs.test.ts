@@ -60,6 +60,10 @@ import {
 import type { ResolvedPlaceOrderContext } from "@/ixs/types";
 import { getCancelOrdersByIdDecoder } from "@/core/ixBuilders/CancelOrdersById";
 import {
+  buildUpdateTraderPreferenceBitsIx,
+  TraderPreferenceToggleTarget,
+} from "@/core/ixBuilders/UpdateTraderPreferenceBits";
+import {
   getOptionalNonZeroU64Decoder,
   getOptionalNonZeroU64Encoder,
 } from "@/core/utils/optionCodec";
@@ -1154,6 +1158,38 @@ describe("resolved ix builders", () => {
     expect(ix.accounts[5]?.address).toBe("new-position-authority");
   });
 
+  it("builds an update-trader-preference-bits ix signed by the trader wallet", () => {
+    const ix = buildUpdateTraderPreferenceBitsIx({
+      programAddress: "phoenix-program" as never,
+      logAuthorityAddress: "log-authority" as never,
+      globalConfigurationAddress: "global-config" as never,
+      traderWallet: "trader-authority" as never,
+      traderAccount: "trader-account" as never,
+      toggles: [
+        {
+          target: TraderPreferenceToggleTarget.PositionAuthoritySwap,
+          set: true,
+        },
+      ],
+    });
+
+    expect(
+      ix.accounts.map((account) => [account.address, account.role])
+    ).toEqual([
+      ["phoenix-program", AccountRole.READONLY],
+      ["log-authority", AccountRole.READONLY],
+      ["global-config", AccountRole.READONLY],
+      ["trader-authority", AccountRole.READONLY_SIGNER],
+      ["trader-authority", AccountRole.READONLY],
+      ["trader-account", AccountRole.WRITABLE],
+    ]);
+    expect(Array.from(ix.data.slice(0, 8))).toEqual(
+      Array.from(DISCRIMINANTS.UPDATE_TRADER_PREFERENCE_BITS!)
+    );
+    // borsh Vec<{ target: u8, set: bool }>: u32 length, then (1, true).
+    expect(Array.from(ix.data.slice(8))).toEqual([1, 0, 0, 0, 1, 1]);
+  });
+
   it("builds a resolved deposit funds ix synchronously", () => {
     const ix = buildDepositFundsIxResolved({
       exchange: {
@@ -1386,8 +1422,9 @@ describe("resolved ix builders", () => {
       traderSubaccountIndex: 5,
     });
 
+    // Bit 1 is dropped: registration applies only the collateral-sweep bit.
     expect(Array.from(ix.data.slice(8))).toEqual([
-      1, 0, 0, 0, 3, 0, 0, 0, 4, 5,
+      1, 0, 0, 0, 1, 0, 0, 0, 4, 5,
     ]);
   });
 
