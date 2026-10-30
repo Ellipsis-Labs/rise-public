@@ -98,7 +98,7 @@ Examples live under `sdk/examples/` and can be run from `rise/rust/`:
 
 ```bash
 cargo run -p phoenix-rise --example subscribe_l2_book --features ws -- SOL
-cargo run -p phoenix-rise --example register_trader --features api -- <AUTHORITY_PUBKEY> --access-code ACCESS123
+cargo run -p phoenix-rise --example register_trader --features api -- <AUTHORITY_PUBKEY> --ref-code REF123
 cargo run -p phoenix-rise --example subscribe_trader_state --features ws
 cargo run -p phoenix-rise --example referral_activation_tx --features api,tx-builder -- REFERRAL_CODE --trader-keypair-path ~/.config/solana/id.json
 cargo run -p phoenix-rise --example builder_onboarding_tx --features api -- --fee-payer-keypair-path ~/.config/solana/id.json [--trader-authority <TRADER_AUTHORITY_PUBKEY>]

@@ -21,24 +21,6 @@ pub struct InviteClient<'a> {
 }
 
 impl InviteClient<'_> {
-    pub async fn activate_invite(
-        &self,
-        authority: &Pubkey,
-        code: &str,
-    ) -> Result<String, PhoenixHttpError> {
-        let response: ActivateInviteResponse = self
-            .http
-            .post_json(
-                "/v1/invite/activate",
-                &ActivateInviteRequest {
-                    authority: authority.to_string(),
-                    code,
-                },
-            )
-            .await?;
-        Ok(response.trader_pda)
-    }
-
     pub async fn activate_referral(
         &self,
         authority: &Pubkey,
@@ -175,12 +157,6 @@ fn referral_activation_auth_context_applies(status: Option<u16>, error_code: Opt
                     | "user_only"
             )
         )
-}
-
-#[derive(Serialize)]
-struct ActivateInviteRequest<'a> {
-    authority: String,
-    code: &'a str,
 }
 
 #[derive(Serialize)]

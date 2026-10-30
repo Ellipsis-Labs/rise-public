@@ -3,6 +3,30 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.8.2 - 2026-10-30
+
+Source Phoenix commit: `bf2da711175758799b1faf6a2b6627214b8b9fc5`
+
+### Summary
+
+- Rust SDK removes the access-code invite flow. `/v1/invite/activate` is no longer called; referral activation (`/v1/referral/activate`) is now the only trader registration path.
+- The `register_trader` example and the usage snippet in `CRATES.md` now take only `--ref-code`. Referral activation requires a user auth context, so the example builds its client with `PhoenixHttpClient::new_from_env_with_auth()`.
+- All Rise crates (`api`, `cli`, `sdk`, and the rest of the workspace) move together from `0.8.1` to `0.8.2`.
+
+### Breaking Changes
+
+- `api`: removed `InviteClient::activate_invite(authority, code)`.
+- `api`: removed `PhoenixHttpClient::register_trader(authority, code)`, which wrapped `activate_invite`.
+- `cli`: removed the `ActivateInvite` subcommand, with its `--authority` and `--code` arguments, from both the `api` and `exchange` command groups.
+- `sdk`: the `register_trader` example no longer accepts `--access-code`. It now requires `--ref-code` and fails with `Missing --ref-code` if the flag is absent.
+
+### Consumer Notes
+
+- Replace calls to `activate_invite` or `register_trader` with `client.invite().activate_referral(&authority, referral_code)`.
+- `activate_referral` needs a client created with auth, such as `PhoenixHttpClient::new_from_env_with_auth()`. The removed invite call worked with an unauthenticated client.
+- Scripts that ran `activate-invite` through the CLI need to switch to `activate-referral`.
+- Because this is a `0.x` release, the removals ship in a patch bump (`0.8.1` → `0.8.2`). Consumers pinned with `~0.8` or `^0.8` will pick them up automatically and should review the changes above before upgrading.
+
 ## v0.8.1 - 2026-10-30
 
 Source Phoenix commit: `5d208723c66907f0b5641333d6ec13d7e7251117`
