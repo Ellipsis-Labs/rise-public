@@ -222,7 +222,9 @@ export interface MarginTotals {
    * effectiveCollateralForWithdrawals + spotCollateralDiscounted -
    * initialMarginForWithdrawals (spot backs the margin) and the positive part
    * of effectiveCollateralForWithdrawals (spot is never paid out as quote),
-   * minus the remaining locked deposit, saturating at zero.
+   * minus the locked deposit remaining once unsettled funding settles (each
+   * market's funding loss consumes the lock, as the withdrawal settles funding
+   * first), saturating at zero.
    */
   withdrawableQuoteCollateralQuoteLots: string;
   portfolioValueQuoteLots: string;

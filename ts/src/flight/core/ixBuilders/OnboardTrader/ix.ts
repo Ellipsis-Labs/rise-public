@@ -1,3 +1,4 @@
+import { TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP } from "@/accounts/Trader/preferences";
 import { getPhoenixInstructionAddresses } from "@/core/constants";
 import {
   generateArenaAccounts,
@@ -87,7 +88,10 @@ export const buildOnboardTraderIx = async (
 
   const data = getOnboardTraderInstructionEncoder().encode({
     maxPositions: params.maxPositions,
-    traderPreferenceBits: params.traderPreferenceBits,
+    // Registration applies only the collateral-sweep preference; set others
+    // with UpdateTraderPreferenceBits after onboarding.
+    traderPreferenceBits:
+      params.traderPreferenceBits & TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP,
   });
 
   return {

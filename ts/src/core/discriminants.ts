@@ -25,6 +25,9 @@ export const DISCRIMINANTS: DiscriminantMap = {
   REGISTER_TRADER: sha2_const("global:register_trader"),
   REALLOC_TRADER: sha2_const("global:realloc_trader"),
   DELEGATE_TRADER: sha2_const("global:delegate_trader"),
+  UPDATE_TRADER_PREFERENCE_BITS: sha2_const(
+    "global:update_trader_preference_bits"
+  ),
   SET_TRADER_CAPABILITIES_DELEGATED: sha2_const(
     "global:set_trader_capabilities_delegated"
   ),

@@ -184,6 +184,18 @@ export {
 } from "../core/ixBuilders/DelegateTrader";
 
 export {
+  buildUpdateTraderPreferenceBitsIx,
+  getUpdateTraderPreferenceBitsCodec,
+  getUpdateTraderPreferenceBitsDecoder,
+  getUpdateTraderPreferenceBitsEncoder,
+  TraderPreferenceToggleTarget,
+  type TraderPreferenceToggle,
+  type UpdateTraderPreferenceBitsAccounts,
+  type UpdateTraderPreferenceBitsIx,
+  type UpdateTraderPreferenceBitsParams,
+} from "../core/ixBuilders/UpdateTraderPreferenceBits";
+
+export {
   buildEmberDepositIx,
   getEmberDepositCodec,
   getEmberDepositDecoder,

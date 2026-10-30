@@ -192,8 +192,9 @@ export interface TraderView {
   /** Maximum quote collateral currently withdrawable: the tighter of
    * effectiveCollateralForWithdrawals plus discounted spot collateral minus
    * initialMarginForWithdrawals, and the positive part of
-   * effectiveCollateralForWithdrawals, less lockedDepositRemaining and floored
-   * at zero. Defaults to zero for API versions that predate the field. */
+   * effectiveCollateralForWithdrawals, less the locked deposit remaining once
+   * unsettled funding settles, and floored at zero. Defaults to zero for API
+   * versions that predate the field. */
   withdrawableQuoteCollateral: TokenAmount;
   /** Current per-account lock reserve in quote units. */
   lockedDepositRemaining?: TokenAmount;

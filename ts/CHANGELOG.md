@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.7.2 - 2026-10-30
+
+Source Phoenix commit: `5d208723c66907f0b5641333d6ec13d7e7251117`
+
+### Summary
+
+- Adds `UpdateTraderPreferenceBits`, a new instruction for changing trader preferences after registration. It is exposed as `buildUpdateTraderPreferenceBits` (high-level) and `buildUpdateTraderPreferenceBitsIx` (low-level), with codec helpers and the `TraderPreferenceToggleTarget` enum (`CollateralSweep`, `PositionAuthoritySwap`).
+- `FundingAccumulator` account decoding now reads the new funding clamp and divisor fields (`fundingClampCenter`, `fundingClampBandRadius`, `fundingDivisor`, `fundingRemainder`).
+- `withdrawableQuoteCollateral` now reserves only the locked deposit that remains after unsettled funding settles. Each market's funding loss consumes the lock, and a credit in another market does not offset it.
+
+### Breaking Changes
+
+- Registration and onboarding now apply only the collateral-sweep preference (bit 0). `buildRegisterTraderIx` and `flight.buildOnboardTraderIx` mask `traderPreferenceBits` with `TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP`, so other bits (such as bit 1) are silently dropped. Set them afterwards with `UpdateTraderPreferenceBits`.
+- `FundingAccumulator` gains four required fields (`fundingClampCenter`, `fundingClampBandRadius`, `fundingDivisor`, `fundingRemainder`). Code that constructs `FundingAccumulator` objects by hand will fail to compile.
+- Withdrawable-collateral calculations can return different values than before. When a position has unsettled funding losses and the account has a locked deposit, the withdrawable amount can be higher. For example, a loss of 60 with a lock of 50 previously gave 0 and now gives 30.
+
+### Consumer Notes
+
+- To change preferences on an existing trader, call `buildUpdateTraderPreferenceBits` with a non-empty `toggles` array. Preferences you omit stay unchanged. The trader wallet must sign.
+- `set: true` enables the capability and clears its preference bit. This is the inverse of the "disable" bit semantics used at registration.
+- Funding accumulator values decode as `0` for accounts that predate the new fields. Update any snapshot or fixture tests that include decoded `PerpAssetMap` data.
+
 ## v0.7.1 - 2026-10-30
 
 Source Phoenix commit: `fbcf2b63964c4fe0560c80bb7da91c3aecfe2fbe`

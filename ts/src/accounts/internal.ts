@@ -214,6 +214,10 @@ export interface FundingAccumulator {
   fundingIntervalSeconds: bigint;
   fundingPeriodSeconds: bigint;
   maxFundingRate: bigint;
+  fundingClampCenter: number;
+  fundingClampBandRadius: number;
+  fundingDivisor: number;
+  fundingRemainder: bigint;
 }
 
 export interface OpenInterestParams {
@@ -942,7 +946,11 @@ export const getFundingAccumulatorDecoder = (): Decoder<FundingAccumulator> =>
       ["fundingPeriodSeconds", getU64Decoder()],
       ["maxFundingRate", getI64Decoder()],
       ["flags", getU8Decoder()],
-      ["_padding", getFixedArrayDecoder(getU8Decoder, 15)],
+      ["fundingDivisor", getU8Decoder()],
+      ["fundingClampCenter", getU16Decoder()],
+      ["fundingClampBandRadius", getU16Decoder()],
+      ["_padding", getFixedArrayDecoder(getU8Decoder, 2)],
+      ["fundingRemainder", getI64Decoder()],
     ]),
     ({ flags, _padding, ...accumulator }): FundingAccumulator => accumulator
   );
