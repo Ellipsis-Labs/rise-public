@@ -2,6 +2,8 @@ import { DISCRIMINANTS } from "@/core/discriminants";
 import { getOptionToNullDecoder, getOptionToNullEncoder } from "@/core/utils";
 import {
   combineCodec,
+  createEncoder,
+  createDecoder,
   fixDecoderSize,
   fixEncoderSize,
   getArrayDecoder,
@@ -34,6 +36,7 @@ import type {
   UpdateSplinePositionLimitsConfigParams,
   UpdateSplinePriceParams,
   UpdateSplinePriceParamsWithOrdering,
+  UpdateSplinePriceWithMetadataParams,
 } from "./types";
 
 const normalizeClientOrderId = (
@@ -160,6 +163,107 @@ export const getUpdateSplinePriceWithOrderingCodec =
     combineCodec(
       getUpdateSplinePriceWithOrderingEncoder(),
       getUpdateSplinePriceWithOrderingDecoder()
+    );
+
+export const getUpdateSplinePriceWithMetadataParamsEncoder =
+  (): Encoder<UpdateSplinePriceWithMetadataParams> => {
+    const u64 = getU64Encoder();
+    const u32 = getU32Encoder();
+    // Variable-size to pair with the decoder, which also accepts a truncated
+    // client order id.
+    return createEncoder({
+      getSizeFromValue: () => 48,
+      write: (value, bytes, offset) => {
+        const clientOrderId = normalizeClientOrderId(value.clientOrderId);
+        const bidWidth = value.bidWidth ?? 0n;
+        const askWidth = value.askWidth ?? 0n;
+        for (const ticks of [value.newMidPrice, bidWidth, askWidth]) {
+          if (ticks < 0n || ticks > 0xffff_ffffn) {
+            throw new Error("Spline price or width exceeds the tick range");
+          }
+        }
+        const flags =
+          Number(value.refreshRegions) |
+          (Number(value.overrideSequenceNumber ?? false) << 1) |
+          (Number(value.userUpdateSlot != null) << 2) |
+          (Number(value.bidWidth != null) << 3) |
+          (Number(value.askWidth != null) << 4);
+        offset = u32.write(Number(value.newMidPrice), bytes, offset);
+        offset = u32.write(flags, bytes, offset);
+        offset = u64.write(value.userSequenceNumber, bytes, offset);
+        offset = u64.write(value.userUpdateSlot ?? 0n, bytes, offset);
+        offset = u32.write(Number(bidWidth), bytes, offset);
+        offset = u32.write(Number(askWidth), bytes, offset);
+        bytes.set(clientOrderId, offset);
+        return offset + 16;
+      },
+    });
+  };
+
+export const getUpdateSplinePriceWithMetadataParamsDecoder =
+  (): Decoder<UpdateSplinePriceWithMetadataParams> => {
+    const u64 = getU64Decoder();
+    const u32 = getU32Decoder();
+    return createDecoder({
+      read: (bytes, offset) => {
+        if (bytes.length - offset < 32) {
+          throw new Error("Invalid spline metadata payload length");
+        }
+        const [newMidPrice, afterPrice] = u32.read(bytes, offset);
+        const [flags, afterFlags] = u32.read(bytes, afterPrice);
+        // Bits above the five defined flags are reserved and must be zero.
+        if (flags >>> 5 !== 0) {
+          throw new Error("Invalid spline metadata flags");
+        }
+        const [userSequenceNumber, afterSequence] = u64.read(bytes, afterFlags);
+        const [updateSlot, afterSlot] = u64.read(bytes, afterSequence);
+        const [bidWidth, afterBid] = u32.read(bytes, afterSlot);
+        const [askWidth, afterAsk] = u32.read(bytes, afterBid);
+        const clientOrderId =
+          bytes.length - afterAsk >= 16
+            ? Uint8Array.from(bytes.slice(afterAsk, afterAsk + 16))
+            : new Uint8Array(16);
+        return [
+          {
+            newMidPrice: BigInt(newMidPrice),
+            refreshRegions: (flags & 1) !== 0,
+            userSequenceNumber,
+            overrideSequenceNumber: (flags & 2) !== 0,
+            userUpdateSlot: (flags & 4) !== 0 ? updateSlot : null,
+            bidWidth: (flags & 8) !== 0 ? BigInt(bidWidth) : null,
+            askWidth: (flags & 16) !== 0 ? BigInt(askWidth) : null,
+            clientOrderId,
+          },
+          bytes.length,
+        ];
+      },
+    });
+  };
+
+export const getUpdateSplinePriceWithMetadataParamsCodec =
+  (): Codec<UpdateSplinePriceWithMetadataParams> =>
+    combineCodec(
+      getUpdateSplinePriceWithMetadataParamsEncoder(),
+      getUpdateSplinePriceWithMetadataParamsDecoder()
+    );
+
+export const getUpdateSplinePriceWithMetadataEncoder =
+  (): Encoder<UpdateSplinePriceWithMetadataParams> =>
+    getHiddenPrefixEncoder(getUpdateSplinePriceWithMetadataParamsEncoder(), [
+      getConstantEncoder(DISCRIMINANTS.UPDATE_SPLINE_PRICE_WITH_METADATA),
+    ]);
+
+export const getUpdateSplinePriceWithMetadataDecoder =
+  (): Decoder<UpdateSplinePriceWithMetadataParams> =>
+    getHiddenPrefixDecoder(getUpdateSplinePriceWithMetadataParamsDecoder(), [
+      getConstantDecoder(DISCRIMINANTS.UPDATE_SPLINE_PRICE_WITH_METADATA),
+    ]);
+
+export const getUpdateSplinePriceWithMetadataCodec =
+  (): Codec<UpdateSplinePriceWithMetadataParams> =>
+    combineCodec(
+      getUpdateSplinePriceWithMetadataEncoder(),
+      getUpdateSplinePriceWithMetadataDecoder()
     );
 
 export const getUpdateSplineParametersParamsWithOrderingEncoder =

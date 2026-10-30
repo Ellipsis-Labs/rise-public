@@ -231,6 +231,10 @@ describe("exchange adapter", () => {
         ...market,
         metadata: {
           earningsDates: ["2026-10-22T20:05:00Z", "2027-01-28T00:00:00Z"],
+          earningsDatesV2: [
+            { date: "2026-10-22", time: "amc" },
+            { date: "2027-01-28", time: null },
+          ],
           searchAliases: ["XAU"],
           classifications: ["pre-ipo", "new-listing"],
         },
@@ -245,6 +249,10 @@ describe("exchange adapter", () => {
     expect(snapshot.value.markets[0]?.metadata?.earningsDates).toEqual([
       "2026-10-22T20:05:00Z",
       "2027-01-28T00:00:00Z",
+    ]);
+    expect(snapshot.value.markets[0]?.metadata?.earningsDatesV2).toEqual([
+      { date: "2026-10-22", time: "amc" },
+      { date: "2027-01-28", time: null },
     ]);
     expect(snapshot.value.markets[0]?.metadata?.classifications).toEqual([
       "pre-ipo",
@@ -265,6 +273,7 @@ describe("exchange adapter", () => {
           symbol: "GOLD",
           metadata: {
             earningsDates: [],
+            earningsDatesV2: [],
             searchAliases: ["XAU"],
             classifications: ["pre-ipo"],
           },
@@ -281,6 +290,7 @@ describe("exchange adapter", () => {
       symbol: "GOLD",
       metadata: {
         earningsDates: [],
+        earningsDatesV2: [],
         searchAliases: ["XAU"],
         classifications: ["pre-ipo"],
       },

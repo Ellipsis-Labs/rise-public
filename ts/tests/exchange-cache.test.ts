@@ -786,9 +786,31 @@ describe("exchange cache", () => {
       );
       expect(store.marketMetadata("sol-perp")).not.toBe(beforeEarnings);
     }
+    for (const [sequenceNumber, earningsDatesV2] of [
+      [18n, [{ date: "2026-10-22", time: "amc" }]],
+      [19n, [{ date: "2026-10-22", time: "bmo" }]],
+      [20n, [{ date: "2026-10-22", time: null }]],
+      [21n, []],
+    ] as const) {
+      const beforeEarnings = store.marketMetadata("sol-perp");
+      const earningsDelta = ExchangeWireMsgSchema.parse(
+        buildMarketMetadataDelta(sequenceNumber, 4n, 3, {
+          ...classificationUpdatedMetadata,
+          earningsDatesV2: [...earningsDatesV2],
+        })
+      );
+      if (earningsDelta.messageType !== "delta") {
+        throw new Error("expected earnings metadata delta");
+      }
+      store.applyDelta(earningsDelta);
+      expect(store.marketMetadata("sol-perp")?.earningsDatesV2).toEqual(
+        earningsDatesV2
+      );
+      expect(store.marketMetadata("sol-perp")).not.toBe(beforeEarnings);
+    }
     for (const [sequenceNumber, previous, next] of [
-      [18n, "Solana", "Solana Perp"],
-      [19n, "Solana Perp", null],
+      [22n, "Solana", "Solana Perp"],
+      [23n, "Solana Perp", null],
     ] as const) {
       const displayNameDelta = strictSchema.parse({
         channel: "exchange",

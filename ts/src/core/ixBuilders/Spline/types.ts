@@ -62,6 +62,13 @@ export interface UpdateSplinePriceParamsWithOrdering extends UpdateSplinePricePa
   overrideSequenceNumber?: boolean;
 }
 
+export interface UpdateSplinePriceWithMetadataParams extends UpdateSplinePriceParamsWithOrdering {
+  /** Omit to preserve this width; 0n resets it. */
+  bidWidth?: bigint | null;
+  /** Omit to preserve this width; 0n resets it. */
+  askWidth?: bigint | null;
+}
+
 export interface UpdateSplineParametersParamsWithOrdering {
   bidRegions: TickRegionParams[];
   askRegions: TickRegionParams[];
@@ -89,6 +96,7 @@ export type RegisterSplineIx = InstructionsWithAccountsAndData;
 export type DeactivateSplineIx = InstructionsWithAccountsAndData;
 export type UpdateSplinePriceIx = InstructionsWithAccountsAndData;
 export type UpdateSplinePriceWithOrderingIx = InstructionsWithAccountsAndData;
+export type UpdateSplinePriceWithMetadataIx = InstructionsWithAccountsAndData;
 export type UpdateSplineParametersWithOrderingIx =
   InstructionsWithAccountsAndData;
 export type UpdateSplinePositionLimitsConfigIx =

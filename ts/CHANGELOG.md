@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.6.5 - 2026-10-30
+
+Source Phoenix commit: `21a268ef95e72fc18a88714d0603ece0f34aed2d`
+
+### Summary
+
+- Added `buildUpdateSplinePriceWithMetadataIx` and its codec helpers (`getUpdateSplinePriceWithMetadata{Codec,Encoder,Decoder}` and the matching `...Params...` variants). The new instruction updates the spline price and can also set or reset the bid and ask base widths. `bidWidth` and `askWidth` are optional: omit one to keep the current width, or pass `0n` to reset it.
+- Decoded `Spline` accounts now expose `bidBaseWidth` and `askBaseWidth` as `Ticks`. They are read from words that were previously reserved, so the account size is unchanged.
+- Added `EarningsDate` and `EarningsDateSchema` to the public API schemas. `MarketPublicMetadata` has a new optional `earningsDatesV2` field with `{ date: "YYYY-MM-DD", time: "amc" | "bmo" | null }` entries. The existing `earningsDates` field is unchanged.
+- The exchange cache store now compares `earningsDatesV2` when deciding whether market metadata changed, so updates to it produce a new metadata reference.
+- Exported `getUpdateSplinePriceWithOrderingDecoder` and `getUpdateSplinePriceParamsWithOrderingDecoder` from the public instruction builders entrypoint.
+
+### Breaking Changes
+
+- The `Spline` interface gained two required fields, `bidBaseWidth` and `askBaseWidth`. Code that constructs `Spline` objects by hand, such as test fixtures or mocks, will fail to compile until it adds them. Code that only reads decoded accounts is unaffected.
+
+### Consumer Notes
+
+- The metadata instruction encodes a 48-byte params payload and rejects `newMidPrice`, `bidWidth` or `askWidth` values outside the `u32` tick range (0 to 4,294,967,295). The decoder rejects payloads shorter than 32 bytes or with reserved flag bits set. A missing or truncated client order ID decodes as 16 zero bytes.
+- The existing `UpdateSplinePrice` and `UpdateSplinePriceWithOrdering` wire formats are unchanged.
+- Consumers that need the reporting session for earnings should read `earningsDatesV2`. It is optional, so handle it being absent. `time` is `null` when the session is unknown and is not an exact release time.
+
 ## v0.6.4 - 2026-10-26
 
 Source Phoenix commit: `9f55713fed206e5d504ff59ec487c6aee437fb58`

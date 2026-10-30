@@ -2872,6 +2872,8 @@
     },
     "splines": [
       {
+        "bidBaseWidth": "0",
+        "askBaseWidth": "0",
         "askFilledAmount": "0",
         "askNumRegions": "10",
         "askOffset": "0",
