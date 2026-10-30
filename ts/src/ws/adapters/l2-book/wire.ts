@@ -5,6 +5,7 @@ export interface L2BookUpdate {
   market: string;
   ts: number;
   slot: bigint;
+  slotIndex?: number;
   bids: Array<[price: number, size: number]>;
   asks: Array<[price: number, size: number]>;
   bypassExecutionBand?: boolean;
@@ -16,6 +17,7 @@ export const L2BookUpdateSchema: z.ZodType<L2BookUpdate> = z.object({
   market: z.string(),
   ts: z.number(),
   slot: numericBigint("slot"),
+  slotIndex: z.number().optional(),
   bids: z.array(z.tuple([z.number(), z.number()])),
   asks: z.array(z.tuple([z.number(), z.number()])),
   bypassExecutionBand: z.boolean().optional(),
@@ -29,6 +31,7 @@ export interface L2BookMsg {
   coin: string;
   timestamp: bigint;
   slot: bigint;
+  slotIndex?: number;
   bids: Array<[price: number, size: number]>;
   asks: Array<[price: number, size: number]>;
   bypassExecutionBand?: boolean;
@@ -39,6 +42,7 @@ export const L2BookMsgSchema: z.ZodType<L2BookMsg> = z.object({
   coin: z.string(),
   timestamp: numericBigint("timestamp"),
   slot: numericBigint("slot"),
+  slotIndex: z.number().optional(),
   bids: z.array(z.tuple([z.number(), z.number()])),
   asks: z.array(z.tuple([z.number(), z.number()])),
   bypassExecutionBand: z.boolean().optional(),

@@ -41,6 +41,8 @@ const rawStats = (symbol: string) => ({
   markPrice: 3,
   midPrice: 3.5,
   oraclePrice: 4,
+  oraclePriceSlot: 98,
+  markPriceSlot: 99,
   prevDayMarkPrice: 5,
   dayVolumeUsd: 6,
   dayVolumeBase: 7,
@@ -187,6 +189,7 @@ describe("marketStatsV2 websocket adapter", () => {
     subscriptions[0]!.onMessage({
       channel: "marketStatsV2",
       symbols: ["BTC-PERP", "SOL-PERP"],
+      slot: 100,
       stats: [
         { ...rawStats("BTC-PERP"), displayName: "BITCOIN" },
         rawStats("SOL-PERP"),
@@ -197,6 +200,7 @@ describe("marketStatsV2 websocket adapter", () => {
       done: false,
       value: {
         symbols: ["BTC-PERP", "SOL-PERP"],
+        slot: 100n,
         stats: [
           {
             symbol: "BTC-PERP",
@@ -207,6 +211,8 @@ describe("marketStatsV2 websocket adapter", () => {
               markPrice: 3,
               midPrice: 3.5,
               oraclePrice: 4,
+              oraclePriceSlot: 98n,
+              markPriceSlot: 99n,
               prevDayMarkPrice: 5,
               dayVolumeUsd: 6,
               dayVolumeBase: 7,
@@ -223,6 +229,8 @@ describe("marketStatsV2 websocket adapter", () => {
               markPrice: 3,
               midPrice: 3.5,
               oraclePrice: 4,
+              oraclePriceSlot: 98n,
+              markPriceSlot: 99n,
               prevDayMarkPrice: 5,
               dayVolumeUsd: 6,
               dayVolumeBase: 7,

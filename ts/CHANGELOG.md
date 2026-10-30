@@ -3,6 +3,31 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.7.4 - 2026-10-30
+
+Source Phoenix commit: `5ade6930ff3c7a2bf769435b3d3de8cc5e91af53`
+
+### Summary
+
+- WebSocket `l2Book`, `orderbook`, and `marketStatsV2` updates now carry optional slot metadata, so consumers can tell how fresh each update is.
+  - `l2Book` and `orderbook` updates expose `slotIndex`. `orderbook` updates also expose `slot`. The schemas accept the new fields and they are optional.
+  - `marketStatsV2` batches expose `slot` and `slotIndex`.
+  - Each `marketStatsV2` stats entry gains `oraclePriceSlot` and `markPriceSlot`. Subtract these from the batch `slot` to get the age of the oracle and mark prices.
+- The package version is bumped to `0.7.4`.
+- README and example documentation was rewritten for clarity. This includes a new Install section, example tables, and updated Flight and React Native notes. No documented behavior changed.
+- The Rust CPI example programs (`programs/*`) moved their lockfiles to `phoenix-rise` 0.8.3. This has no effect on the npm package.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- All new fields are optional and absent from older server frames. Handle `undefined`, for example when `marketStatsV2` has no `slot`, or when `oraclePriceSlot` is omitted until the market has a full oracle quorum.
+- `markPriceSlot` is omitted once a market is closed and its `markPrice` is final.
+- Slot values arrive as `bigint` (`slot`, `oraclePriceSlot`, `markPriceSlot`). `slotIndex` is a `number`. Compare them as `bigint`s, not as plain numbers.
+- Code that does strict deep-equality on these update objects may need adjusting, because `orderbook` updates now include `slot` and `slotIndex` keys. They are `undefined` when the server doesn't send them.
+
 ## v0.7.3 - 2026-10-30
 
 Source Phoenix commit: `bf2da711175758799b1faf6a2b6627214b8b9fc5`

@@ -1,7 +1,6 @@
 # Phoenix Close And Withdraw
 
-This is a deliberately small CPI example program for Rise integrators. It shows
-one flow that:
+Minimal CPI example program demonstrating a single flow that:
 
 - places a reduce-only Phoenix market order to close all or part of a position,
 - optionally routes that order through Flight,
@@ -9,59 +8,54 @@ one flow that:
 - withdraws Phoenix collateral to the trader authority's Phoenix-token account,
 - converts that collateral to USDC through Ember.
 
-The program has three instructions:
+The program exposes three instructions:
 
 - `close_position_and_withdraw`
 - `close_position_and_withdraw_with_builders`
 - `withdraw_all_collateral`
 
-An Anchor-compatible IDL is checked in at
-`idl/phoenix_close_and_withdraw.json`. It documents the fixed account prefix,
-the Flight-builder account prefix, and the dynamic Phoenix
+An Anchor-compatible IDL at `idl/phoenix_close_and_withdraw.json` documents the
+fixed account prefix, the Flight-builder account prefix, and the dynamic Phoenix
 `global_trader_index`/`active_trader_buffer` account tail.
 
-The close-position instructions use the same Borsh-encoded params after the
-8-byte Rise-style instruction discriminator. The Flight variant expects the five
+Both close-position instructions share the same Borsh-encoded params after the
+8-byte Rise-style instruction discriminator. The Flight variant places the five
 Flight builder accounts as fixed accounts after the orderbook and spline
-accounts. The dynamic Phoenix `global_trader_index` and `active_trader_buffer`
-accounts are always appended at the end of each instruction so the fixed account
-prefix can be represented by an IDL even if those dynamic account lists grow.
-`withdraw_all_collateral` uses a smaller params struct with the dynamic Phoenix
-index/buffer account counts. It does not require market orderbook or spline
-accounts.
+accounts. Both instructions append the dynamic Phoenix `global_trader_index` and
+`active_trader_buffer` accounts at the tail so the fixed prefix remains
+IDL-compatible as dynamic account lists grow. `withdraw_all_collateral` takes a
+smaller params struct with the dynamic Phoenix index/buffer account counts and
+omits the market orderbook and spline accounts.
 
-The example intentionally keeps account creation out of scope. The trader's
-Phoenix-token account and USDC account must already exist. The program always
-checks the supplied program ids, Ember state/vault PDAs, the Ember input and
-output mints, and the Phoenix global-configuration accounts before issuing any
-CPI. It also checks that the Phoenix-token account uses the canonical mint and
-that the USDC account uses the Ember input mint. The Phoenix and Ember programs
-repeat these mint and vault checks during their CPI handlers; the demo checks
-are intentionally early so account-list mistakes fail before any collateral
-movement. It also requires the Phoenix-token account to be owned by the signing
-trader authority, because Phoenix withdraws into it and Ember burns from it.
+Account creation is out of scope: the trader's Phoenix-token account and USDC
+account must already exist. Before issuing any CPI, the program validates
+supplied program IDs, Ember state/vault PDAs, Ember input/output mints, and
+Phoenix global-configuration accounts. It verifies that the Phoenix-token
+account uses the canonical mint and the USDC account uses the Ember input mint
+(Phoenix and Ember repeat these mint and vault checks during CPI, but checking
+early fails fast on account-list errors before moving collateral). It also
+requires the signing trader authority to own the Phoenix-token account, since
+Phoenix withdraws into it and Ember burns from it.
 
-`withdraw_all_collateral` also requires the USDC destination token account to be
-owned by the signing trader authority. The program never allows this owner check
-to be skipped.
+`withdraw_all_collateral` also requires the signing trader authority to own the
+USDC destination token account; this check cannot be skipped.
 
-The tests use `phoenix-rise-litesvm-test` directly. Set
-`PHOENIX_MAINNET_BPF_PROGRAMS=1` to fetch Phoenix, Ember, Hawkeye, and Flight
-BPF from mainnet when a fresh cached copy is unavailable. The fixture caches
-those programs under `target/deploy/.cache` for 24 hours by default; set
-`PHOENIX_MAINNET_BPF_PROGRAM_CACHE_DIR` to override that location for external
-SDK workspaces.
+Tests use `phoenix-rise-litesvm-test`. Set `PHOENIX_MAINNET_BPF_PROGRAMS=1` to
+fetch Phoenix, Ember, Hawkeye, and Flight BPF binaries from mainnet when a fresh
+cached copy is unavailable. The fixture caches these programs under
+`target/deploy/.cache` for 24 hours by default; set
+`PHOENIX_MAINNET_BPF_PROGRAM_CACHE_DIR` to override the cache directory.
 
 ## Tests
 
-From the `rise` workspace:
+From the repository root:
 
 ```sh
 cargo build-sbf --manifest-path programs/close-position-and-withdraw/Cargo.toml
 cargo nextest run --manifest-path programs/close-position-and-withdraw/Cargo.toml --no-capture
 ```
 
-To use cached mainnet BPFs for the Phoenix protocol programs:
+With cached mainnet BPFs for the Phoenix protocol programs:
 
 ```sh
 PHOENIX_MAINNET_BPF_PROGRAMS=1 \
@@ -70,9 +64,9 @@ cargo nextest run --manifest-path programs/close-position-and-withdraw/Cargo.tom
 
 ## CLI
 
-The nested CLI builds the demo program instruction against mainnet exchange
-metadata and simulates by default. The demo program must already be deployed at
-its declared program id.
+The nested CLI builds the program instruction against mainnet exchange metadata
+and simulates by default. The program must already be deployed at its declared
+program ID.
 
 ```sh
 cargo run --manifest-path programs/close-position-and-withdraw/cli/Cargo.toml -- \
@@ -80,8 +74,8 @@ cargo run --manifest-path programs/close-position-and-withdraw/cli/Cargo.toml --
   --keypair-path ~/.config/solana/id.json
 ```
 
-To withdraw all free collateral from a derived trader subaccount, pass the
-subaccount index. The PDA index defaults to `0`.
+Withdraw all free collateral from a derived trader subaccount (PDA index
+defaults to `0`):
 
 ```sh
 cargo run --manifest-path programs/close-position-and-withdraw/cli/Cargo.toml -- \
@@ -90,8 +84,8 @@ cargo run --manifest-path programs/close-position-and-withdraw/cli/Cargo.toml --
   --subaccount-index 1
 ```
 
-To find the keypair's active SOL position automatically, close it, and withdraw
-all free collateral:
+Find the keypair's active SOL position, close it, and withdraw all free
+collateral:
 
 ```sh
 cargo run --manifest-path programs/close-position-and-withdraw/cli/Cargo.toml -- \
@@ -100,13 +94,11 @@ cargo run --manifest-path programs/close-position-and-withdraw/cli/Cargo.toml --
   --symbol SOL
 ```
 
-The destination USDC token account must be owned by the signing keypair
-authority. The CLI derives the authority's USDC ATA by default; pass
-`--trader-usdc-token-account <token account>` only when supplying another
-authority-owned USDC token account. Set `--send-transaction` to send after a
-successful simulation. `--withdraw-mode` defaults to `all`; set
-`--withdraw-mode` to `diff` to withdraw only the collateral freed by the close
-order. The CLI
-discovers the matching trader subaccount from `--keypair-path` and `--symbol`;
-set `--trader-account` only when more than one subaccount has an active position
-for the same symbol.
+The signing keypair authority must own the destination USDC token account. The
+CLI derives the authority's USDC ATA by default; pass
+`--trader-usdc-token-account <token account>` to use another authority-owned
+USDC token account. Pass `--send-transaction` to submit after simulation
+succeeds. `--withdraw-mode` defaults to `all`; pass `diff` to withdraw only the
+collateral freed by the close order. The CLI resolves the trader subaccount from
+`--keypair-path` and `--symbol`; pass `--trader-account` only when multiple
+subaccounts hold an active position for that symbol.

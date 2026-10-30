@@ -54,9 +54,22 @@ export const createMarketStatsV2Adapter = (
           stats: {
             ...update.stats,
             ...(raw.midPrice === undefined ? {} : { midPrice: raw.midPrice }),
+            ...(raw.oraclePriceSlot === undefined
+              ? {}
+              : { oraclePriceSlot: raw.oraclePriceSlot }),
+            ...(raw.markPriceSlot === undefined
+              ? {}
+              : { markPriceSlot: raw.markPriceSlot }),
           },
         }));
-        return { symbols: message.symbols, stats };
+        return {
+          symbols: message.symbols,
+          ...(message.slot === undefined ? {} : { slot: message.slot }),
+          ...(message.slotIndex === undefined
+            ? {}
+            : { slotIndex: message.slotIndex }),
+          stats,
+        };
       },
       schemaErrorMessage: "Failed to parse MarketStatsV2 message",
     },

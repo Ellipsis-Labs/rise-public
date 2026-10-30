@@ -1,22 +1,29 @@
 # @ellipsis-labs/rise
 
-`rise` is the TypeScript SDK for Phoenix public APIs, exchange metadata,
-instruction building, Flight routing, and live streams.
+TypeScript SDK for Phoenix perpetuals: HTTP route clients, exchange metadata,
+instruction builders, Flight routing, and WebSocket streams.
 
-It gives you:
+- Unified client for HTTP, auth, session storage, and WebSocket streams
+- Typed route clients (`candles`, `markets`, `funding`, `traders`, `trades`, and
+  more)
+- End-user and service-account auth with managed or external session control
+- Exchange metadata cache with HTTP bootstrap, RPC fallback, and live stream
+  updates
+- Live store engines for market stats, trader state, and orderbooks
+- Built-in WebSocket adapters plus typed custom subscription registration
+- Low-level transport helpers (`get`, `post`, `put`, `patch`, `del`) for custom
+  HTTP endpoints
 
-- a unified client for HTTP, auth, session storage, and WebSocket streams
-- typed route clients for candles, markets, funding, traders, trades, and more
-- optional end-user auth with managed or externally controlled sessions
-- an exchange metadata cache for bootstrapping market parameters
-- reusable store engines for market stats, trader state, and orderbooks
-- built-in WebSocket adapters plus typed custom subscription registration
-- low-level transport helpers for custom HTTP endpoints
+## Install
+
+```bash
+npm install @ellipsis-labs/rise
+```
 
 ## Changelog
 
-See the [public Rise TypeScript changelog](https://github.com/Ellipsis-Labs/rise-public/blob/master/ts/CHANGELOG.md)
-for release notes.
+Release notes:
+[public Rise TypeScript changelog](https://github.com/Ellipsis-Labs/rise-public/blob/master/ts/CHANGELOG.md).
 
 ## Main Entry Points
 
@@ -30,80 +37,79 @@ import {
 } from "@ellipsis-labs/rise";
 ```
 
-The most common constructor is `createPhoenixClient(...)`, which returns:
+`createPhoenixClient(...)` returns:
 
 - `client.api`: typed HTTP route clients
-- `client.pda`: PDA/address helper surface with memoized derivations by default
-- `client.auth`: auth client, only when auth is configured
-- `client.sessionManager`: shared auth session manager, only when auth is configured
-- `client.streams`: typed WebSocket streams, unless `ws: false` is configured
-- `client.exchange`: client-owned exchange metadata cache with API/RPC source management
-- `client.orderPackets`: async order-packet builders backed by cached market metadata
-- `client.ixs`: async instruction builders backed by cached exchange metadata and PDA resolution
-- `client.rpc`: explicit on-chain read surface for raw account-backed data
+- `client.pda`: PDA/address helpers (memoized by default)
+- `client.auth`: auth client (when `auth` is configured)
+- `client.sessionManager`: shared auth session manager (when `auth` is
+  configured)
+- `client.streams`: typed WebSocket streams (unless `ws: false`)
+- `client.exchange`: exchange metadata cache with API/RPC source management
+- `client.orderPackets`: async order-packet builders backed by cached market
+  metadata
+- `client.ixs`: async instruction builders backed by cached exchange metadata
+  and PDA resolution
+- `client.rpc`: on-chain read surface for raw account-backed data
 
-Pass `pdaCache: false` to `createPhoenixClient(...)` if you need to disable PDA
-memoization on `client.pda`, or `pdaCache: { maxEntries: 1024 }` if you want to
-spell out the default bounded LRU cache for long-running processes.
+`client.pda` uses a bounded LRU cache (`pdaCache: { maxEntries: 1024 }`) by
+default; pass `pdaCache: false` to disable memoization.
 
 ## Directory Structure
 
-- `src/api/`: typed HTTP route clients for `candles`, `collateral`,
-  `exchange`, `funding`, `invite`, `markets`, `notifications`, `orderbook`,
-  `orders`, `splines`, `traders`, and `trades`, plus shared helpers in
-  `api/utils/`
+- `src/api/`: typed HTTP route clients (`candles`, `collateral`, `exchange`,
+  `funding`, `invite`, `markets`, `notifications`, `orderbook`, `orders`,
+  `splines`, `traders`, `trades`) and shared helpers in `api/utils/`
 - `src/auth/`: auth client, session manager, storage adapters, runtime helpers,
   and retry/backoff logic
-- `src/accounts/`: Phoenix and Flight account decoders plus reusable fetchers
-- `src/core/`: low-level Phoenix instruction builders, account resolution
-  helpers, and shared client types
-- `src/ixs.ts`: exchange-aware async instruction client built on `src/core/`
-  and PDA derivation
+- `src/accounts/`: Phoenix and Flight account decoders and fetchers
+- `src/core/`: low-level Phoenix instruction builders, account resolution, and
+  shared client types
+- `src/ixs.ts`: exchange-aware async instruction client built on `src/core/` and
+  PDA derivation
 - `src/orderPackets.ts`: synchronous order-packet builders from explicit market
   params
-- `src/exchange-cache/`: API/RPC metadata bootstrap, selectors, store logic,
-  and projected market views
+- `src/exchange-cache/`: API/RPC metadata bootstrap, selectors, store logic, and
+  projected market views
 - `src/flight/`: Flight account fetchers, proxy-instruction helpers,
   register-builder/update-fee builders, fee-collector derivation, and the
-  Flight routing guide in `src/flight/README.md`
-- `src/ws/`: websocket transport, built-in adapters, and custom subscription
+  routing guide in `src/flight/README.md`
+- `src/ws/`: WebSocket transport, built-in adapters, and custom subscription
   registration
-- `src/market-data/`, `src/orderbooks/`, `src/trader-state/`: long-lived live
-  stores for exchange data and trader state
-- `src/rpc.ts`, `src/pdas.ts`, and `src/pdaClient.ts`: raw account reads and
-  address-derivation helpers
-- `src/primitives/`, `src/types/`, and `src/margin/`: shared SDK value types,
-  wire types, and margin helpers
-- `src/builders.ts` and `src/flows.ts`: higher-level async helpers that compose
-  packet builders, ix builders, and common deposit/withdraw/order flows
-- `src/_exports/`: curated stable re-export bundles for schemas, SDK helpers,
+- `src/market-data/`, `src/orderbooks/`, `src/trader-state/`: live stores for
+  exchange data and trader state
+- `src/rpc.ts`, `src/pdas.ts`, `src/pdaClient.ts`: raw account reads and address
+  derivation
+- `src/primitives/`, `src/types/`, `src/margin/`: shared SDK value types, wire
+  types, and margin helpers
+- `src/builders.ts`, `src/flows.ts`: async helpers composing packet builders, ix
+  builders, and deposit/withdraw/order flows
+- `src/_exports/`: stable re-export bundles for schemas, SDK helpers,
   instruction builders, and public types
-- `examples/`, `scripts/`, and `tests/`: runnable examples, task-specific
-  scripts, and test coverage
+- `examples/`, `scripts/`, `tests/`: runnable examples, scripts, and tests
 
 ## Examples
 
-Use the examples as the fastest reference for intended SDK usage:
+Runnable reference scripts (full index in
+[examples/README.md](./examples/README.md)):
 
-- [examples/README.md](./examples/README.md): entry point for the runnable TS
-  examples
 - [examples/01-http-client.ts](./examples/01-http-client.ts): basic HTTP client
-- [examples/02-ws-fills.ts](./examples/02-ws-fills.ts): websocket fills stream
+- [examples/02-ws-fills.ts](./examples/02-ws-fills.ts): WebSocket fills stream
 - [examples/03-build-limit-order-ix.ts](./examples/03-build-limit-order-ix.ts):
   metadata-backed packet and ix construction
-- [examples/04-trader-state-store.ts](./examples/04-trader-state-store.ts):
-  live trader-state store wiring
+- [examples/04-trader-state-store.ts](./examples/04-trader-state-store.ts): live
+  trader-state store wiring
 - [examples/05-cancel-all-conditional-orders.ts](./examples/05-cancel-all-conditional-orders.ts):
-  advanced conditional-order cancellation workflow
+  batch conditional-order cancellation
 - [examples/06-flight-market-order.ts](./examples/06-flight-market-order.ts):
-  Flight-routed market order placement with builder fee routing
+  Flight-routed market order with builder fee routing
 - [examples/09-referral-activation-tx.ts](./examples/09-referral-activation-tx.ts):
-  referral activation through `/v1/referral/activate-tx`
+  referral activation via `/v1/referral/activate-tx`
 - [examples/10-builder-onboarding-tx.ts](./examples/10-builder-onboarding-tx.ts):
-  builder onboarding without a referral code through
-  `/v1/exchange/build-register-ixs` and `/v1/exchange/send-register-ixs`. The
-  fee-payer keypair path defaults to `~/.config/solana/id.json`; the optional
-  trader authority defaults to the fee payer's public key.
+  builder onboarding without a referral code via
+  `/v1/exchange/build-register-ixs` and `/v1/exchange/send-register-ixs`
+  (fee-payer keypair defaults to `~/.config/solana/id.json`; trader authority
+  defaults to the fee payer's public key):
 
   ```text
   bun examples/10-builder-onboarding-tx.ts \
@@ -112,18 +118,18 @@ Use the examples as the fastest reference for intended SDK usage:
   ```
 
 - [examples/phoenix-client-example.ts](./examples/phoenix-client-example.ts):
-  broader API walkthrough
+  HTTP API walkthrough
 - [examples/phoenix-ws-example.ts](./examples/phoenix-ws-example.ts):
-  interactive websocket demo
+  interactive WebSocket demo
 
 ## Atomic isolated market entry with TP/SL v2
 
 `client.api.orders().placeIsolatedMarketOrder()` and
-`client.api.orders().placeIsolatedMarketOrderEnhanced()`
-accept `greaterTrigger`, `lessTrigger`, and `sizePercent: 100`. Supply either
-trigger or both. Both triggers share one position conditional and cancel
-together when one executes. The backend allocates the isolated subaccount if
-needed and includes collection creation in the same instruction bundle.
+`client.api.orders().placeIsolatedMarketOrderEnhanced()` accept
+`greaterTrigger`, `lessTrigger`, and `sizePercent: 100`. Supply either trigger
+or both. Both triggers share one position conditional and cancel together when
+one executes. The backend allocates the isolated subaccount if needed and
+includes collection creation in the same instruction bundle.
 
 ```ts
 const instructions = await client.api.orders().placeIsolatedMarketOrder({
@@ -146,10 +152,10 @@ This request requires a backend release containing PRO-829.
 
 ## Recommended Client Setup
 
-`createPhoenixClient()` works with no config and defaults `apiUrl` to
+`createPhoenixClient()` requires no config and defaults `apiUrl` to
 `https://perp-api.phoenix.trade`.
 
-For a long-running app that uses exchange-aware helpers, start with:
+For long-running processes that use exchange-aware helpers:
 
 ```ts
 import { createPhoenixClient } from "@ellipsis-labs/rise";
@@ -164,15 +170,14 @@ const client = createPhoenixClient({
 });
 ```
 
-If you route supported placement flows through Flight, configure it once on the
-client:
+To route supported placement instructions through Flight, configure `flight`
+once on the client:
 
-> **Use embedded wallets for Flight integrations.** Integrators are strongly
-> encouraged to provision an embedded wallet per user rather than routing
-> Flight orders through the user's raw/external wallet. A raw wallet shares
-> its Phoenix trader state with every other dapp the user trades on, which
-> results in bad UX (positions, balances, and orders bleeding across
-> integrations). Embedded wallets isolate per-integration state.
+> **Use embedded wallets for Flight integrations.** Provision an embedded wallet
+> per user rather than routing Flight orders through the user's raw/external
+> wallet. A raw wallet shares its Phoenix trader state across every dapp the
+> user trades on, causing positions, balances, and orders to bleed across
+> integrations. Embedded wallets isolate per-integration state.
 
 ```ts
 import { createPhoenixClient } from "@ellipsis-labs/rise";
@@ -192,30 +197,27 @@ const client = createPhoenixClient({
 });
 ```
 
-Recommended defaults:
+Configuration notes:
 
-- Prefer `apiUrl`; `baseUrl` is a deprecated alias.
-- Keep PDA memoization enabled for long-lived processes.
-- Enable `exchangeMetadata: { stream: true }` when you use `client.exchange`,
-  `client.orderPackets`, or `client.ixs` over time and want websocket deltas
-  applied after the initial snapshot bootstrap.
-- Set `rpcUrl` when you use `client.rpc` or want RPC-backed exchange metadata
-  fallback if the API snapshot is unavailable. If you omit it, rise will also
-  read `NEXT_PUBLIC_SOLANA_RPC_URL` or `SOLANA_RPC_URL`.
+- Use `apiUrl` (`baseUrl` is a deprecated alias) and keep PDA memoization
+  enabled for long-lived processes.
+- Set `exchangeMetadata: { stream: true }` when using `client.exchange`,
+  `client.orderPackets`, or `client.ixs` over time so WebSocket deltas apply
+  after snapshot bootstrap.
+- Set `rpcUrl` (or `NEXT_PUBLIC_SOLANA_RPC_URL` / `SOLANA_RPC_URL`) to enable
+  `client.rpc` and RPC fallback when the API metadata snapshot is unavailable.
 - Keep the default rate-limit cooldown enabled for long-lived clients. When a
-  retryable GET or HEAD receives `429` with `Retry-After`, later retryable
-  requests on the same client wait for that server window before sending. The
-  cooldown is client-local, not process-global, adds positive release jitter to
-  avoid synchronized retries, and does not delay non-idempotent methods such as
-  POST. Server-provided delays are capped at 30 seconds by default.
-- If you use Flight consistently, configure it once on the client with
-  `builderAuthority`, plus optional `builderPdaIndex` and
-  `builderSubaccountIndex`. rise derives the builder trader account from those
-  values and defaults both indexes to `0`. Set `feeBpsOverride` only when the
-  client should emit Flight's fee-override proxy instruction for supported
-  local order builders.
+  retryable GET or HEAD returns `429` with `Retry-After`, subsequent retryable
+  requests on the same client wait for that window (capped at 30 seconds by
+  default, with positive release jitter). The cooldown is client-local and never
+  delays non-idempotent methods like POST.
+- Configure Flight with `builderAuthority` and optional `builderPdaIndex` /
+  `builderSubaccountIndex` (both default to `0`). Set `feeBpsOverride` only when
+  local order builders should emit Flight's fee-override proxy instruction. See
+  [src/flight/README.md](./src/flight/README.md) for full Flight routing
+  details.
 
-To tune or disable shared rate-limit cooldowns:
+Tune or disable the rate-limit cooldown:
 
 ```ts
 import { createPhoenixClient } from "@ellipsis-labs/rise";
@@ -232,13 +234,11 @@ const cooldownDisabledClient = createPhoenixClient({
 });
 ```
 
-For short runnable onboarding examples, see:
-
-- [examples/01-http-client.ts](./examples/01-http-client.ts)
-- [examples/02-ws-fills.ts](./examples/02-ws-fills.ts)
-- [examples/03-build-limit-order-ix.ts](./examples/03-build-limit-order-ix.ts)
-- [examples/04-trader-state-store.ts](./examples/04-trader-state-store.ts)
-- [examples/README.md](./examples/README.md)
+Starter examples: [examples/01-http-client.ts](./examples/01-http-client.ts),
+[examples/02-ws-fills.ts](./examples/02-ws-fills.ts),
+[examples/03-build-limit-order-ix.ts](./examples/03-build-limit-order-ix.ts),
+[examples/04-trader-state-store.ts](./examples/04-trader-state-store.ts), and
+[examples/README.md](./examples/README.md).
 
 ## Quick Start
 
@@ -263,13 +263,12 @@ const candlesPage = await client.api.candles().getCandlesV2("SOL", {
 const trader = await client.api.traders().getTrader("TRADER_PUBKEY");
 ```
 
-`getCandlesV2` exposes millisecond timestamps, cursor pagination, partial-bar
-control, mark-price OHLC, external-source metadata, and `isFinal`. The existing
-`getCandles` method remains available with its original array response and
-millisecond timestamps. It remains on the legacy endpoint to preserve its
-exchange-only default, server-relative finalized window, and 2,500-bar server
-limit. Use `getCandlesV2` for canonical v2 data; it defaults to 1,000 bars per
-page and accepts explicit page sizes up to 10,000.
+Use `getCandlesV2` for canonical v2 candle data: it returns millisecond
+timestamps, cursor pagination (default 1,000 bars per page, max 10,000),
+partial-bar control, mark-price OHLC, external-source metadata, and `isFinal`.
+`getCandles` stays on the legacy endpoint to preserve its millisecond-timestamp
+array response, exchange-only default, server-relative finalized window, and
+2,500-bar limit.
 
 ### Unified HTTP + auth + WebSocket client
 
@@ -301,34 +300,29 @@ for await (const update of client.streams!.marketStats("SOL")) {
 const solMarket = client.exchange.market("SOL-PERP");
 ```
 
-By default `rise` creates a lazy websocket transport for `client.streams`.
-Pass `ws: false` to disable it. When the owned transport needs a URL, it
-derives it from `apiUrl`, which defaults to
-`https://perp-api.phoenix.trade`. In lazy mode, the owned transport uses a
-30-second idle close by default.
+`client.streams` uses a lazy WebSocket transport derived from `apiUrl`
+(`https://perp-api.phoenix.trade` by default) with a 30-second idle close. Pass
+`ws: false` to disable it. `client.exchange` bootstraps from the HTTP snapshot
+on first use even when `client.streams` is available, and falls back to RPC when
+an RPC URL is configured and the API snapshot is unavailable; set
+`exchangeMetadata: { stream: true }` to apply live WebSocket deltas afterward.
 
-`client.exchange` still bootstraps from the HTTP snapshot on first use even
-when `client.streams` is available. Opt into exchange websocket follow-up with
-`exchangeMetadata: { stream: true }` when you want live exchange deltas applied
-after bootstrap.
-
-The heavier live stores stay explicit:
+Stateful live stores are constructed explicitly:
 
 - `createPhoenixMarketData({ exchange, marketStats, allMids? })`
 - `createPhoenixTraderStateManager({ api, traderState? })`
 - `createTraderStateStore(client, config?)`
 - `createPhoenixOrderbookManager({ api, l2Book? })`
 
-See [examples/04-trader-state-store.ts](./examples/04-trader-state-store.ts)
-for a runnable trader-state store example backed by
-`client.streams.traderState(...)`.
-
-Prefer leaf selectors against `resource.store` in React. Avoid selectors that
-allocate a fresh wrapper object on every read.
+See [examples/04-trader-state-store.ts](./examples/04-trader-state-store.ts) for
+a `client.streams.traderState(...)` store example. In React, use leaf selectors
+against `resource.store` and avoid allocating new wrapper objects inside
+selectors.
 
 ## Exchange Metadata
 
-`rise` now treats exchange metadata as a first-class client subsystem.
+`client.exchange` manages exchange and market metadata for packet and
+instruction builders:
 
 ```ts
 const client = createPhoenixClient({
@@ -364,33 +358,29 @@ client.exchange.subscribe((event) => {
 
 Default behavior:
 
-- API-first metadata bootstrap from `/v1/exchange/snapshot`
-- exchange websocket live updates when `ws` is configured
-- `rpcUrl` enables `client.rpc`
-- if `rpcUrl` is omitted, rise also checks `NEXT_PUBLIC_SOLANA_RPC_URL` and
-  `SOLANA_RPC_URL`
-- when an RPC URL is available, exchange metadata can fall back to RPC even in
-  the default API-first mode
-- lazy startup: no metadata fetch happens until `client.exchange` is used
+- Lazy startup: nothing is fetched until `client.exchange` is used
+- API-first bootstrap from `/v1/exchange/snapshot`, with RPC fallback when an
+  RPC URL is configured (`rpcUrl`, `NEXT_PUBLIC_SOLANA_RPC_URL`, or
+  `SOLANA_RPC_URL`, which also enables `client.rpc`)
+- Exchange WebSocket live updates when `ws` is configured
 
-For Flight-specific order-routing examples, see
-[src/flight/README.md](./src/flight/README.md).
+See [src/flight/README.md](./src/flight/README.md) for Flight order-routing
+examples.
 
 ### Collateral asset registry
 
 `client.exchange.spotCollaterals()` (and `client.api.collateral().getAssets()`)
 returns every registered collateral asset, including inactive ones:
 
-- An asset accepts deposits only when `spot` is non-null and `spot.isActive`
-  is true. The quote asset (USDC) has no `spot`.
+- An asset accepts deposits only when `spot` is non-null and `spot.isActive` is
+  true. The quote asset (USDC) has no `spot`.
 - `spot.mint` is the SPL mint; native SOL has no mint. The USDC mint is
   `exchange.usdcMint` in exchange state, not a registry field.
 - A `spotCollateralsUpdated` exchange delta carries the complete registry and
   replaces the previous list. The cache emits an `exchangeUpdated` event with
   `change: "spotCollaterals"`.
-- A trader-state `spotCollaterals[].maxBalance` is that trader's effective
-  cap; the exchange-wide cap (`maxGlobalBalance - currGlobalBalance`) may bind
-  first.
+- A trader-state `spotCollaterals[].maxBalance` is that trader's effective cap;
+  the exchange-wide cap (`maxGlobalBalance - currGlobalBalance`) may bind first.
 
 The `exchange` stream decodes the server's default `base64+zstd` snapshots
 transparently. Raw WebSocket clients must decode them or subscribe with
@@ -398,8 +388,8 @@ transparently. Raw WebSocket clients must decode them or subscribe with
 
 ## Flame Deposit Funding
 
-For sponsored USDC deposits that should avoid creating user-owned rent accounts,
-build a Flame proxy-funding transaction instead of the direct deposit flow:
+Use `buildFlameDepositFundingFlow` for sponsored USDC deposits that avoid
+creating user-owned rent accounts:
 
 ```ts
 import { buildFlameDepositFundingFlow } from "@ellipsis-labs/rise";
@@ -417,22 +407,21 @@ const deposit = await buildFlameDepositFundingFlow(
 ```
 
 The returned instructions create the user's Flame proxy USDC ATA and transfer
-USDC from the user's wallet ATA into that proxy ATA. They do not perform the
-Phoenix collateral deposit directly; the Flame crank/indexer completes that
-asynchronously after the proxy account is funded.
+USDC into it from the user's wallet ATA; the Flame crank/indexer completes the
+Phoenix collateral deposit asynchronously.
 
-For an atomic sponsored deposit, use `buildFlameAtomicDepositFlow`. It adds
-permission setup plus the Flame `DepositToPhoenix` instruction. The user signs
-the deposit permission; the sponsor fee payer cranks the deposit so wallets
-holding no SOL can deposit (the crank fronts rent for the transient proxy
-Phoenix ATA and the same instruction refunds it on close).
+For an atomic sponsored deposit, use `buildFlameAtomicDepositFlow`, which adds
+permission setup and Flame `DepositToPhoenix`. The user signs the deposit
+permission while the sponsor fee payer cranks the deposit and fronts transient
+proxy ATA rent (refunded on close in the same instruction), allowing zero-SOL
+wallets to deposit.
 
-`buildDepositFlow` remains the direct Ember + Phoenix deposit path.
+Use `buildDepositFlow` for direct Ember + Phoenix deposits.
 
 ## Sync Order Packet Builders
 
-If you already have market units in hand, `rise` also exposes synchronous packet
-builders that do not need the client:
+When you already have market params (`tickSize`, `baseLotsDecimals`), build
+order packets synchronously without a client:
 
 ```ts
 import {
@@ -466,8 +455,8 @@ const marketPacket = buildMarketOrderPacketFromMarketParams(
 );
 ```
 
-If you want the client to source market params from the exchange metadata cache,
-use `client.ixs.orderPackets.*` instead:
+To resolve market params from the exchange metadata cache instead, use
+`client.ixs.orderPackets.*`:
 
 ```ts
 const packet = await client.ixs.orderPackets.buildMarketOrderPacket({
@@ -480,8 +469,8 @@ const packet = await client.ixs.orderPackets.buildMarketOrderPacket({
 
 ## Sync Resolved Ix Builders
 
-If you already have resolved exchange, market, and trader accounts in hand,
-`rise` also exposes synchronous resolved ix builders:
+When exchange, market, and trader accounts are already resolved, build
+instructions synchronously:
 
 ```ts
 import { buildPlaceLimitOrderIxResolved } from "@ellipsis-labs/rise";
@@ -507,9 +496,8 @@ const ix = buildPlaceLimitOrderIxResolved({
 });
 ```
 
-This is the intended non-async SDK layer. The same resolved surface also
-includes deposit, withdraw, transfer, and market-order builders. `client.ixs.*`
-is the async convenience layer on top of it.
+The resolved surface also includes deposit, withdraw, transfer, and market-order
+builders; `client.ixs.*` is the async wrapper over it.
 
 ## Common HTTP Usage
 
@@ -544,8 +532,8 @@ Available groups include:
 
 ## Authentication
 
-Configure `auth` when you want the client to attach bearer tokens, refresh
-sessions, or authenticate WebSocket subscriptions.
+Enable `auth` to attach bearer tokens, refresh sessions, and authenticate
+WebSocket subscriptions.
 
 ### Browser-managed sessions
 
@@ -568,11 +556,10 @@ console.log(snapshot);
 
 ### External session control
 
-Use this when your app owns the session lifecycle and only wants `rise` to read
-the current session. In this mode `rise` will not automatically refresh,
-clear, or otherwise mutate session state on your behalf. If you explicitly
-provide or import a session through your configured session manager, that
-manager may still write the session to its backing storage.
+Use `sessionControl: "external"` when your app owns the session lifecycle and
+`rise` should only read the current session. `rise` will not refresh, clear, or
+mutate session state automatically, though explicitly importing or providing a
+session through your `sessionManager` still writes to its backing storage.
 
 ```ts
 import { auth, createPhoenixClient } from "@ellipsis-labs/rise";
@@ -593,27 +580,26 @@ const client = createPhoenixClient({
 await sessionManager.importSnapshot(snapshotFromYourApp);
 ```
 
-When `auth: true`, `rise` hydrates from the configured storage automatically.
-It does not force an eager login flow. Built-in route clients use the shared
-session opportunistically when one exists. For custom transport calls, use
-`RequestOptions.auth` to disable auth or require it explicitly.
+With `auth: true`, `rise` hydrates from storage without forcing an eager login.
+Built-in route clients attach the shared session opportunistically; custom
+transport calls can override this via `RequestOptions.auth`.
 
 ### React Native package entry
 
-The root package export selects `dist/native/index.js` when the resolver enables
-the `react-native` condition. It exposes the same public API and types as the
-default Node/browser entry. The native entry contains no Node filesystem loader;
-UTF-8 encoding, randomness, and cryptographic capabilities required by SDK
-operations must be supplied by the application's runtime.
+Resolvers with the `react-native` condition enabled select
+`dist/native/index.js`, which exposes the same public API and types as the
+default Node/browser entry without a Node filesystem loader. The host runtime
+must provide UTF-8 encoding, randomness, and the cryptographic capabilities SDK
+operations require.
 
-Service-account credential files are unsupported in the native entry. Calling
-`loadServiceAccountCredentialFromPath`, or configuring
-`PHOENIX_SERVICE_ACCOUNT_CREDENTIAL`, rejects with `PhoenixAuthError` code
-`service_account_credential_file_unavailable`. A configured file path takes
-precedence over split environment credentials, so this error does not fall back
-to those credentials. Explicit credentials and split environment loading retain
-the default entry's contract. The default entry continues to load Node
-`fs/promises` lazily when a credential file is requested.
+Service-account credential files are unsupported in the native entry (whereas
+the default entry lazily loads `fs/promises`). Calling
+`loadServiceAccountCredentialFromPath` or setting
+`PHOENIX_SERVICE_ACCOUNT_CREDENTIAL` rejects with `PhoenixAuthError` code
+`service_account_credential_file_unavailable` and does not fall back to split
+environment credentials, because a configured file path takes precedence.
+Explicit credentials and split environment variables work identically to the
+default entry.
 
 ### Service-account sessions
 
@@ -642,7 +628,7 @@ await client.auth!.loginWithServiceAccountFromEnv();
 
 ## WebSocket Streams
 
-If you only need streams, you can construct the WS client directly:
+Construct a standalone WebSocket client when you only need streams:
 
 ```ts
 import { createPhoenixWsClient } from "@ellipsis-labs/rise";
@@ -677,9 +663,8 @@ Built-in stream adapters include:
 - `orderbookSnapshot`
 - `traderState`
 
-If you already own a raw websocket transport that implements the exported
-`WsClient` interface, use `createPhoenixWsFacade(...)` instead of creating
-another socket:
+To reuse an existing socket that implements `WsClient`, wrap it with
+`createPhoenixWsFacade(...)`:
 
 ```ts
 import { createPhoenixWsFacade, type WsClient } from "@ellipsis-labs/rise";
@@ -698,9 +683,8 @@ for await (const update of riseStreams.exchange()) {
 
 ## Custom WebSocket Subscriptions
 
-`rise` exposes typed custom subscription registration on both
-`createPhoenixWsClient(...)` and the top-level `registerSubscription(...)` /
-`registerSubscriptions(...)` helpers.
+Register typed custom channels on `createPhoenixWsClient(...)` or via the
+top-level `registerSubscription(...)` / `registerSubscriptions(...)` helpers:
 
 ```ts
 import { createPhoenixWsClient } from "@ellipsis-labs/rise";
@@ -732,9 +716,8 @@ for await (const price of customPrices("SOL")) {
 
 ## Custom HTTP Endpoints
 
-`PhoenixHttpClient` implements the exported `HttpTransport` interface, so you
-can reuse the built-in `get` / `post` / `put` / `patch` / `del` helpers for
-custom endpoints.
+`PhoenixHttpClient` implements `HttpTransport`, so you can call custom routes
+with `get`, `post`, `put`, `patch`, and `del`:
 
 ```ts
 import { createPhoenixClient, get } from "@ellipsis-labs/rise";
@@ -752,10 +735,6 @@ const health = await get(client.api, "/internal/health", HealthSchema, {
   auth: "disabled",
 });
 ```
-
-This is the cleanest way to add a small custom route without building another
-wrapper client first. The same pattern works with `post`, `put`, `patch`, and
-`del`.
 
 ## Errors
 
