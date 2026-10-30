@@ -93,6 +93,7 @@ pub enum MarketEvent {
     MarketStatusChanged(MarketStatusChangedEvent),
     #[deprecated(note = "This event is no longer emitted and should not be used by indexers")]
     MarketParametersUpdated(MarketParametersUpdatedEvent),
+    #[deprecated(note = "Superseded by FundingParametersUpdatedWithClamp")]
     FundingParametersUpdated(FundingParametersUpdatedEvent),
     FeesClaimed(FeesClaimedEvent),
 
@@ -194,6 +195,7 @@ pub enum MarketEvent {
 
     // Locked deposit events
     LockedDepositChanged(LockedDepositChangedEvent),
+    FundingParametersUpdatedWithClamp(FundingParametersUpdatedWithClampEvent),
 }
 
 /// Stable event type for a decoded [`MarketEvent`].
@@ -277,6 +279,7 @@ pub enum MarketEventType {
     AdditionalFeeAccrued,
     SpotAssetPriceUpdated,
     LockedDepositChanged,
+    FundingParametersUpdatedWithClamp,
 }
 
 impl fmt::Display for MarketEventType {
@@ -380,6 +383,9 @@ impl MarketEvent {
             MarketEvent::AdditionalFeeAccrued(_) => MarketEventType::AdditionalFeeAccrued,
             MarketEvent::SpotAssetPriceUpdated(_) => MarketEventType::SpotAssetPriceUpdated,
             MarketEvent::LockedDepositChanged(_) => MarketEventType::LockedDepositChanged,
+            MarketEvent::FundingParametersUpdatedWithClamp(_) => {
+                MarketEventType::FundingParametersUpdatedWithClamp
+            }
         }
     }
 }

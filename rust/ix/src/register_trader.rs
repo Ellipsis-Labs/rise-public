@@ -67,7 +67,9 @@ pub struct RegisterTraderParams {
     /// Maximum number of positions the account can hold.
     /// Cross margin: 128, Isolated margin: 1.
     max_positions: u64,
-    /// Raw trader preference bitfield.
+    /// Trader preference bitfield. Registration applies only
+    /// `DisableCollateralSweep`; set other preferences with
+    /// `update_trader_preference_bits` after registering.
     trader_preference_bits: u32,
     /// The PDA index for trader account derivation (0-255).
     trader_pda_index: u8,
@@ -200,7 +202,8 @@ impl RegisterTraderParamsBuilder {
             max_positions: self
                 .max_positions
                 .ok_or(PhoenixIxError::MissingField("max_positions"))?,
-            trader_preference_bits: self.trader_preference_bits,
+            trader_preference_bits: self.trader_preference_bits
+                & TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP,
             trader_pda_index: self
                 .trader_pda_index
                 .ok_or(PhoenixIxError::MissingField("trader_pda_index"))?,
@@ -389,7 +392,8 @@ mod tests {
         let ix = create_register_trader_ix(params).unwrap();
 
         assert_eq!(&ix.data[8..12], &1u32.to_le_bytes());
-        assert_eq!(&ix.data[12..16], &3u32.to_le_bytes());
+        // Bit 1 is dropped: registration applies only the collateral-sweep bit.
+        assert_eq!(&ix.data[12..16], &1u32.to_le_bytes());
         assert_eq!(ix.data[16], 4);
         assert_eq!(ix.data[17], 5);
     }

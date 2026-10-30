@@ -120,6 +120,21 @@ fn spot_collateral_events_use_the_expected_borsh_tags() {
     expected.extend_from_slice(&16u64.to_le_bytes());
     expected.extend_from_slice(&17u64.to_le_bytes());
     assert_eq!(price_updated, expected);
+
+    let funding_parameters_updated =
+        borsh::to_vec(&rise::MarketEvent::FundingParametersUpdatedWithClamp(
+            rise::FundingParametersUpdatedWithClampEvent {
+                symbol: rise::Symbol::new("SOL").unwrap(),
+                new_funding_interval_seconds: None,
+                new_funding_period_seconds: None,
+                new_max_funding_rate: None,
+                new_funding_clamp_center: Some(300),
+                new_funding_clamp_band_radius: Some(1_500),
+                new_funding_divisor: Some(2),
+            },
+        ))
+        .unwrap();
+    assert_eq!(funding_parameters_updated[0], 74);
 }
 
 /// Regression: before the spot-collateral variants existed, an unknown trailing

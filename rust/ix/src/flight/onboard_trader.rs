@@ -15,6 +15,7 @@ use crate::flight::constants::{
     get_flight_trader_onboarding_authority_address,
     get_flight_trader_onboarding_permission_address,
 };
+use crate::register_trader::TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP;
 use crate::types::{AccountMeta, Instruction, push_trader_index_accounts};
 
 /// Parameters for onboarding a trader through a Flight builder.
@@ -41,7 +42,9 @@ pub struct OnboardTraderParams {
     market_authority: Pubkey,
     /// Max open positions for the new trader.
     max_positions: u32,
-    /// Preference bits for the new trader.
+    /// Preference bits for the new trader. Registration applies only
+    /// `DisableCollateralSweep`; set other preferences with
+    /// `update_trader_preference_bits` after onboarding.
     trader_preference_bits: u32,
     /// Global trader index addresses (header + arenas).
     #[cfg_attr(feature = "serde", serde(with = "crate::serde_helpers::pubkey_vec"))]
@@ -204,7 +207,8 @@ impl OnboardTraderParamsBuilder {
                 .ok_or(PhoenixIxError::MissingField("max_positions"))?,
             trader_preference_bits: self
                 .trader_preference_bits
-                .ok_or(PhoenixIxError::MissingField("trader_preference_bits"))?,
+                .ok_or(PhoenixIxError::MissingField("trader_preference_bits"))?
+                & TRADER_PREFERENCE_DISABLE_COLLATERAL_SWEEP,
             global_trader_index,
             active_trader_buffer,
         })
@@ -291,6 +295,28 @@ mod tests {
             .global_trader_index(global_trader_index)
             .active_trader_buffer(vec![Pubkey::new_unique()])
             .build()
+    }
+
+    #[test]
+    fn registration_keeps_only_the_collateral_sweep_bit() {
+        let params = OnboardTraderParams::builder()
+            .builder_authority(Pubkey::new_unique())
+            .onboarder_signer(Pubkey::new_unique())
+            .payer(Pubkey::new_unique())
+            .trader_wallet(Pubkey::new_unique())
+            .risk_authority(Pubkey::new_unique())
+            .market_authority(Pubkey::new_unique())
+            .max_positions(8)
+            .trader_preference_bits(3)
+            .global_trader_index(vec![Pubkey::new_unique()])
+            .active_trader_buffer(vec![Pubkey::new_unique()])
+            .build()
+            .unwrap();
+
+        let ix = create_onboard_trader_ix(params).unwrap();
+
+        // Data: 8-byte discriminant, u32 max_positions, u32 preference bits.
+        assert_eq!(&ix.data[12..16], &1u32.to_le_bytes());
     }
 
     #[test]

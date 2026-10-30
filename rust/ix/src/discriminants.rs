@@ -339,6 +339,7 @@ define_instruction_discriminants! {
         ClearExpiredOrders => "clear_expired_orders",
         SyncParentToChild => "sync_parent_to_child",
         DelegateTrader => "delegate_trader",
+        UpdateTraderPreferenceBits => "update_trader_preference_bits",
         RevokePermission => "revoke_permission",
         CloseMarket => "close_market",
         TombstoneMarket => "tombstone_market",

@@ -2562,11 +2562,25 @@ impl TraderPortfolioMargin {
     }
 
     /// Maximum quote collateral withdrawable or transferable to
-    /// another trader. Subtracts the remaining locked deposit from the tighter
-    /// of the margin and payout bounds, saturating at zero.
+    /// another trader. Subtracts the locked deposit remaining once unsettled
+    /// funding settles from the tighter of the margin and payout bounds,
+    /// saturating at zero. The withdrawal settles funding before its margin
+    /// check, and each market's funding loss consumes the lock.
     pub fn calculate_withdrawable_collateral(&self) -> Result<u64, MarginError> {
+        // Settlement charges every market separately, so a credit in one
+        // market does not offset a loss in another.
+        let unsettled_funding_loss = self
+            .positions
+            .values()
+            .filter(|market| market.margin.unsettled_funding < SignedQuoteLots::ZERO)
+            .fold(QuoteLots::ZERO, |total, market| {
+                total.saturating_add(market.margin.unsettled_funding.abs_as_unsigned())
+            });
+        let locked_deposit_remaining = self
+            .locked_deposit_remaining
+            .saturating_sub(unsettled_funding_loss);
         let max_withdrawable = self.calculate_withdrawable_collateral_pre_lock()?;
-        Ok(max_withdrawable.saturating_sub(self.locked_deposit_remaining.as_inner()))
+        Ok(max_withdrawable.saturating_sub(locked_deposit_remaining.as_inner()))
     }
 
     /// Maximum quote collateral withdrawable after subtracting the
@@ -3204,7 +3218,7 @@ mod tests {
     }
 
     #[test]
-    fn withdrawal_lock_is_subtracted_after_pnl_funding_and_margin() {
+    fn withdrawal_post_settlement_lock_is_subtracted_after_pnl_funding_and_margin() {
         // cash, remaining lock, discounted PnL, funding, pre-lock bound, payout
         for (cash, locked, pnl, funding, transferable, withdrawable) in [
             (100, 50, 50, 0, 140, 90),
@@ -3217,7 +3231,10 @@ mod tests {
             (-10, 0, 100, 0, 80, 80),
             (100, 30, 50, 0, 140, 110),
             (100, 50, 0, 50, 140, 90),
-            (100, 50, 0, -60, 30, 0),
+            // Settling a funding loss consumes the lock before the check.
+            (100, 50, 0, -60, 30, 30),
+            (100, 50, 0, -20, 70, 40),
+            (45, 30, 0, -10, 25, 5),
             (1000, 0, -600, 0, 390, 390),
             (1000, 100, -600, 0, 390, 290),
             (100, 150, 0, 0, 90, 0),
@@ -3231,6 +3248,10 @@ mod tests {
                     initial_margin_for_withdrawals: QuoteLots::new(10),
                     ..Default::default()
                 },
+                positions: HashMap::from([(
+                    "SOL".to_string(),
+                    market_with_unsettled_funding(funding),
+                )]),
                 ..Default::default()
             };
             assert_eq!(
@@ -3242,6 +3263,42 @@ mod tests {
                 withdrawable
             );
         }
+    }
+
+    fn market_with_unsettled_funding(funding: i64) -> MarketMargin {
+        MarketMargin {
+            position: None,
+            limit_orders: vec![],
+            margin: Margin {
+                unsettled_funding: SignedQuoteLots::new(funding),
+                ..Default::default()
+            },
+        }
+    }
+
+    #[test]
+    fn each_market_funding_loss_consumes_the_lock_without_netting() {
+        // Net funding is zero, so the pre-lock bound is 100 - 20 = 80. The
+        // SOL loss still consumes 20 of the lock and the ETH credit restores
+        // none.
+        let margin = TraderPortfolioMargin {
+            quote_lot_collateral: SignedQuoteLots::new(100),
+            locked_deposit_remaining: QuoteLots::new(50),
+            margin: Margin {
+                initial_margin_for_withdrawals: QuoteLots::new(20),
+                ..Default::default()
+            },
+            positions: HashMap::from([
+                ("SOL".to_string(), market_with_unsettled_funding(-20)),
+                ("ETH".to_string(), market_with_unsettled_funding(20)),
+            ]),
+            ..Default::default()
+        };
+        assert_eq!(
+            margin.calculate_withdrawable_collateral_pre_lock().unwrap(),
+            80
+        );
+        assert_eq!(margin.calculate_withdrawable_collateral().unwrap(), 50);
     }
 
     #[test]

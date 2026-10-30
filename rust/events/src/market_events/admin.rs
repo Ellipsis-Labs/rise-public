@@ -73,6 +73,7 @@ pub struct ExchangeStatusChangedEvent {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MarketParametersUpdatedEvent {}
 
+#[deprecated(note = "Superseded by FundingParametersUpdatedWithClampEvent")]
 #[derive(Copy, Clone, BorshDeserialize, BorshSerialize, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FundingParametersUpdatedEvent {
@@ -80,6 +81,23 @@ pub struct FundingParametersUpdatedEvent {
     pub new_funding_interval_seconds: Option<FundingRateUnitInSeconds>,
     pub new_funding_period_seconds: Option<FundingRateUnitInSeconds>,
     pub new_max_funding_rate: Option<SignedQuoteLotsPerBaseLot>,
+}
+
+/// Funding parameter update. `new_funding_clamp_center` and
+/// `new_funding_clamp_band_radius` are in hundredths of a basis point of price:
+/// while the mark/index premium is within the band radius of the center,
+/// funding accrues at the center rate. The result is then divided by
+/// `new_funding_divisor`.
+#[derive(Copy, Clone, BorshDeserialize, BorshSerialize, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct FundingParametersUpdatedWithClampEvent {
+    pub symbol: Symbol,
+    pub new_funding_interval_seconds: Option<FundingRateUnitInSeconds>,
+    pub new_funding_period_seconds: Option<FundingRateUnitInSeconds>,
+    pub new_max_funding_rate: Option<SignedQuoteLotsPerBaseLot>,
+    pub new_funding_clamp_center: Option<u16>,
+    pub new_funding_clamp_band_radius: Option<u16>,
+    pub new_funding_divisor: Option<u8>,
 }
 
 #[derive(Copy, Clone, BorshDeserialize, BorshSerialize, Debug)]
