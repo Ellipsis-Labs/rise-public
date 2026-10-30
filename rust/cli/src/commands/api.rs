@@ -174,12 +174,6 @@ pub enum ApiCommand {
         cursor: Option<String>,
     },
     ReferralActivationPermission,
-    ActivateInvite {
-        #[arg(long)]
-        authority: String,
-        #[arg(long)]
-        code: String,
-    },
     ActivateReferral {
         #[arg(long)]
         authority: String,
@@ -496,13 +490,6 @@ async fn run_request(cmd: ApiCommand, ctx: &CommandCtx) -> Result<(), Box<dyn Er
         ApiCommand::ReferralActivationPermission => {
             print_json(
                 &client.invite().get_referral_activation_permission().await?,
-                ctx.output,
-            )?;
-        }
-        ApiCommand::ActivateInvite { authority, code } => {
-            let authority = parse_pubkey(&authority)?;
-            print_json(
-                &client.invite().activate_invite(&authority, &code).await?,
                 ctx.output,
             )?;
         }

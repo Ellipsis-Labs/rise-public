@@ -12,9 +12,8 @@ use solana_pubkey::Pubkey;
 use tokio::net::TcpListener;
 
 #[tokio::test]
-async fn activate_invite_parses_object_response() {
+async fn invite_client_parses_object_responses() {
     let app = Router::new()
-        .route("/v1/invite/activate", post(activate_invite_handler))
         .route("/v1/referral/activate", post(activate_referral_handler))
         .route(
             "/v1/referral/activation-permission",
@@ -43,12 +42,6 @@ async fn activate_invite_parses_object_response() {
         .build()
         .unwrap();
     let authority = expected_authority();
-
-    let trader_pda = client
-        .register_trader(&authority, "invite-code")
-        .await
-        .unwrap();
-    assert_eq!(trader_pda, "Trader1111111111111111111111111111111111");
 
     let referral_pda = client
         .invite()
@@ -192,16 +185,6 @@ fn referral_activation_trader_status_tracks_deposit_capability() {
         ReferralActivationTraderStatus::Registered
     );
     assert!(!has_referral_activation_capabilities(0));
-}
-
-async fn activate_invite_handler(Json(body): Json<Value>) -> Json<Value> {
-    assert_eq!(
-        body.get("code").and_then(Value::as_str),
-        Some("invite-code")
-    );
-    Json(json!({
-        "trader_pda": "Trader1111111111111111111111111111111111"
-    }))
 }
 
 async fn activate_referral_handler(Json(body): Json<Value>) -> Json<Value> {

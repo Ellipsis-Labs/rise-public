@@ -1390,14 +1390,6 @@ impl PhoenixHttpClient {
             .build_isolated_market_order_tx_enhanced_v2_with_request(request)
             .await
     }
-
-    pub async fn register_trader(
-        &self,
-        authority: &Pubkey,
-        code: &str,
-    ) -> Result<String, PhoenixHttpError> {
-        self.invite().activate_invite(authority, code).await
-    }
 }
 
 pub(crate) fn map_transport_error(

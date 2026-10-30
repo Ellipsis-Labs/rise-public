@@ -17,15 +17,6 @@ pub enum ExchangeCommand {
     Status,
     /// Fetch referral activation permission metadata.
     ReferralActivationPermission,
-    /// Activate an invite code for an authority.
-    ActivateInvite {
-        /// Trader authority pubkey.
-        #[arg(long)]
-        authority: String,
-        /// Invite code.
-        #[arg(long)]
-        code: String,
-    },
     /// Activate a referral code for an authority.
     ActivateReferral {
         /// Trader authority pubkey.
@@ -59,9 +50,6 @@ pub async fn run(cmd: ExchangeCommand, ctx: &CommandCtx) -> Result<(), Box<dyn E
         ExchangeCommand::Status => crate::commands::api::run(ApiCommand::ExchangeStatus, ctx).await,
         ExchangeCommand::ReferralActivationPermission => {
             crate::commands::api::run(ApiCommand::ReferralActivationPermission, ctx).await
-        }
-        ExchangeCommand::ActivateInvite { authority, code } => {
-            crate::commands::api::run(ApiCommand::ActivateInvite { authority, code }, ctx).await
         }
         ExchangeCommand::ActivateReferral {
             authority,
