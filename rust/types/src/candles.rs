@@ -83,10 +83,22 @@ pub struct ApiCandle {
     pub high: f64,
     pub open: f64,
     pub close: f64,
+    #[serde(default)]
+    pub mark_open: f64,
+    #[serde(default)]
+    pub mark_high: f64,
+    #[serde(default)]
+    pub mark_low: f64,
+    #[serde(default)]
+    pub mark_close: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub volume: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub volume_quote: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub trade_count: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_source: Option<String>,
 }
 
 /// Candle data with symbol and timeframe metadata.

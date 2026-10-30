@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.8.0 - 2026-10-30
+
+Source Phoenix commit: `42b97feb2da38be7e95b4f3284ccff1c97ecb6b7`
+
+### Summary
+
+- Rust `0.8.0` extends the `types` wire models with new optional/defaulted fields: `ApiCandle` now carries mark-price OHLC (`mark_open/high/low/close`), `volume_quote`, and `external_source`. `MarketPublicMetadata` gains `circulating_supply`, and `SpotAssetConfig` gains `mint` (absent for native SOL). `TraderView` gains `slot`, `slot_index`, and `num_markets_with_splines`. `ExchangeStateSnapshot` gains `pending_withdraw_throttle_replenishment`.
+- The `api` WebSocket client and trader-state cache now tolerate unrecognized server messages. Unknown channels, message types, delta fields, and exchange delta ops are skipped without disrupting the exchange store or trader subscriptions, so known deltas continue to be delivered.
+- Unrecognized trader escrow actions now deserialize to the new `TraderStateEscrowAction::Unknown` variant instead of failing the whole message. Malformed known actions (e.g. `cash` without `amount`) still fail to deserialize.
+- All Rise crates move to `0.8.0` together, with a refreshed `Cargo.lock` (e.g. `tokio` 1.54.1, `compression-codecs` 0.4.44, `zstd-sys` 2.1.2) and extended `deny.toml` advisory exceptions for transitive `crypto-bigint`/`zstd` dependencies.
+
+### Breaking Changes
+
+- `types`: `TraderStateEscrowAction` has a new `Unknown` variant. Exhaustive `match` expressions on it will no longer compile. Treat `Unknown` conservatively, because a request containing it may have effects this SDK cannot interpret.
+- `types`: New public fields on `ApiCandle`, `SpotAssetConfig`, `TraderView`, and `ExchangeStateSnapshot` break downstream code that builds these structs with literal syntax. Add the new fields, or use `..Default::default()` where the type implements `Default`.
+- `types`: `MarketPublicMetadata` no longer derives `Eq` because of the new `f64` field `circulating_supply`. Code that requires `Eq` or `Hash` on it, or on types containing it, will no longer compile. `PartialEq` is still available.
+
+### Consumer Notes
+
+- The new wire fields use `#[serde(default)]`, so payloads from servers that omit them still deserialize. Missing mark-price candle fields, `slot`, `slot_index`, and `num_markets_with_splines` read as `0`. Missing optional fields read as `None`. A missing `pending_withdraw_throttle_replenishment` reads as `0`.
+- Re-serialized `ApiCandle` values now always include the `mark_*` fields. `volume_quote` and `external_source` are omitted when `None`.
+- Update any `match` on `TraderStateEscrowAction` with an `Unknown` arm. The `deny.toml` changes only affect this repository's `cargo-deny` checks and need no consumer action.
+
 ## v0.7.1 - 2026-10-30
 
 Source Phoenix commit: `1a5e1b01974e5b11a7efe59f95dbcdd8e32fb60e`

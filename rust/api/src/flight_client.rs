@@ -294,6 +294,7 @@ mod tests {
             global_trader_index: vec![Pubkey::new_unique().to_string()],
             active_trader_buffer: vec![Pubkey::new_unique().to_string()],
             withdraw_queue: Pubkey::new_unique().to_string(),
+            pending_withdraw_throttle_replenishment: 0_u64.into(),
             exchange_status_bits: 129,
             exchange_status_features: vec!["initialized".to_string(), "active".to_string()],
             running_state: ExchangeRunningState::Active,

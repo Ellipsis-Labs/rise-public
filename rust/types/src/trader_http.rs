@@ -809,6 +809,10 @@ pub struct TraderView {
     pub flags: u16,
     pub state: TraderActivityState,
     pub capabilities: TraderCapabilitiesView,
+    #[serde(default)]
+    pub slot: u64,
+    #[serde(default)]
+    pub slot_index: u32,
     pub trader_key: String,
     pub trader_pda_index: u8,
     pub trader_subaccount_index: u8,
@@ -857,6 +861,8 @@ pub struct TraderView {
     pub last_deposit_slot: u64,
 
     pub is_in_active_traders: bool,
+    #[serde(default)]
+    pub num_markets_with_splines: u16,
 }
 
 /// Response wrapper for the `/trader/{authority}/state` endpoint.

@@ -28,6 +28,26 @@ name          = "ring"
 
 [advisories]
 ignore = [
+  # Temporary transitive exception: Solana's elliptic-curve 0.13 requires
+  # crypto-bigint ^0.5; the fix requires >=0.7.6, outside that version range.
+  # Remove this when these parents support a patched crypto-bigint release.
+  "RUSTSEC-2026-0387", # crypto-bigint - timing variability
+  # Temporary transitive exceptions: Solana account decoders and Tonic require
+  # zstd ^0.13, which requires zstd-safe ^7. Fixes require zstd >=0.14.3 and
+  # zstd-safe >=8.2.0. Remove these when upstream consumers support those versions.
+  "RUSTSEC-2026-0391", # zstd - abandoned stream data leaks through a reused context
+  "RUSTSEC-2026-0395", # zstd-safe - StableInBuffer use-after-free
+  "RUSTSEC-2026-0396", # zstd-safe - invalid seek table reads
+  "RUSTSEC-2026-0397", # zstd-safe - OutBuffer::around_pos exposes uninitialized memory
+  "RUSTSEC-2026-0398", # zstd-safe - seekable decompression exceeds Vec capacity
+  "RUSTSEC-2026-0399", # zstd-safe - borrowed dictionary use-after-free
+  "RUSTSEC-2026-0400", # zstd-safe - mixed streaming/one-shot dictionary use-after-free
+  "RUSTSEC-2026-0401", # zstd-safe - dictionary training sample-size overflow
+  "RUSTSEC-2026-0402", # zstd-safe - multithreaded CCtx::try_clone buffer overflow
+  "RUSTSEC-2026-0403", # zstd-safe - legacy frame errors expose uninitialized memory
+  "RUSTSEC-2026-0404", # zstd-safe - DCtx::try_clone double free
+  "RUSTSEC-2026-0405", # zstd-safe - out-of-range InBuffer::pos read
+  "RUSTSEC-2026-0406", # zstd-safe - unfinished multithreaded frame use-after-free
   # TLS dependencies require ^0.26; 0.26.11 only re-exports the patched 1.x roots.
   # The bans below reject every other unpatched webpki-roots version.
   "RUSTSEC-2026-0381",

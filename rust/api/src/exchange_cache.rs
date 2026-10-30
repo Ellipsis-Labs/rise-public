@@ -735,6 +735,7 @@ mod tests {
                 global_trader_index: vec!["gti-0".to_string()],
                 active_trader_buffer: vec!["atb-0".to_string()],
                 withdraw_queue: "withdraw-queue".to_string(),
+                pending_withdraw_throttle_replenishment: 0_u64.into(),
                 exchange_status_bits: 129,
                 exchange_status_features: vec!["initialized".to_string(), "active".to_string()],
                 running_state: ExchangeRunningState::Active,
@@ -823,6 +824,7 @@ mod tests {
                 decimals: 9,
                 spot: Some(SpotAssetConfig {
                     is_active: true,
+                    mint: None,
                     perp_asset_index: Some(1),
                     max_per_trader_balance: 1_000_000_000u64.into(),
                     max_global_balance: 10_000_000_000u64.into(),
@@ -947,6 +949,7 @@ mod tests {
                 ),
             }),
             display_color: Some("#14f195".to_string()),
+            circulating_supply: None,
         }
     }
 

@@ -1615,6 +1615,71 @@ mod tests {
     }
 
     #[test]
+    fn trader_subscription_delivers_known_deltas_after_unknown_messages() {
+        use phoenix_rise_types::prelude::TraderStateEscrowAction;
+
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let subscribers = HashMap::from([(
+            SubscriptionKey::TraderState {
+                authority: "authority".to_string(),
+                trader_pda_index: 0,
+            },
+            HashMap::from([(1, Subscriber::TraderState(tx))]),
+        )]);
+        let (event_tx, mut events) = mpsc::unbounded_channel();
+        for message in [
+            json!({"channel": "futureChannel"}),
+            json!({"channel": "traderState", "messageType": "futureMessage"}),
+            json!({
+                "channel": "traderState", "messageType": "delta",
+                "authority": "authority", "traderPdaIndex": 0, "slot": 11,
+                "deltas": [{
+                    "subaccountIndex": 0, "sequence": 2, "collateral": "105",
+                    "futureField": true,
+                    "escrowRequests": [{
+                        "sequenceNumber": "7", "senderAuthority": "sender",
+                        "senderPdaIndex": 0, "senderSubaccountIndex": 0,
+                        "expirationOffset": null, "initialSlot": "10",
+                        "expirationSlot": null,
+                        "actions": [{"kind": "futureAction"}, {"kind": "cash", "amount": "5"}]
+                    }]
+                }]
+            }),
+        ] {
+            PhoenixWSClient::process_message(
+                &serde_json::to_vec(&message).unwrap(),
+                &subscribers,
+                &event_tx,
+            );
+        }
+        let mut trader = crate::trader_state::Trader::new(crate::trader_key::TraderKey::new(
+            Pubkey::new_unique(),
+        ));
+        trader.apply_update(&rx.try_recv().expect("known delta should be delivered"));
+        let subaccount = &trader.subaccounts[&0];
+        assert_eq!(subaccount.sequence, 2);
+        assert_eq!(
+            subaccount.collateral,
+            phoenix_rise_math::SignedQuoteLots::new(105)
+        );
+        assert_eq!(
+            subaccount.escrow_requests[0].actions,
+            vec![
+                TraderStateEscrowAction::Unknown,
+                TraderStateEscrowAction::Cash { amount: 5.into() },
+            ]
+        );
+        assert!(matches!(
+            rx.try_recv(),
+            Err(mpsc::error::TryRecvError::Empty)
+        ));
+        assert!(matches!(
+            events.try_recv(),
+            Err(mpsc::error::TryRecvError::Empty)
+        ));
+    }
+
+    #[test]
     fn process_message_routes_market_stats_v2_by_exact_filter() {
         let (filtered_tx, mut filtered_rx) = mpsc::unbounded_channel();
         let (legacy_tx, mut legacy_rx) = mpsc::unbounded_channel();
@@ -1829,9 +1894,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn exchange_store_keeps_receiving_updates_via_client_owned_pump() {
+    async fn exchange_store_keeps_receiving_updates_after_unknown_messages() {
         let (ws_url, feed_tx) = spawn_exchange_feed_ws_server().await;
-        let client = PhoenixWSClient::new(&ws_url).expect("ws client should build");
+        let mut client = PhoenixWSClient::new(&ws_url).expect("ws client should build");
         let initial_root = Pubkey::new_unique();
         let rotated_root = Pubkey::new_unique();
         feed_tx
@@ -1844,10 +1909,24 @@ mod tests {
             .expect("exchange_store should succeed");
         assert_eq!(store.root_authority(), Some(initial_root));
 
-        // The pump owned by the client keeps applying deltas after
-        // `exchange_store()` returned; no guard for the caller to hold.
+        let mut events = client.subscription_event_receiver().unwrap();
+        for message in [
+            json!({"channel": "futureChannel", "payload": true}),
+            json!({"channel": "exchange", "messageType": "futureMessage"}),
+            json!({"channel": "traderState", "messageType": "futureMessage"}),
+        ] {
+            feed_tx
+                .send(message.to_string())
+                .expect("feed should stay open");
+        }
+        let mut delta: serde_json::Value =
+            serde_json::from_str(&exchange_keys_delta_json(11, &rotated_root)).unwrap();
+        delta["ops"]
+            .as_array_mut()
+            .unwrap()
+            .insert(0, json!({"kind": "futureDelta", "value": 42}));
         feed_tx
-            .send(exchange_keys_delta_json(11, &rotated_root))
+            .send(delta.to_string())
             .expect("feed channel should accept the delta");
 
         tokio::time::timeout(Duration::from_secs(5), async {
@@ -1860,6 +1939,10 @@ mod tests {
         })
         .await
         .expect("store should observe the rotated root authority");
+        assert!(matches!(
+            events.try_recv(),
+            Err(mpsc::error::TryRecvError::Empty)
+        ));
     }
 
     fn test_exchange_state_snapshot(
@@ -1884,6 +1967,7 @@ mod tests {
             global_trader_index: vec!["gti-0".to_string()],
             active_trader_buffer: vec!["atb-0".to_string()],
             withdraw_queue: "withdraw-queue".to_string(),
+            pending_withdraw_throttle_replenishment: 0_u64.into(),
             exchange_status_bits: 129,
             exchange_status_features: vec!["initialized".to_string(), "active".to_string()],
             running_state: phoenix_rise_types::prelude::ExchangeRunningState::Active,

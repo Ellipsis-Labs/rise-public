@@ -505,6 +505,7 @@ mod tests {
                 decimals: 9,
                 spot: Some(SpotAssetConfig {
                     is_active: false,
+                    mint: None,
                     perp_asset_index: Some(1),
                     max_per_trader_balance: JsSafeU64::from(10),
                     max_global_balance: JsSafeU64::from(20),
