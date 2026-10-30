@@ -5,12 +5,15 @@ import {
   fetchOrderbookHeader,
   decodeLastRestartSlot,
   getExchangeRunningState,
+  GLOBAL_FEATURE_NATIVE_SOL_COLLATERALS,
 } from "@/accounts";
 import type {
   GlobalConfiguration,
   PerpAssetMetadata,
+  SpotCollateralMetadata,
   WithdrawQueueHeader,
 } from "@/accounts";
+import type { CollateralAssetMetadata } from "@/api/collateral/types";
 import type { AccountFetcherClient } from "@/accounts/fetcherFactory";
 import type {
   ExchangeMarketSnapshot,
@@ -518,6 +521,87 @@ const determineMarketChangeKind = (
   return null;
 };
 
+const QUOTE_ASSET_INDEX = 0xffffffff;
+const NATIVE_SOL_ASSET_INDEX = 0xffff0000;
+const ZERO_MINT_ADDRESS = "11111111111111111111111111111111";
+
+const toCollateralAsset = (
+  assetIndex: number,
+  symbol: string,
+  metadata: SpotCollateralMetadata,
+  isActive: boolean
+): CollateralAssetMetadata => ({
+  assetIndex,
+  symbol,
+  decimals: metadata.decimals,
+  spot: {
+    ...(metadata.mintAddress === ZERO_MINT_ADDRESS
+      ? {}
+      : { mint: metadata.mintAddress }),
+    isActive,
+    ...(metadata.hasPerpAsset
+      ? { perpAssetIndex: metadata.perpAssetIndex }
+      : {}),
+    maxPerTraderBalance: metadata.maxPerTraderBalance,
+    maxGlobalBalance: metadata.maxGlobalBalance,
+    currGlobalBalance: metadata.currGlobalBalance,
+    minMarginDiscountBps: metadata.minMarginDiscountBps,
+    maxMarginDiscountBps: metadata.maxMarginDiscountBps,
+    maxLiquidationDiscountBps: metadata.maxLiquidationDiscountBps,
+    minLiquidationSlippageBps: metadata.minLiquidationSlippageBps,
+    maxLiquidationSize: metadata.maxLiquidationSize,
+    ...(metadata.oraclePrice && metadata.oraclePrice.tickSize !== 0n
+      ? {
+          oraclePrice: {
+            ticks: metadata.oraclePrice.ticks,
+            tickSize: metadata.oraclePrice.tickSize,
+            baseLotDecimals: metadata.oraclePrice.baseLotDecimals,
+          },
+        }
+      : {}),
+  },
+});
+
+/**
+ * The collateral asset registry as the API serves it: the quote asset, native
+ * SOL, then every registered SPL spot asset. Native SOL counts only while its
+ * feature bit is set, its metadata is active, and its pricing perp exists.
+ */
+const toSpotCollaterals = (
+  globalConfiguration: GlobalConfiguration,
+  perpAssetMap: ReturnType<typeof decodePerpAssetMap>
+): CollateralAssetMetadata[] => {
+  const nativeSol = globalConfiguration.nativeSolSpotMetadata;
+  const nativeSolActive =
+    (globalConfiguration.featureSet & GLOBAL_FEATURE_NATIVE_SOL_COLLATERALS) !==
+      0 &&
+    nativeSol.isActive &&
+    nativeSol.hasPerpAsset &&
+    perpAssetMap.metadata.entries.some(
+      ({ value }) =>
+        value.staticMarketParams.assetId === nativeSol.perpAssetIndex
+    );
+  return [
+    { assetIndex: QUOTE_ASSET_INDEX, symbol: "USDC", decimals: 6 },
+    toCollateralAsset(
+      NATIVE_SOL_ASSET_INDEX,
+      "SOL",
+      nativeSol,
+      nativeSolActive
+    ),
+    ...perpAssetMap.spotCollaterals
+      .filter(({ assetIndex }) => assetIndex !== NATIVE_SOL_ASSET_INDEX)
+      .map(({ assetIndex, symbol, metadata }) =>
+        toCollateralAsset(
+          assetIndex,
+          String(symbol),
+          metadata,
+          metadata.isActive
+        )
+      ),
+  ];
+};
+
 const loadGlobalConfigurationAndPerpAssetMap = async (params: {
   fetcher: PhoenixRpcAccountFetcherClient;
   globalConfigurationAddress: Address;
@@ -621,6 +705,7 @@ export const loadRpcSnapshot = async (
       lastRestartSlot
     ),
     markets,
+    spotCollaterals: toSpotCollaterals(globalConfiguration, perpAssetMap),
   };
 };
 
@@ -663,6 +748,18 @@ export const emitExchangeDiffEvents = (params: {
     emit({
       type: "exchangeUpdated",
       change: exchangeChange,
+      slot,
+      slotIndex,
+    });
+  }
+
+  if (
+    stringifyComparable(current.spotCollaterals ?? []) !==
+    stringifyComparable(next.spotCollaterals ?? [])
+  ) {
+    emit({
+      type: "exchangeUpdated",
+      change: "spotCollaterals",
       slot,
       slotIndex,
     });

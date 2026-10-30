@@ -18,6 +18,7 @@ exports[`raw account parsing > decodes GlobalConfiguration fixtures 1`] = `
   },
   "depositCooldownPeriodInSlots": "0",
   "exchangeStatus": 131,
+  "featureSet": 0,
   "globalTraderIndexHeaderKey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
   "globalVaultKey": "csZXgw2G58hbiWc9ndxaxrQVYVvqdXgQzYLuznEzHJu",
   "nativeSolSpotMetadata": {

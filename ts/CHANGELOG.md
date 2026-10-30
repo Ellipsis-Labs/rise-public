@@ -3,6 +3,31 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.7.1 - 2026-10-30
+
+Source Phoenix commit: `fbcf2b63964c4fe0560c80bb7da91c3aecfe2fbe`
+
+### Summary
+
+- Adds native SOL and SPL spot collateral registry support to the exchange cache. The RPC snapshot now includes `spotCollaterals` (USDC quote asset, native SOL, then registered SPL assets) in the same shape as `client.api.collateral().getAssets()`. A new `exchangeUpdated` event with `change: "spotCollaterals"` fires when the registry changes.
+- `GlobalConfiguration` now decodes the former padding bytes as `featureSet: number`. The package exports a new `GLOBAL_FEATURE_NATIVE_SOL_COLLATERALS` constant for checking whether native SOL counts as margin collateral.
+- `MarginMarketParamsStore` gains `updateIndexPrices()` and `updateSpotCollaterals()`, so live index prices and registry updates can be applied between refreshes. `updateMarkPrices()` behavior is unchanged.
+- Margin calculators from `createMarginCalculator` now value spot collateral in `simulateMargin`, `simulateMarginScenarios` and `simulatePositionFill`. Previously these dropped spot collateral. The standalone `simulate*FromInputs` functions take an optional trailing `options` argument.
+- The README documents the collateral asset registry semantics and the `exchange` stream's default `base64+zstd` snapshot encoding.
+
+### Breaking Changes
+
+- `GlobalConfiguration` has a new required `featureSet` field. Code that constructs `GlobalConfiguration` objects, such as test fixtures or mocks, must now supply it. Code that compares decoded objects with `toEqual` must account for it.
+- `MarginMarketParamsStore.refresh()` now rejects when `/v1/collateral/assets` fails with anything other than a 404. It keeps the previous snapshot instead of silently valuing spot collateral at zero. Only a 404 still degrades to empty spot collateral. Callers that relied on any failure being swallowed must now handle the rejection.
+- Simulation results from calculators with spot collateral now include that collateral, so margin figures from `simulateMargin`, `simulateMarginScenarios` and `simulatePositionFill` can differ from 0.7.0.
+
+### Consumer Notes
+
+- A margin calculator is immutable. After `updateMarkPrices`, `updateIndexPrices`, `updateSpotCollaterals` or a refresh, call `getCalculator()` again, for example from a `subscribe` listener.
+- An asset accepts deposits only when its `spot` is non-null and `spot.isActive` is true. The quote asset (USDC) has no `spot`, and native SOL has no `mint`.
+- In the registry, native SOL is active only when its `featureSet` bit is set, its metadata is active, and its pricing perp exists.
+- Raw WebSocket clients must decode `base64+zstd` exchange snapshots themselves or subscribe with `"encoding": "json"`. The SDK's `exchange` stream decodes them transparently.
+
 ## v0.7.0 - 2026-10-30
 
 Source Phoenix commit: `42b97feb2da38be7e95b4f3284ccff1c97ecb6b7`

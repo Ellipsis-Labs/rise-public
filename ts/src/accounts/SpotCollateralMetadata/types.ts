@@ -3,7 +3,7 @@ import type { MintAddress } from "@/primitives/_addressTypes";
 import type { QuoteLots } from "@/primitives/_numberTypes";
 
 /** The asset is engaged in margin. This is only half the gate — the exchange
- * feature bit must be set too. See `isNativeSolCollateralActive`. */
+ * feature bit must be set too. See `GLOBAL_FEATURE_NATIVE_SOL_COLLATERALS`. */
 export const SPOT_COLLATERAL_FLAG_IS_ACTIVE: number = 1 << 0;
 /** `perpAssetIndex` points at a real perp asset, whose index price values this
  * collateral. */

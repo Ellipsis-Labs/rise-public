@@ -7,12 +7,12 @@ import {
   isExchangeEffectivelyActive,
 } from "../src";
 
-const decodeConfiguration = (reservedByte = 0) => {
+const decodeConfiguration = (featureByte = 0) => {
   const bytes = new Uint8Array(2560);
   bytes.set(ACCOUNT_DISCRIMINANTS.GLOBAL_CONFIGURATION);
   const view = new DataView(bytes.buffer);
   view.setUint8(504, 0b1000_0001);
-  bytes.fill(reservedByte, 508, 512);
+  bytes.fill(featureByte, 508, 512);
   view.setBigUint64(1096, 42n, true);
   return decodeGlobalConfiguration(bytes);
 };
@@ -41,9 +41,12 @@ describe("exchange running state", () => {
     ).toBe(false);
   });
 
-  it("ignores reserved bytes when decoding and resolving status", () => {
+  it("ignores feature bits when resolving status", () => {
     const globalConfiguration = decodeConfiguration(255);
-    expect(globalConfiguration).toEqual(activeConfiguration);
+    expect(globalConfiguration).toEqual({
+      ...activeConfiguration,
+      featureSet: 0xffffffff,
+    });
     for (const configuration of [
       globalConfiguration,
       { ...globalConfiguration },

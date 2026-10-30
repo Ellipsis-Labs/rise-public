@@ -255,6 +255,37 @@ describe("margin spot collateral valuation", () => {
     const margin = calculatorWithSpot.computeSubaccountMarginFromInputs(inputs);
     expect(margin.spotCollaterals).toHaveLength(1);
     expect(margin.margin.effectiveCollateralQuoteLots).toBe("93000000");
+
+    // Simulations must value the same balances through the calculator's
+    // params rather than dropping the spot collateral.
+    const simulation = calculatorWithSpot.simulateMargin({
+      subaccount: inputs,
+      actions: [],
+    });
+    expect(simulation.before.margin.effectiveCollateralQuoteLots).toBe(
+      "93000000"
+    );
+    expect(simulation.after.margin.effectiveCollateralQuoteLots).toBe(
+      "93000000"
+    );
+    const scenarios = calculatorWithSpot.simulateMarginScenarios({
+      subaccount: inputs,
+      scenarios: [{ label: "noop", actions: [] }],
+    });
+    expect(
+      scenarios.scenarios[0]?.simulation.after.margin
+        .spotCollateralDiscountedQuoteLots
+    ).toBe("92000000");
+    const fill = calculatorWithSpot.simulatePositionFill({
+      subaccount: inputs,
+      symbol: "SOL",
+      side: "bid",
+      baseLots: "1",
+      priceTicks: "5000",
+    });
+    expect(fill.margin.margin.spotCollateralDiscountedQuoteLots).toBe(
+      "92000000"
+    );
   });
 
   it("reprices spot collateral along the liquidation price path", () => {

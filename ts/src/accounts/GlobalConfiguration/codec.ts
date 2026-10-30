@@ -5,6 +5,7 @@ import {
   getHiddenPrefixDecoder,
   getStructDecoder,
   getU16Decoder,
+  getU32Decoder,
   getU64Decoder,
   getU8Decoder,
   transformDecoder,
@@ -47,7 +48,7 @@ export const getGlobalConfigurationDecoder = (): Decoder<GlobalConfiguration> =>
         ["exchangeStatus", getU8Decoder()],
         ["quoteDecimals", getU8Decoder()],
         ["withdrawalMarginFactorBps", getU16Decoder()],
-        ["_padding0", getFixedArrayDecoder(getU8Decoder, 4)],
+        ["featureSet", getU32Decoder()],
         ["depositCooldownPeriodInSlots", getU64Decoder()],
         ["pendingAuthorities", getAuthoritySetDecoder()],
         ["nativeSolSpotMetadata", getSpotCollateralMetadataDecoder()],
@@ -63,7 +64,6 @@ export const getGlobalConfigurationDecoder = (): Decoder<GlobalConfiguration> =>
       [getConstantDecoder(ACCOUNT_DISCRIMINANTS.GLOBAL_CONFIGURATION)]
     ),
     ({
-      _padding0,
       _padding1,
       _padding2,
       _padding3,

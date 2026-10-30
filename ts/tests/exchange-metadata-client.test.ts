@@ -397,6 +397,22 @@ describe("exchange metadata client integration", () => {
 
   it("uses the RPC batch slot when bootstrapping exchange metadata from RPC", async () => {
     const globalConfigBytes = loadMockBytes("global_config.json");
+    // Enable native SOL collateral: the feature bit plus an active, SOL-perp
+    // priced metadata (offsets into the GlobalConfiguration layout).
+    const globalConfigView = new DataView(
+      globalConfigBytes.buffer,
+      globalConfigBytes.byteOffset,
+      globalConfigBytes.byteLength
+    );
+    const nativeSolMetadataOffset = 776;
+    globalConfigView.setUint32(508, 1 << 1, true);
+    globalConfigView.setUint32(nativeSolMetadataOffset + 32, 9, true);
+    globalConfigView.setBigUint64(
+      nativeSolMetadataOffset + 48,
+      10_000_000_000n,
+      true
+    );
+    globalConfigBytes[nativeSolMetadataOffset + 104] = 0b11;
     const perpAssetMapBytes = loadMockBytes("perp_asset_map.json");
     const lastRestartSlotBytes = new Uint8Array(8);
     const fetchOrderbookHeaderSpy = vi
@@ -499,6 +515,26 @@ describe("exchange metadata client integration", () => {
         cancelOrder: riskFactors.cancelOrderBps / 100,
       });
     }
+    expect(snapshot.spotCollaterals).toEqual([
+      { assetIndex: 0xffffffff, symbol: "USDC", decimals: 6 },
+      {
+        assetIndex: 0xffff0000,
+        symbol: "SOL",
+        decimals: 9,
+        spot: {
+          isActive: true,
+          perpAssetIndex: 0,
+          maxPerTraderBalance: 0n,
+          maxGlobalBalance: 10_000_000_000n,
+          currGlobalBalance: 0n,
+          minMarginDiscountBps: 0,
+          maxMarginDiscountBps: 0,
+          maxLiquidationDiscountBps: 0,
+          minLiquidationSlippageBps: 0,
+          maxLiquidationSize: 0n,
+        },
+      },
+    ]);
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchOrderbookHeaderSpy).toHaveBeenCalled();
     expect(getGlobalTraderIndexAddressesSpy).toHaveBeenCalledOnce();

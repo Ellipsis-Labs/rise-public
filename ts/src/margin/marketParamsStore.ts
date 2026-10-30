@@ -1,5 +1,6 @@
 import type { MarketResponse } from "@/api/markets/types";
 import type { CollateralAssetsResponse } from "@/api/collateral/types";
+import { PhoenixHttpError } from "@/errors";
 import type { MarketsResponse, MarketSummary } from "@/types";
 import { createMarginCalculator, type MarginCalculator } from "./compute";
 import type { MarketParamsBySymbol } from "./compute";
@@ -403,6 +404,11 @@ export const spotCollateralParamsFromAssets = (
     ];
   });
 
+const symbolsByAssetId = (
+  markets: readonly MarketSummary[]
+): Map<number, string> =>
+  new Map(markets.map((market) => [market.assetId, String(market.symbol)]));
+
 const defaultPriceSource: MarketPriceSource = {
   async getMarkPrices(symbols, client) {
     return (await getDefaultPrices(symbols, client)).markPricesBySymbol;
@@ -460,6 +466,11 @@ export class MarginMarketParamsStore<
     return snapshot.paramsBySymbol;
   }
 
+  /**
+   * A calculator over the current snapshot. The calculator is immutable: later
+   * refreshes and `update*` calls do not change it, so reacquire one after
+   * each update (e.g. from a `subscribe` listener).
+   */
   async getCalculator(): Promise<MarginCalculator> {
     const snapshot = await this.getSnapshot();
     return createMarginCalculator(
@@ -495,28 +506,41 @@ export class MarginMarketParamsStore<
   updateMarkPrices(
     markPricesBySymbol: Record<string, number | string | null>
   ): void {
-    if (!this.lastMarkets) {
-      throw new Error("Market summaries have not been loaded yet");
-    }
-
-    const nextPrices = {
-      ...this.lastMarkPrices,
-      ...pricesForMarkets(this.lastMarkets, markPricesBySymbol),
-    };
-    const paramsBySymbol = buildMarketParamsBySymbol(
-      this.lastMarkets,
-      nextPrices,
+    const markets = this.requireMarkets();
+    this.rebuildSnapshot(
       {
-        missingPriceBehavior: this.missingPriceBehavior,
-        indexPricesBySymbol: this.lastIndexPrices,
-      }
+        ...this.lastMarkPrices,
+        ...pricesForMarkets(markets, markPricesBySymbol),
+      },
+      this.lastIndexPrices
     );
-    this.lastMarkPrices = nextPrices;
-    this.updateSnapshot(
-      paramsBySymbol,
-      this.lastSpotCollaterals,
-      this.lastSnapshot?.slot
+  }
+
+  /**
+   * Merge partial index prices, which value perp-priced spot collateral
+   * (native SOL and perp-linked SPL assets). Same key rules as
+   * `updateMarkPrices`.
+   */
+  updateIndexPrices(
+    indexPricesBySymbol: Record<string, number | string | null>
+  ): void {
+    const markets = this.requireMarkets();
+    this.rebuildSnapshot(this.lastMarkPrices, {
+      ...this.lastIndexPrices,
+      ...pricesForMarkets(markets, indexPricesBySymbol),
+    });
+  }
+
+  /**
+   * Replace the spot collateral registry, e.g. from an exchange
+   * `spotCollaterals` update. Oracle-priced assets carry their price here.
+   */
+  updateSpotCollaterals(spotCollaterals: CollateralAssetsResponse): void {
+    this.lastSpotCollaterals = spotCollateralParamsFromAssets(
+      spotCollaterals,
+      symbolsByAssetId(this.requireMarkets())
     );
+    this.rebuildSnapshot(this.lastMarkPrices, this.lastIndexPrices);
   }
 
   startAutoRefresh(): void {
@@ -534,6 +558,34 @@ export class MarginMarketParamsStore<
     }
     clearInterval(this.timer);
     this.timer = null;
+  }
+
+  private requireMarkets(): MarketSummary[] {
+    if (!this.lastMarkets) {
+      throw new Error("Market summaries have not been loaded yet");
+    }
+    return this.lastMarkets;
+  }
+
+  private rebuildSnapshot(
+    markPrices: Record<string, number | string | null>,
+    indexPrices: Record<string, number | string | null>
+  ): void {
+    const paramsBySymbol = buildMarketParamsBySymbol(
+      this.requireMarkets(),
+      markPrices,
+      {
+        missingPriceBehavior: this.missingPriceBehavior,
+        indexPricesBySymbol: indexPrices,
+      }
+    );
+    this.lastMarkPrices = markPrices;
+    this.lastIndexPrices = indexPrices;
+    this.updateSnapshot(
+      paramsBySymbol,
+      this.lastSpotCollaterals,
+      this.lastSnapshot?.slot
+    );
   }
 
   private isExpired(): boolean {
@@ -565,19 +617,20 @@ export class MarginMarketParamsStore<
     const [{ markPricesBySymbol, indexPricesBySymbol }, spotCollaterals] =
       await Promise.all([
         prices,
-        // Servers that predate /v1/collateral/assets have no spot collateral
-        // to value, so a failed fetch degrades to empty params (spot valued at
-        // zero — the feature's fail-open-to-under-valuation rule) instead of
-        // taking the whole market-params refresh down with it.
-        collateralClient
-          ?.getAssets()
-          .catch((): CollateralAssetsResponse => ({ assets: [] })) ??
-          Promise.resolve<CollateralAssetsResponse>({ assets: [] }),
+        // Servers that predate /v1/collateral/assets (404) have no spot
+        // collateral to value. Any other failure fails the refresh, keeping
+        // the previous snapshot, rather than silently valuing spot at zero.
+        collateralClient?.getAssets().catch((error: unknown) => {
+          if (error instanceof PhoenixHttpError && error.status === 404) {
+            return { assets: [] };
+          }
+          throw error;
+        }) ?? Promise.resolve<CollateralAssetsResponse>({ assets: [] }),
       ]);
 
     const nextSpotCollaterals = spotCollateralParamsFromAssets(
       spotCollaterals,
-      new Map(markets.map((market) => [market.assetId, String(market.symbol)]))
+      symbolsByAssetId(markets)
     );
     const nextMarkPrices = pricesForMarkets(markets, markPricesBySymbol);
     const nextIndexPrices = pricesForMarkets(markets, indexPricesBySymbol);
