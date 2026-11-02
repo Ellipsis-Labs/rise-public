@@ -3,6 +3,24 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.7.5 - 2026-11-02
+
+Source Phoenix commit: `ad40482db620d405e43fb011a40fbd0d79c58df0`
+
+### Summary
+
+- Bumped `@ellipsis-labs/rise` from 0.7.4 to 0.7.5.
+- Upgraded the pinned transitive `minimatch` dependency from 10.2.4 to 11.0.3. This is a security hotpatch for GHSA-g3hv-75wg-m249 and adds `@isaacs/nonrecursive-glob-match` as a new transitive dependency.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- The `minimatch` override and lockfile changes apply to this package's own dependency resolution. No public exports, types, clients, or runtime entrypoints changed in the diff.
+- The `bunfig.toml` release-age exclude changes affect only local installs in this repo, not published package behavior.
+
 ## v0.7.4 - 2026-10-30
 
 Source Phoenix commit: `5ade6930ff3c7a2bf769435b3d3de8cc5e91af53`
