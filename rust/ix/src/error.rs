@@ -60,6 +60,9 @@ pub enum PhoenixIxError {
     #[error("Invalid transfer amount (must be greater than 0)")]
     InvalidTransferAmount,
 
+    #[error("Invalid target leverage (must be greater than 0)")]
+    InvalidTargetLeverage,
+
     #[error("Invalid swap amount (must be greater than 0)")]
     InvalidSwapAmount,
 
