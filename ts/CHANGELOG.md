@@ -3,6 +3,24 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.7.8 - 2026-11-05
+
+Source Phoenix commit: `fb2c3d5a89698c5ef620cdcf98f2f5e2b193e82d`
+
+### Summary
+
+- Fixed a WebSocket race in lazy-connection mode. If you subscribed while a socket was still in its handshake, the client could open a redundant second socket. It now reuses the pending socket.
+- Subscriptions added during the handshake are sent when that socket opens, alongside the ones registered earlier.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- No API or type changes. This is a runtime fix, so upgrading from 0.7.7 to 0.7.8 needs no code changes.
+- If you subscribe to several channels in quick succession at startup, you should now see one connection attempt instead of extra sockets.
+
 ## v0.7.7 - 2026-11-05
 
 Source Phoenix commit: `f74f50fadbe883f5c97282eb9dd27565cf55499f`

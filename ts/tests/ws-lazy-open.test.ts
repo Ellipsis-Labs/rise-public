@@ -233,7 +233,7 @@ describe("rise ws lazy connection mode", () => {
     streams.close();
   });
 
-  it("ignores stale socket opens until the current socket is open", async () => {
+  it("reuses the pending socket and ignores stale opens until it is open", async () => {
     vi.useFakeTimers();
 
     class RaceWebSocket {
@@ -299,11 +299,23 @@ describe("rise ws lazy connection mode", () => {
     expect(RaceWebSocket.instances).toHaveLength(2);
     const second = RaceWebSocket.instances[1]!;
 
+    const fillsMessage = {
+      type: "subscribe" as const,
+      subscription: { channel: "fills" as const, symbol: "SOL" },
+    };
+    ws.subscribe("fills:SOL", fillsMessage, () => {});
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(RaceWebSocket.instances).toHaveLength(2);
+
     expect(() => first.open()).not.toThrow();
     expect(second.sent).toEqual([]);
 
     second.open();
-    expect(second.sent).toEqual([JSON.stringify(subscribeMessage)]);
+    expect(second.sent).toEqual([
+      JSON.stringify(subscribeMessage),
+      JSON.stringify(fillsMessage),
+    ]);
 
     ws.close();
   });

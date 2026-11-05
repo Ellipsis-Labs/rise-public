@@ -217,6 +217,11 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
     if (canUseAnonymousSocketWhileAwaitingAuth() && isOpenSocket(ws)) {
       return;
     }
+    // A socket still in its handshake resubscribes every registered listener
+    // from `onopen`, so it already covers subscriptions added in the meantime.
+    if (lifecycle.state === "connecting" && ws) {
+      return;
+    }
     if (lifecycle.isConnected || connectInFlight || reconnectTimer) {
       return;
     }
