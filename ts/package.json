@@ -1,6 +1,6 @@
 {
   "name": "@ellipsis-labs/rise",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "packageManager": "bun@1.4.4",
   "repository": {
     "type": "git",
@@ -75,7 +75,7 @@
     "brace-expansion": ">=5.0.12",
     "defu": "6.1.6",
     "flatted": "3.4.2",
-    "minimatch": ">=10.2.3",
+    "minimatch": "11.0.3",
     "nanoid": "^3.3.18",
     "postcss": ">=8.5.23",
     "picomatch": ">=4.0.4",
