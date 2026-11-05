@@ -85,7 +85,6 @@ export const HTTP_RESOURCE_PRESENT_METHODS = {
     "getTraderPnl",
     "getTraderCapabilities",
     "getTraderPortfolioValues",
-    "getTraderTimeWeightedReturns",
     "getTraderPnlValues",
     "getTraderMarketPnl",
   ],

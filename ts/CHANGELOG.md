@@ -3,6 +3,27 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.7.7 - 2026-11-05
+
+Source Phoenix commit: `f74f50fadbe883f5c97282eb9dd27565cf55499f`
+
+### Summary
+
+- Removed the trader time-weighted returns API from the TypeScript SDK. `V1TradersClient.getTraderTimeWeightedReturns` and its `/v1/traders/{traderPubkey}/time-weighted-returns` request are no longer available.
+- Removed the related exported types and schemas: `TimeWeightedReturnsRequest`, `TimeWeightedReturnsResolution`, `TimeWeightedReturnsResponse`, `TimeWeightedReturnsResponseSchema`, `TimeWeightedReturnPoint`, `TimeWeightedReturnScope`, `TimeWeightedReturnWindow`, `TimeWeightedReturnQuality`, `TimeWeightedReturnCompleteness` and their matching Zod schemas.
+- Bumped the package version from `0.7.6` to `0.7.7`.
+
+### Breaking Changes
+
+- `getTraderTimeWeightedReturns` is removed from `V1TradersClient`. Any call to it will fail to compile and will fail at runtime.
+- All `TimeWeightedReturn*` types and schemas listed above are removed from the traders module. Imports of them will fail to compile.
+
+### Consumer Notes
+
+- Drop calls to `getTraderTimeWeightedReturns` and any imports of the removed `TimeWeightedReturn*` types and schemas.
+- The diff adds no replacement endpoint. If you need return or performance data, `getTraderPnlValues` and `getTraderPortfolioValues` remain on the client. They return different data from time-weighted returns, so they are not drop-in substitutes.
+- Because this is a breaking removal in a patch release, pin to `0.7.6` if you still depend on time-weighted returns.
+
 ## v0.7.6 - 2026-11-05
 
 Source Phoenix commit: `e01cb2ac0fcc2162892dc176b16f1dd60c7fe5ee`
