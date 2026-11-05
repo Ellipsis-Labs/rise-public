@@ -1978,36 +1978,54 @@ const resolveLimitOrderMarginState = (
   );
 };
 
+/**
+ * Order leverage limits are carried as fixed-point integers at this scale so
+ * margin stays exact bigint math.
+ */
+const ORDER_LEVERAGE_LIMIT_SCALE = 1_000_000n;
+
 const getOrderLeverageLimitForSymbol = (
   symbol: string,
   options?: MarginCalculationOptions
 ): bigint | undefined => {
-  // User/product preferences are intentionally permissive: fractional values
-  // floor to safe integer leverage, while invalid values silently fall back to
-  // protocol leverage.
+  // User/product preferences are intentionally permissive: values floor to
+  // the fixed-point scale, while invalid values silently fall back to protocol
+  // leverage.
   const rawLimit = options?.orderLeverageLimitsBySymbol?.[symbol];
   if (rawLimit === undefined || !Number.isFinite(rawLimit)) {
     return undefined;
   }
 
-  const flooredLimit = Math.floor(rawLimit);
-  if (flooredLimit < 1 || !Number.isSafeInteger(flooredLimit)) {
+  const scaledLimit = Math.floor(rawLimit * Number(ORDER_LEVERAGE_LIMIT_SCALE));
+  if (
+    scaledLimit < Number(ORDER_LEVERAGE_LIMIT_SCALE) ||
+    !Number.isSafeInteger(scaledLimit)
+  ) {
     return undefined;
   }
 
-  return BigInt(flooredLimit);
+  return BigInt(scaledLimit);
 };
 
-const getEffectiveLeverageConstant = (
+/**
+ * `value / leverage`, rounded up, using the lower of the protocol leverage and
+ * the order leverage limit (scaled by {@link ORDER_LEVERAGE_LIMIT_SCALE}).
+ */
+const divCeilByEffectiveLeverage = (
+  value: bigint,
   tiers: LeverageTier[],
   positionSize: bigint,
-  orderLeverageLimit?: bigint
+  scaledOrderLeverageLimit?: bigint
 ): bigint => {
   const protocolMaxLeverage = getLeverageConstant(tiers, positionSize);
-  return orderLeverageLimit !== undefined &&
-    orderLeverageLimit < protocolMaxLeverage
-    ? orderLeverageLimit
-    : protocolMaxLeverage;
+  if (
+    scaledOrderLeverageLimit === undefined ||
+    scaledOrderLeverageLimit >= protocolMaxLeverage * ORDER_LEVERAGE_LIMIT_SCALE
+  ) {
+    return divCeil(value, protocolMaxLeverage);
+  }
+
+  return divCeil(value * ORDER_LEVERAGE_LIMIT_SCALE, scaledOrderLeverageLimit);
 };
 
 const computeMarketMarginFromInputs = (
@@ -2081,7 +2099,7 @@ const computeMarketMarginFromInputs = (
     ? toBigInt(limitOrderState.totalNonReduceOnlyAskBaseLots)
     : 0n;
   const leverageTiers = marketParams.leverageTiers;
-  const orderLeverageLimit = getOrderLeverageLimitForSymbol(
+  const scaledOrderLeverageLimit = getOrderLeverageLimitForSymbol(
     input.symbol,
     options
   );
@@ -2117,7 +2135,7 @@ const computeMarketMarginFromInputs = (
   );
 
   const orderLeverageAdjustedInitialMargin =
-    orderLeverageLimit === undefined
+    scaledOrderLeverageLimit === undefined
       ? initialMargin
       : initialMarginForAsset(
           basePositionLots,
@@ -2127,7 +2145,7 @@ const computeMarketMarginFromInputs = (
           leverageTiers,
           false,
           fillLossInputs,
-          orderLeverageLimit
+          scaledOrderLeverageLimit
         );
 
   const positionOnlyInitialMargin = initialMarginForAsset(
@@ -2183,7 +2201,7 @@ const computeMarketMarginFromInputs = (
     leverageTiers
   );
   const limitOrders =
-    orderLeverageLimit === undefined
+    scaledOrderLeverageLimit === undefined
       ? protocolLimitOrders
       : withOrderLeverageAdjustedLimitOrderMargins(
           protocolLimitOrders,
@@ -2193,7 +2211,7 @@ const computeMarketMarginFromInputs = (
             activeOrders,
             assetUnitPrice,
             leverageTiers,
-            orderLeverageLimit
+            scaledOrderLeverageLimit
           )
         );
 
@@ -2293,7 +2311,7 @@ const initialMarginForAsset = (
   tiers: LeverageTier[],
   bypassRiskFactor: boolean,
   fillLoss?: FillLossInputs,
-  orderLeverageLimit?: bigint
+  scaledOrderLeverageLimit?: bigint
 ): bigint => {
   const totalBidAll = fillLoss?.totalBidBaseLots ?? 0n;
   const totalAskAll = fillLoss?.totalAskBaseLots ?? 0n;
@@ -2313,12 +2331,12 @@ const initialMarginForAsset = (
   if (position !== 0n) {
     const absolutePositionSize = absBigInt(position);
     const absoluteBookValue = assetUnitPrice * absolutePositionSize;
-    const leverage = getEffectiveLeverageConstant(
+    const leverageBasedMargin = divCeilByEffectiveLeverage(
+      absoluteBookValue,
       tiers,
       absolutePositionSize,
-      orderLeverageLimit
+      scaledOrderLeverageLimit
     );
-    const leverageBasedMargin = divCeil(absoluteBookValue, leverage);
     collateralRequired += leverageBasedMargin;
     existingPositionMarginOffset = leverageBasedMargin;
   }
@@ -2332,7 +2350,7 @@ const initialMarginForAsset = (
           tiers,
           existingPositionMarginOffset,
           bypassRiskFactor,
-          orderLeverageLimit
+          scaledOrderLeverageLimit
         )
       : 0n;
 
@@ -2345,7 +2363,7 @@ const initialMarginForAsset = (
           tiers,
           existingPositionMarginOffset,
           bypassRiskFactor,
-          orderLeverageLimit
+          scaledOrderLeverageLimit
         )
       : 0n;
 
@@ -2385,7 +2403,7 @@ const marginIncreaseForBids = (
   tiers: LeverageTier[],
   existingPositionMarginOffset: bigint,
   bypassRiskFactor: boolean,
-  orderLeverageLimit?: bigint
+  scaledOrderLeverageLimit?: bigint
 ): bigint => {
   const newExposureSigned = bidSize + position - absBigInt(position);
   if (newExposureSigned <= 0n) {
@@ -2395,12 +2413,12 @@ const marginIncreaseForBids = (
   const totalExposureSigned = position + bidSize;
   const totalExposure = absBigInt(totalExposureSigned);
   const totalGrossValue = assetUnitPrice * totalExposure;
-  const totalLeverage = getEffectiveLeverageConstant(
+  const totalMargin = divCeilByEffectiveLeverage(
+    totalGrossValue,
     tiers,
     totalExposure,
-    orderLeverageLimit
+    scaledOrderLeverageLimit
   );
-  const totalMargin = divCeil(totalGrossValue, totalLeverage);
   const incrementalMargin = maxBigInt(
     totalMargin - existingPositionMarginOffset,
     0n
@@ -2421,7 +2439,7 @@ const marginIncreaseForAsks = (
   tiers: LeverageTier[],
   existingPositionMarginOffset: bigint,
   bypassRiskFactor: boolean,
-  orderLeverageLimit?: bigint
+  scaledOrderLeverageLimit?: bigint
 ): bigint => {
   const newExposureSigned = askSize - position - absBigInt(position);
   if (newExposureSigned <= 0n) {
@@ -2431,12 +2449,12 @@ const marginIncreaseForAsks = (
   const totalExposureSigned = position - askSize;
   const totalExposure = absBigInt(totalExposureSigned);
   const totalGrossValue = assetUnitPrice * totalExposure;
-  const totalLeverage = getEffectiveLeverageConstant(
+  const totalMargin = divCeilByEffectiveLeverage(
+    totalGrossValue,
     tiers,
     totalExposure,
-    orderLeverageLimit
+    scaledOrderLeverageLimit
   );
-  const totalMargin = divCeil(totalGrossValue, totalLeverage);
   const incrementalMargin = maxBigInt(
     totalMargin - existingPositionMarginOffset,
     0n
@@ -2477,19 +2495,17 @@ const computeLimitOrderMargins = (
   orders: LimitOrderMarginInput[],
   assetUnitPrice: bigint,
   tiers: LeverageTier[],
-  orderLeverageLimit?: bigint
+  scaledOrderLeverageLimit?: bigint
 ): OrderMarginResult[] => {
   const result: OrderMarginResult[] = [];
   const existingPositionMarginOffset =
     position === 0n
       ? 0n
-      : divCeil(
+      : divCeilByEffectiveLeverage(
           assetUnitPrice * absBigInt(position),
-          getEffectiveLeverageConstant(
-            tiers,
-            absBigInt(position),
-            orderLeverageLimit
-          )
+          tiers,
+          absBigInt(position),
+          scaledOrderLeverageLimit
         );
 
   for (const order of orders) {
@@ -2507,7 +2523,7 @@ const computeLimitOrderMargins = (
             tiers,
             existingPositionMarginOffset,
             false,
-            orderLeverageLimit
+            scaledOrderLeverageLimit
           )
         : marginIncreaseForAsks(
             position,
@@ -2516,7 +2532,7 @@ const computeLimitOrderMargins = (
             tiers,
             existingPositionMarginOffset,
             false,
-            orderLeverageLimit
+            scaledOrderLeverageLimit
           );
 
     const marginFactor =

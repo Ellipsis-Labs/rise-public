@@ -182,19 +182,20 @@ describe("order leverage limits in margin calculations", () => {
     expectNoMarketLevelOrderLeverageAdjustedFields(baseline.marketMargins[0]);
   });
 
-  it("uses a lower floored limit for order-leverage-adjusted display margin", () => {
+  it("uses a lower fractional limit for order-leverage-adjusted display margin", () => {
     const result = calculator.computeSubaccountMarginFromInputs(
       positionInputs(),
       {
         orderLeverageLimitsBySymbol: {
-          "SOL-PERP": 5.9,
+          "SOL-PERP": 3.33,
         },
       }
     );
 
+    // 1000 quote lots of position value at 3.33x: ceil(300.30).
     expect(result.margin.initialMarginQuoteLots).toBe("50");
     expect(result.margin.orderLeverageAdjustedInitialMarginQuoteLots).toBe(
-      "200"
+      "301"
     );
     expect(result.marketMargins[0]?.initialMarginQuoteLots).toBe("50");
     expect(result.marketMargins[0]?.positionInitialMarginQuoteLots).toBe("50");
