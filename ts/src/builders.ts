@@ -47,6 +47,7 @@ import {
 import type { Address, Signature } from "@solana/kit";
 import { type CancelAllIx } from "./core/ixBuilders/CancelAll";
 import { type CancelOrdersByIdIx } from "./core/ixBuilders/CancelOrdersById";
+import { type AcceptEscrowRequestIx } from "./core/ixBuilders/AcceptEscrowRequest";
 import { type CancelStopLossIx } from "./core/ixBuilders/CancelStopLoss";
 import { type CancelUpToIx } from "./core/ixBuilders/CancelUpTo";
 import {
@@ -513,6 +514,39 @@ export const buildCancelStopLoss = async (
     traderPdaIndex,
     traderSubaccountIndex,
   });
+
+export const buildAcceptEscrowRequest = async (
+  params: {
+    senderAuthority: Authority;
+    receiverAuthority: Authority;
+    receiverWallet?: Authority;
+    senderPdaIndex?: number;
+    senderSubaccountIndex?: number;
+    receiverPdaIndex?: number;
+    receiverSubaccountIndex?: number;
+  },
+  client: PhoenixInstructionClient
+): Promise<AcceptEscrowRequestIx> =>
+  createLegacyPhoenixIxOperations(client).buildAcceptEscrowRequest(params);
+
+export const acceptEscrowRequest = async (
+  client: PhoenixInstructionClient & PhoenixTransactionClient,
+  params: {
+    senderAuthority: Authority;
+    receiverAuthority: Authority;
+    receiverWallet?: Authority;
+    senderPdaIndex?: number;
+    senderSubaccountIndex?: number;
+    receiverPdaIndex?: number;
+    receiverSubaccountIndex?: number;
+  },
+  options: SendInstructionOptions = {}
+): Promise<Signature> =>
+  sendBuiltInstruction(
+    client,
+    buildAcceptEscrowRequest(params, client),
+    options
+  );
 
 export const buildCreateEscrowRequest = async (
   params: {

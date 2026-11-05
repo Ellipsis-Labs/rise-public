@@ -125,6 +125,20 @@ bun examples/10-builder-onboarding-tx.ts \
   [--trader-authority <TRADER_AUTHORITY_PUBKEY>]
 ```
 
+### 11-accept-escrow-request.ts
+
+Loads exchange metadata and builds an accept-escrow-request instruction that
+claims a pending escrow request from `SENDER_AUTHORITY` into
+`RECEIVER_AUTHORITY`'s trader account. It prints the instruction without
+sending it.
+
+```bash
+bun examples/11-accept-escrow-request.ts <RECEIVER_AUTHORITY> <SENDER_AUTHORITY> [RECEIVER_WALLET]
+```
+
+For a delegated trader, pass the position authority as `RECEIVER_WALLET`; it
+signs in place of `RECEIVER_AUTHORITY`.
+
 ## Larger Demos
 
 ### phoenix-client-example.ts

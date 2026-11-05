@@ -1,4 +1,5 @@
 import type { EscrowAction } from "@/core/ixBuilders/CreateEscrowRequest";
+import type { AcceptEscrowRequestIx } from "@/core/ixBuilders/AcceptEscrowRequest";
 import type { CancelAllIx } from "@/core/ixBuilders/CancelAll";
 import type { CancelOrdersByIdIx } from "@/core/ixBuilders/CancelOrdersById";
 import type { CancelStopLossIx } from "@/core/ixBuilders/CancelStopLoss";
@@ -211,6 +212,17 @@ export interface ClientCancelStopLossInput {
   traderSubaccountIndex?: number;
 }
 
+export interface ClientAcceptEscrowRequestInput {
+  senderAuthority: Authority;
+  receiverAuthority: Authority;
+  /** Signer; defaults to `receiverAuthority`. Pass the trader's position authority when delegated. */
+  receiverWallet?: Authority;
+  senderPdaIndex?: number;
+  senderSubaccountIndex?: number;
+  receiverPdaIndex?: number;
+  receiverSubaccountIndex?: number;
+}
+
 export interface ClientCreateEscrowRequestInput {
   senderAuthority: Authority;
   receiverAuthority: Authority;
@@ -418,6 +430,26 @@ export interface ResolvedCancelStopLossIxInput {
     stopLossAccount: Address;
   };
   executionDirection: Direction;
+}
+
+export interface ResolvedAcceptEscrowRequestIxInput {
+  exchange: {
+    phoenixProgramAddress: PhoenixProgramAddress;
+    logAuthorityAddress: LogAuthorityAddress;
+    globalConfigurationAddress: GlobalConfigurationAddress;
+    perpAssetMap: PerpAssetMapAddress;
+    globalTraderIndex: GlobalTraderIndexAddressArray;
+    activeTraderBuffer: ActiveTraderBufferAddressArray;
+  };
+  sender: {
+    authority: Authority;
+    traderAccount: TraderAddress;
+  };
+  receiver: {
+    wallet: Authority;
+    traderAccount: TraderAddress;
+    escrowAddress: Address;
+  };
 }
 
 export interface ResolvedCreateEscrowRequestIxInput {
@@ -703,6 +735,9 @@ export interface PhoenixIxClient {
   buildCreateConditionalOrdersAccount(
     params: ClientCreateConditionalOrdersAccountInput
   ): Promise<CreateConditionalOrdersAccountIx>;
+  buildAcceptEscrowRequest(
+    params: ClientAcceptEscrowRequestInput
+  ): Promise<AcceptEscrowRequestIx>;
   buildCreateEscrowRequest(
     params: ClientCreateEscrowRequestInput
   ): Promise<CreateEscrowRequestIx>;
