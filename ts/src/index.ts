@@ -84,6 +84,7 @@ export {
   buildTransferCollateralIxResolved,
   buildWithdrawFundsIxResolved,
   buildWithdrawIxsResolved,
+  buildWithdrawToTargetLeverageIxResolved,
   createPhoenixIxClient,
   type BuildCancelAllIxResolvedInput,
   type BuildCancelOrdersByIdIxResolvedInput,
@@ -115,6 +116,7 @@ export {
   type ClientTransferCollateralChildToParentInput,
   type ClientTransferCollateralInput,
   type ClientWithdrawInput,
+  type ClientWithdrawToTargetLeverageInput,
   type DepositIxsResult,
   type PhoenixIxClient,
   type ResolvedCancelStopLossIxInput,
@@ -130,6 +132,7 @@ export {
   type ResolvedTransferCollateralChildToParentIxInput,
   type ResolvedTransferCollateralIxInput,
   type ResolvedWithdrawFundsIxInput,
+  type ResolvedWithdrawToTargetLeverageIxInput,
   type WithdrawIxsResult,
 } from "./ixs";
 export {

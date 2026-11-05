@@ -349,6 +349,7 @@ describe("buildPlaceMultiLimitOrderFlow V2 dispatch", () => {
         scaleSetId: 5,
         scaleSetContinuation: true,
         maxOrdersPerTx: 30,
+        targetLeverageBps: 50_000n,
       },
       client
     );
@@ -366,5 +367,9 @@ describe("buildPlaceMultiLimitOrderFlow V2 dispatch", () => {
       expect(batch.named.transferCollateralChildToParent).toBeUndefined();
     }
     expect(last?.named.transferCollateralChildToParent).toBeDefined();
+    expect(last?.instructions.slice(-2)).toEqual([
+      last?.named.withdrawToTargetLeverage,
+      last?.named.transferCollateralChildToParent,
+    ]);
   });
 });

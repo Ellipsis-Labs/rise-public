@@ -35,6 +35,7 @@ import {
   buildTransferCollateral,
   buildTransferCollateralChildToParent,
   buildWithdrawFunds,
+  buildWithdrawToTargetLeverage,
 } from "@/builders";
 import {
   type Authority,
@@ -307,6 +308,7 @@ export interface PlaceLimitOrderFlowParams {
   isPostOnly?: boolean;
   slide?: boolean;
   skipTransferToParent?: boolean;
+  targetLeverageBps?: bigint;
 }
 
 export interface PlaceLimitOrderFlowInstructions {
@@ -314,6 +316,7 @@ export interface PlaceLimitOrderFlowInstructions {
   reallocTrader?: InstructionsWithAccountsAndData;
   transferCollateral?: InstructionsWithAccountsAndData;
   placeLimitOrder: InstructionsWithAccountsAndData;
+  withdrawToTargetLeverage?: InstructionsWithAccountsAndData;
   transferCollateralChildToParent?: InstructionsWithAccountsAndData;
 }
 
@@ -338,6 +341,7 @@ export interface PlaceMarketOrderFlowParams {
   minBaseLotsToFill?: BaseLots;
   minQuoteLotsToFill?: QuoteLots;
   skipTransferToParent?: boolean;
+  targetLeverageBps?: bigint;
 }
 
 export interface PlaceMarketOrderFlowInstructions {
@@ -345,6 +349,7 @@ export interface PlaceMarketOrderFlowInstructions {
   reallocTrader?: InstructionsWithAccountsAndData;
   transferCollateral?: InstructionsWithAccountsAndData;
   placeMarketOrder: InstructionsWithAccountsAndData;
+  withdrawToTargetLeverage?: InstructionsWithAccountsAndData;
   transferCollateralChildToParent?: InstructionsWithAccountsAndData;
 }
 
@@ -382,6 +387,7 @@ export interface PlaceMultiLimitOrderFlowParams {
    */
   maxOrdersPerTx?: number;
   skipTransferToParent?: boolean;
+  targetLeverageBps?: bigint;
   /**
    * Caller-assigned ladder id in `1..=127`, stamped onto every resting leg.
    * Setting this (non-zero) or `reduceOnly` routes the batch through
@@ -419,6 +425,7 @@ export interface PlaceMultiLimitOrderFlowBatchInstructions {
   reallocTrader?: InstructionsWithAccountsAndData;
   transferCollateral?: InstructionsWithAccountsAndData;
   placeMultiLimitOrder: InstructionsWithAccountsAndData;
+  withdrawToTargetLeverage?: InstructionsWithAccountsAndData;
   transferCollateralChildToParent?: InstructionsWithAccountsAndData;
 }
 
@@ -1158,6 +1165,7 @@ export const buildPlaceLimitOrderFlow = async (
     isPostOnly,
     slide = false,
     skipTransferToParent = false,
+    targetLeverageBps,
   } = params;
 
   const { perpAssetMapKey, arenaAddresses, globalTraderIndexAddresses } =
@@ -1270,6 +1278,21 @@ export const buildPlaceLimitOrderFlow = async (
   instructions.push(maybeWrappedIx);
   named.placeLimitOrder = maybeWrappedIx;
 
+  if (targetLeverageBps !== undefined && subaccountIndex > 0) {
+    const withdrawToTargetLeverageIx = await buildWithdrawToTargetLeverage(
+      {
+        authority,
+        positionAuthority,
+        traderPdaIndex: pdaIndex,
+        childSubaccountIndex: subaccountIndex,
+        targetLeverageBps,
+      },
+      client
+    );
+    instructions.push(withdrawToTargetLeverageIx);
+    named.withdrawToTargetLeverage = withdrawToTargetLeverageIx;
+  }
+
   if (!skipTransferToParent && subaccountIndex > 0) {
     const transferToParentIx = await buildTransferCollateralChildToParent(
       {
@@ -1310,6 +1333,7 @@ export const buildPlaceMarketOrderFlow = async (
     minBaseLotsToFill,
     minQuoteLotsToFill,
     skipTransferToParent = false,
+    targetLeverageBps,
   } = params;
 
   validatePlaceMarketOrderFlowMinimums({
@@ -1434,6 +1458,21 @@ export const buildPlaceMarketOrderFlow = async (
   instructions.push(maybeWrappedIx);
   named.placeMarketOrder = maybeWrappedIx;
 
+  if (targetLeverageBps !== undefined && subaccountIndex > 0) {
+    const withdrawToTargetLeverageIx = await buildWithdrawToTargetLeverage(
+      {
+        authority,
+        positionAuthority,
+        traderPdaIndex: pdaIndex,
+        childSubaccountIndex: subaccountIndex,
+        targetLeverageBps,
+      },
+      client
+    );
+    instructions.push(withdrawToTargetLeverageIx);
+    named.withdrawToTargetLeverage = withdrawToTargetLeverageIx;
+  }
+
   if (!skipTransferToParent && subaccountIndex > 0) {
     const transferToParentIx = await buildTransferCollateralChildToParent(
       {
@@ -1499,6 +1538,7 @@ export const buildPlaceMultiLimitOrderFlow = async (
     clientOrderId = null,
     maxOrdersPerTx,
     skipTransferToParent = false,
+    targetLeverageBps,
     scaleSetId,
     reduceOnly = false,
     scaleSetContinuation: continuationOptIn = false,
@@ -1650,6 +1690,20 @@ export const buildPlaceMultiLimitOrderFlow = async (
         )
       : undefined;
 
+  const withdrawToTargetLeverageIx =
+    targetLeverageBps !== undefined && subaccountIndex > 0
+      ? await buildWithdrawToTargetLeverage(
+          {
+            authority,
+            positionAuthority,
+            traderPdaIndex: pdaIndex,
+            childSubaccountIndex: subaccountIndex,
+            targetLeverageBps,
+          },
+          client
+        )
+      : undefined;
+
   const chunks = chunkScaleLevelsForTx(placeableLevels, {
     maxOrdersPerTx,
     usesV2Instruction,
@@ -1741,6 +1795,10 @@ export const buildPlaceMultiLimitOrderFlow = async (
       }
     }
     instructions.push(placeMultiLimitOrder);
+    if (i === chunks.length - 1 && withdrawToTargetLeverageIx !== undefined) {
+      instructions.push(withdrawToTargetLeverageIx);
+      named.withdrawToTargetLeverage = withdrawToTargetLeverageIx;
+    }
     if (i === chunks.length - 1 && sweepIx !== undefined) {
       instructions.push(sweepIx);
       named.transferCollateralChildToParent = sweepIx;

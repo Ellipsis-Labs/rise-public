@@ -85,6 +85,8 @@ export {
   MarketCalendarSchema,
   type EarningsDate,
   EarningsDateSchema,
+  type AssetClass,
+  AssetClassSchema,
   type MarketPublicMetadata,
   MarketPublicMetadataSchema,
   type MarketStatsSnapshot,

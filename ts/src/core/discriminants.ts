@@ -38,6 +38,7 @@ export const DISCRIMINANTS: DiscriminantMap = {
   TRANSFER_COLLATERAL_CHILD_TO_PARENT: sha2_const(
     "global:transfer_collateral_child_to_parent"
   ),
+  WITHDRAW_TO_TARGET_LEVERAGE: sha2_const("global:withdraw_to_target_leverage"),
   SYNC_PARENT_TO_CHILD: sha2_const("global:sync_parent_to_child"),
   SYNC_NATIVE: sha2_const("global:sync_native"),
   WITHDRAW_NATIVE_SOL: sha2_const("global:withdraw_native_sol"),

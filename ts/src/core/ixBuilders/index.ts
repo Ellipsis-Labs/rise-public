@@ -36,3 +36,4 @@ export * from "./UncrossCrank";
 export * from "./UpdateTraderPreferenceBits";
 export * from "./UpdateTraderState";
 export * from "./WithdrawFunds";
+export * from "./WithdrawToTargetLeverage";
