@@ -3,6 +3,24 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.7.6 - 2026-11-05
+
+Source Phoenix commit: `e01cb2ac0fcc2162892dc176b16f1dd60c7fe5ee`
+
+### Summary
+
+- Order leverage limits in margin calculations now support fractional values. They are floored to a millionth of leverage instead of to a whole integer. For example, a `3.33` limit on `SOL-PERP` now gives an order-leverage-adjusted initial margin of `301` quote lots on 1000 quote lots of position value. Under the old rule, a fractional limit like `5.9` was floored to `5`.
+- Margin stays exact bigint math. The limit is carried as a fixed-point integer at a 1,000,000 scale and applied with a round-up division.
+
+### Breaking Changes
+
+- None identified in the synced diff. There are no public export, type-shape or signature changes. `OrderLeverageLimitsBySymbol` is still `Record<string, number>`, and only its doc comment changed.
+
+### Consumer Notes
+
+- If you pass `orderLeverageLimitsBySymbol` with fractional values, `orderLeverageAdjustedInitialMargin` and per-order limit-order margins will now be higher than before. Previously the fractional part was dropped, so `5.9` was treated as `5`. Now `5.9` is used as `5.9`. Limits that are whole numbers give the same results as before.
+- Values below `1`, non-finite values and unsafe values are still ignored, and the calculator falls back to protocol leverage. A limit at or above the protocol max leverage for the position tier has no effect.
+
 ## v0.7.5 - 2026-11-02
 
 Source Phoenix commit: `ad40482db620d405e43fb011a40fbd0d79c58df0`

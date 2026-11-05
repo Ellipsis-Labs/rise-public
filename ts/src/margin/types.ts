@@ -88,8 +88,8 @@ export interface MarketMarginInputs {
 
 /**
  * Per-symbol product/order leverage preferences. The margin calculator floors
- * finite values to safe integers and ignores non-finite values, unsafe values,
- * or values below 1.
+ * finite values to a millionth of leverage and ignores non-finite values,
+ * unsafe values, or values below 1.
  */
 export type OrderLeverageLimitsBySymbol = Record<string, number>;
 
