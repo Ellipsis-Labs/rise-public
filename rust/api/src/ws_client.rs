@@ -40,6 +40,7 @@ use crate::env::PhoenixEnv;
 use crate::exchange_cache::SharedExchangeCacheStore;
 use crate::http_client::PhoenixHttpClient;
 use crate::subscription_key::SubscriptionKey;
+use crate::transport::PHOENIX_CLIENT_HEADER_VALUE;
 #[cfg(feature = "opentelemetry")]
 use crate::transport::TraceContextProvider;
 use crate::ws_error::PhoenixWsError;
@@ -1293,6 +1294,10 @@ impl PhoenixWSClient {
         auth_session: Option<&AuthSession>,
     ) -> Result<tokio_tungstenite::tungstenite::handshake::client::Request, PhoenixWsError> {
         let mut request = url.as_str().into_client_request()?;
+        request.headers_mut().insert(
+            "x-phoenix-client",
+            HeaderValue::from_static(PHOENIX_CLIENT_HEADER_VALUE),
+        );
         let Some(auth_session) = auth_session else {
             return Ok(request);
         };
@@ -1674,6 +1679,10 @@ mod tests {
 
         assert!(request.headers().get(AUTHORIZATION).is_none());
         assert!(request.headers().get(SEC_WEBSOCKET_PROTOCOL).is_none());
+        assert_eq!(
+            request.headers().get("x-phoenix-client").unwrap(),
+            PHOENIX_CLIENT_HEADER_VALUE
+        );
     }
 
     #[test]

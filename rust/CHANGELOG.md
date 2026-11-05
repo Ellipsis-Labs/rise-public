@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.9.2 - 2026-11-05
+
+Source Phoenix commit: `987bb2791758ee2b8636cb93eaca24364c256b80`
+
+### Summary
+
+- Adds a `withdraw_to_target_leverage` instruction to `ix`. It moves collateral above a target leverage from an isolated subaccount to its cross-margin parent. New public API: `WithdrawToTargetLeverageParams` with its builder, `create_withdraw_to_target_leverage_ix`, the `PhoenixInstruction::WithdrawToTargetLeverage` variant and the `InvalidTargetLeverage` error.
+- `core` (`PhoenixTxBuilder`) can now emit this instruction after an isolated market or limit order. It runs just before the final sweep of collateral to the parent, when `target_leverage_bps` is set.
+- `types` adds an optional `target_leverage: Option<f64>` field to the isolated limit order, isolated limit order with conditionals, and isolated market order v2 requests. It defaults to `None`.
+- `api` WebSocket connections now send the `x-phoenix-client` header during the handshake.
+- All crates move together from 0.9.1 to 0.9.2.
+
+### Breaking Changes
+
+- `IsolatedLimitOrderParams` and `IsolatedMarketOrderParams` (`ix`) gain a public `target_leverage_bps: Option<u64>` field. Code that builds these structs with literal syntax must add `target_leverage_bps: None` to keep its current behavior.
+- `PhoenixInstruction` gains a `WithdrawToTargetLeverage` variant, and `PhoenixIxError` gains an `InvalidTargetLeverage` variant. Exhaustive `match` expressions on either enum need a new arm. This only breaks code if those enums aren't `#[non_exhaustive]`, which the diff doesn't show.
+- The new request fields in `types` (`PlaceIsolatedLimitOrderRequest`, `PlaceIsolatedLimitOrderWithConditionalsRequest`, `PlaceIsolatedMarketOrderV2Request`) are public. Code that constructs these structs with literal syntax must set them. Deserialization is unaffected because the fields default to `None`.
+
+### Consumer Notes
+
+- Set `target_leverage_bps` (10_000 = 1x) on the isolated order params to have the builder return excess collateral to the parent in the same transaction. The new instruction uses the same accounts as `create_transfer_collateral_ix`. `target_leverage_bps` must be greater than 0 and is required, otherwise `build()` returns an error.
+- Isolated order helpers in `core` that don't take params pass `target_leverage_bps: None`, so their transactions are unchanged.
+
 ## v0.9.1 - 2026-11-05
 
 Source Phoenix commit: `0b9f5264cfde54527f40b6350ee7103e67a77a40`

@@ -475,6 +475,7 @@ mod tests {
                 "TransferCollateralChildToParent",
                 "transfer_collateral_child_to_parent",
             ),
+            ("WithdrawToTargetLeverage", "withdraw_to_target_leverage"),
             ("UncrossCrank", "uncross_crank"),
             ("ClearExpiredOrders", "clear_expired_orders"),
             ("SyncParentToChild", "sync_parent_to_child"),
@@ -517,7 +518,7 @@ mod tests {
             ("EnableFeature", "enable_feature"),
         ];
 
-        assert_eq!(ETERNAL_INSTRUCTIONS.len(), 93);
+        assert_eq!(ETERNAL_INSTRUCTIONS.len(), 94);
         for (instruction_name, snake_case_name) in ETERNAL_INSTRUCTIONS {
             let by_instruction_name = PhoenixInstruction::from_instruction_name(instruction_name)
                 .unwrap_or_else(|| panic!("missing {instruction_name}"));

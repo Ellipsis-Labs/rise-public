@@ -550,6 +550,7 @@ pub struct IsolatedMarketOrderParams {
     pub cancel_existing: bool,
     pub allow_cross_and_isolated: bool,
     pub collateral: Option<IsolatedCollateralFlow>,
+    pub target_leverage_bps: Option<u64>,
 }
 
 #[cfg(test)]

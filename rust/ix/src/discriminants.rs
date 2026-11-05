@@ -335,6 +335,7 @@ define_instruction_discriminants! {
         ForceCancelStopLoss => "force_cancel_stop_loss",
         UpdateFundingParameters => "update_funding_parameters",
         TransferCollateralChildToParent => "transfer_collateral_child_to_parent",
+        WithdrawToTargetLeverage => "withdraw_to_target_leverage",
         UncrossCrank => "uncross_crank",
         ClearExpiredOrders => "clear_expired_orders",
         SyncParentToChild => "sync_parent_to_child",

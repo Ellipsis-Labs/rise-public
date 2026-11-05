@@ -332,6 +332,8 @@ pub struct PlaceIsolatedLimitOrderRequest {
     #[serde(default)]
     pub skip_transfer_to_parent: Option<bool>,
     #[serde(default)]
+    pub target_leverage: Option<f64>,
+    #[serde(default)]
     pub flight_builder_authority: Option<String>,
     #[serde(default)]
     pub flight_fee_collector_trader: Option<String>,
@@ -375,6 +377,8 @@ pub struct PlaceIsolatedLimitOrderWithConditionalsRequest {
     pub slide: Option<bool>,
     #[serde(default)]
     pub skip_transfer_to_parent: Option<bool>,
+    #[serde(default)]
+    pub target_leverage: Option<f64>,
     #[serde(default)]
     pub greater_trigger: Option<ConditionalTriggerRequest>,
     #[serde(default)]
@@ -463,6 +467,8 @@ pub struct PlaceIsolatedMarketOrderV2Request {
     pub is_reduce_only: Option<bool>,
     #[serde(default)]
     pub skip_transfer_to_parent: Option<bool>,
+    #[serde(default)]
+    pub target_leverage: Option<f64>,
     #[serde(default)]
     pub flight_builder_authority: Option<String>,
     #[serde(default)]

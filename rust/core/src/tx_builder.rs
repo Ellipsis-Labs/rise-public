@@ -18,8 +18,8 @@ use phoenix_rise_ix::prelude::{
     PlacePositionConditionalOrderParams, PlaceStopLossParams, RegisterTraderParams,
     SelfTradeBehavior, Side, SplApproveParams, StopLossOrderKind, SyncParentToChildParams,
     TraderPreferenceKind, TransferCollateralChildToParentParams, TransferCollateralParams,
-    TriggerOrderParams, UncrossCrankParams, WithdrawFundsParams, client_order_id_to_bytes,
-    create_associated_token_account_idempotent_ix, create_cancel_all_ix,
+    TriggerOrderParams, UncrossCrankParams, WithdrawFundsParams, WithdrawToTargetLeverageParams,
+    client_order_id_to_bytes, create_associated_token_account_idempotent_ix, create_cancel_all_ix,
     create_cancel_orders_by_id_ix, create_cancel_stop_loss_ix, create_cancel_up_to_ix,
     create_create_conditional_orders_account_ix, create_deposit_funds_ix, create_ember_deposit_ix,
     create_ember_withdraw_ix, create_hawkeye_view_bbo_ix, create_hawkeye_view_funding_ix,
@@ -31,8 +31,8 @@ use phoenix_rise_ix::prelude::{
     create_place_stop_loss_ix, create_register_trader_ix, create_spl_approve_ix,
     create_sync_parent_to_child_ix, create_transfer_collateral_child_to_parent_ix,
     create_transfer_collateral_ix, create_uncross_crank_ix, create_withdraw_funds_ix,
-    get_associated_token_address, get_conditional_orders_address, get_ember_state_address,
-    get_stop_loss_address, usdc_mint,
+    create_withdraw_to_target_leverage_ix, get_associated_token_address,
+    get_conditional_orders_address, get_ember_state_address, get_stop_loss_address, usdc_mint,
 };
 use phoenix_rise_math::{MathError, quote_usd_to_quote_lots};
 use solana_instruction::Instruction;
@@ -1496,6 +1496,32 @@ impl<'a> PhoenixTxBuilder<'a> {
         Ok(vec![ix.into()])
     }
 
+    fn build_withdraw_to_target_leverage(
+        &self,
+        authority: Pubkey,
+        child_trader_pda: Pubkey,
+        parent_trader_pda: Pubkey,
+        target_leverage_bps: u64,
+    ) -> Result<Vec<Instruction>, PhoenixTxBuilderError> {
+        let keys = self.metadata.keys();
+        let perp_asset_map = Pubkey::from_str(&keys.perp_asset_map)?;
+        let global_trader_index = parse_global_trader_index_pubkeys(&keys.global_trader_index)?;
+        let active_trader_buffer = parse_active_trader_buffer_pubkeys(&keys.active_trader_buffer)?;
+
+        let params = WithdrawToTargetLeverageParams::builder()
+            .trader(authority)
+            .src_trader_account(child_trader_pda)
+            .dst_trader_account(parent_trader_pda)
+            .perp_asset_map(perp_asset_map)
+            .global_trader_index(global_trader_index)
+            .active_trader_buffer(active_trader_buffer)
+            .target_leverage_bps(target_leverage_bps)
+            .build()?;
+
+        let ix = create_withdraw_to_target_leverage_ix(params)?;
+        Ok(vec![ix.into()])
+    }
+
     /// Build a transfer collateral child-to-parent instruction.
     ///
     /// Transfers **all** collateral from a child subaccount back to the parent
@@ -1659,7 +1685,9 @@ impl<'a> PhoenixTxBuilder<'a> {
     /// 2. Funds the subaccount based on `collateral`
     /// 3. Places the market order
     /// 4. Optionally places bracket leg (SL/TP) orders
-    /// 5. Sweeps remaining collateral back to parent if subaccount existed
+    /// 5. Optionally returns collateral above `target_leverage_bps` to the
+    ///    parent
+    /// 6. Sweeps remaining collateral back to parent if subaccount existed
     ///
     /// # Returns
     ///
@@ -1689,6 +1717,7 @@ impl<'a> PhoenixTxBuilder<'a> {
             cancel_existing: false,
             allow_cross_and_isolated,
             collateral,
+            target_leverage_bps: None,
         };
         self.build_isolated_market_order_with_params(trader, symbol, params, bracket)
     }
@@ -1805,6 +1834,15 @@ impl<'a> PhoenixTxBuilder<'a> {
             )?);
         }
 
+        if let Some(target_leverage_bps) = params.target_leverage_bps {
+            ixs.extend(self.build_withdraw_to_target_leverage(
+                sub_key.authority(),
+                sub_key.pda(),
+                trader.key.pda(),
+                target_leverage_bps,
+            )?);
+        }
+
         if trader.subaccount_exists(sub_key.subaccount_index) {
             ixs.extend(self.build_transfer_collateral_child_to_parent(
                 sub_key.authority(),
@@ -1849,6 +1887,7 @@ impl<'a> PhoenixTxBuilder<'a> {
             cancel_existing: false,
             allow_cross_and_isolated,
             collateral,
+            target_leverage_bps: None,
         };
         self.build_isolated_limit_order_with_params(trader, symbol, params)
     }
@@ -1902,6 +1941,15 @@ impl<'a> PhoenixTxBuilder<'a> {
         }
 
         ixs.extend(self.create_limit_order_ixs(builder.build()?)?);
+
+        if let Some(target_leverage_bps) = params.target_leverage_bps {
+            ixs.extend(self.build_withdraw_to_target_leverage(
+                sub_key.authority(),
+                sub_key.pda(),
+                trader.key.pda(),
+                target_leverage_bps,
+            )?);
+        }
 
         if trader.subaccount_exists(sub_key.subaccount_index) {
             ixs.extend(self.build_transfer_collateral_child_to_parent(

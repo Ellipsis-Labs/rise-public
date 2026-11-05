@@ -478,6 +478,23 @@ fn main() {
         );
     }
 
+    // 18a. WithdrawToTargetLeverage
+    {
+        let params = WithdrawToTargetLeverageParams::builder()
+            .trader(pubkeys[0])
+            .src_trader_account(pubkeys[1])
+            .dst_trader_account(pubkeys[2])
+            .perp_asset_map(pubkeys[3])
+            .global_trader_index(vec2(4, 5))
+            .active_trader_buffer(vec2(6, 7))
+            .target_leverage_bps(125_000)
+            .build()
+            .unwrap();
+
+        let ix = create_withdraw_to_target_leverage_ix(params).unwrap();
+        results.insert("WithdrawToTargetLeverage".to_string(), hex_encode(&ix.data));
+    }
+
     // 19. SyncParentToChild
     {
         let params = SyncParentToChildParams::builder()
