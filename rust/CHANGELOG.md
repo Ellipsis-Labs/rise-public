@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.9.1 - 2026-11-05
+
+Source Phoenix commit: `0b9f5264cfde54527f40b6350ee7103e67a77a40`
+
+### Summary
+
+- Rust `types` adds a public `AssetClass` enum (`Crypto`, `Equities`, `Commodities`, `Other`, plus an `Unknown` fallback for unrecognized values). It is also exported from the `types` prelude.
+- `MarketPublicMetadata` has a new optional `asset_class` field. It is serialized as `assetClass` and is `null` when a market is unclassified. The struct now also implements `Default`.
+- The dependency lockfile moves to `zstd` 0.13.4 and `zstd-safe` 7.4.0. The matching advisory exceptions are removed from `deny.toml`.
+- All Rise crates (`api`, `types`, `sdk`, `ix`, `math`, and the rest) are bumped together to 0.9.1.
+
+### Breaking Changes
+
+- `MarketPublicMetadata` has a new public field, `asset_class`. Code that builds the struct with a literal and no `..Default::default()` fails to compile until it sets `asset_class` (for example, `asset_class: None`).
+- `AssetClass` is `#[non_exhaustive]`. `match` expressions on it need a wildcard arm, which also covers future classes.
+
+### Consumer Notes
+
+- Deserialization stays backward compatible. The field has `#[serde(default)]`, so payloads without `assetClass` parse as `None`. Unrecognized class strings map to `AssetClass::Unknown` instead of failing.
+- Use `MarketPublicMetadata { ..Default::default() }` to build values without naming every field. This also protects against future field additions.
+- If your own `Cargo.lock` pins `zstd`, run `cargo update -p zstd` to pick up 0.13.4. The `zstd` 0.13 and `zstd-safe` 7 major versions are unchanged, and no MSRV change is visible in the diff.
+
 ## v0.9.0 - 2026-10-30
 
 Source Phoenix commit: `af192e9878960010bbdd5bbff8190b03e7a6c578`

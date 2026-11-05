@@ -134,7 +134,21 @@ pub struct EarningsDate {
     pub time: Option<EarningsTime>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Asset class of a market's underlying.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[non_exhaustive]
+pub enum AssetClass {
+    Crypto,
+    Equities,
+    Commodities,
+    Other,
+    /// A class not recognized by this client version.
+    #[serde(other)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketPublicMetadata {
     /// Known earnings timestamps in ascending order; date-only values use
@@ -169,6 +183,9 @@ pub struct MarketPublicMetadata {
     /// Circulating supply or shares outstanding in underlying asset units.
     #[serde(default)]
     pub circulating_supply: Option<f64>,
+    /// Null when the market is unclassified.
+    #[serde(default)]
+    pub asset_class: Option<AssetClass>,
 }
 
 // ============================================================================
@@ -446,6 +463,7 @@ mod tests {
             calendar: None,
             display_color: None,
             circulating_supply: None,
+            asset_class: None,
         })
         .unwrap();
         assert_eq!(json["searchAliases"], serde_json::json!(["XAU"]));
