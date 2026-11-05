@@ -82,7 +82,7 @@ On-chain CPI examples:
 | Program                                                                        | Description                                                                                                                                           |
 | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [programs/close-position-and-withdraw](./programs/close-position-and-withdraw) | Pinocchio CPI example that closes a position (optionally via Flight), reads Hawkeye margin data, withdraws collateral, and converts to USDC via Ember |
-| [programs/example-program](./programs/example-program)                         | Reference Pinocchio program exercising deposits, withdrawals, market/limit orders, stop losses, Hawkeye reads, and isolated subaccount flows          |
+| [programs/example-program](./programs/example-program)                         | Reference Pinocchio program covering deposits, withdrawals, market/limit orders, stop losses, Hawkeye reads, isolated subaccounts, and escrow claims  |
 | [programs/trader-onboarder](./programs/trader-onboarder)                       | Pinocchio CPI program using a static program PDA to hold Phoenix trader-onboarding delegation                                                         |
 
 ## Onboarding Paths

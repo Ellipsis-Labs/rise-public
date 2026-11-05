@@ -5,7 +5,7 @@ use borsh::{BorshSerialize, to_vec};
 use phoenix_rise::ix::HAWKEYE_PROGRAM_ID;
 use phoenix_rise::ix::constants::{
     EMBER_PROGRAM_ID, PHOENIX_GLOBAL_CONFIGURATION, PHOENIX_LOG_AUTHORITY, PHOENIX_PROGRAM_ID,
-    SPL_TOKEN_PROGRAM_ID, SYSTEM_PROGRAM_ID, compute_discriminant,
+    SPL_TOKEN_PROGRAM_ID, SYSTEM_PROGRAM_ID, compute_discriminant, get_escrow_address,
 };
 use phoenix_rise::ix::types::{Direction, OrderFlags, SelfTradeBehavior, Side, StopLossOrderKind};
 use phoenix_rise_litesvm_test::{
@@ -14,9 +14,10 @@ use phoenix_rise_litesvm_test::{
     parse_pubkey, parse_pubkeys, sdk_localnet_vm_required,
 };
 use rise_example_program::{
-    CancelLimitOrderParams, CancelStopLossCpiParams, DepositEmberThenPhoenixParams,
-    LimitOrderCpiParams, MarketOrderCpiParams, MarketOrderWithoutArenas, StopLossCpiParams,
-    SubaccountCloseAndSweepParams, SubaccountOpenAndTradeParams, WithdrawPhoenixThenEmberParams,
+    CancelLimitOrderParams, CancelStopLossCpiParams, ClaimEscrowParams,
+    DepositEmberThenPhoenixParams, LimitOrderCpiParams, MarketOrderCpiParams,
+    MarketOrderWithoutArenas, StopLossCpiParams, SubaccountCloseAndSweepParams,
+    SubaccountOpenAndTradeParams, WithdrawPhoenixThenEmberParams,
 };
 use solana_compute_budget_interface::ComputeBudgetInstruction;
 use solana_instruction::{AccountMeta, Instruction};
@@ -369,6 +370,37 @@ pub fn cancel_stop_loss_ix(
     };
     let _ = context;
     example_ix(program_id, "global:cancel_stop_loss", &params, accounts)
+}
+
+pub fn claim_escrow_ix(
+    context: &SdkLocalnetContext,
+    program_id: Pubkey,
+    claimer: Pubkey,
+    phoenix_program: Pubkey,
+) -> Instruction {
+    let params = ClaimEscrowParams {
+        global_trader_index_count: global_trader_index_count(context),
+        active_trader_buffer_count: active_trader_buffer_count(context),
+    };
+    let mut accounts = vec![
+        AccountMeta::new_readonly(phoenix_program, false),
+        AccountMeta::new_readonly(*PHOENIX_LOG_AUTHORITY, false),
+        AccountMeta::new_readonly(*PHOENIX_GLOBAL_CONFIGURATION, false),
+        AccountMeta::new_readonly(context.actor_pubkey("taker1"), false),
+        AccountMeta::new(context.actor_trader("taker1"), false),
+        AccountMeta::new_readonly(claimer, false),
+        AccountMeta::new(context.actor_trader("taker0"), false),
+        AccountMeta::new(
+            get_escrow_address(&context.actor_pubkey("taker0")).expect("derive escrow PDA"),
+            false,
+        ),
+        AccountMeta::new_readonly(
+            parse_pubkey(&context.fixture.addresses.perp_asset_map).unwrap(),
+            false,
+        ),
+    ];
+    accounts.extend(dynamic_account_metas(context));
+    example_ix(program_id, "global:claim_escrow", &params, accounts)
 }
 
 pub fn register_subaccount_and_trade_ix(

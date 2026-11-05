@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.9.3 - 2026-11-05
+
+Source Phoenix commit: `f962f642e47ceb89aebbda2eaca45ca65e46daa5`
+
+### Summary
+
+- **ix**: Added a `phoenix::AcceptEscrowRequest` CPI wrapper, with `AcceptEscrowRequestArgs` and `ACCEPT_ESCROW_REQUEST_MIN_ACCOUNT_COUNT`. On-chain programs can now accept a pending escrow request through CPI. The wrapper takes the sender and receiver trader accounts, the receiver's escrow account, the perp asset map, and the trader-arena tails (`global_trader_index` and `active_trader_buffer`). The receiver wallet is passed as a signer, so it can be a program-derived address (PDA) that holds position authority.
+- **ix**: Added `constants::get_escrow_address(authority)` to derive the escrow PDA (seeds `["escrow", authority]`).
+- **types**: `CommodityMarketCalendarView` has a new optional `timezone` field. It carries the IANA timezone for schedule times and dates, and the API defaults to `America/New_York` when it is absent. It is omitted from serialized output when `None`, and responses without it still deserialize.
+- **litesvm-test**: The bundled localnet fixture gained an `escrowCashRequest` scenario that creates an escrow account for `taker0` and a cash escrow request from `taker1`.
+- **programs / README**: The `example-program` reference gained a `claim_escrow` instruction. It claims an escrow through a delegated PDA position authority. The docs were updated to match.
+- **workspace**: All Rise Rust crates move from `0.9.2` to `0.9.3` in lockstep.
+
+### Breaking Changes
+
+- **types**: `CommodityMarketCalendarView` has a new public `timezone: Option<String>` field. Code that builds this struct with a struct literal must add `timezone` (use `None` to keep the old behavior). Deserialization and serialization stay backward compatible.
+
+### Consumer Notes
+
+- To claim an escrow from a program, derive the receiver's escrow with `get_escrow_address` and pass a PDA that is the receiver trader's position authority as `receiver_wallet`. Call `invoke_signed` with that PDA's seeds. `programs/example-program/src/claim_escrow.rs` is a working reference.
+- Consumers of the commodity market calendar should read `calendar.timezone` when it is present. Treat `None` as `America/New_York`.
+
 ## v0.9.2 - 2026-11-05
 
 Source Phoenix commit: `987bb2791758ee2b8636cb93eaca24364c256b80`

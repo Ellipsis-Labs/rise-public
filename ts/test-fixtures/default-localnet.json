@@ -3611,6 +3611,196 @@
           "dataBase64": "LZvINCXWu4zwSQIAAAAAAAAB"
         }
       ]
+    },
+    {
+      "name": "escrowCashRequest",
+      "description": "Create an escrow account for taker0 and a cash escrow request from taker1.",
+      "signerSeeds": ["payer", "taker-0000", "taker-0001"],
+      "instructions": [
+        {
+          "name": "createEscrowPermission",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "Gb6QGTkWNXQt4rmv7jdkkRtQQdGxP9V2v7qK8jgd2c5M",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "7isfNVgkf2Wz22DRuB1Yipdk7pLz3wVG8vroJCCQpVKX",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "4aGbsgmMxptuj4tKZLReZjh1obsH4fGaayLYa93qa9aR",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "vrYapJzdCAA="
+        },
+        {
+          "name": "setEscrowPermission",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "Gb6QGTkWNXQt4rmv7jdkkRtQQdGxP9V2v7qK8jgd2c5M",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "7isfNVgkf2Wz22DRuB1Yipdk7pLz3wVG8vroJCCQpVKX",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "4aGbsgmMxptuj4tKZLReZjh1obsH4fGaayLYa93qa9aR",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "Rn4pwvW9gAgAAQAAAAAAAAAA"
+        },
+        {
+          "name": "createEscrowAccount",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "CFupopDymBDnia6zh8vRxY6oKJp8WPaKahv4ooFebyEw",
+              "isSigner": true,
+              "isWritable": true
+            },
+            {
+              "pubkey": "7isfNVgkf2Wz22DRuB1Yipdk7pLz3wVG8vroJCCQpVKX",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "6cqS3dK5x3Pw55967bY5NsDC3ZEPbrc9uMy4GwVocPtC",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "isSigner": false,
+              "isWritable": false
+            }
+          ],
+          "dataBase64": "kpPhLzNAcAEEAAAAAAAAAA=="
+        },
+        {
+          "name": "createEscrowRequest",
+          "programId": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+          "accounts": [
+            {
+              "pubkey": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "2zskx2iyCvb6Stg7RBZkt1f6MrF4dpYtMG3yMvKwqtUZ",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "4aGbsgmMxptuj4tKZLReZjh1obsH4fGaayLYa93qa9aR",
+              "isSigner": true,
+              "isWritable": false
+            },
+            {
+              "pubkey": "7U4g5JyoqKTAwTYd7D7iAf4jed8R95yMHJ6aZSDwcKHV",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "Gb6QGTkWNXQt4rmv7jdkkRtQQdGxP9V2v7qK8jgd2c5M",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "7isfNVgkf2Wz22DRuB1Yipdk7pLz3wVG8vroJCCQpVKX",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "GHkq1eHeZGi96RmGPZ23e3BDEcdfpPzsPwpYdm17SWgc",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "6cqS3dK5x3Pw55967bY5NsDC3ZEPbrc9uMy4GwVocPtC",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2yLiFHyZiTj6339LJfn8PJfZPNpxdtDsq6iXi8A7Xt67",
+              "isSigner": false,
+              "isWritable": false
+            },
+            {
+              "pubkey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
+              "isSigner": false,
+              "isWritable": true
+            },
+            {
+              "pubkey": "2U32rSzzrQS3eVmGHsnbw5kcqKF3wQXpHGd3hMq5YJok",
+              "isSigner": false,
+              "isWritable": true
+            }
+          ],
+          "dataBase64": "dKTszLuEw9sAAAAAAAEAAAABoCUmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+        }
+      ]
     }
   ]
 }

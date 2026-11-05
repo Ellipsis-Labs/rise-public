@@ -77,6 +77,12 @@ pub struct CancelStopLossCpiParams {
 }
 
 #[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
+pub struct ClaimEscrowParams {
+    pub global_trader_index_count: u8,
+    pub active_trader_buffer_count: u8,
+}
+
+#[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
 pub struct SubaccountOpenAndTradeParams {
     pub max_positions: u64,
     pub trader_pda_index: u8,

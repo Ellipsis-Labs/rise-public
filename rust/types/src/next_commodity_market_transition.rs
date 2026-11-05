@@ -82,6 +82,10 @@ impl From<MarketCalendarDaySchedule> for CommodityMarketDaySchedule {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct CommodityMarketCalendarView {
+    /// IANA timezone for schedule times and dates; defaults to
+    /// America/New_York.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timezone: Option<String>,
     pub weekly_schedule: BTreeMap<String, CommodityMarketDaySchedule>,
     pub date_overrides: BTreeMap<String, CommodityMarketDaySchedule>,
 }
@@ -89,6 +93,7 @@ pub struct CommodityMarketCalendarView {
 impl From<MarketCalendarView> for CommodityMarketCalendarView {
     fn from(value: MarketCalendarView) -> Self {
         Self {
+            timezone: None,
             weekly_schedule: value
                 .weekly_schedule
                 .into_iter()
@@ -180,12 +185,19 @@ mod tests {
             }
         }"#;
 
-        let response: CommodityMarketCalendarResponse = serde_json::from_str(json).unwrap();
-
-        assert_eq!(response.market, "cme_commodities");
-        assert_eq!(
-            response.calendar.weekly_schedule["Mon"].sessions[0].mode,
-            "EXTERNAL"
-        );
+        let mut value: serde_json::Value = serde_json::from_str(json).unwrap();
+        for timezone in [None, Some("Asia/Seoul")] {
+            if let Some(timezone) = timezone {
+                value["calendar"]["timezone"] = timezone.into();
+            }
+            let response: CommodityMarketCalendarResponse =
+                serde_json::from_value(value.clone()).unwrap();
+            assert_eq!(response.calendar.timezone.as_deref(), timezone);
+            assert_eq!(response.market, "cme_commodities");
+            assert_eq!(
+                response.calendar.weekly_schedule["Mon"].sessions[0].mode,
+                "EXTERNAL"
+            );
+        }
     }
 }

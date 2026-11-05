@@ -553,6 +553,7 @@ pub mod phoenix {
     pub const TRANSFER_COLLATERAL_DATA_LEN: usize = 16;
     pub const TRANSFER_COLLATERAL_CHILD_TO_PARENT_MIN_ACCOUNT_COUNT: usize = 7;
     pub const SYNC_PARENT_TO_CHILD_MIN_ACCOUNT_COUNT: usize = 6;
+    pub const ACCEPT_ESCROW_REQUEST_MIN_ACCOUNT_COUNT: usize = 9;
     pub const UPDATE_TRADER_STATE_MIN_ACCOUNT_COUNT: usize = 5;
     pub const PLACE_STOP_LOSS_MIN_ACCOUNT_COUNT: usize = 11;
     pub const PLACE_STOP_LOSS_DATA_LEN: usize = 35;
@@ -1417,6 +1418,66 @@ pub mod phoenix {
             write_account(buffers, 5, self.parent_trader_account, true, false);
             write_account(buffers, 6, self.perp_asset_map, false, false);
             let mut index = 7;
+            for account in self.global_trader_index {
+                write_account(buffers, index, account, true, false);
+                index += 1;
+            }
+            for account in self.active_trader_buffer {
+                write_account(buffers, index, account, true, false);
+                index += 1;
+            }
+            Ok(account_count)
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+    pub struct AcceptEscrowRequestArgs;
+
+    pub struct AcceptEscrowRequest<'a> {
+        pub phoenix_program: &'a AccountInfo,
+        pub log_authority: &'a AccountInfo,
+        pub global_config: &'a AccountInfo,
+        pub sender_wallet: &'a AccountInfo,
+        pub sender_trader_account: &'a AccountInfo,
+        pub receiver_wallet: &'a AccountInfo,
+        pub receiver_trader_account: &'a AccountInfo,
+        pub receiver_escrow: &'a AccountInfo,
+        pub perp_asset_map: &'a AccountInfo,
+        pub global_trader_index: &'a [AccountInfo],
+        pub active_trader_buffer: &'a [AccountInfo],
+    }
+
+    impl<'a> AcceptEscrowRequest<'a> {
+        pub const DATA_LEN: usize = DISCRIMINANT_DATA_LEN;
+        pub const MIN_ACCOUNT_COUNT: usize = ACCEPT_ESCROW_REQUEST_MIN_ACCOUNT_COUNT;
+
+        impl_phoenix_invoke_methods!(
+            AcceptEscrowRequest,
+            AcceptEscrowRequestArgs,
+            write_accept_escrow_request_data
+        );
+
+        pub fn account_count(&self) -> usize {
+            Self::MIN_ACCOUNT_COUNT
+                + self.global_trader_index.len()
+                + self.active_trader_buffer.len()
+        }
+
+        fn write_accounts(&self, buffers: &mut CpiBuffers<'a, '_>) -> Result<usize, ProgramError> {
+            let account_count = self.account_count();
+            require_accounts(buffers, account_count)?;
+            require_trader_arenas(self.global_trader_index, self.active_trader_buffer)?;
+
+            write_account(buffers, 0, self.phoenix_program, false, false);
+            write_account(buffers, 1, self.log_authority, false, false);
+            write_account(buffers, 2, self.global_config, false, false);
+            write_account(buffers, 3, self.sender_wallet, false, false);
+            write_account(buffers, 4, self.sender_trader_account, true, false);
+            write_account(buffers, 5, self.receiver_wallet, false, true);
+            write_account(buffers, 6, self.receiver_trader_account, true, false);
+            write_account(buffers, 7, self.receiver_escrow, true, false);
+            write_account(buffers, 8, self.perp_asset_map, false, false);
+            let mut index = 9;
             for account in self.global_trader_index {
                 write_account(buffers, index, account, true, false);
                 index += 1;
@@ -2420,6 +2481,13 @@ pub mod phoenix {
         )?;
         write_u64(out, &mut offset, args.amount)?;
         Ok(offset)
+    }
+
+    pub(crate) fn write_accept_escrow_request_data(
+        _args: AcceptEscrowRequestArgs,
+        out: &mut [u8],
+    ) -> Result<usize, crate::PhoenixIxError> {
+        write_discriminant_data(PhoenixInstruction::AcceptEscrowRequest.discriminant(), out)
     }
 
     pub(crate) fn write_transfer_collateral_child_to_parent_data(
