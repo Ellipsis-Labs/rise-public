@@ -950,6 +950,7 @@ mod tests {
             }),
             display_color: Some("#14f195".to_string()),
             circulating_supply: None,
+            asset_class: None,
         }
     }
 

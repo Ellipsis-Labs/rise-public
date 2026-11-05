@@ -64,8 +64,8 @@ pub mod prelude {
     };
     pub use super::core::{Decimal, PaginatedResponse, Price, Side};
     pub use super::exchange::{
-        AuthoritySetView, CollateralAssetMetadata, CollateralAssetsResponse, EarningsDate,
-        EarningsTime, ExchangeKeysView, ExchangeLeverageTier, ExchangeMarketConfig,
+        AssetClass, AuthoritySetView, CollateralAssetMetadata, CollateralAssetsResponse,
+        EarningsDate, EarningsTime, ExchangeKeysView, ExchangeLeverageTier, ExchangeMarketConfig,
         ExchangeResponse, ExchangeRiskFactors, ExchangeStatusView, ExchangeView, MarketCalendar,
         MarketPublicMetadata, MarketStatsSnapshot, SpotAssetConfig, SpotOraclePriceView,
     };
