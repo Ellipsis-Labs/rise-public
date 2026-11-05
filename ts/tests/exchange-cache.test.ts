@@ -29,7 +29,7 @@ const buildRiskActionPriceValidityRules = (
     Array.from({ length: 4 }, () => Array.from({ length: 8 }, () => fill))
   );
 
-describe("MarketPublicMetadataSchema classifications", () => {
+describe("MarketPublicMetadataSchema", () => {
   it("accepts backward-compatible missing and null values", () => {
     expect(
       MarketPublicMetadataSchema.parse({}).classifications
@@ -49,6 +49,18 @@ describe("MarketPublicMetadataSchema classifications", () => {
     expect(() =>
       MarketPublicMetadataSchema.parse({ classifications: "pre-ipo" })
     ).toThrow();
+  });
+
+  it("maps future asset classes to unknown and rejects malformed ones", () => {
+    const assetClass = (value: unknown) =>
+      MarketPublicMetadataSchema.parse({ assetClass: value }).assetClass;
+    expect(assetClass("crypto")).toBe("crypto");
+    expect(assetClass("fx")).toBe("unknown");
+    expect(assetClass(null)).toBeNull();
+    expect(MarketPublicMetadataSchema.parse({}).assetClass).toBeUndefined();
+    expect(
+      MarketPublicMetadataSchema.safeParse({ assetClass: 3 }).success
+    ).toBe(false);
   });
 });
 

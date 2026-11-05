@@ -601,6 +601,7 @@ export interface PlaceIsolatedLimitOrderRequest {
   isPostOnly?: boolean;
   slide?: boolean;
   skipTransferToParent?: boolean;
+  targetLeverage?: number;
   flightBuilderAuthority?: string;
   flightFeeCollectorTrader?: string;
   /** @deprecated Legacy stop-loss protection. Use `greaterTrigger` / `lessTrigger` or the `*WithConditionals` requests. */
@@ -628,6 +629,7 @@ export const PlaceIsolatedLimitOrderRequestSchema: z.ZodType<PlaceIsolatedLimitO
     isPostOnly: z.boolean().optional(),
     slide: z.boolean().optional(),
     skipTransferToParent: z.boolean().optional(),
+    targetLeverage: z.number().positive().optional(),
     flightBuilderAuthority: z.string().optional(),
     flightFeeCollectorTrader: z.string().optional(),
     tpSl: TpSlOrderConfigSchema.optional(),
@@ -650,6 +652,7 @@ export interface PlaceIsolatedLimitOrderWithConditionalsRequest {
   isPostOnly?: boolean | null;
   slide?: boolean | null;
   skipTransferToParent?: boolean | null;
+  targetLeverage?: number | null;
   greaterTrigger?: ConditionalTriggerRequest | null;
   lessTrigger?: ConditionalTriggerRequest | null;
   flightBuilderAuthority?: string | null;
@@ -677,6 +680,7 @@ export const PlaceIsolatedLimitOrderWithConditionalsRequestSchema: z.ZodType<Pla
       isPostOnly: z.boolean().nullable().optional(),
       slide: z.boolean().nullable().optional(),
       skipTransferToParent: z.boolean().nullable().optional(),
+      targetLeverage: z.number().positive().nullable().optional(),
       greaterTrigger: ConditionalTriggerRequestSchema.nullable().optional(),
       lessTrigger: ConditionalTriggerRequestSchema.nullable().optional(),
       flightBuilderAuthority: z.string().nullable().optional(),
@@ -701,6 +705,7 @@ export interface PlaceIsolatedMarketOrderRequest {
   feePayer?: string;
   isReduceOnly?: boolean;
   skipTransferToParent?: boolean;
+  targetLeverage?: number;
   flightBuilderAuthority?: string;
   flightFeeCollectorTrader?: string;
   /** @deprecated Legacy stop-loss protection. Use `greaterTrigger` / `lessTrigger` or the `*WithConditionals` requests. */
@@ -732,6 +737,7 @@ export const PlaceIsolatedMarketOrderRequestSchema: z.ZodType<PlaceIsolatedMarke
       feePayer: z.string().optional(),
       isReduceOnly: z.boolean().optional(),
       skipTransferToParent: z.boolean().optional(),
+      targetLeverage: z.number().positive().optional(),
       flightBuilderAuthority: z.string().optional(),
       flightFeeCollectorTrader: z.string().optional(),
       tpSl: TpSlOrderConfigSchema.optional(),

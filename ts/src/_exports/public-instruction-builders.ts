@@ -467,6 +467,16 @@ export {
 } from "../core/ixBuilders/TransferCollateralChildToParent";
 
 export {
+  buildWithdrawToTargetLeverageIx,
+  getWithdrawToTargetLeverageCodec,
+  getWithdrawToTargetLeverageDecoder,
+  getWithdrawToTargetLeverageEncoder,
+  type WithdrawToTargetLeverageAccounts,
+  type WithdrawToTargetLeverageIx,
+  type WithdrawToTargetLeverageParams,
+} from "../core/ixBuilders/WithdrawToTargetLeverage";
+
+export {
   TWAP_IOC_ORDER_PACKET_BYTE_LENGTH,
   TWAP_IOC_ORDER_PACKET_DISCRIMINANT,
   buildCancelTwapOrderIx,

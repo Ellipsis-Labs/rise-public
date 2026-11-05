@@ -26,6 +26,7 @@ describe("orders client flight routing", () => {
           "Builder111111111111111111111111111111111"
         );
         expect(body.flightFeeCollectorTrader).toBe(derivedCollector);
+        expect(body.targetLeverage).toBe(12.5);
 
         return new Response(JSON.stringify([]), {
           status: 200,
@@ -53,6 +54,7 @@ describe("orders client flight routing", () => {
       side: "buy",
       priceInTicks: 100,
       numBaseLots: 1,
+      targetLeverage: 12.5,
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);

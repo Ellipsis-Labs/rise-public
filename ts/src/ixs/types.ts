@@ -24,6 +24,7 @@ import type { TransferCollateralChildToParentIx } from "@/core/ixBuilders/Transf
 import type { TransferCollateralIx } from "@/core/ixBuilders/TransferCollateral";
 import type { UncrossCrankIx } from "@/core/ixBuilders/UncrossCrank";
 import type { WithdrawFundsIx } from "@/core/ixBuilders/WithdrawFunds";
+import type { WithdrawToTargetLeverageIx } from "@/core/ixBuilders/WithdrawToTargetLeverage";
 import type { HawkeyeIx } from "@/hawkeye";
 import type { PhoenixOrderPacketBuilders } from "@/orderPackets";
 import type {
@@ -279,6 +280,15 @@ export interface ClientTransferCollateralChildToParentInput {
   positionAuthority?: Authority;
   traderPdaIndex: number;
   childSubaccountIndex: number;
+}
+
+export interface ClientWithdrawToTargetLeverageInput {
+  authority: Authority;
+  positionAuthority?: Authority;
+  permissionAddress?: Address;
+  traderPdaIndex: number;
+  childSubaccountIndex: number;
+  targetLeverageBps: bigint;
 }
 
 export interface ClientPlaceStopLossInput {
@@ -556,6 +566,13 @@ export interface ResolvedTransferCollateralIxInput {
   amount: bigint;
 }
 
+export interface ResolvedWithdrawToTargetLeverageIxInput extends Omit<
+  ResolvedTransferCollateralIxInput,
+  "amount"
+> {
+  targetLeverageBps: bigint;
+}
+
 export interface ResolvedTransferCollateralChildToParentIxInput {
   exchange: {
     phoenixProgramAddress: PhoenixProgramAddress;
@@ -739,6 +756,9 @@ export interface PhoenixIxClient {
   buildTransferCollateralChildToParent(
     params: ClientTransferCollateralChildToParentInput
   ): Promise<TransferCollateralChildToParentIx>;
+  buildWithdrawToTargetLeverage(
+    params: ClientWithdrawToTargetLeverageInput
+  ): Promise<WithdrawToTargetLeverageIx>;
   buildEmberDeposit(params: ClientDepositInput): Promise<EmberDepositIx>;
   buildEmberWithdraw(params: ClientWithdrawInput): Promise<EmberWithdrawIx>;
   /** @deprecated Legacy stop-loss account. Use {@link buildPlacePositionConditionalOrder}. */

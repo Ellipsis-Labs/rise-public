@@ -744,6 +744,16 @@
     {
       "program": "phoenix-eternal",
       "enumName": "PhoenixInstruction",
+      "instructionName": "WithdrawToTargetLeverage",
+      "snakeCaseName": "withdraw_to_target_leverage",
+      "preimage": "global:withdraw_to_target_leverage",
+      "tag": "11105521653698570911",
+      "discriminatorHex": "9faa1cbe1abd1e9a",
+      "discriminatorBase64": "n6ocvhq9Hpo="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
       "instructionName": "UncrossCrank",
       "snakeCaseName": "uncross_crank",
       "preimage": "global:uncross_crank",

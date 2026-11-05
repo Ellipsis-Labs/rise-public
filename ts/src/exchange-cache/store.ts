@@ -269,7 +269,8 @@ const sameMarketPublicMetadata = (
       (rightCalendar?.contentSha256 ?? null) &&
     (leftCalendar?.nextMarketTransitionUtc ?? null) ===
       (rightCalendar?.nextMarketTransitionUtc ?? null) &&
-    (left?.displayColor ?? null) === (right?.displayColor ?? null)
+    (left?.displayColor ?? null) === (right?.displayColor ?? null) &&
+    (left?.assetClass ?? null) === (right?.assetClass ?? null)
   );
 };
 

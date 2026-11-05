@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.7.9 - 2026-11-05
+
+Source Phoenix commit: `987bb2791758ee2b8636cb93eaca24364c256b80`
+
+### Summary
+- Adds `WithdrawToTargetLeverage` instruction support: new builders (`buildWithdrawToTargetLeverageIx`, `buildWithdrawToTargetLeverage`, `buildWithdrawToTargetLeverageIxResolved`), codec helpers, and the `PhoenixIxClient.buildWithdrawToTargetLeverage` method. It takes `targetLeverageBps` (10_000n = 1x).
+- Isolated limit, market, and multi-limit order flows accept an optional `targetLeverageBps`. For child subaccounts (`subaccountIndex > 0`), the flow adds a `withdrawToTargetLeverage` instruction after the order instruction and before the child-to-parent sweep.
+- The isolated order REST requests (`PlaceIsolatedLimitOrderRequest`, `PlaceIsolatedLimitOrderWithConditionalsRequest`, `PlaceIsolatedMarketOrderRequest`) accept an optional positive `targetLeverage`.
+- Market public metadata now includes an optional, nullable `assetClass`. New exports are `AssetClass` and `AssetClassSchema`. Unrecognized values parse as `"unknown"`, and the exchange cache now treats an `assetClass` change as a metadata change.
+- The WebSocket client now adds a `phoenixClient` query parameter to the connection URL. Existing query parameters are preserved, and the `PHOENIX_DISABLE_CLIENT_IDENTITY_HEADER` environment variable disables it.
+
+### Breaking Changes
+- Exhaustive `switch` statements over `MarketPublicMetadata.assetClass` that don't handle `"unknown"` may fail to compile.
+- Custom implementations of the `PhoenixIxClient` interface must add `buildWithdrawToTargetLeverage`, because it is a new required method.
+
+### Consumer Notes
+- If you pass `targetLeverageBps` for the main account (`subaccountIndex` 0), the flow ignores it and adds no withdraw instruction.
+- With `skipTransferToParent`, the target-leverage withdrawal still runs for child subaccounts. It is only skipped for the main account.
+- Multi-limit flows add the withdraw instruction only to the final batch.
+- The WebSocket URL is now parsed with `new URL(...)`. A relative `ws.url` resolves against `globalThis.location`, and it throws in environments without a location.
+- This release also bumps the Rust crate lockfiles used by the example programs to 0.9.2. That has no effect on the npm package.
+
 ## v0.7.8 - 2026-11-05
 
 Source Phoenix commit: `fb2c3d5a89698c5ef620cdcf98f2f5e2b193e82d`

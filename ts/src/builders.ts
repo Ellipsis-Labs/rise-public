@@ -78,6 +78,7 @@ import type { OnboardTraderDelegatedIx } from "./core/ixBuilders/OnboardTraderDe
 import { type SyncParentToChildIx } from "./core/ixBuilders/SyncParentToChild";
 import { type TransferCollateralChildToParentIx } from "./core/ixBuilders/TransferCollateralChildToParent";
 import { type TransferCollateralIx } from "./core/ixBuilders/TransferCollateral";
+import { type WithdrawToTargetLeverageIx } from "./core/ixBuilders/WithdrawToTargetLeverage";
 import { type UncrossCrankIx } from "./core/ixBuilders/UncrossCrank";
 import {
   buildUpdateTraderPreferenceBitsIx,
@@ -1064,6 +1065,19 @@ export const buildTransferCollateralChildToParent = async (
   createLegacyPhoenixIxOperations(client).buildTransferCollateralChildToParent(
     params
   );
+
+export const buildWithdrawToTargetLeverage = async (
+  params: {
+    authority: Authority;
+    positionAuthority?: Authority;
+    permissionAddress?: Address;
+    traderPdaIndex: number;
+    childSubaccountIndex: number;
+    targetLeverageBps: bigint;
+  },
+  client: PhoenixInstructionClient
+): Promise<WithdrawToTargetLeverageIx> =>
+  createLegacyPhoenixIxOperations(client).buildWithdrawToTargetLeverage(params);
 
 export const buildWithdrawFunds = async (
   params: {

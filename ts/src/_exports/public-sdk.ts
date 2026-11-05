@@ -389,6 +389,7 @@ export {
   buildTransferCollateral,
   transferCollateral,
   buildTransferCollateralChildToParent,
+  buildWithdrawToTargetLeverage,
   buildWithdrawFunds,
   withdrawFunds,
   type BuildRegisterTraderParams,

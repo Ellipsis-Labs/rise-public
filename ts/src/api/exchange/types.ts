@@ -278,6 +278,19 @@ export const EarningsDateSchema: z.ZodType<EarningsDate> = z.object({
   time: z.enum(["amc", "bmo"]).nullable(),
 });
 
+/** Asset class of a market's underlying; "unknown" for a class this client version does not recognize. */
+export type AssetClass =
+  | "crypto"
+  | "equities"
+  | "commodities"
+  | "other"
+  | "unknown";
+
+export const AssetClassSchema: z.ZodType<AssetClass> = z.union([
+  z.enum(["crypto", "equities", "commodities", "other"]),
+  z.string().transform(() => "unknown" as const),
+]);
+
 export interface MarketPublicMetadata {
   /** Sorted earnings timestamps; date-only values use midnight UTC. Filter against the current time for upcoming dates. */
   earningsDates?: string[];
@@ -295,6 +308,8 @@ export interface MarketPublicMetadata {
   displayColor?: string | null;
   /** Circulating supply in units of the underlying asset; null when unknown. */
   circulatingSupply?: number | null;
+  /** Null when the market is unclassified. */
+  assetClass?: AssetClass | null;
 }
 
 export const MarketPublicMetadataSchema: z.ZodType<MarketPublicMetadata> =
@@ -312,6 +327,7 @@ export const MarketPublicMetadataSchema: z.ZodType<MarketPublicMetadata> =
     calendar: MarketCalendarSchema.nullable().optional(),
     displayColor: z.string().nullable().optional(),
     circulatingSupply: z.number().nullable().optional(),
+    assetClass: AssetClassSchema.nullable().optional(),
   });
 
 export interface MarketStatsSnapshot {

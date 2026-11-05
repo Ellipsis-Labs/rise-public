@@ -30,6 +30,7 @@ import {
   buildEmberWithdrawIx,
   buildTransferCollateralIx,
   buildTransferCollateralChildToParentIx,
+  buildWithdrawToTargetLeverageIx,
   buildSyncParentToChildIx,
   buildOnboardTraderDelegatedIx,
   buildDelegateTraderIx,
@@ -504,6 +505,20 @@ try {
       activeTraderBuffer: vec2(6, 7),
     });
     results["TransferCollateralChildToParent"] = hexEncode(ix.data);
+  }
+
+  // 18a. WithdrawToTargetLeverage
+  {
+    const ix = buildWithdrawToTargetLeverageIx({
+      trader: p(0),
+      srcTraderAccount: p(1),
+      dstTraderAccount: p(2),
+      perpAssetMap: p(3),
+      globalTraderIndex: vec2(4, 5),
+      activeTraderBuffer: vec2(6, 7),
+      targetLeverageBps: 125_000n,
+    });
+    results["WithdrawToTargetLeverage"] = hexEncode(ix.data);
   }
 
   // 19. SyncParentToChild

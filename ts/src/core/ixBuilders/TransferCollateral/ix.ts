@@ -15,13 +15,31 @@ import type {
 export const buildTransferCollateralIx = (
   params: TransferCollateralParams
 ): TransferCollateralIx => {
-  validate(params);
-  const { programAddress, logAuthorityAddress, globalConfigurationAddress } =
-    getPhoenixInstructionAddresses(params);
+  validateTransferCollateralAccounts(params);
+  if (params.amount === undefined || params.amount === null) {
+    throw new Error("Amount is required");
+  }
+  if (params.amount <= 0n) {
+    throw new Error("Amount must be greater than 0");
+  }
+  const addresses = getPhoenixInstructionAddresses(params);
 
-  const data = getTransferCollateralEncoder().encode(params.amount);
+  return {
+    programAddress: addresses.programAddress,
+    accounts: buildTransferCollateralAccounts(params, addresses),
+    data: getTransferCollateralEncoder().encode(params.amount),
+  };
+};
 
-  const accounts: TransferCollateralAccounts = [
+export const buildTransferCollateralAccounts = (
+  params: Omit<TransferCollateralParams, "amount">,
+  {
+    programAddress,
+    logAuthorityAddress,
+    globalConfigurationAddress,
+  }: ReturnType<typeof getPhoenixInstructionAddresses>
+): TransferCollateralAccounts =>
+  [
     // LogAccountGroupAccounts (2 accounts)
     generateReadonlyAccount(programAddress),
     generateReadonlyAccount(logAuthorityAddress),
@@ -37,14 +55,9 @@ export const buildTransferCollateralIx = (
       : []),
   ] as const;
 
-  return {
-    programAddress,
-    accounts,
-    data,
-  };
-};
-
-const validate = (params: TransferCollateralParams) => {
+export const validateTransferCollateralAccounts = (
+  params: Omit<TransferCollateralParams, "amount">
+): void => {
   if (!params.trader) {
     throw new Error("Trader wallet is required");
   }
@@ -66,11 +79,5 @@ const validate = (params: TransferCollateralParams) => {
     throw new Error(
       "Global trader index array is required and must not be empty"
     );
-  }
-  if (params.amount === undefined || params.amount === null) {
-    throw new Error("Amount is required");
-  }
-  if (params.amount <= 0n) {
-    throw new Error("Amount must be greater than 0");
   }
 };

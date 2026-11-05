@@ -14,6 +14,10 @@ import {
   isTerminalRefreshError,
 } from "@/auth/refreshErrors";
 import { isExternalSessionControl } from "@/auth/types";
+import {
+  getPhoenixClientHeader,
+  PHOENIX_CLIENT_HEADER_NAME,
+} from "@/clientIdentity";
 import type {
   Subscription,
   SubscriptionOptions,
@@ -594,7 +598,13 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
           protocolToken !== null ? "authenticated" : "anonymous";
         lifecycle.send({ type: "CONNECT_START", pendingAuth });
 
-        const websocket = new WebSocket(config.url, protocol);
+        const url = new URL(config.url, globalThis.location?.href);
+        const clientIdentity =
+          getPhoenixClientHeader()[PHOENIX_CLIENT_HEADER_NAME];
+        if (clientIdentity) {
+          url.searchParams.set("phoenixClient", clientIdentity);
+        }
+        const websocket = new WebSocket(url.toString(), protocol);
         ws = websocket;
 
         websocket.onopen = () => {

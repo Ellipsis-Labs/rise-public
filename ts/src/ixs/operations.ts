@@ -61,6 +61,7 @@ import {
   buildTransferCollateralIxResolved,
   buildWithdrawFundsIxResolved,
   buildWithdrawIxsResolved,
+  buildWithdrawToTargetLeverageIxResolved,
 } from "./collateral";
 import { buildCreateEscrowRequestIxResolved } from "./escrow";
 import {
@@ -106,6 +107,7 @@ import type {
   ClientTransferCollateralChildToParentInput,
   ClientTransferCollateralInput,
   ClientWithdrawInput,
+  ClientWithdrawToTargetLeverageInput,
   DepositIxsResult,
   PhoenixIxClient,
   ResolvedPlaceOrderContext,
@@ -870,6 +872,44 @@ export const createPhoenixIxOperations = (
           childTraderAccount,
           parentTraderAccount,
         },
+      });
+    },
+    buildWithdrawToTargetLeverage: async (
+      params: ClientWithdrawToTargetLeverageInput
+    ) => {
+      const exchangeAccounts =
+        await context.resolveExchangeInstructionAccounts();
+      const [srcTraderAccount, dstTraderAccount] = await Promise.all([
+        context.resolveTraderAccount({
+          authority: params.authority,
+          traderPdaIndex: params.traderPdaIndex,
+          traderSubaccountIndex: params.childSubaccountIndex,
+        }),
+        context.resolveTraderAccount({
+          authority: params.authority,
+          traderPdaIndex: params.traderPdaIndex,
+          traderSubaccountIndex: 0,
+        }),
+      ]);
+
+      return buildWithdrawToTargetLeverageIxResolved({
+        exchange: {
+          phoenixProgramAddress: exchangeAccounts.phoenixProgramAddress,
+          logAuthorityAddress: exchangeAccounts.logAuthorityAddress,
+          globalConfigurationAddress:
+            exchangeAccounts.globalConfigurationAddress,
+          perpAssetMap: exchangeAccounts.perpAssetMap,
+          globalTraderIndex: exchangeAccounts.globalTraderIndex,
+          activeTraderBuffer: exchangeAccounts.activeTraderBuffer,
+        },
+        trader: {
+          authority: params.authority,
+          positionAuthority: params.positionAuthority,
+          permissionAddress: params.permissionAddress,
+          srcTraderAccount,
+          dstTraderAccount,
+        },
+        targetLeverageBps: params.targetLeverageBps,
       });
     },
     buildEmberDeposit: async (params: ClientDepositInput) => {

@@ -56,6 +56,7 @@ const IX_METHOD_NAMES = [
   "buildWithdrawFunds",
   "buildTransferCollateral",
   "buildTransferCollateralChildToParent",
+  "buildWithdrawToTargetLeverage",
   "buildEmberDeposit",
   "buildEmberWithdraw",
   "buildPlaceStopLoss",

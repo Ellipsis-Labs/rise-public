@@ -26,6 +26,10 @@ import {
   buildWithdrawFundsIx,
   type WithdrawFundsIx,
 } from "@/core/ixBuilders/WithdrawFunds";
+import {
+  buildWithdrawToTargetLeverageIx,
+  type WithdrawToTargetLeverageIx,
+} from "@/core/ixBuilders/WithdrawToTargetLeverage";
 import { phoenixInstructionAddresses } from "@/core/constants";
 import type {
   BuildDepositIxsResolvedInput,
@@ -37,6 +41,7 @@ import type {
   ResolvedTransferCollateralChildToParentIxInput,
   ResolvedTransferCollateralIxInput,
   ResolvedWithdrawFundsIxInput,
+  ResolvedWithdrawToTargetLeverageIxInput,
   WithdrawIxsResult,
 } from "./types";
 
@@ -98,6 +103,25 @@ export const buildTransferCollateralIxResolved = (
     activeTraderBuffer: params.exchange.activeTraderBuffer,
     permissionAccount: params.trader.permissionAddress,
     amount: params.amount,
+  });
+
+export const buildWithdrawToTargetLeverageIxResolved = (
+  params: ResolvedWithdrawToTargetLeverageIxInput
+): WithdrawToTargetLeverageIx =>
+  buildWithdrawToTargetLeverageIx({
+    ...phoenixInstructionAddresses({
+      phoenixProgramAddress: params.exchange.phoenixProgramAddress,
+      logAuthorityAddress: params.exchange.logAuthorityAddress,
+      globalConfigurationAddress: params.exchange.globalConfigurationAddress,
+    }),
+    trader: params.trader.positionAuthority ?? params.trader.authority,
+    srcTraderAccount: params.trader.srcTraderAccount,
+    dstTraderAccount: params.trader.dstTraderAccount,
+    perpAssetMap: params.exchange.perpAssetMap,
+    globalTraderIndex: params.exchange.globalTraderIndex,
+    activeTraderBuffer: params.exchange.activeTraderBuffer,
+    permissionAccount: params.trader.permissionAddress,
+    targetLeverageBps: params.targetLeverageBps,
   });
 
 export const buildTransferCollateralChildToParentIxResolved = (
