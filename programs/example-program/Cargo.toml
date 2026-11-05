@@ -35,6 +35,7 @@ solana-instruction = { version = "3.4", default-features = false, features = [
   "std",
 ] }
 solana-pubkey = { version = "4.2", features = ["curve25519"] }
+solana-transaction-error = "3.3"
 
 [profile.ci]
 inherits = "dev"

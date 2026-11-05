@@ -1,5 +1,6 @@
 mod cancel_limit_order;
 mod cancel_stop_loss;
+mod claim_escrow;
 mod close_subaccount_position_and_sweep;
 mod common;
 mod cpi;
@@ -15,9 +16,10 @@ mod withdraw_phoenix_then_ember;
 
 use borsh::BorshDeserialize;
 pub use params::{
-    CancelLimitOrderParams, CancelStopLossCpiParams, DepositEmberThenPhoenixParams,
-    LimitOrderCpiParams, MarketOrderCpiParams, MarketOrderWithoutArenas, StopLossCpiParams,
-    SubaccountCloseAndSweepParams, SubaccountOpenAndTradeParams, WithdrawPhoenixThenEmberParams,
+    CancelLimitOrderParams, CancelStopLossCpiParams, ClaimEscrowParams,
+    DepositEmberThenPhoenixParams, LimitOrderCpiParams, MarketOrderCpiParams,
+    MarketOrderWithoutArenas, StopLossCpiParams, SubaccountCloseAndSweepParams,
+    SubaccountOpenAndTradeParams, WithdrawPhoenixThenEmberParams,
 };
 use phoenix_rise::ix::constants::compute_discriminant;
 use pinocchio::account_info::AccountInfo;
@@ -37,6 +39,7 @@ enum ExampleInstruction {
     CancelLimitOrder,
     PlaceStopLoss,
     CancelStopLoss,
+    ClaimEscrow,
     RegisterSubaccountSyncTransferAndMarketOrder,
     CloseSubaccountPositionAndSweep,
     WithdrawPhoenixThenEmber,
@@ -62,6 +65,9 @@ impl ExampleInstruction {
         }
         if tag == compute_discriminant("global:cancel_stop_loss") {
             return Some(Self::CancelStopLoss);
+        }
+        if tag == compute_discriminant("global:claim_escrow") {
+            return Some(Self::ClaimEscrow);
         }
         if tag == compute_discriminant("global:register_subaccount_sync_transfer_and_market_order")
         {
@@ -149,6 +155,13 @@ pub fn process_instruction(
                 "rise-example-program: invalid cancel-stop-loss params",
             )?;
             cancel_stop_loss::process(accounts, &params)
+        }
+        ExampleInstruction::ClaimEscrow => {
+            let params = parse_params::<ClaimEscrowParams>(
+                data,
+                "rise-example-program: invalid claim-escrow params",
+            )?;
+            claim_escrow::process(accounts, &params)
         }
         ExampleInstruction::RegisterSubaccountSyncTransferAndMarketOrder => {
             let params = parse_params::<SubaccountOpenAndTradeParams>(

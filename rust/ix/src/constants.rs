@@ -240,6 +240,13 @@ pub fn get_conditional_orders_address(trader_account: &Pubkey) -> Result<Pubkey,
     )
 }
 
+/// Derives the escrow PDA for a given authority.
+///
+/// Seeds: ["escrow", authority]
+pub fn get_escrow_address(authority: &Pubkey) -> Result<Pubkey, PhoenixIxError> {
+    derive_program_address(&[b"escrow", authority.as_ref()], &phoenix_program_id())
+}
+
 /// Derives the permission PDA for an authority and delegated signer.
 ///
 /// Seeds: ["permission", permission_authority, delegated_key]
