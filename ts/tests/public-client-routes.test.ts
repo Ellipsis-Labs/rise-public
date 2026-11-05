@@ -344,19 +344,20 @@ describe("public client route mapping", () => {
           },
         ],
         [
-          "/v1/market/XAU/market-calendar",
+          "/v1/market/SMSN/market-calendar",
           {
-            market: "XAU",
-            marketCalendarId: "cme_commodities",
-            kind: "market",
-            description: "CME commodities",
+            market: "SMSN",
+            marketCalendarId: "korea_equities",
+            kind: "equities",
+            description: "Korean equities",
             calendarUri:
-              "https://phoenixcdn.trade/calendars/cme_commodities.json",
+              "https://phoenixcdn.trade/calendars/korea_equities.json",
             contentSha256:
               "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             loadedAt: "2026-04-24T12:00:00Z",
             rawJson: "{}",
             calendar: {
+              timezone: "Asia/Seoul",
               weeklySchedule: {},
               dateOverrides: {},
             },
@@ -383,7 +384,8 @@ describe("public client route mapping", () => {
     await markets.getNextCommodityMarketTransition();
     await markets.getNextMarketCalendarTransition("XAU");
     await markets.getCommodityMarketCalendar();
-    await markets.getMarketCalendar("XAU");
+    const calendar = await markets.getMarketCalendar("SMSN");
+    expect(calendar.calendar?.timezone).toBe("Asia/Seoul");
 
     expect(snapshot.exchange.withdrawalsAvailable).toBe(true);
     expect(status.withdrawalsAvailable).toBe(true);
@@ -479,7 +481,7 @@ describe("public client route mapping", () => {
       },
       {
         method: "GET",
-        endpoint: "/v1/market/XAU/market-calendar",
+        endpoint: "/v1/market/SMSN/market-calendar",
         params: undefined,
         body: undefined,
       },

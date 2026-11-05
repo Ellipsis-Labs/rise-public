@@ -63,7 +63,10 @@ import {
   buildWithdrawIxsResolved,
   buildWithdrawToTargetLeverageIxResolved,
 } from "./collateral";
-import { buildCreateEscrowRequestIxResolved } from "./escrow";
+import {
+  buildAcceptEscrowRequestIxResolved,
+  buildCreateEscrowRequestIxResolved,
+} from "./escrow";
 import {
   buildCancelAllIxResolved,
   buildCancelOrdersByIdIxResolved,
@@ -84,6 +87,7 @@ import {
 } from "./trader";
 import type {
   BuildRegisterTraderParams,
+  ClientAcceptEscrowRequestInput,
   ClientCancelAllInput,
   ClientCancelOrdersByIdInput,
   ClientCancelStopLossInput,
@@ -612,6 +616,50 @@ export const createPhoenixIxOperations = (
       });
     },
     buildCreateConditionalOrdersAccount,
+    buildAcceptEscrowRequest: async (
+      params: ClientAcceptEscrowRequestInput
+    ) => {
+      const [
+        exchangeAccounts,
+        senderTraderAccount,
+        receiverTraderAccount,
+        receiverEscrow,
+      ] = await Promise.all([
+        context.resolveExchangeInstructionAccounts(),
+        context.resolveTraderAccount({
+          authority: params.senderAuthority,
+          traderPdaIndex: params.senderPdaIndex ?? 0,
+          traderSubaccountIndex: params.senderSubaccountIndex ?? 0,
+        }),
+        context.resolveTraderAccount({
+          authority: params.receiverAuthority,
+          traderPdaIndex: params.receiverPdaIndex ?? 0,
+          traderSubaccountIndex: params.receiverSubaccountIndex ?? 0,
+        }),
+        context.resolveEscrowAddress(params.receiverAuthority),
+      ]);
+
+      return buildAcceptEscrowRequestIxResolved({
+        exchange: {
+          phoenixProgramAddress: exchangeAccounts.phoenixProgramAddress,
+          logAuthorityAddress: exchangeAccounts.logAuthorityAddress,
+          globalConfigurationAddress:
+            exchangeAccounts.globalConfigurationAddress,
+          perpAssetMap: exchangeAccounts.perpAssetMap,
+          globalTraderIndex: exchangeAccounts.globalTraderIndex,
+          activeTraderBuffer: exchangeAccounts.activeTraderBuffer,
+        },
+        sender: {
+          authority: params.senderAuthority,
+          traderAccount: senderTraderAccount,
+        },
+        receiver: {
+          wallet: params.receiverWallet ?? params.receiverAuthority,
+          traderAccount: receiverTraderAccount,
+          escrowAddress: receiverEscrow,
+        },
+      });
+    },
     buildCreateEscrowRequest: async (
       params: ClientCreateEscrowRequestInput
     ) => {

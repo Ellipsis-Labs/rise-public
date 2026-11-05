@@ -11,6 +11,7 @@ import {
   getStructEncoder,
   getU8Encoder,
   getU64Encoder,
+  isSignerRole,
 } from "@solana/kit";
 import type { TransactionSigner } from "@solana/kit";
 import { describe, expect, test } from "vitest";
@@ -26,6 +27,7 @@ import {
   buildHawkeyeViewLiquidationPriceIx,
   buildHawkeyeViewMarginForAssetIx,
   buildHawkeyeViewMarginIx,
+  buildAcceptEscrowRequest,
   buildCancelConditionalOrderIx,
   buildCreatePermissionIx,
   buildCancelAllIxResolved,
@@ -33,6 +35,8 @@ import {
   buildCancelOrdersByIdIxResolved,
   buildCancelStopLossIxResolved,
   buildCreateConditionalOrdersAccountIx,
+  buildCreateEscrowRequest,
+  buildDelegateTrader,
   buildDepositIxsResolved,
   buildLimitOrderPacketFromMarketParams,
   buildMarketOrderPacketFromMarketParams,
@@ -1078,6 +1082,163 @@ describe("SDK localnet common flows", () => {
   );
 
   vmTest(
+    "accepts escrow requests through a delegated position authority and between subaccounts",
+    async () => {
+      const context = await createContext();
+      const receiver = context.getActor("taker0");
+      const sender = context.getActor("taker1");
+      await expectFixtureSuccess(
+        context.sendFixtureTransaction("escrowCashRequest")
+      );
+      const indices = {
+        senderPdaIndex: 1,
+        senderSubaccountIndex: 2,
+        receiverPdaIndex: 2,
+        receiverSubaccountIndex: 1,
+      };
+      const { parentTrader: senderParent, childTrader: senderChild } =
+        await registerAndSyncSubaccount(
+          context,
+          sender.name,
+          indices.senderSubaccountIndex,
+          indices.senderPdaIndex
+        );
+      const deposit = buildSdkLocalnetDepositInput(context, {
+        actorName: sender.name,
+        amount: 2_000_000n,
+      });
+      await expectSuccess(
+        context.sendInstructions(
+          buildDepositIxsResolved({
+            ...deposit,
+            trader: { ...deposit.trader, traderAccount: senderParent },
+          }).instructions,
+          {
+            feePayerSeed: sender.seed,
+            label: "flow:deposit-escrow-sender-parent",
+          }
+        )
+      );
+      await transferCollateralToSubaccount(
+        context,
+        sender,
+        senderChild,
+        2_000_000n,
+        senderParent
+      );
+      const { childTrader: receiverChild } = await registerAndSyncSubaccount(
+        context,
+        receiver.name,
+        indices.receiverSubaccountIndex,
+        indices.receiverPdaIndex
+      );
+
+      const delegateSeed = "escrow-accept-delegate";
+      const delegate = await createExtraLocalnetSigner(context, delegateSeed);
+      await expectSuccess(
+        context.sendInstructions(
+          [
+            await buildDelegateTrader({
+              traderWallet: receiver.pubkey as Authority,
+              traderPdaIndex: 0,
+              traderSubaccountIndex: 0,
+              newPositionAuthority: delegate.address,
+            }),
+          ],
+          {
+            feePayerSeed: "payer",
+            label: "flow:delegate-escrow-receiver",
+          }
+        )
+      );
+
+      const collateral = (traderAccount: string) =>
+        readSdkLocalnetEffectiveTraderState(context, traderAccount).state
+          .quoteLotCollateral;
+      const receiverBefore = collateral(receiver.traderAccount);
+      const senderBefore = collateral(sender.traderAccount);
+
+      const client = createFixtureInstructionClient(context);
+      const acceptIx = await buildAcceptEscrowRequest(
+        {
+          senderAuthority: sender.pubkey as Authority,
+          receiverAuthority: receiver.pubkey as Authority,
+          receiverWallet: delegate.address as Authority,
+        },
+        client
+      );
+      expect(
+        acceptIx.accounts
+          .filter((account) => isSignerRole(account.role))
+          .map((account) => account.address)
+      ).toEqual([delegate.address]);
+
+      context.vm.warpToSlot(
+        context.vm.getClock().slot + WITHDRAW_COOLDOWN_SLOTS
+      );
+      await expectSuccess(
+        sendSdkLocalnetInstructions(
+          context.vm,
+          withExtraLocalnetSigner(context.signers, delegate, delegateSeed),
+          [acceptIx],
+          {
+            feePayerSeed: "payer",
+            label: "flow:accept-escrow-request-delegated",
+          }
+        )
+      );
+
+      expect(collateral(receiver.traderAccount)).toBe(
+        receiverBefore + 2_500_000n
+      );
+      expect(collateral(sender.traderAccount)).toBe(senderBefore - 2_500_000n);
+
+      await expectSuccess(
+        context.sendInstructions(
+          [
+            await buildCreateEscrowRequest(
+              {
+                senderAuthority: sender.pubkey as Authority,
+                receiverAuthority: receiver.pubkey as Authority,
+                actions: [{ kind: "cash", amount: 1_000_000n }],
+                ...indices,
+              },
+              client
+            ),
+          ],
+          {
+            feePayerSeed: "payer",
+            label: "flow:create-escrow-request-subaccounts",
+          }
+        )
+      );
+      const receiverChildBefore = collateral(receiverChild);
+      const senderChildBefore = collateral(senderChild);
+      await expectSuccess(
+        context.sendInstructions(
+          [
+            await buildAcceptEscrowRequest(
+              {
+                senderAuthority: sender.pubkey as Authority,
+                receiverAuthority: receiver.pubkey as Authority,
+                ...indices,
+              },
+              client
+            ),
+          ],
+          {
+            feePayerSeed: "payer",
+            label: "flow:accept-escrow-request-subaccounts",
+          }
+        )
+      );
+      expect(collateral(receiverChild)).toBe(receiverChildBefore + 1_000_000n);
+      expect(collateral(senderChild)).toBe(senderChildBefore - 1_000_000n);
+    },
+    TEST_TIMEOUT_MS
+  );
+
+  vmTest(
     "cancels all orders",
     async () => {
       const context = await createContext();
@@ -2048,18 +2209,18 @@ const registerAndFundSubaccount = async (
   return registered;
 };
 
-const registerAndSyncSubaccount = async (
+const registerTrader = async (
   context: SdkLocalnetContext,
-  actorName: string
-): Promise<{ actor: FixtureActor; childTrader: TraderAddress }> => {
-  const actor = context.getActor(actorName);
-  const childTrader = await getPhoenixTraderSubaccountAddress({
+  actor: FixtureActor,
+  traderPdaIndex: number,
+  traderSubaccountIndex: number
+): Promise<TraderAddress> => {
+  const traderAccount = await getPhoenixTraderSubaccountAddress({
     authority: actor.pubkey as Authority,
-    traderPdaIndex: 0,
-    subaccountIndex: SUBACCOUNT_INDEX,
+    traderPdaIndex,
+    subaccountIndex: traderSubaccountIndex,
     phoenixProgramAddress: phoenixProgram(context),
   });
-
   await expectSuccess(
     context.sendInstructions(
       [
@@ -2068,18 +2229,42 @@ const registerAndSyncSubaccount = async (
           trader: {
             payer: actor.pubkey as Authority,
             authority: actor.pubkey as Authority,
-            traderAccount: childTrader,
+            traderAccount,
           },
           maxPositions: 1n,
-          traderPdaIndex: 0,
-          traderSubaccountIndex: SUBACCOUNT_INDEX,
+          traderPdaIndex,
+          traderSubaccountIndex,
         }),
       ],
       {
         feePayerSeed: actor.seed,
-        label: "flow:register-subaccount",
+        label: "flow:register-trader",
       }
     )
+  );
+  return traderAccount;
+};
+
+const registerAndSyncSubaccount = async (
+  context: SdkLocalnetContext,
+  actorName: string,
+  subaccountIndex = SUBACCOUNT_INDEX,
+  traderPdaIndex = 0
+): Promise<{
+  actor: FixtureActor;
+  parentTrader: TraderAddress;
+  childTrader: TraderAddress;
+}> => {
+  const actor = context.getActor(actorName);
+  const parentTrader =
+    traderPdaIndex === 0
+      ? (actor.traderAccount as TraderAddress)
+      : await registerTrader(context, actor, traderPdaIndex, 0);
+  const childTrader = await registerTrader(
+    context,
+    actor,
+    traderPdaIndex,
+    subaccountIndex
   );
 
   await expectSuccess(
@@ -2093,7 +2278,7 @@ const registerAndSyncSubaccount = async (
           },
           trader: {
             authority: actor.pubkey as Authority,
-            parentTraderAccount: actor.traderAccount as TraderAddress,
+            parentTraderAccount: parentTrader,
             childTraderAccount: childTrader,
           },
         }),
@@ -2105,14 +2290,15 @@ const registerAndSyncSubaccount = async (
     )
   );
 
-  return { actor, childTrader };
+  return { actor, parentTrader, childTrader };
 };
 
 const transferCollateralToSubaccount = async (
   context: SdkLocalnetContext,
   actor: FixtureActor,
   childTrader: TraderAddress,
-  amount: bigint
+  amount: bigint,
+  parentTrader = actor.traderAccount as TraderAddress
 ): Promise<void> => {
   await expectSuccess(
     context.sendInstructions(
@@ -2121,7 +2307,7 @@ const transferCollateralToSubaccount = async (
           exchange: collateralExchangeContext(context),
           trader: {
             authority: actor.pubkey as Authority,
-            srcTraderAccount: actor.traderAccount as TraderAddress,
+            srcTraderAccount: parentTrader,
             dstTraderAccount: childTrader,
           },
           amount,
