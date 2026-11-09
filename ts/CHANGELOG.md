@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.7.10 - 2026-11-05
+
+Source Phoenix commit: `f1dc4463942cbb44c71427d691e1c529d15998ec`
+
+### Summary
+
+- Added `buildAcceptEscrowRequest` and `acceptEscrowRequest` helpers so consumers can claim a pending escrow request. `acceptEscrowRequest` builds the instruction and sends it.
+- Added `client.ixs.buildAcceptEscrowRequest` and the lower-level `buildAcceptEscrowRequestIxResolved`. Also exported the `ClientAcceptEscrowRequestInput` and `ResolvedAcceptEscrowRequestIxInput` types.
+- Accepting a request supports sender and receiver PDA and subaccount indices, which default to 0. It also accepts an optional `receiverWallet` signer for delegated traders.
+- Market calendar views (`MarketCalendarView` and `CommodityMarketCalendarView`) now include an optional IANA `timezone` field. Per the doc comment, it defaults to `America/New_York`.
+- Added the `11-accept-escrow-request.ts` example and documented it in the examples README.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- `PhoenixIxClient` gained a required `buildAcceptEscrowRequest` method. Custom implementations or mocks of that interface need to add it to keep compiling.
+- When `receiverWallet` is omitted, the instruction signer is `receiverAuthority`. For a delegated trader, pass the position authority as `receiverWallet`.
+- When reading market calendars, treat `timezone` as optional. If it is absent, schedule times and dates are in `America/New_York`.
+
 ## v0.7.9 - 2026-11-05
 
 Source Phoenix commit: `987bb2791758ee2b8636cb93eaca24364c256b80`

@@ -1,9 +1,35 @@
 import { phoenixInstructionAddresses } from "@/core/constants";
 import {
+  buildAcceptEscrowRequestIx,
+  type AcceptEscrowRequestIx,
+} from "@/core/ixBuilders/AcceptEscrowRequest";
+import {
   buildCreateEscrowRequestIx,
   type CreateEscrowRequestIx,
 } from "@/core/ixBuilders/CreateEscrowRequest";
-import type { ResolvedCreateEscrowRequestIxInput } from "./types";
+import type {
+  ResolvedAcceptEscrowRequestIxInput,
+  ResolvedCreateEscrowRequestIxInput,
+} from "./types";
+
+export const buildAcceptEscrowRequestIxResolved = (
+  params: ResolvedAcceptEscrowRequestIxInput
+): AcceptEscrowRequestIx =>
+  buildAcceptEscrowRequestIx({
+    ...phoenixInstructionAddresses({
+      phoenixProgramAddress: params.exchange.phoenixProgramAddress,
+      logAuthorityAddress: params.exchange.logAuthorityAddress,
+      globalConfigurationAddress: params.exchange.globalConfigurationAddress,
+    }),
+    senderWallet: params.sender.authority,
+    senderTraderAccount: params.sender.traderAccount,
+    receiverWallet: params.receiver.wallet,
+    receiverTraderAccount: params.receiver.traderAccount,
+    receiverEscrow: params.receiver.escrowAddress,
+    perpAssetMap: params.exchange.perpAssetMap,
+    globalTraderIndex: params.exchange.globalTraderIndex,
+    activeTraderBuffer: params.exchange.activeTraderBuffer,
+  });
 
 export const buildCreateEscrowRequestIxResolved = (
   params: ResolvedCreateEscrowRequestIxInput

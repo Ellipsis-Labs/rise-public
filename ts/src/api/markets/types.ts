@@ -160,12 +160,15 @@ export const MarketCalendarDayScheduleSchema: z.ZodType<MarketCalendarDaySchedul
   });
 
 export interface MarketCalendarView {
+  /** IANA timezone for schedule times and dates; defaults to America/New_York. */
+  timezone?: string;
   weeklySchedule: Record<string, MarketCalendarDaySchedule>;
   dateOverrides: Record<string, MarketCalendarDaySchedule>;
 }
 
 export const MarketCalendarViewSchema: z.ZodType<MarketCalendarView> = z.object(
   {
+    timezone: z.string().optional(),
     weeklySchedule: z.record(z.string(), MarketCalendarDayScheduleSchema),
     dateOverrides: z.record(z.string(), MarketCalendarDayScheduleSchema),
   }
@@ -303,12 +306,15 @@ export const CommodityMarketDayScheduleSchema: z.ZodType<CommodityMarketDaySched
   });
 
 export interface CommodityMarketCalendarView {
+  /** IANA timezone for schedule times and dates; defaults to America/New_York. */
+  timezone?: string;
   weeklySchedule: Record<string, CommodityMarketDaySchedule>;
   dateOverrides: Record<string, CommodityMarketDaySchedule>;
 }
 
 export const CommodityMarketCalendarViewSchema: z.ZodType<CommodityMarketCalendarView> =
   z.object({
+    timezone: z.string().optional(),
     weeklySchedule: z.record(z.string(), CommodityMarketDayScheduleSchema),
     dateOverrides: z.record(z.string(), CommodityMarketDayScheduleSchema),
   });

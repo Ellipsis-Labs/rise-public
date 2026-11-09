@@ -362,6 +362,8 @@ export {
   buildUncrossCrank,
   uncrossCrank,
   buildCreateConditionalOrdersAccount,
+  buildAcceptEscrowRequest,
+  acceptEscrowRequest,
   buildCreateEscrowRequest,
   createEscrowRequest,
   buildDelegateTrader,

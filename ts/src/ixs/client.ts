@@ -37,6 +37,7 @@ const IX_METHOD_NAMES = [
   "buildUncrossCrank",
   "buildCancelStopLoss",
   "buildCreateConditionalOrdersAccount",
+  "buildAcceptEscrowRequest",
   "buildCreateEscrowRequest",
   "buildDelegateTrader",
   "buildOnboardTraderDelegated",
