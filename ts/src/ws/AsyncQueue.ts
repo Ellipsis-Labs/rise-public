@@ -85,8 +85,8 @@ export const createAsyncQueue = <T>(
 
   const next = (): Promise<IteratorResult<T, void>> =>
     new Promise<IteratorResult<T, void>>((resolve, reject) => {
-      if (error !== null) return reject(safeError(error));
       if (queue.length) return resolve({ value: queue.shift()!, done: false });
+      if (error !== null) return reject(safeError(error));
       if (closed) return resolve({ value: undefined, done: true });
 
       if (waiter !== null) {

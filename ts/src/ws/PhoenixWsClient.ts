@@ -29,6 +29,7 @@ import type {
   WsClient,
   WsClientOpts,
   WsServerErrorListener,
+  WsSubscriptionStatusListener,
 } from "./types";
 import {
   registerSubscription as registerCustomSubscription,
@@ -44,12 +45,14 @@ export interface PhoenixWsClientConfig extends WsClientOpts {
   sessionControl?: RiseSessionControl;
   authMode?: RiseWsAuthMode;
   onServerError?: WsServerErrorListener;
+  onSubscriptionStatus?: WsSubscriptionStatusListener;
 }
 
 export type PhoenixWsTransportClient = Pick<
   WsClient,
   "subscribe" | "unsubscribe" | "registerChannel" | "close" | "onServerError"
->;
+> &
+  Partial<Pick<WsClient, "onSubscriptionStatus">>;
 
 export interface PhoenixWsFacadeConfig {
   wsClient: PhoenixWsTransportClient;
@@ -82,6 +85,11 @@ export interface PhoenixWsClient {
   ) => RegisteredSubscriptionAdapters<T>;
   traderState: ReturnType<typeof createTraderStateAdapter>;
   onServerError: (listener: WsServerErrorListener) => () => void;
+  /**
+   * Listen to `subscriptionStatus` frames (real status and the server's echo
+   * of the request). A no-op when the transport does not support it.
+   */
+  onSubscriptionStatus: (listener: WsSubscriptionStatusListener) => () => void;
   close: () => void;
 }
 
@@ -91,7 +99,7 @@ const DEFAULT_LAZY_IDLE_CLOSE_MS = 30_000;
 const createScopedWsClient = (
   wsClient: PhoenixWsTransportClient,
   ownsWsClient: boolean
-): PhoenixWsTransportClient => {
+): WsClient => {
   const scopePrefix = `rise-facade:${nextPhoenixWsFacadeId++}:`;
   const scopedSubscriptions = new Map<
     string,
@@ -112,7 +120,15 @@ const createScopedWsClient = (
           subscription: subMsg.subscription,
         },
       });
-      wsClient.subscribe(scopedKey, subMsg, onMessage, options);
+      wsClient.subscribe(scopedKey, subMsg, onMessage, {
+        ...options,
+        onClose: () => {
+          if (scopedSubscriptions.get(key)?.scopedKey === scopedKey) {
+            scopedSubscriptions.delete(key);
+          }
+          options?.onClose?.();
+        },
+      });
     },
     unsubscribe(key, _unsubMsg) {
       const entry = scopedSubscriptions.get(key);
@@ -127,6 +143,9 @@ const createScopedWsClient = (
     },
     onServerError(listener) {
       return wsClient.onServerError(listener);
+    },
+    onSubscriptionStatus(listener) {
+      return wsClient.onSubscriptionStatus?.(listener) ?? (() => {});
     },
     close() {
       for (const { scopedKey, unsubMsg } of scopedSubscriptions.values()) {
@@ -250,6 +269,8 @@ export const createPhoenixWsFacade = ({
     traderState,
     onServerError: (listener: WsServerErrorListener) =>
       scopedWsClient.onServerError(listener),
+    onSubscriptionStatus: (listener: WsSubscriptionStatusListener) =>
+      scopedWsClient.onSubscriptionStatus?.(listener) ?? (() => {}),
     close: () => scopedWsClient.close(),
   };
 };
@@ -266,11 +287,13 @@ export const createPhoenixWsClient = (
     idleCloseMs:
       config.idleCloseMs ??
       (connectMode === "lazy" ? DEFAULT_LAZY_IDLE_CLOSE_MS : undefined),
+    heartbeat: config.heartbeat,
     sessionManager: config.sessionManager,
     refreshFn: config.refreshFn,
     sessionControl: config.sessionControl,
     authMode: config.authMode,
     onServerError: config.onServerError,
+    onSubscriptionStatus: config.onSubscriptionStatus,
   });
 
   return createPhoenixWsFacade({

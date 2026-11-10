@@ -9,7 +9,7 @@ export interface RegisterTraderParams extends PhoenixInstructionAddressOverrides
   trader: Authority; // Trader wallet (signer)
   traderAccount: TraderAddress; // Trader account (derived from trader wallet)
   maxPositions: bigint; // Maximum number of positions (u32 on the wire)
-  traderPreferenceBits?: number; // Trader preference bitfield (u32); only bit 0 is applied at registration
+  traderPreferenceBits?: number; // Trader preference bitfield (u32); registration applies only bit 0 and always sets bit 1 (position-authority swaps disabled)
   traderPreferences?: readonly TraderPreferenceKind[];
   disableCollateralSweep?: boolean; // Sets trader preference bit 0
   traderPdaIndex: number; // Trader PDA index (u8)

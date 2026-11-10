@@ -19,6 +19,9 @@ Documentation: [docs.phoenix.trade](https://docs.phoenix.trade) ·
 [rust/CRATES.md](./rust/CRATES.md) ·
 [ts/examples/README.md](./ts/examples/README.md)
 
+Spline integrations: [onboarding and account reads](./rust/docs/spline-onboarding.md)
+· [indexing transaction events](./rust/docs/event-indexing.md).
+
 Where to start:
 
 - `PhoenixHttpClient` / `client.api`: public HTTP data and referral activation
@@ -51,6 +54,7 @@ TypeScript:
 
 | Entry point                                                                                          | Description                                                                                                                      |
 | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| [ts/examples/read-spline-state.ts](./ts/examples/read-spline-state.ts)                               | Decode GTI/ATB account dumps and inspect a trader's active state                                                                 |
 | [ts/examples/01-http-client.ts](./ts/examples/01-http-client.ts)                                     | Query exchange keys, SOL market config, candles, and trader state over HTTP                                                      |
 | [ts/examples/02-ws-fills.ts](./ts/examples/02-ws-fills.ts)                                           | Subscribe to live market trade fills over WebSocket                                                                              |
 | [ts/examples/03-build-limit-order-ix.ts](./ts/examples/03-build-limit-order-ix.ts)                   | Load exchange metadata, encode a limit-order packet, and build a place-limit-order instruction                                   |
@@ -68,6 +72,8 @@ Rust:
 
 | Entry point                                                                                      | Description                                                                                                                      |
 | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| [rust/sdk/examples/fetch_spline_state.rs](./rust/sdk/examples/fetch_spline_state.rs)             | Fetch a consistent GTI/ATB snapshot and inspect a trader's active state                                                          |
+| [rust/sdk/examples/index_transaction_events.rs](./rust/sdk/examples/index_transaction_events.rs) | Parse `LogEventLengths`/`Log` CPIs from an executed-instruction stream                                                           |
 | [rust/README.md](./rust/README.md)                                                               | Rust workspace guide, crate architecture, feature flags, and CLI usage                                                           |
 | [rust/sdk/examples/register_trader.rs](./rust/sdk/examples/register_trader.rs)                   | Authenticate and activate a referral code via `POST /v1/referral/activate`                                                       |
 | [rust/sdk/examples/http_client.rs](./rust/sdk/examples/http_client.rs)                           | Query exchange keys, market config, trade history, and trader PnL over REST                                                      |
@@ -315,6 +321,10 @@ let cancel_ixs = builder.build_cancel_orders(
     vec![CancelId::new(1500, 123)],
 )?;
 ```
+
+Call `.post_only(slide)` on `LimitOrderTicket::builder()` to place a post-only
+order under the same `PlaceLimitOrder` instruction. Post-only tickets cannot
+also set `self_trade_behavior` or `match_limit`.
 
 Runnable examples:
 

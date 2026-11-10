@@ -157,3 +157,23 @@ Interactive WebSocket demo covering the built-in stream adapters.
 ```bash
 bun examples/phoenix-ws-example.ts <CHANNEL> [ARGS...]
 ```
+
+### read-spline-state.ts
+
+Decode GTI and ATB raw binary account dumps and join a trader's active state by
+its GTI node pointer. Pass the trader account address, not its wallet authority.
+All registered overflow accounts are required in arena-index order. The files
+must include their account headers.
+
+```bash
+bun examples/read-spline-state.ts \
+  --gti gti.bin --gti gti-arena-1.bin \
+  --atb atb.bin --atb atb-arena-1.bin \
+  --trader <TRADER_ACCOUNT_ADDRESS>
+```
+
+This example only reads files. Obtain a consistent snapshot from accounts owned
+by the intended Phoenix program. Active state can change independently of the
+trader account's cold state; a missing GTI entry means the Trader account is the
+source to inspect. See the [spline onboarding guide](../../rust/docs/spline-onboarding.md)
+for the full integration flow.

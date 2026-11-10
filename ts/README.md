@@ -55,6 +55,24 @@ import {
 `client.pda` uses a bounded LRU cache (`pdaCache: { maxEntries: 1024 }`) by
 default; pass `pdaCache: false` to disable memoization.
 
+### WebSocket subscription failures
+
+Subscription replies are correlated by the echoed subscription, not global
+request order: acknowledgements and errors for different channels may interleave.
+An error echo identifies a subscription, not a request attempt. If multiple
+pending operations or an ended context plus a pending retry could own it, the
+transport reports an unattributed error and reconnects with listeners preserved.
+Legacy errors without an echo require a single possible owner across all
+subscriptions.
+
+A rejected initial subscription makes its adapter iterator reject with an
+`Error` retaining the server's `code` and reason (`message` and `error`), after
+buffered and in-flight updates drain. Ordinary server-ended streams complete
+normally. A rejected refresh of an acknowledged subscription reports the error
+without closing its listeners or iterator; subsequent data continues to arrive.
+Low-level `SubscriptionOptions.onError` receives `{ terminal: false }` as its
+second argument for nonterminal errors. `onServerError` reports both kinds.
+
 ## Directory Structure
 
 - `src/api/`: typed HTTP route clients (`candles`, `collateral`, `exchange`,
@@ -663,6 +681,43 @@ Built-in stream adapters include:
 - `orderbookSnapshot`
 - `traderState`
 
+The client tracks the server's reply to every subscribe and unsubscribe frame
+on a socket. A stream whose subscription the server rejects or ends finishes
+(its iterator returns `done`) and is not resubscribed on reconnect; subscribe
+again to retry. `onServerError` receives every server `error` frame, with
+`subscription` set to the request it was attributed to when that is known, and
+`onSubscriptionStatus` receives every `subscriptionStatus` frame with its real
+status (`subscribed` or `unsubscribed`) and the server's echo of the request.
+When the replies no longer line up with the frames sent (for example after the
+server dropped a reply), the client closes the socket with code 4001
+(`subscription_response_mismatch`) and resubscribes on a new one.
+
+A server-ended status for an older request leaves a newer pending subscription
+open. If an error could belong to either that ended request or a pending retry,
+the client reconnects instead of guessing, including retries sent from `onClose`.
+For built-in channels, echo matching uses only the server's modeled request
+fields; unknown fields discarded by the server do not affect identity. Custom
+channels retain their own selectors.
+
+Browsers do not expose websocket ping frames, so the client detects silent,
+half-open sockets with an internal `allMids` subscription that is never
+delivered to callers: after `heartbeat.idleTimeoutMs` (default 90 seconds)
+without any inbound message it closes the socket with code 4000
+(`idle_timeout`) and reconnects. The internal subscription does not keep a lazy
+(`connectMode: "lazy"`) socket open. Pass `heartbeat: false` to disable it.
+
+```ts
+const streams = createPhoenixWsClient({
+  url: "wss://perp-api.phoenix.trade/v1/ws",
+  authMode: "anonymous",
+  heartbeat: { idleTimeoutMs: 60_000 },
+  onServerError: ({ code, error, subscription }) =>
+    console.warn("ws error", code, error, subscription),
+  onSubscriptionStatus: ({ status, subscription }) =>
+    console.debug("ws status", status, subscription),
+});
+```
+
 To reuse an existing socket that implements `WsClient`, wrap it with
 `createPhoenixWsFacade(...)`:
 
@@ -776,3 +831,42 @@ bun run lint
 bun run type-check
 bun run test
 ```
+
+## Read-only GTI and ATB Accounts
+
+`decodeGlobalTraderIndex(buffers)` and `decodeActiveTraderBuffer(buffers)` accept
+raw account-data buffers: the header account first, then every registered
+overflow arena in index order. These decoders expose read-only snapshots and
+validate discriminants, arena shape, node pointers, and tree traversal. Verify
+account owners against the intended Phoenix program before decoding, and fetch
+the account group from a consistent RPC context.
+
+```ts
+import {
+  decodeGlobalTraderIndex,
+  decodeActiveTraderBuffer,
+} from "@ellipsis-labs/rise";
+
+const gti = decodeGlobalTraderIndex(gtiAccountBuffers);
+const atb = decodeActiveTraderBuffer(atbAccountBuffers);
+const trader = gti.entries.find(
+  (entry) => entry.trader === traderAccountAddress
+);
+const entries = trader
+  ? atb.entries.filter((entry) => entry.id.traderId === trader.nodeIndex)
+  : [];
+const positions = entries.filter((entry) => entry.value.kind === "position");
+```
+
+GTI entries contain the active trader's collateral and state plus the node
+pointer used by ATB IDs. ATB entries distinguish perp positions, spot collateral
+(including native SOL), locked deposits, and unknown extensions. Preserve
+unknown entries for diagnostics; do not interpret them as zero balances. Node
+pointers are only meaningful in the corresponding snapshot and can be recycled
+after a trader leaves the active index. If a trader is absent, read its Trader
+account for cold state.
+
+The [read-spline-state example](examples/read-spline-state.ts) joins these
+accounts from binary dumps without signing or submitting a transaction. See the
+[spline onboarding guide](../rust/docs/spline-onboarding.md) for setup and
+[event indexing guide](../rust/docs/event-indexing.md) for CPI event ingestion.

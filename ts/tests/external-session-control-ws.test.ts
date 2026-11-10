@@ -99,6 +99,9 @@ const createExternalSessionClient = (sessionManager = createSessionManager()) =>
     ws: {
       url: "wss://example.com/v1/ws",
       connectMode: "eager",
+      // These tests assert the exact frames sent; skip the heartbeat's
+      // internal allMids subscription.
+      heartbeat: false,
     },
   });
 
