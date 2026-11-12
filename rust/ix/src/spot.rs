@@ -16,7 +16,8 @@
 //! - [`create_sync_spot_ix`] reconciles the accounted balance against the
 //!   custody ATA's actual token balance. Permissionless.
 //! - [`create_withdraw_spot_ix`] moves tokens out to any token account of the
-//!   asset's mint.
+//!   asset's mint; [`create_withdraw_spot_with_fee_ix`] does the same and also
+//!   charges the withdrawal fee.
 //! - [`create_transfer_spot_ix`] and
 //!   [`create_transfer_spot_from_child_to_parent_ix`] move collateral between
 //!   trader accounts.
@@ -356,15 +357,32 @@ impl WithdrawSpotParamsBuilder {
 /// fails rather than queueing. Excess-only withdrawals bypass the throttle
 /// entirely.
 pub fn create_withdraw_spot_ix(params: WithdrawSpotParams) -> Result<Instruction, PhoenixIxError> {
+    withdraw_spot_ix(params, crate::PhoenixInstruction::WithdrawSpot)
+}
+
+/// [`create_withdraw_spot_ix`] that also charges the configured withdrawal
+/// fee, debited from the trader's quote collateral, which may go negative.
+///
+/// The fee and the spot debit are margin checked together, including for
+/// excess-only withdrawals. The fee does not consume the withdrawal throttle.
+/// Takes the same accounts and action as [`create_withdraw_spot_ix`].
+pub fn create_withdraw_spot_with_fee_ix(
+    params: WithdrawSpotParams,
+) -> Result<Instruction, PhoenixIxError> {
+    withdraw_spot_ix(params, crate::PhoenixInstruction::WithdrawSpotWithFee)
+}
+
+fn withdraw_spot_ix(
+    params: WithdrawSpotParams,
+    instruction: crate::PhoenixInstruction,
+) -> Result<Instruction, PhoenixIxError> {
     let wallet = get_trader_wallet_address(&params.trader_account)?;
     let wallet_ata = get_associated_token_address(&wallet, &params.mint)?;
     if params.destination() == wallet_ata {
         return Err(PhoenixIxError::InvalidWithdrawDestination);
     }
 
-    let mut data = crate::PhoenixInstruction::WithdrawSpot
-        .discriminant()
-        .to_vec();
+    let mut data = instruction.discriminant().to_vec();
     params.action().encode(&mut data);
 
     let mut accounts = log_accounts();
