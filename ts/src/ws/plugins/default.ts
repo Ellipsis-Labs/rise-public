@@ -1,3 +1,4 @@
+import z from "zod";
 import {
   createAllMidsPlugin,
   createCandlesPlugin,
@@ -15,11 +16,28 @@ import {
   createSubscriptionStatusPlugin,
   createTraderStatePlugin,
 } from "../adapters";
-import type { WsServerErrorMessage } from "../types";
+import type {
+  WsServerErrorMessage,
+  WsSubscriptionStatusMessage,
+} from "../types";
 import type { PluginFactory } from "./types";
+
+/**
+ * A server `error` frame. `subscription` is the server's echo of the
+ * subscribe or unsubscribe request the error rejects; servers that predate
+ * the echo omit it.
+ */
+export const WsServerErrorMessageSchema: z.ZodType<WsServerErrorMessage> =
+  z.object({
+    channel: z.literal("error"),
+    error: z.string(),
+    code: z.number(),
+    subscription: z.record(z.string(), z.unknown()).optional(),
+  });
 
 type PluginOptions = {
   onServerErrorFrame?: (message: WsServerErrorMessage) => void;
+  onSubscriptionStatusFrame?: (message: WsSubscriptionStatusMessage) => void;
 };
 
 const createErrorPlugin = (
@@ -27,22 +45,14 @@ const createErrorPlugin = (
 ): PluginFactory => {
   return () => ({
     channel: "error",
-    validate: (message: unknown): boolean => {
-      if (!message || typeof message !== "object") return false;
-      const candidate = message as { error?: unknown; code?: unknown };
-      return (
-        typeof candidate.error === "string" &&
-        typeof candidate.code === "number"
-      );
-    },
+    validate: (message: unknown): boolean =>
+      WsServerErrorMessageSchema.safeParse(message).success,
     getKey: (): string => "error",
     handle: async (message: unknown): Promise<void> => {
-      const candidate = message as { error: string; code: number };
-      onServerErrorFrame?.({
-        channel: "error",
-        error: candidate.error,
-        code: candidate.code,
-      });
+      const parsed = WsServerErrorMessageSchema.safeParse(message);
+      if (parsed.success) {
+        onServerErrorFrame?.(parsed.data);
+      }
     },
   });
 };
@@ -64,6 +74,6 @@ export const createDefaultPlugins = (
   createMarketStatsV2Plugin,
   createNotificationsPlugin,
   createTraderStatePlugin,
-  createSubscriptionStatusPlugin,
+  () => createSubscriptionStatusPlugin(options.onSubscriptionStatusFrame),
   createErrorPlugin(options.onServerErrorFrame),
 ];

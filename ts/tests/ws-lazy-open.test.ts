@@ -277,6 +277,7 @@ describe("rise ws lazy connection mode", () => {
       authMode: "anonymous",
       connectMode: "lazy",
       backoff: { baseMs: 0, maxMs: 0 },
+      heartbeat: false,
     });
 
     const subscribeMessage = {

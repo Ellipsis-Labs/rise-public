@@ -11,10 +11,10 @@
  *
  * Two custom program errors are specific to these instructions:
  *
- * - **7100 `FeatureDisabled`** — the exchange has native SOL collateral turned
- *   off, or the asset is not active.
- * - **7101 `PositionAuthoritySwapDisabled`** — a `SwapNative` was signed by a
- *   position authority while either opt-out gate is set. See
+ * - **0x2002 `ExchangeNativeSolCollateralDisabled`** — the exchange has native
+ *   SOL collateral turned off, or the asset is not active.
+ * - **0x1001 `AuthPositionAuthoritySwapDisabled`** — a `SwapNative` was signed
+ *   by a position authority while either opt-out gate is set. See
  *   `buildSwapNativeIx`.
  */
 
@@ -480,7 +480,7 @@ export const buildLiquidateNativeSolIx = async (
  * you do not control can therefore route a delegator's collateral through a
  * venue of its choosing, bounded only by `minAmountOut`. Two independent
  * opt-outs gate that path, and either one makes such a swap fail with error
- * **7101 `PositionAuthoritySwapDisabled`**:
+ * **0x1001 `AuthPositionAuthoritySwapDisabled`**:
  *
  * - the exchange-wide `positionAuthoritySwapDisabled` flag on the spot
  *   collateral configuration; and

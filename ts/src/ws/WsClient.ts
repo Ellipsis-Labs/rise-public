@@ -14,6 +14,7 @@ import {
   isTerminalRefreshError,
 } from "@/auth/refreshErrors";
 import { isExternalSessionControl } from "@/auth/types";
+import { subscriptionIdentity } from "./subscriptionIdentity";
 import {
   getPhoenixClientHeader,
   PHOENIX_CLIENT_HEADER_NAME,
@@ -27,6 +28,9 @@ import type {
   WsClientConfig,
   WsClientOpts,
   WsServerErrorListener,
+  WsServerErrorMessage,
+  WsSubscriptionStatusListener,
+  WsSubscriptionStatusMessage,
 } from "./types";
 
 const ACCESS_REFRESH_WINDOW_MS = 60_000;
@@ -41,6 +45,69 @@ const AUTH_REQUIRED_SUBSCRIPTION_CHANNELS: ReadonlySet<string> = new Set([
   "traderVolume",
   "transaction",
 ]);
+const DEFAULT_HEARTBEAT_IDLE_TIMEOUT_MS = 90_000;
+// The server broadcasts `allMids` every few seconds while it has subscribers,
+// and browsers do not expose ping frames, so an internal `allMids`
+// subscription is the heartbeat. It shares the `allMids` adapter routing key.
+const HEARTBEAT_ROUTING_KEY = "allMids";
+const HEARTBEAT_SUBSCRIBE_MESSAGE: SubscriptionMessage = {
+  type: "subscribe",
+  subscription: { channel: "allMids" },
+};
+const HEARTBEAT_IDENTITY = subscriptionIdentity(
+  HEARTBEAT_SUBSCRIBE_MESSAGE.subscription
+);
+const IDLE_TIMEOUT_CLOSE = { code: 4000, reason: "idle_timeout" } as const;
+const RESPONSE_MISMATCH_CLOSE = {
+  code: 4001,
+  reason: "subscription_response_mismatch",
+} as const;
+
+type SubscriptionListener = {
+  routingKey: string;
+  subMsg: SubscriptionMessage;
+  onMessage: (data: unknown) => void;
+  onError?: SubscriptionOptions["onError"];
+  onClose?: SubscriptionOptions["onClose"];
+};
+
+/** A subscribe or unsubscribe frame sent on the current socket, unanswered. */
+type PendingFrame = {
+  op: SubscriptionMessage["type"];
+  identity: string | null;
+  routingKey: string;
+  subscription: Record<string, unknown>;
+};
+
+/**
+ * The previous response can identify a server-ended subscription's trailing
+ * error. Other subscriptions' responses may arrive independently, so it must
+ * not be used to impose a global ordering on pending requests.
+ */
+type PreviousResponse =
+  | { type: "none" }
+  | { type: "traderStateAck"; identity: string }
+  | {
+      type: "serverEnded" | "maybeEnded";
+      identity: string;
+      subscription: Record<string, unknown>;
+      listeners: SubscriptionListener[];
+    };
+
+const NO_PREVIOUS_RESPONSE: PreviousResponse = { type: "none" };
+
+const notifyListeners = (
+  listeners: readonly SubscriptionListener[],
+  notify: (listener: SubscriptionListener) => void
+) => {
+  for (const listener of listeners) {
+    try {
+      notify(listener);
+    } catch {
+      // Listener errors must not disrupt websocket processing.
+    }
+  }
+};
 
 export const createWsClient = (opts: WsClientOpts): WsClient => {
   type DeferredSessionOwnerConnect = typeof DEFER_CONNECT_FOR_SESSION_OWNER;
@@ -74,26 +141,42 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
 
   initializeErrorSystem();
 
+  const heartbeat =
+    opts.heartbeat === false
+      ? null
+      : (opts.heartbeat ?? {
+          idleTimeoutMs: DEFAULT_HEARTBEAT_IDLE_TIMEOUT_MS,
+        });
+  let heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
+  // Whether an `allMids` subscription (internal or a caller's) was sent on the
+  // current socket and not ended by the server.
+  let heartbeatSubscribed = false;
+
   const subscriptionRegistry = new Map<string, Subscription>();
-  const subscriptionListeners = new Map<
-    string,
-    {
-      routingKey: string;
-      subMsg: SubscriptionMessage;
-      onMessage: (data: unknown) => void;
-    }
-  >();
+  const subscriptionListeners = new Map<string, SubscriptionListener>();
   const listenerKeysByRoutingKey = new Map<string, Set<string>>();
   const serverErrorListeners = new Set<WsServerErrorListener>();
   if (opts.onServerError) {
     serverErrorListeners.add(opts.onServerError);
   }
+  const subscriptionStatusListeners = new Set<WsSubscriptionStatusListener>();
+  if (opts.onSubscriptionStatus) {
+    subscriptionStatusListeners.add(opts.onSubscriptionStatus);
+  }
 
-  const emitServerError = (message: {
-    channel: "error";
-    error: string;
-    code: number;
-  }) => {
+  // Per-socket response tracking; reset whenever a socket opens or closes.
+  let pendingFrames: PendingFrame[] = [];
+  const acknowledgedIdentities = new Set<string>();
+  const previousResponses = new Map<string, PreviousResponse>();
+
+  const resetResponseTracking = () => {
+    pendingFrames = [];
+    acknowledgedIdentities.clear();
+    previousResponses.clear();
+    heartbeatSubscribed = false;
+  };
+
+  const emitServerError = (message: WsServerErrorMessage) => {
     for (const listener of serverErrorListeners) {
       try {
         listener(message);
@@ -103,25 +186,13 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
     }
   };
 
-  const pluginRegistry = createPluginRegistry(
-    createDefaultPlugins({
-      onServerErrorFrame: emitServerError,
-    })
-  );
-  const customChannelRegistry = new Map<string, WsChannelRegistration>();
-  const handleMessage = createMessageHandler(pluginRegistry);
-
   const getListenersForRoutingKey = (routingKey: string) => {
     const listenerKeys = listenerKeysByRoutingKey.get(routingKey);
     if (!listenerKeys) {
       return [];
     }
 
-    const listeners: Array<{
-      routingKey: string;
-      subMsg: SubscriptionMessage;
-      onMessage: (data: unknown) => void;
-    }> = [];
+    const listeners: SubscriptionListener[] = [];
     for (const listenerKey of listenerKeys) {
       const listener = subscriptionListeners.get(listenerKey);
       if (listener) {
@@ -130,6 +201,319 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
     }
     return listeners;
   };
+
+  const emitSubscriptionStatus = (
+    message: WsSubscriptionStatusMessage,
+    identity: string | null
+  ) => {
+    if (
+      heartbeat &&
+      identity !== null &&
+      identity === HEARTBEAT_IDENTITY &&
+      routingKeysForIdentity(identity).length === 0
+    ) {
+      // Status of the internal heartbeat subscription only.
+      return;
+    }
+    for (const listener of subscriptionStatusListeners) {
+      try {
+        listener(message);
+      } catch {
+        // Listener errors must not disrupt websocket processing.
+      }
+    }
+  };
+
+  const routingKeysForIdentity = (identity: string): string[] => {
+    const routingKeys = new Set<string>();
+    for (const listener of subscriptionListeners.values()) {
+      if (subscriptionIdentity(listener.subMsg.subscription) === identity) {
+        routingKeys.add(listener.routingKey);
+      }
+    }
+    return [...routingKeys];
+  };
+
+  /**
+   * Drops listeners the server rejected or ended, unless a newer subscribe
+   * for this routing key is still awaiting its own response.
+   */
+  const dropRoutingKey = (routingKey: string): SubscriptionListener[] => {
+    if (
+      pendingFrames.some(
+        (frame) => frame.op === "subscribe" && frame.routingKey === routingKey
+      )
+    ) {
+      return [];
+    }
+    const listeners = getListenersForRoutingKey(routingKey);
+    for (const listenerKey of listenerKeysByRoutingKey.get(routingKey) ?? []) {
+      subscriptionListeners.delete(listenerKey);
+    }
+    listenerKeysByRoutingKey.delete(routingKey);
+    syncRoutingSubscription(routingKey);
+    if (listeners.length > 0 && !hasActiveSubscriptions()) {
+      clearReconnectTimer();
+      scheduleIdleClose();
+    }
+    return listeners;
+  };
+
+  const dropIdentity = (identity: string): SubscriptionListener[] =>
+    routingKeysForIdentity(identity).flatMap(dropRoutingKey);
+
+  const failClosed = (detail: string, errorFrame?: WsServerErrorMessage) => {
+    debugWs("subscription response mismatch", { detail });
+    if (errorFrame) {
+      emitServerError({
+        channel: "error",
+        error: errorFrame.error,
+        code: errorFrame.code,
+      });
+    }
+    const socket = ws;
+    if (socket) {
+      closeSocketForReconnect(socket, RESPONSE_MISMATCH_CLOSE);
+    }
+  };
+
+  const endSubscription = (
+    listeners: SubscriptionListener[],
+    subscription: Record<string, unknown>,
+    identity: string
+  ) => {
+    previousResponses.set(identity, {
+      type: "serverEnded",
+      identity,
+      subscription,
+      listeners,
+    });
+    notifyListeners(listeners, (listener) => listener.onClose?.());
+  };
+
+  const applySubscribed = (identity: string, channel: unknown) => {
+    const index = pendingFrames.findIndex(
+      (frame) => frame.op === "subscribe" && frame.identity === identity
+    );
+    if (index === -1) return;
+    pendingFrames.splice(index, 1);
+    // An unsubscribe already sent after this request ends its generation,
+    // even if that unsubscribe's acknowledgement has not arrived yet.
+    if (
+      !pendingFrames.some(
+        (frame) => frame.op === "unsubscribe" && frame.identity === identity
+      )
+    ) {
+      acknowledgedIdentities.add(identity);
+    }
+    if (channel === "traderState") {
+      previousResponses.set(identity, { type: "traderStateAck", identity });
+    }
+  };
+
+  /** Applies an echoed unsubscribe independently of other subscriptions. */
+  const applyUnsubscribed = (
+    identity: string,
+    previous: PreviousResponse,
+    message: WsSubscriptionStatusMessage
+  ): boolean => {
+    acknowledgedIdentities.delete(identity);
+    const index = pendingFrames.findIndex(
+      (frame) => frame.identity === identity
+    );
+    const head = pendingFrames[index];
+    if (identity === HEARTBEAT_IDENTITY) {
+      // A later heartbeat subscribe still covers the current generation.
+      heartbeatSubscribed =
+        heartbeat !== null &&
+        pendingFrames.some(
+          (frame, frameIndex) =>
+            frameIndex > index &&
+            frame.op === "subscribe" &&
+            frame.identity === identity
+        );
+    }
+    if (previous.type === "traderStateAck" && previous.identity === identity) {
+      if (head?.op === "unsubscribe" && head.identity === identity) {
+        // Either the reply to that unsubscribe or the server ending the
+        // subscription; both leave it closed.
+        pendingFrames.splice(index, 1);
+        previousResponses.set(identity, {
+          type: "maybeEnded",
+          identity,
+          subscription: message.subscription,
+          listeners: [],
+        });
+        return true;
+      }
+      endSubscription(dropIdentity(identity), message.subscription, identity);
+      return true;
+    }
+
+    if (index !== -1) {
+      pendingFrames.splice(index, 1);
+      if (head.op === "subscribe") {
+        // The server ended a subscription it had not acknowledged (exchange
+        // bootstrap failure).
+        endSubscription(
+          dropRoutingKey(head.routingKey),
+          message.subscription,
+          identity
+        );
+      }
+      return true;
+    }
+    const listeners = dropIdentity(identity);
+    if (listeners.length > 0) {
+      endSubscription(listeners, message.subscription, identity);
+    }
+    return true;
+  };
+
+  const handleSubscriptionStatusFrame = (
+    message: WsSubscriptionStatusMessage
+  ) => {
+    const identity = subscriptionIdentity(message.subscription);
+    if (identity !== null) {
+      const previous = previousResponses.get(identity) ?? NO_PREVIOUS_RESPONSE;
+      previousResponses.delete(identity);
+      if (message.status === "subscribed") {
+        applySubscribed(identity, message.subscription.channel);
+      }
+      if (message.status === "unsubscribed") {
+        applyUnsubscribed(identity, previous, message);
+      }
+    }
+    emitSubscriptionStatus(message, identity);
+  };
+
+  const reportAttributedError = (
+    message: WsServerErrorMessage,
+    subscription: Record<string, unknown>,
+    listeners: readonly SubscriptionListener[],
+    closeListeners: boolean
+  ) => {
+    const error = { code: message.code, error: message.error };
+    notifyListeners(listeners, (listener) =>
+      listener.onError?.(error, { terminal: closeListeners })
+    );
+    if (closeListeners) {
+      notifyListeners(listeners, (listener) => listener.onClose?.());
+    }
+    emitServerError({ channel: "error", ...error, subscription });
+  };
+
+  /** Rejects the matching request without ending an acknowledged refresh. */
+  const rejectPending = (
+    index: number,
+    message: WsServerErrorMessage,
+    subscription: Record<string, unknown>
+  ) => {
+    const [head] = pendingFrames.splice(index, 1);
+    const isRefresh =
+      head.identity !== null && acknowledgedIdentities.has(head.identity);
+    if (head.op === "subscribe" && head.identity === HEARTBEAT_IDENTITY) {
+      heartbeatSubscribed =
+        heartbeat !== null &&
+        (isRefresh ||
+          pendingFrames.some(
+            (frame) =>
+              frame.op === "subscribe" && frame.identity === HEARTBEAT_IDENTITY
+          ));
+    }
+    const listeners =
+      head.op !== "subscribe"
+        ? []
+        : isRefresh
+          ? getListenersForRoutingKey(head.routingKey)
+          : dropRoutingKey(head.routingKey);
+    reportAttributedError(message, subscription, listeners, !isRefresh);
+  };
+
+  const handleServerErrorFrame = (message: WsServerErrorMessage) => {
+    const head = pendingFrames[0];
+    const echo = message.subscription;
+    const echoIdentity = echo ? subscriptionIdentity(echo) : null;
+
+    if (echo && echoIdentity !== null) {
+      const previous =
+        previousResponses.get(echoIdentity) ?? NO_PREVIOUS_RESPONSE;
+      // An echo identifies a subscription, not a request attempt. Statuses
+      // and errors can overtake each other even for this same identity.
+      let possibleOwners =
+        previous.type === "serverEnded" || previous.type === "maybeEnded"
+          ? 1
+          : 0;
+      for (const frame of pendingFrames) {
+        if (frame.identity === echoIdentity && ++possibleOwners > 1) {
+          failClosed("echoed error has multiple possible requests", message);
+          return;
+        }
+      }
+      previousResponses.delete(echoIdentity);
+      if (previous.type === "serverEnded" || previous.type === "maybeEnded") {
+        // No pending attempt can own this ended subscription's error.
+        reportAttributedError(message, echo, previous.listeners, false);
+        return;
+      }
+      const index = pendingFrames.findIndex(
+        (frame) => frame.identity === echoIdentity
+      );
+      if (index !== -1) {
+        rejectPending(index, message, echo);
+        return;
+      }
+      const listeners = routingKeysForIdentity(echoIdentity).flatMap(
+        getListenersForRoutingKey
+      );
+      reportAttributedError(message, echo, listeners, false);
+      return;
+    }
+
+    // Legacy errors have no correlation key. Only attribute one possible
+    // request/context; independent queues make global FIFO guesses unsafe.
+    const ended = [...previousResponses.values()].filter(
+      (response) =>
+        response.type === "serverEnded" || response.type === "maybeEnded"
+    );
+    if (pendingFrames.length + ended.length > 1) {
+      failClosed("legacy error has multiple possible requests", message);
+      return;
+    }
+    const [previous] = ended;
+    if (
+      previous &&
+      (previous.type === "serverEnded" || previous.type === "maybeEnded")
+    ) {
+      previousResponses.delete(previous.identity);
+      reportAttributedError(
+        message,
+        previous.subscription,
+        previous.listeners,
+        false
+      );
+      return;
+    }
+    if (head) {
+      if (head.identity !== null) previousResponses.delete(head.identity);
+      rejectPending(0, message, head.subscription);
+      return;
+    }
+    emitServerError({
+      channel: "error",
+      error: message.error,
+      code: message.code,
+    });
+  };
+
+  const pluginRegistry = createPluginRegistry(
+    createDefaultPlugins({
+      onServerErrorFrame: handleServerErrorFrame,
+      onSubscriptionStatusFrame: handleSubscriptionStatusFrame,
+    })
+  );
+  const customChannelRegistry = new Map<string, WsChannelRegistration>();
+  const handleMessage = createMessageHandler(pluginRegistry);
 
   const syncRoutingSubscription = (routingKey: string) => {
     const listeners = getListenersForRoutingKey(routingKey);
@@ -147,7 +531,7 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
       onResub: () => {
         const [listener] = getListenersForRoutingKey(routingKey);
         if (!listener) return;
-        sendSubscriptionMessage(listener.subMsg);
+        sendSubscriptionMessage(listener.subMsg, routingKey);
       },
     });
   };
@@ -189,6 +573,24 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
     if (!authRefreshRetryTimer) return;
     clearTimeout(authRefreshRetryTimer);
     authRefreshRetryTimer = null;
+  };
+
+  const clearHeartbeatTimer = () => {
+    if (!heartbeatTimer) return;
+    clearTimeout(heartbeatTimer);
+    heartbeatTimer = null;
+  };
+
+  /** (Re)starts the idle timeout of `socket`; any inbound message resets it. */
+  const armHeartbeat = (socket: WebSocket) => {
+    if (!heartbeat) return;
+    clearHeartbeatTimer();
+    heartbeatTimer = setTimeout(() => {
+      heartbeatTimer = null;
+      if (!isCurrentSocket(socket)) return;
+      debugWs("ws idle timeout", { idleTimeoutMs: heartbeat.idleTimeoutMs });
+      closeSocketForReconnect(socket, IDLE_TIMEOUT_CLOSE);
+    }, heartbeat.idleTimeoutMs);
   };
 
   const scheduleIdleClose = () => {
@@ -359,7 +761,11 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
     return true;
   };
 
-  const sendSerialized = (payload: string) => {
+  const sendSubscriptionMessage = (
+    message: SubscriptionMessage,
+    routingKey: string
+  ) => {
+    if (!canSendSubscriptionMessage(message)) return;
     const socket = ws;
     if (!socket || !isOpenSocket(socket)) return;
     if (
@@ -369,16 +775,31 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
       requestReconnect("immediate");
       return;
     }
-    socket.send(payload);
+    socket.send(JSON.stringify(message));
+    const identity = subscriptionIdentity(message.subscription);
+    if (message.type === "unsubscribe" && identity !== null) {
+      acknowledgedIdentities.delete(identity);
+    }
+    pendingFrames.push({
+      op: message.type,
+      identity,
+      routingKey,
+      subscription: message.subscription,
+    });
+    if (message.type === "subscribe" && identity === HEARTBEAT_IDENTITY) {
+      // Only an enabled heartbeat keeps its `allMids` subscription on the
+      // server; a caller's own `allMids` subscribe must not latch this.
+      heartbeatSubscribed = heartbeat !== null;
+    }
   };
 
-  const sendSubscriptionMessage = (message: SubscriptionMessage) => {
-    if (!canSendSubscriptionMessage(message)) return;
-    sendSerialized(JSON.stringify(message));
-  };
-
-  const onClose = async (socket: WebSocket, evt?: CloseEvent) => {
+  const onClose = async (
+    socket: WebSocket,
+    evt?: { code?: number; reason?: string }
+  ) => {
     if (!isCurrentSocket(socket)) return;
+    clearHeartbeatTimer();
+    resetResponseTracking();
     lifecycle.send({
       type: "SOCKET_CLOSE",
       code: evt?.code,
@@ -386,6 +807,22 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
     });
     ws = undefined;
     flushEffects();
+  };
+
+  /**
+   * Closes `socket` and detaches it right away, so the reconnect path runs
+   * even when a half-open socket never completes the closing handshake.
+   */
+  const closeSocketForReconnect = (
+    socket: WebSocket,
+    { code, reason }: { code: number; reason: string }
+  ) => {
+    try {
+      socket.close(code, reason);
+    } catch {
+      // Best-effort close.
+    }
+    void onClose(socket, { code, reason });
   };
 
   const handleAuthClosePolicy = async (): Promise<void> => {
@@ -415,6 +852,8 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
 
   const onError = async (socket: WebSocket) => {
     if (!isCurrentSocket(socket)) return;
+    clearHeartbeatTimer();
+    resetResponseTracking();
     lifecycle.send({
       type: "SOCKET_ERROR",
       message: "WebSocket connection error",
@@ -617,13 +1056,22 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
             return;
           }
           lifecycle.send({ type: "SOCKET_OPEN" });
+          resetResponseTracking();
+          armHeartbeat(websocket);
           for (const sub of subscriptionRegistry.values()) {
             sub.onResub?.();
+          }
+          if (heartbeat && !heartbeatSubscribed) {
+            sendSubscriptionMessage(
+              HEARTBEAT_SUBSCRIBE_MESSAGE,
+              HEARTBEAT_ROUTING_KEY
+            );
           }
         };
 
         websocket.onmessage = (evt) => {
           if (!isCurrentSocket(websocket)) return;
+          armHeartbeat(websocket);
           if (typeof evt.data !== "string") return;
           void handleMessage(evt.data, subscriptionRegistry);
         };
@@ -685,13 +1133,24 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
         routingKey,
         subMsg,
         onMessage,
+        onError: options?.onError,
+        onClose: options?.onClose,
       });
       syncRoutingSubscription(routingKey);
       ensureConnection();
 
       if (canUseCurrentSocketForMessage(subMsg)) {
-        if (isFirstRoutingListener || existingListener) {
-          sendSubscriptionMessage(subMsg);
+        // A caller's `allMids` rides on the heartbeat's server subscription.
+        const coveredByHeartbeat =
+          heartbeat !== null &&
+          heartbeatSubscribed &&
+          !existingListener &&
+          subscriptionIdentity(subMsg.subscription) === HEARTBEAT_IDENTITY;
+        if (
+          (isFirstRoutingListener || existingListener) &&
+          !coveredByHeartbeat
+        ) {
+          sendSubscriptionMessage(subMsg, routingKey);
         }
       }
     },
@@ -715,9 +1174,14 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
         scheduleIdleClose();
       }
 
+      // Keep the heartbeat's `allMids` subscription on the server when the
+      // last caller listener leaves.
+      const keepForHeartbeat =
+        heartbeat !== null &&
+        subscriptionIdentity(unsubMsg.subscription) === HEARTBEAT_IDENTITY;
       if (canUseCurrentSocketForMessage(unsubMsg)) {
-        if (isLastRoutingListener) {
-          sendSubscriptionMessage(unsubMsg);
+        if (isLastRoutingListener && !keepForHeartbeat) {
+          sendSubscriptionMessage(unsubMsg, listener.routingKey);
         }
       }
     },
@@ -762,6 +1226,8 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
       lifecycle.send({ type: "CLOSE_CLIENT" });
       clearReconnectTimer();
       clearIdleCloseTimer();
+      clearHeartbeatTimer();
+      resetResponseTracking();
       clearAuthRefreshRetryTimer();
       sessionUnsub?.();
       ws?.close();
@@ -776,6 +1242,13 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
       serverErrorListeners.add(listener);
       return () => {
         serverErrorListeners.delete(listener);
+      };
+    },
+
+    onSubscriptionStatus(listener: WsSubscriptionStatusListener) {
+      subscriptionStatusListeners.add(listener);
+      return () => {
+        subscriptionStatusListeners.delete(listener);
       };
     },
   };

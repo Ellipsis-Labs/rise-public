@@ -355,7 +355,7 @@ export const buildTransferSpotFromChildToParentIx = async (
  * is no oracle floor. Its unit is the output asset: quote lots for a `Sell`,
  * base units of the spot token for a `Buy`. The signer may be the trader's
  * position authority; the same opt-out gates apply as for `SwapNative` (error
- * **7101 `PositionAuthoritySwapDisabled`**).
+ * **0x1001 `AuthPositionAuthoritySwapDisabled`**).
  */
 export const buildSwapSpotWithUsdcIx = async (
   params: SwapSpotWithUsdcParams

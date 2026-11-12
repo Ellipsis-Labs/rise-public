@@ -268,6 +268,7 @@ export {
   type RegisteredSubscriptionAdapters,
   type Subscription,
   type SubscriptionMessage,
+  type SubscriptionOptions,
   type TraderStateAdapter,
   type TraderStateAdapterOptions,
   type TraderStatePort,
@@ -275,6 +276,11 @@ export {
   type WsClient,
   type WsClientConfig,
   type WsClientOpts,
+  type WsHeartbeatOpts,
+  type WsServerErrorListener,
+  type WsServerErrorMessage,
+  type WsSubscriptionStatusListener,
+  type WsSubscriptionStatusMessage,
 } from "./ws";
 
 export * from "./_exports/public-api-schemas";

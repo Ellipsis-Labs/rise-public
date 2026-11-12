@@ -3,6 +3,36 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.7.11 - 2026-11-10
+
+Source Phoenix commit: `14e7ceaf9b5c50bcf7e85e9bc1c9f96b5eef5588`
+
+### Summary
+
+- Added read-only decoders for the Global Trader Index and Active Trader Buffer. `decodeGlobalTraderIndex` and `decodeActiveTraderBuffer` take a header account followed by every overflow arena in order. They validate the buffers (discriminants, ordering, node pointers) and throw instead of returning partial state. Also added the `read-spline-state.ts` example.
+- The WebSocket client now tracks the server's reply to every subscribe and unsubscribe frame. Replies are matched by the echoed subscription, not by request order. If replies and requests no longer line up, the client closes the socket with code 4001 (`subscription_response_mismatch`) and resubscribes on a new one.
+- Added a heartbeat for half-open sockets. An internal `allMids` subscription that is never delivered to callers keeps the server sending frames. After `heartbeat.idleTimeoutMs` (default 90s) with no inbound message, the client closes the socket with code 4000 (`idle_timeout`) and reconnects. Pass `heartbeat: false` to disable it.
+- New listener hooks and exports:
+  - `onSubscriptionStatus`
+  - `onServerError`, whose messages now carry an optional `subscription`
+  - `SubscriptionOptions.onError` and `onClose`
+  - the types `WsHeartbeatOpts`, `WsServerErrorMessage`, `WsSubscriptionStatusMessage` and their listeners
+- Documentation fix: the native SOL and spot swap docs now cite program error codes `0x2002` (`ExchangeNativeSolCollateralDisabled`) and `0x1001` (`AuthPositionAuthoritySwapDisabled`) instead of 7100/7101. They also state that trader registration always sets preference bit 1 (position-authority swaps disabled).
+
+### Breaking Changes
+
+- A stream whose subscription the server rejects or ends now finishes and is not resubscribed on reconnect. Before, it stayed registered. A rejected initial subscription makes the adapter iterator reject with an `Error` carrying the server's `code` and reason. An ordinary server-ended stream completes normally. Callers that relied on automatic resubscription must subscribe again.
+- The iterator now drains buffered updates before it reports an error or completion. Before, a stored error rejected `next()` ahead of queued values.
+- `createPhoenixWsFacade` transports can now supply an optional `onSubscriptionStatus`. `PhoenixWsClient` now requires `onSubscriptionStatus`. Code that implements this interface must add it.
+- The heartbeat is on by default. Each client sends an extra `allMids` subscribe frame. Tests or proxies that assert the exact frames sent need `heartbeat: false`.
+
+### Consumer Notes
+
+- A rejected refresh of an already-acknowledged subscription is nonterminal. The stream stays open and `SubscriptionOptions.onError` receives `{ terminal: false }` as its second argument. `onServerError` reports both terminal and nonterminal errors.
+- If an error echo could belong to more than one pending request, the client reconnects instead of guessing. Listeners are preserved across the reconnect.
+- The internal heartbeat subscription does not keep a lazy (`connectMode: "lazy"`) socket open. Its status frames are hidden from `onSubscriptionStatus`.
+- The GTI/ATB decoders need a consistent snapshot of accounts owned by the intended Phoenix program. The `trader` field is the trader account address, not the wallet authority. A trader missing from the GTI means its cold state is in the Trader account.
+
 ## v0.7.10 - 2026-11-05
 
 Source Phoenix commit: `f1dc4463942cbb44c71427d691e1c529d15998ec`

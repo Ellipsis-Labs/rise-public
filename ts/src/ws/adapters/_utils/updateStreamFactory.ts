@@ -1,6 +1,6 @@
 import { isUnknownMessageType } from "./messageUtils";
 import { createAsyncQueue } from "../../AsyncQueue";
-import type { WsClient } from "@/ws/types";
+import type { SubscriptionOptions, WsClient } from "@/ws/types";
 import type { ZodSchema } from "zod";
 import { createSubUnsubMessages } from "./createSubUnsubMessages";
 
@@ -69,66 +69,100 @@ export function createUpdateStream<
       buffer,
     };
 
+    // Set once the client drops the subscription because the server rejected
+    // or ended it. Deliver in-flight messages before closing or failing.
+    let droppedByServer = false;
+    let subscriptionError: Error | undefined;
+    let inFlightMessages = 0;
+    const endIfDropped = () => {
+      if (droppedByServer && inFlightMessages === 0) {
+        if (subscriptionError) {
+          queue.fail(subscriptionError);
+        } else {
+          queue.close();
+        }
+      }
+    };
+    const subscriptionOptions: SubscriptionOptions = {
+      routingKey,
+      onError: (error, context) => {
+        if (context?.terminal === false) return;
+        subscriptionError = Object.assign(new Error(error.error), error);
+        droppedByServer = true;
+        endIfDropped();
+      },
+      onClose: () => {
+        droppedByServer = true;
+        endIfDropped();
+      },
+    };
+
     const subscribe = () => {
-      if (signal?.aborted) {
+      if (signal?.aborted || droppedByServer) {
         return;
       }
-      ws.subscribe(listenerKey, sub, onMessage, { routingKey });
+      ws.subscribe(listenerKey, sub, onMessage, subscriptionOptions);
     };
 
     const refresh = () => {
-      if (signal?.aborted) {
+      if (signal?.aborted || droppedByServer) {
         return;
       }
       // Re-subscribe in place so the server can treat this as a refresh of the
       // existing subscription instead of a fresh unsubscribe/subscribe cycle.
-      ws.subscribe(listenerKey, sub, onMessage, { routingKey });
+      ws.subscribe(listenerKey, sub, onMessage, subscriptionOptions);
     };
 
     const onMessage = (raw: unknown) => {
       if (isUnknownMessageType(raw, config.messageTypes)) return;
+      inFlightMessages += 1;
       void (async () => {
-        const parsed = config.schema.safeParse(raw);
+        try {
+          const parsed = config.schema.safeParse(raw);
 
-        if (!parsed.success) {
-          if (errorMode === "console") {
-            const errorMsg =
-              config.schemaErrorMessage ||
-              `Failed to parse ${config.channel} message`;
+          if (!parsed.success) {
+            if (errorMode === "console") {
+              const errorMsg =
+                config.schemaErrorMessage ||
+                `Failed to parse ${config.channel} message`;
 
-            const serialize = (value: unknown) =>
-              JSON.stringify(
-                value,
-                (_key: string, val: unknown) =>
-                  typeof val === "bigint" ? val.toString() : val,
-                2
+              const serialize = (value: unknown) =>
+                JSON.stringify(
+                  value,
+                  (_key: string, val: unknown) =>
+                    typeof val === "bigint" ? val.toString() : val,
+                  2
+                );
+
+              console.error(
+                `${errorMsg}:`,
+                parsed.error,
+                typeof raw === "string" ? raw : serialize(raw)
               );
-
-            console.error(
-              `${errorMsg}:`,
-              parsed.error,
-              typeof raw === "string" ? raw : serialize(raw)
-            );
+            }
+            return;
           }
-          return;
-        }
 
-        const result = await config.processMessage(
-          parsed.data,
-          params,
-          context
-        );
+          const result = await config.processMessage(
+            parsed.data,
+            params,
+            context
+          );
 
-        if (result === null) {
-          return;
-        }
-
-        if (Array.isArray(result)) {
-          for (const update of result) {
-            queue.push(update);
+          if (result === null) {
+            return;
           }
-        } else {
-          queue.push(result);
+
+          if (Array.isArray(result)) {
+            for (const update of result) {
+              queue.push(update);
+            }
+          } else {
+            queue.push(result);
+          }
+        } finally {
+          inFlightMessages -= 1;
+          endIfDropped();
         }
       })();
     };
