@@ -7,6 +7,7 @@ export {
   encodeTransferSpot,
   encodeTransferSpotFromChildToParent,
   encodeWithdrawSpot,
+  encodeWithdrawSpotWithFee,
 } from "./codec";
 
 export {
@@ -18,6 +19,7 @@ export {
   buildTransferSpotFromChildToParentIx,
   buildTransferSpotIx,
   buildWithdrawSpotIx,
+  buildWithdrawSpotWithFeeIx,
 } from "./ix";
 
 export type {

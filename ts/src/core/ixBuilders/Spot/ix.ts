@@ -47,6 +47,7 @@ import {
   encodeTransferSpot,
   encodeTransferSpotFromChildToParent,
   encodeWithdrawSpot,
+  encodeWithdrawSpotWithFee,
 } from "./codec";
 import type {
   LiquidateSpotParams,
@@ -141,8 +142,25 @@ export const buildSyncSpotIx = async (
  * the withdrawal's quote-notional value right now, the instruction fails
  * rather than queueing. Excess-only withdrawals bypass the throttle entirely.
  */
-export const buildWithdrawSpotIx = async (
+export const buildWithdrawSpotIx = (
   params: WithdrawSpotParams
+): Promise<SpotIx> => withdrawSpotIx(params, encodeWithdrawSpot);
+
+/**
+ * `buildWithdrawSpotIx` that also charges the configured withdrawal fee,
+ * debited from the trader's quote collateral, which may go negative.
+ *
+ * The fee and the spot debit are margin checked together, including for
+ * excess-only withdrawals. The fee does not consume the withdrawal throttle.
+ * Takes the same params as `buildWithdrawSpotIx`.
+ */
+export const buildWithdrawSpotWithFeeIx = (
+  params: WithdrawSpotParams
+): Promise<SpotIx> => withdrawSpotIx(params, encodeWithdrawSpotWithFee);
+
+const withdrawSpotIx = async (
+  params: WithdrawSpotParams,
+  encode: (action: WithdrawSpotAction) => Uint8Array
 ): Promise<SpotIx> => {
   requireIndexAccounts(params);
   if (!params.trader) {
@@ -203,7 +221,7 @@ export const buildWithdrawSpotIx = async (
   return {
     programAddress,
     accounts,
-    data: encodeWithdrawSpot(params.action),
+    data: encode(params.action),
   };
 };
 

@@ -3,6 +3,25 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.7.13 - 2026-11-12
+
+Source Phoenix commit: `d81b7169152aaf231c1cdbd07c91a56c7293d257`
+
+### Summary
+
+- Added `buildWithdrawSpotWithFeeIx` and `encodeWithdrawSpotWithFee`, which build and encode the `withdraw_spot_with_fee` instruction. They are exported from the public instruction builders.
+- The new builder takes the same params and `WithdrawSpotAction` variants as `buildWithdrawSpotIx`. It differs in the instruction discriminant, and in that it charges the configured withdrawal fee.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- The fee is debited from the trader's quote collateral, which may go negative. The fee and the spot debit are margin checked together, including for excess-only withdrawals. The fee does not consume the withdrawal throttle.
+- `buildWithdrawSpotIx` and `encodeWithdrawSpot` keep the same signatures and encoding. `buildWithdrawSpotIx` now returns the `Promise` directly instead of being declared `async`, which doesn't change how callers use it.
+- Existing withdrawals do not charge the fee. Switch to `buildWithdrawSpotWithFeeIx` where you want it applied.
+
 ## v0.7.12 - 2026-11-12
 
 Source Phoenix commit: `947da1d48bc11f1c0404f5b546f4293ae6c994d8`
