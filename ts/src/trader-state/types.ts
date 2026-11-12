@@ -22,11 +22,7 @@ import type {
 import type { TraderStatePort } from "@/ws/adapters/trader-state";
 
 export type TraderStateHealth =
-  | "cold"
-  | "bootstrapped"
-  | "live"
-  | "recovering"
-  | "closed";
+  "cold" | "bootstrapped" | "live" | "recovering" | "closed";
 
 export interface TraderStateMessageMeta {
   lastMessageAtMs: number | null;

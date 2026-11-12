@@ -3,6 +3,24 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.7.14 - 2026-11-12
+
+Source Phoenix commit: `f2e15a7c70ba0754c149be822244a414fd4b69d4`
+
+### Summary
+
+- Released `@ellipsis-labs/rise` 0.7.14. This is a formatting-only update to the published TypeScript sources. Long union types are now written on one line without leading `|` characters, and a few `transformDecoder`/`.transform` calls were reflowed.
+- Bumped the pinned dev dependency `prettier` from `^3.8.1` to `3.9.10`. This affects contributors to the package only, not installed consumers.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- No exports, types, schemas, HTTP clients, WebSocket adapters or runtime behavior changed. Every type alias rewrite is semantically identical to its previous form, so downstream compilation and the generated `.d.ts` output are unaffected.
+- No action is needed when upgrading from 0.7.13.
+
 ## v0.7.13 - 2026-11-12
 
 Source Phoenix commit: `d81b7169152aaf231c1cdbd07c91a56c7293d257`

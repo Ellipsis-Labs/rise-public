@@ -107,8 +107,7 @@ interface NonSponsoredDepositFlowParams extends BaseDepositFlowParams {
 }
 
 export type DepositFlowParams =
-  | SponsoredDepositFlowParams
-  | NonSponsoredDepositFlowParams;
+  SponsoredDepositFlowParams | NonSponsoredDepositFlowParams;
 
 export interface DepositFlowInstructions {
   createAta: InstructionsWithAccountsAndData;
@@ -251,8 +250,7 @@ interface NonSponsoredWithdrawFlowParams extends BaseWithdrawFlowParams {
 }
 
 export type WithdrawFlowParams =
-  | SponsoredWithdrawFlowParams
-  | NonSponsoredWithdrawFlowParams;
+  SponsoredWithdrawFlowParams | NonSponsoredWithdrawFlowParams;
 
 export interface WithdrawFlowInstructions {
   createPhoenixAta: InstructionsWithAccountsAndData;

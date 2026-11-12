@@ -3,8 +3,7 @@ import { computeBackoffMs } from "./backoff";
 import { debugWs } from "./debug";
 
 export type WsCoreEffect =
-  | { type: "close_socket" }
-  | { type: "schedule_connect"; waitMs: number };
+  { type: "close_socket" } | { type: "schedule_connect"; waitMs: number };
 export type WsCoreErrorReason = "socket_error" | "socket_close";
 export type WsCoreError = {
   reason: WsCoreErrorReason;

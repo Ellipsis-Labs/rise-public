@@ -1003,8 +1003,7 @@ const asSdkLocalnetInstruction = (
 
 const assertSuccessfulTransaction = (
   result:
-    | ReturnType<LiteSVM["sendTransaction"]>
-    | ReturnType<LiteSVM["airdrop"]>,
+    ReturnType<LiteSVM["sendTransaction"]> | ReturnType<LiteSVM["airdrop"]>,
   label: string
 ): TransactionMetadata => {
   if (result === null) {

@@ -193,10 +193,7 @@ export interface TraderMarginInputs {
 }
 
 export type MarginRiskState =
-  | "healthy"
-  | "unhealthy"
-  | "underwater"
-  | "zeroCollateralNoPositions";
+  "healthy" | "unhealthy" | "underwater" | "zeroCollateralNoPositions";
 
 export type MarginRiskTier =
   | "safe"

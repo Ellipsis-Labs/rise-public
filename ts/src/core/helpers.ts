@@ -169,8 +169,7 @@ const getArenaIndices = (superblock: Superblock) => {
 
 export const getArenaAddresses = async <
   T extends ActiveTraderBufferArenaAddress[] | GlobalTraderIndexArenaAddress[] =
-    | ActiveTraderBufferArenaAddress[]
-    | GlobalTraderIndexArenaAddress[],
+    ActiveTraderBufferArenaAddress[] | GlobalTraderIndexArenaAddress[],
 >(
   arenaIndices: number[],
   pdaSeed: string,

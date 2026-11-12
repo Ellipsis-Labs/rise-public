@@ -84,8 +84,7 @@ export interface PositionSizeLimits {
 }
 
 export type PositionSizeLimit =
-  | { __kind: "Disabled" }
-  | { __kind: "Limit"; value: PositionSizeLimits };
+  { __kind: "Disabled" } | { __kind: "Limit"; value: PositionSizeLimits };
 
 export interface UpdateSplinePositionLimitsConfigParams {
   maxPositionSize: PositionSizeLimit | null;

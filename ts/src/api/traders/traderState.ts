@@ -27,11 +27,7 @@ export type TraderStateRowChangeKind = "updated" | "closed";
 export type TraderStateSide = "bid" | "ask";
 export type TraderStateStopLossOrderKind = "ioc" | "limit";
 export type TraderActivityState =
-  | "uninitialized"
-  | "cold"
-  | "active"
-  | "reduceOnly"
-  | "frozen";
+  "uninitialized" | "cold" | "active" | "reduceOnly" | "frozen";
 
 export interface TraderStateCapabilities {
   flags: number;

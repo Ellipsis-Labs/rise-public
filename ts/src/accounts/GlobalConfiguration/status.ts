@@ -1,10 +1,7 @@
 import type { GlobalConfiguration } from "./types";
 
 export type ExchangeRunningState =
-  | "unknown"
-  | "active"
-  | "maintenance"
-  | "suspended";
+  "unknown" | "active" | "maintenance" | "suspended";
 
 const INITIALIZED_FLAG = 1 << 7;
 const ACTIVE_FLAG = 1 << 0;

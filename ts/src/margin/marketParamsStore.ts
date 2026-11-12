@@ -33,8 +33,7 @@ export interface MarginCollateralClient {
 }
 
 export type MarginClient =
-  | MarginClientWithMarketsProperty
-  | MarginClientWithMarketsMethod;
+  MarginClientWithMarketsProperty | MarginClientWithMarketsMethod;
 
 export interface MarketPriceSource<
   ClientType extends MarginClient = MarginClient,

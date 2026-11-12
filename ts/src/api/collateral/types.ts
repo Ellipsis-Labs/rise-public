@@ -276,11 +276,7 @@ export type CollateralHistoryV2Request = Omit<
 };
 
 export type CollateralEventCategory =
-  | "deposit"
-  | "withdrawal"
-  | "transfer"
-  | "swap"
-  | "liquidation";
+  "deposit" | "withdrawal" | "transfer" | "swap" | "liquidation";
 
 export interface CollateralEventV2 {
   slot: number;

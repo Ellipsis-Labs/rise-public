@@ -414,8 +414,7 @@ export const PlaceStopLossOrderRequestSchema: z.ZodType<PlaceStopLossOrderReques
   });
 
 export type CancelStopLossOrderExecutionDirection =
-  | "greater_than"
-  | "less_than";
+  "greater_than" | "less_than";
 
 export const CancelStopLossOrderExecutionDirectionSchema: z.ZodType<CancelStopLossOrderExecutionDirection> =
   z.enum(["greater_than", "less_than"]);
@@ -554,8 +553,7 @@ export const PlacePositionConditionalOrderRequestSchema: z.ZodType<PlacePosition
     .refine(hasConditionalTrigger, requiresConditionalTrigger);
 
 export type CancelConditionalOrderExecutionDirection =
-  | "greater_than"
-  | "less_than";
+  "greater_than" | "less_than";
 
 export const CancelConditionalOrderExecutionDirectionSchema: z.ZodType<CancelConditionalOrderExecutionDirection> =
   z.enum(["greater_than", "less_than"]);

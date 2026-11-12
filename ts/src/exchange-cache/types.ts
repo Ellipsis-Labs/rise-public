@@ -15,11 +15,7 @@ import type { ExchangePort } from "@/ws/adapters/exchange";
 import type { PhoenixPdaClient } from "@/pdaClient";
 
 export type ExchangeCacheHealth =
-  | "cold"
-  | "bootstrapped"
-  | "live"
-  | "recovering"
-  | "closed";
+  "cold" | "bootstrapped" | "live" | "recovering" | "closed";
 
 export type ExchangeCacheHealthReason =
   | "bootstrap"
@@ -43,9 +39,7 @@ export type ExchangeMetadataSource = "api" | "rpc" | "none";
 export type ExchangeMarketLifecycle = "active" | "gated" | "closed";
 
 export type ExchangeCacheExchangeChangeKind =
-  | "keys"
-  | "status"
-  | "spotCollaterals";
+  "keys" | "status" | "spotCollaterals";
 
 export type ExchangeCacheMarketChangeKind =
   | "status"

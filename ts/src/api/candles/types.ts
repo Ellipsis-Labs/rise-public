@@ -172,8 +172,7 @@ export interface TradingCandlesV2CursorQuery {
 }
 
 export type TradingCandlesV2Query =
-  | TradingCandlesV2InitialQuery
-  | TradingCandlesV2CursorQuery;
+  TradingCandlesV2InitialQuery | TradingCandlesV2CursorQuery;
 
 export const TradingCandlesV2InitialQuerySchema: z.ZodType<TradingCandlesV2InitialQuery> =
   z.object({
