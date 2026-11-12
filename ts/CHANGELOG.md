@@ -3,6 +3,24 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.7.12 - 2026-11-12
+
+Source Phoenix commit: `947da1d48bc11f1c0404f5b546f4293ae6c994d8`
+
+### Summary
+
+- Bumps `@ellipsis-labs/rise` from 0.7.11 to 0.7.12.
+- Removes the `upload:s3-tarball` package script. No exports, types, clients, or runtime behavior change in the synced diff.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- The package's public API and runtime support are unchanged, so no code changes are needed.
+- If your tooling runs `bun run upload:s3-tarball` from a checkout of this package, it will stop working. Published npm consumers are unaffected.
+
 ## v0.7.11 - 2026-11-10
 
 Source Phoenix commit: `14e7ceaf9b5c50bcf7e85e9bc1c9f96b5eef5588`

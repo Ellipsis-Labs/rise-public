@@ -1,6 +1,6 @@
 {
   "name": "@ellipsis-labs/rise",
-  "version": "0.7.11",
+  "version": "0.7.12",
   "packageManager": "bun@1.4.4",
   "repository": {
     "type": "git",
@@ -55,7 +55,6 @@
     "test:sdk-localnet:ci": "bun --bun run scripts/run-sdk-localnet-ci.ts",
     "type-check": "bunx tsc --noEmit",
     "type-check:margin-parity": "bunx tsc --noEmit -p scripts/tsconfig.margin-parity.json",
-    "upload:s3-tarball": "bun --bun run scripts/upload-s3-tarball.ts",
     "version:patch": "bun --bun run scripts/version.ts patch",
     "version:minor": "bun --bun run scripts/version.ts minor",
     "version:major": "bun --bun run scripts/version.ts major"
