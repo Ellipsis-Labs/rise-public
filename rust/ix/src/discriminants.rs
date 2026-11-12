@@ -367,6 +367,7 @@ define_instruction_discriminants! {
         SwapNative => "swap_native",
         SyncSpot => "sync_spot",
         WithdrawSpot => "withdraw_spot",
+        WithdrawSpotWithFee => "withdraw_spot_with_fee",
         TransferSpot => "transfer_spot",
         TransferSpotFromChildToParent => "transfer_spot_from_child_to_parent",
         LiquidateSpot => "liquidate_spot",

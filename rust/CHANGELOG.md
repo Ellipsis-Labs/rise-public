@@ -3,6 +3,28 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.9.5 - 2026-11-12
+
+Source Phoenix commit: `d81b7169152aaf231c1cdbd07c91a56c7293d257`
+
+```markdown
+### Summary
+
+- **ix:** Added `create_withdraw_spot_with_fee_ix`, a new spot-withdrawal builder that takes the same `WithdrawSpotParams` as `create_withdraw_spot_ix`. It also charges the configured withdrawal fee, which is debited from the trader's quote collateral and may take it negative.
+- **ix:** Added the `PhoenixInstruction::WithdrawSpotWithFee` variant (`withdraw_spot_with_fee`). `PhoenixInstruction::ALL` now has 113 entries, up from 112.
+- **workspace:** All Rise crates are bumped from 0.9.4 to 0.9.5.
+
+### Breaking Changes
+
+- None identified in the synced diff. `PhoenixInstruction` gains a variant, so downstream code that matches it exhaustively without a wildcard arm will no longer compile. Check this if you match on the enum.
+
+### Consumer Notes
+
+- Use `create_withdraw_spot_with_fee_ix` when the withdrawal fee should be charged. The fee and the spot debit are margin checked together, including for excess-only withdrawals. The fee does not consume the withdrawal throttle.
+- `create_withdraw_spot_ix` still builds the original `WithdrawSpot` instruction and its behavior is unchanged.
+- If you hard-code discriminant counts or instruction lists, update them for the new `withdraw_spot_with_fee` discriminant (`8751d829fd49bfe0`).
+```
+
 ## v0.9.4 - 2026-11-12
 
 Source Phoenix commit: `14e7ceaf9b5c50bcf7e85e9bc1c9f96b5eef5588`
