@@ -11,6 +11,20 @@ use crate::types::{
     push_trader_index_accounts,
 };
 
+/// How a limit order interacts with the book when placed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum LimitOrderKind {
+    /// Regular limit order: may match resting liquidity, then rests.
+    #[default]
+    Limit,
+    /// Post-only order: never takes resting liquidity.
+    ///
+    /// `slide` is sent as the PostOnly packet's `slide` flag, which lets the
+    /// program reprice a crossing order to the best non-crossing tick.
+    PostOnly { slide: bool },
+}
+
 /// Parameters for placing a limit order.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -42,6 +56,9 @@ pub struct LimitOrderParams {
     symbol: String,
     /// Subaccount index (0 = cross-margin, 1+ = isolated). Not serialized.
     subaccount_index: u8,
+    /// Limit or post-only. Defaults to [`LimitOrderKind::Limit`].
+    #[cfg_attr(feature = "serde", serde(default))]
+    kind: LimitOrderKind,
 }
 
 impl LimitOrderParams {
@@ -121,6 +138,42 @@ impl LimitOrderParams {
     pub fn subaccount_index(&self) -> u8 {
         self.subaccount_index
     }
+
+    pub fn kind(&self) -> LimitOrderKind {
+        self.kind
+    }
+
+    /// The order packet placed by this order, as encoded after the
+    /// instruction discriminant.
+    ///
+    /// A [`LimitOrderKind::PostOnly`] order yields a PostOnly packet, which
+    /// carries neither `self_trade_behavior` nor `match_limit`.
+    pub fn order_packet(&self) -> OrderPacket {
+        let client_order_id = client_order_id_to_bytes(self.client_order_id);
+        match self.kind {
+            LimitOrderKind::Limit => OrderPacket::limit(
+                self.side,
+                self.price_in_ticks,
+                self.num_base_lots,
+                self.self_trade_behavior,
+                self.match_limit,
+                client_order_id,
+                self.last_valid_slot,
+                self.order_flags,
+                self.cancel_existing,
+            ),
+            LimitOrderKind::PostOnly { slide } => OrderPacket::post_only(
+                self.side,
+                self.price_in_ticks,
+                self.num_base_lots,
+                client_order_id,
+                slide,
+                self.last_valid_slot,
+                self.order_flags,
+                self.cancel_existing,
+            ),
+        }
+    }
 }
 
 /// Builder for `LimitOrderParams`.
@@ -144,6 +197,7 @@ pub struct LimitOrderParamsBuilder {
     cancel_existing: Option<bool>,
     symbol: Option<String>,
     subaccount_index: Option<u8>,
+    kind: LimitOrderKind,
 }
 
 impl LimitOrderParamsBuilder {
@@ -241,7 +295,26 @@ impl LimitOrderParamsBuilder {
         self
     }
 
+    /// Place the order as post-only (see [`LimitOrderKind::PostOnly`]).
+    ///
+    /// Post-only orders cannot be combined with
+    /// [`Self::self_trade_behavior`] or [`Self::match_limit`]; `build()`
+    /// rejects that combination with
+    /// [`PhoenixIxError::PostOnlyIncompatible`].
+    pub fn post_only(mut self, slide: bool) -> Self {
+        self.kind = LimitOrderKind::PostOnly { slide };
+        self
+    }
+
     pub fn build(self) -> Result<LimitOrderParams, PhoenixIxError> {
+        if matches!(self.kind, LimitOrderKind::PostOnly { .. }) {
+            if self.self_trade_behavior.is_some() {
+                return Err(PhoenixIxError::PostOnlyIncompatible("self_trade_behavior"));
+            }
+            if self.match_limit.is_some() {
+                return Err(PhoenixIxError::PostOnlyIncompatible("match_limit"));
+            }
+        }
         Ok(LimitOrderParams {
             trader: self.trader.ok_or(PhoenixIxError::MissingField("trader"))?,
             trader_account: self
@@ -277,6 +350,7 @@ impl LimitOrderParamsBuilder {
             cancel_existing: self.cancel_existing.unwrap_or(false),
             symbol: self.symbol.unwrap_or_default(),
             subaccount_index: self.subaccount_index.unwrap_or(0),
+            kind: self.kind,
         })
     }
 }
@@ -325,20 +399,9 @@ fn encode_limit_order(params: &LimitOrderParams) -> Vec<u8> {
     // Instruction discriminant (8 bytes)
     data.extend_from_slice(&crate::PhoenixInstruction::PlaceLimitOrder.discriminant());
 
-    // Build the order packet using proper Borsh serialization
-    let packet = OrderPacket::limit(
-        params.side(),
-        params.price_in_ticks(),
-        params.num_base_lots(),
-        params.self_trade_behavior(),
-        params.match_limit(),
-        client_order_id_to_bytes(params.client_order_id()),
-        params.last_valid_slot(),
-        params.order_flags(),
-        params.cancel_existing(),
+    data.extend_from_slice(
+        &to_vec(&params.order_packet().kind).expect("serialization should not fail"),
     );
-
-    data.extend_from_slice(&to_vec(&packet.kind).expect("serialization should not fail"));
 
     data
 }
@@ -452,5 +515,40 @@ mod tests {
             .build();
 
         assert!(matches!(result, Err(PhoenixIxError::MissingField(_))));
+    }
+
+    fn post_only_builder() -> LimitOrderParamsBuilder {
+        LimitOrderParams::builder()
+            .trader(Pubkey::new_unique())
+            .trader_account(Pubkey::new_unique())
+            .perp_asset_map(Pubkey::new_unique())
+            .orderbook(Pubkey::new_unique())
+            .spline_collection(Pubkey::new_unique())
+            .global_trader_index(vec![Pubkey::new_unique()])
+            .active_trader_buffer(vec![Pubkey::new_unique()])
+            .side(Side::Ask)
+            .price_in_ticks(50000)
+            .num_base_lots(1000)
+            .post_only(true)
+    }
+
+    #[test]
+    fn test_post_only_rejects_explicit_match_limit() {
+        let result = post_only_builder().match_limit(10).build();
+        assert!(matches!(
+            result,
+            Err(PhoenixIxError::PostOnlyIncompatible("match_limit"))
+        ));
+    }
+
+    #[test]
+    fn test_post_only_rejects_explicit_self_trade_behavior() {
+        let result = post_only_builder()
+            .self_trade_behavior(SelfTradeBehavior::Abort)
+            .build();
+        assert!(matches!(
+            result,
+            Err(PhoenixIxError::PostOnlyIncompatible("self_trade_behavior"))
+        ));
     }
 }

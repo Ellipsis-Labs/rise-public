@@ -3,8 +3,8 @@
 use solana_pubkey::Pubkey;
 
 use crate::types::prelude::{
-    CandleData, FundingRateMessage, L2BookMessage, L2BookUpdate, MarketStatsUpdate, Timeframe,
-    TraderStateServerMessage, TradesMessage,
+    CandleData, FundingRateMessage, L2BookMessage, L2BookUpdate, MarketStatsUpdate,
+    SubscriptionRequest, Timeframe, TraderStateServerMessage, TradesMessage,
 };
 
 /// Subscription key for routing messages to the correct subscriber.
@@ -82,6 +82,43 @@ impl SubscriptionKey {
             },
             _ => self.clone(),
         }
+    }
+
+    /// Routing key for a wire subscription request, e.g. the echo in a server
+    /// acknowledgement. Folds the server's canonicalization (symbol case,
+    /// `marketStatsV2` sort and dedup), so an echo maps to the same key as the
+    /// request that produced it. Returns `None` for channels this SDK does not
+    /// subscribe to.
+    pub(crate) fn from_request(request: &SubscriptionRequest) -> Option<Self> {
+        let key = match request {
+            SubscriptionRequest::AllMids => Self::all_mids(),
+            SubscriptionRequest::FundingRate(request) => Self::funding_rate(request.symbol.clone()),
+            SubscriptionRequest::Orderbook(request) => Self::orderbook_with_options(
+                request.symbol.clone(),
+                request.bypass_execution_band.unwrap_or(false),
+            ),
+            SubscriptionRequest::L2Book(request) => Self::l2_book_with_options(
+                request.coin.clone(),
+                request.bypass_execution_band.unwrap_or(false),
+            ),
+            SubscriptionRequest::MarkPrice(request) => Self::mark_price(request.symbol.clone()),
+            SubscriptionRequest::Fills(request) => Self::fills(request.market_symbol.clone()),
+            SubscriptionRequest::TraderState(request) => Self::TraderState {
+                authority: request.authority.clone(),
+                trader_pda_index: request.trader_pda_index,
+            },
+            SubscriptionRequest::Market(request) => Self::market(request.symbol.clone()),
+            SubscriptionRequest::MarketStatsV2(request) => {
+                Self::market_stats_v2(request.symbols.clone())
+            }
+            SubscriptionRequest::Trades(request) => Self::trades(request.symbol.clone()),
+            SubscriptionRequest::Candles(request) => {
+                Self::candles(request.symbol.clone(), request.timeframe)
+            }
+            SubscriptionRequest::Exchange(_) => Self::exchange(),
+            SubscriptionRequest::Other => return None,
+        };
+        Some(key.routing_key())
     }
 
     pub fn all_mids() -> Self {
@@ -211,5 +248,54 @@ impl SubscriptionKey {
 
     pub fn exchange() -> Self {
         Self::Exchange
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::prelude::{
+        FillsSubscriptionRequest, L2OrderbookSubscriptionRequest, MarkPriceSubscriptionRequest,
+    };
+
+    /// A server echo must map to the key the client subscribes with, including
+    /// the server's symbol canonicalization.
+    #[test]
+    fn echo_keys_match_the_subscribe_side_key() {
+        let cases = [
+            (
+                SubscriptionRequest::L2Book(L2OrderbookSubscriptionRequest {
+                    coin: "KBONK".to_string(),
+                    bypass_execution_band: Some(true),
+                }),
+                SubscriptionKey::l2_book_with_options("KBONK".to_string(), true),
+            ),
+            (
+                SubscriptionRequest::MarkPrice(MarkPriceSubscriptionRequest {
+                    symbol: "kBONK".to_string(),
+                }),
+                SubscriptionKey::mark_price("KBONK".to_string()),
+            ),
+            (
+                SubscriptionRequest::Fills(FillsSubscriptionRequest {
+                    market_symbol: Some("kBONK".to_string()),
+                }),
+                SubscriptionKey::fills(Some("KBONK".to_string())),
+            ),
+            (
+                SubscriptionRequest::Fills(FillsSubscriptionRequest {
+                    market_symbol: None,
+                }),
+                SubscriptionKey::fills(None),
+            ),
+        ];
+
+        for (request, expected) in cases {
+            assert_eq!(
+                SubscriptionKey::from_request(&request),
+                Some(expected.routing_key()),
+                "echo {request:?} should map to {expected:?}"
+            );
+        }
     }
 }

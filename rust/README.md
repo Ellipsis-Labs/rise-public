@@ -7,6 +7,21 @@ independently by CPI integrations, API-only callers, and math consumers.
 
 Protocol and product docs: [docs.phoenix.trade](https://docs.phoenix.trade/).
 
+For spline integrations, start with [spline onboarding](docs/spline-onboarding.md)
+and [transaction event indexing](docs/event-indexing.md). Runnable examples:
+
+```bash
+PHOENIX_RPC_URL=https://your-solana-rpc.example.com \
+  cargo run -p phoenix-rise --example fetch_spline_state --features tx-builder -- \
+  <TRADER_ACCOUNT_PUBKEY>
+cargo run -p phoenix-rise --example index_transaction_events --features events,serde
+```
+
+[`fetch_spline_state`](sdk/examples/fetch_spline_state.rs) reads GTI/ATB accounts
+and prints active state; [`index_transaction_events`](sdk/examples/index_transaction_events.rs)
+runs an offline CPI demo or reads a normalized transaction file. Neither example
+submits transactions.
+
 ## Package Structure
 
 ```text
@@ -94,11 +109,38 @@ Direct typed websocket subscriptions without the reconnecting client.
 - `subscribe_to_mark_price(symbol)`
 - `subscribe_to_fills(Option<symbol>)`
 - `subscribe_to_orderbook(symbol)`
-- `subscribe_to_market(symbol)`
+- `subscribe_to_market(symbol)` (rides the one-symbol `marketStatsV2`
+  channel; `mid_price` is `None` when the book has no midpoint)
 - `subscribe_to_trades(symbol)`
 - `subscribe_to_candles(symbol, timeframe)`
 - `subscribe_to_trader_state(authority)`
 - `subscribe_to_trader_state_with_pda(authority, trader_pda_index)`
+
+Build a client with `PhoenixWSClient::builder(ws_url)` and
+`with_connection_status()`, `with_auth(http_client)`,
+`with_heartbeat(WsHeartbeatConfig)` and (with the `opentelemetry` feature)
+`with_trace_context_provider(..)`; the `new*`/`from_env*` constructors use
+the defaults. `WsHeartbeatConfig::default()` sends a client ping after 30 s of
+inbound silence and reports `WsConnectionStatus::Disconnected("idle
+timeout: ...")` after 90 s, so a half-open socket is detected. Ordinary
+disconnects and idle timeouts are terminal: the client does not reconnect on
+its own. The exception is a client built with `with_auth`, which refreshes and
+reconnects when the server closes the socket for recoverable authentication
+reasons.
+
+`subscription_event_receiver()` reports the server's real
+`subscribed`/`unsubscribed` statuses and attributes each rejection to the
+subscription it rejects (using the server's echo when present). A rejected
+or server-ended subscription's receiver yields `None`. An older server-ended
+status leaves a pending replacement open. Responses for different subscriptions
+may interleave without imposing global request order, but an error echo identifies
+only a subscription, not an attempt. If multiple same-key pending operations or
+an ended context plus a pending retry could own an echoed error, the client
+reports `Disconnected("subscription response mismatch: ...")` and closes the
+socket and all receivers rather than guessing. The error event retains the echoed
+subscription. Legacy errors without an echo require a single possible owner
+across all subscriptions; ambiguous legacy errors are emitted unattributed before
+the same terminal disconnect.
 
 The exchange cache subscription requests JSON snapshots explicitly; the server's
 default for raw `exchange` subscriptions is `base64+zstd`.

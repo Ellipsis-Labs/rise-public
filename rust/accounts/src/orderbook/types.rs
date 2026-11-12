@@ -125,6 +125,9 @@ impl core::fmt::Debug for NodePointer {
 }
 
 /// Key for trader positions in active-trader/orderbook state.
+///
+/// Ordered first by GTI node pointer and then asset index. The wire layout
+/// stores the two little-endian `u32`s in that order.
 #[repr(C)]
 #[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Pod, Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -155,6 +158,12 @@ impl TraderPositionId {
     #[inline(always)]
     pub const fn asset_id(&self) -> u32 {
         self.asset_id
+    }
+
+    /// Whether this key identifies a perp position rather than collateral or
+    /// a reserved extension entry.
+    pub const fn is_position(&self) -> bool {
+        self.asset_id < 0xFF00_0000
     }
 }
 

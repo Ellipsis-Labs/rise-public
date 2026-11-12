@@ -3,6 +3,36 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.9.4 - 2026-11-12
+
+Source Phoenix commit: `14e7ceaf9b5c50bcf7e85e9bc1c9f96b5eef5588`
+
+### Summary
+
+- Adds read-only trader-state tooling. `accounts` gains immutable `GlobalTraderIndex` and `ActiveTraderBuffer` views, GTI/ATB PDA helpers, and `TraderPositionId::is_position`. `core` gains `TraderSnapshot` and `PhoenixAccountClient::fetch_trader_snapshot`. The snapshot loader reads the GTI/ATB arenas and the trader account at one slot, then selects hot or cold state. `AccountSnapshotFetcher` and `FetchedAccountSnapshot` support custom account sources. A synchronous Solana `RpcClient` now implements `AccountDataFetcher`.
+- Adds event-indexing support. `events` gains `fill_id`, which derives API-compatible fill IDs from PnL events. `core::events` exposes `ParsedInstructionEvents::phoenix_instruction_index`. Parsing of logger instructions that lack a stack height is stricter. New docs and examples (`fetch_spline_state`, `index_transaction_events`) cover both features.
+- `ix` and `core` add post-only limit orders. `LimitOrderKind`, `LimitOrderParams::kind`, `LimitOrderParams::order_packet`, a post-only option on the limit-order builders and `LimitOrderTicket`, and the `PhoenixIxError::PostOnlyIncompatible` variant are new. `LimitOrderTicket` now defaults `self_trade_behavior` to `Abort` unless you set it.
+- `api` reworks the WebSocket client. It adds `PhoenixWsClientBuilder` (via `PhoenixWSClient::builder`) and `WsHeartbeatConfig`. By default the client pings after 30 s of inbound silence and reports `Disconnected("idle timeout: ...")` after 90 s. Subscription acknowledgements and errors are now routed by the request the server echoes back. `subscribe_to_market` rides the one-symbol `marketStatsV2` channel.
+- Doc and metadata fixes: `native_sol`, `spot` and `register_trader` docs now cite the on-chain error codes `0x2002` and `0x1001`. Registration always sets `DisablePositionAuthoritySwap`. `WithdrawTransitionReason` marks three variants as reserved and not emitted. Source links in the `sdk` docs now point to the public repo paths.
+
+### Breaking Changes
+
+- `types`: `MarketStatsUpdate::mid_price` changed from `f64` to `Option<f64>`. It is omitted from JSON when `None`. `midPx` is no longer required on deserialize. Code that reads or constructs the field must change. This also affects `MarketStats` and `MarketStatsV2Update::legacy_market_stats_update`, which now returns an update with `mid_price: None` instead of `None` for an entry without a midpoint.
+- `types`: `ErrorMessage` has a new public field `subscription: Option<SubscriptionRequest>`. Code that builds it with struct-literal syntax, or matches it exhaustively, must be updated.
+- `types`: `SubscriptionConfirmedMessage` and `SubscriptionErrorMessage` are now `#[deprecated]` because the server never sends them. They are still re-exported from the prelude, but they produce deprecation warnings, and warnings denied by `#![deny(warnings)]` become errors.
+- `api`: WebSocket behavior has changed. The new heartbeat is on by default, so a silent socket is now reported as disconnected after 90 s. Per the README, idle timeouts and ordinary disconnects are terminal and the client does not reconnect. Consumers that relied on the old connection handling should review the new `WsConnectionStatus` behavior.
+- `ix`/`core`: `LimitOrderParams` and `LimitOrderTicket` gained a `kind` field. The ticket's `self_trade_behavior` is now optional internally, so a ticket that sets none uses `Abort`. Anyone relying on a different default must now set it explicitly.
+- `types`: `TradesSubscriptionRequest::symbol` now also accepts `marketSymbol` on deserialize. This is additive.
+- `core`: `ParsedInstructionEvents` has a new public field, `phoenix_instruction_index`. Code that builds it as a struct literal must be updated.
+
+### Consumer Notes
+
+- `accounts`: Verify account owners and PDAs yourself, and supply GTI and ATB buffers taken from the same snapshot. Persist trader pubkeys rather than GTI indices, because an index can be recycled after eviction. For a hot trader, use GTI/ATB as the source of active state. For a cold trader, use the trader account. Do not add the two together.
+- `core`: `fetch_trader_snapshot` returns an error if the arena count changes or the snapshot is incomplete. Retry the whole load in that case. It is bounded by the RPC account-count limit; see `docs/spline-onboarding.md` for details.
+- `events`: `phoenix_instruction_index` is an ordinal of non-logger Phoenix instructions in execution order. It is not a top-level or event index. Use it when deriving fill IDs. Read `Log` and `LogEventLengths` from instruction data, not RPC `logMessages`.
+- Updating `mid_price`: use `Option` handling, as `examples/subscribe_market_stats.rs` now does.
+- New dependencies: `five8` and `uuid` for `events`. `mockall` is dev-only. The workspace version is now 0.9.4.
+
 ## v0.9.3 - 2026-11-05
 
 Source Phoenix commit: `f962f642e47ceb89aebbda2eaca45ca65e46daa5`

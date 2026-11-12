@@ -1031,7 +1031,7 @@ impl SwapSpotWithUsdcParamsBuilder {
 /// [`SwapSpotWithUsdcParamsBuilder::min_amount_out`] is the **only** price
 /// protection this instruction has — there is no oracle floor. The signer may
 /// be the trader's position authority; the same opt-out gates apply as for
-/// `SwapNative` (error **7101 `PositionAuthoritySwapDisabled`**).
+/// `SwapNative` (error **0x1001 `AuthPositionAuthoritySwapDisabled`**).
 pub fn create_swap_spot_with_usdc_ix(
     params: SwapSpotWithUsdcParams,
 ) -> Result<Instruction, PhoenixIxError> {

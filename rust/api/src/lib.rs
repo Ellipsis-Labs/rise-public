@@ -107,6 +107,7 @@ pub use trader_key::{CROSS_MARGIN_SUBACCOUNT_IDX, ETERNAL_PROGRAM_ID, TraderKey}
 pub use trader_state::{LimitOrder, LockedDepositState, Position, Spline, SubaccountState, Trader};
 #[cfg(feature = "ws")]
 pub use ws_client::{
-    ExchangeCachePump, PhoenixWSClient, SubscriptionHandle, WsConnectionStatus, WsSubscriptionEvent,
+    ExchangeCachePump, PhoenixWSClient, PhoenixWsClientBuilder, SubscriptionHandle,
+    WsConnectionStatus, WsHeartbeatConfig, WsSubscriptionEvent,
 };
 pub use ws_error::PhoenixWsError;

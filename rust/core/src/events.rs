@@ -41,6 +41,10 @@ pub struct RpcInnerInstructionGroup<'a> {
 
 #[derive(Clone, Debug)]
 pub struct ParsedInstructionEvents<'a> {
+    /// Zero-based ordinal among non-logger Phoenix instructions in transaction
+    /// execution order, including instructions that emit no events. Use this
+    /// value when deriving API fill IDs; it is not a top-level or event index.
+    pub phoenix_instruction_index: u32,
     pub instruction_tag: u64,
     pub instruction_data: &'a [u8],
     pub stack_path: Vec<u8>,
@@ -83,7 +87,13 @@ impl<'a, 'program> EventParser<'a, 'program> {
         }
     }
 
-    fn push_instruction(&mut self, program_id: &'a [u8], data: &'a [u8], stack_path: &[u8]) {
+    fn push_instruction(
+        &mut self,
+        program_id: &'a [u8],
+        data: &'a [u8],
+        stack_path: &[u8],
+        missing_stack_height: bool,
+    ) {
         if program_id != self.phoenix_program_id {
             return;
         }
@@ -94,7 +104,11 @@ impl<'a, 'program> EventParser<'a, 'program> {
         let tag = u64::from_le_bytes(*tag_bytes);
 
         if let Some(kind) = PhoenixLogInstructionKind::from_tag(tag) {
-            self.push_log(PhoenixLogInstruction::new(kind, after_tag), stack_path);
+            self.push_log(
+                PhoenixLogInstruction::new(kind, after_tag),
+                stack_path,
+                missing_stack_height,
+            );
         } else {
             self.work_items.push(WorkItem {
                 instruction_tag: tag,
@@ -105,7 +119,12 @@ impl<'a, 'program> EventParser<'a, 'program> {
         }
     }
 
-    fn push_log(&mut self, instruction: PhoenixLogInstruction<'a>, stack_path: &[u8]) {
+    fn push_log(
+        &mut self,
+        instruction: PhoenixLogInstruction<'a>,
+        stack_path: &[u8],
+        missing_stack_height: bool,
+    ) {
         if let Some(parent_path) = stack_path.split_last().map(|(_, parent)| parent)
             && let Some(item) = self.find_work_item_by_path(parent_path)
         {
@@ -113,7 +132,10 @@ impl<'a, 'program> EventParser<'a, 'program> {
             return;
         }
 
-        if let Some(item) = self.work_items.last_mut() {
+        if missing_stack_height
+            && let Some(item) = self.work_items.last_mut()
+            && item.stack_path.first() == stack_path.first()
+        {
             item.logs.push(instruction);
         } else {
             self.orphan_logs.push(OrphanLogInstruction {
@@ -134,7 +156,8 @@ impl<'a, 'program> EventParser<'a, 'program> {
         let instructions = self
             .work_items
             .into_iter()
-            .map(|item| {
+            .enumerate()
+            .map(|(phoenix_instruction_index, item)| {
                 let ParsedLogEvents {
                     events,
                     skipped_event_bytes,
@@ -150,6 +173,7 @@ impl<'a, 'program> EventParser<'a, 'program> {
                 };
 
                 ParsedInstructionEvents {
+                    phoenix_instruction_index: phoenix_instruction_index as u32,
                     instruction_tag: item.instruction_tag,
                     instruction_data: item.instruction_data,
                     stack_path: item.stack_path,
@@ -180,6 +204,7 @@ where
             instruction.program_id,
             instruction.data,
             instruction.stack_path,
+            false,
         );
     }
     parser.finish(false).instructions
@@ -198,6 +223,7 @@ where
             instruction.program_id,
             instruction.data,
             instruction.stack_path,
+            false,
         );
     }
     parser.finish(true)
@@ -238,7 +264,12 @@ fn push_rpc_instructions<'a>(
 ) {
     for (top_level_index, instruction) in top_level_instructions.iter().enumerate() {
         let top_level_path = [top_level_index as u8];
-        parser.push_instruction(instruction.program_id, instruction.data, &top_level_path);
+        parser.push_instruction(
+            instruction.program_id,
+            instruction.data,
+            &top_level_path,
+            false,
+        );
 
         for group in inner_instruction_groups
             .iter()
@@ -254,6 +285,7 @@ fn push_rpc_instructions<'a>(
                     inner_instruction.program_id,
                     inner_instruction.data,
                     &stack_path,
+                    inner_instruction.stack_height.is_none(),
                 );
             }
         }

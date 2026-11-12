@@ -1,8 +1,9 @@
 //! WebSocket client for connecting to the Phoenix API.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
 #[cfg(feature = "opentelemetry")]
@@ -11,24 +12,25 @@ use opentelemetry::{Context, global};
 use opentelemetry_http::HeaderInjector;
 use parking_lot::Mutex;
 use phoenix_rise_types::prelude::{
-    AllMidsData, CandleData, CandlesSubscriptionRequest, ClientMessage, ExchangeMessage,
-    ExchangeSnapshotEncoding, ExchangeSubscriptionRequest, FillsMessage, FillsSubscriptionRequest,
-    FundingRateMessage, FundingRateSubscriptionRequest, L2BookMessage, L2BookUpdate,
-    L2OrderbookSubscriptionRequest, MarkPriceSubscriptionRequest, MarkPriceUpdate,
+    AllMidsData, CandleData, CandlesSubscriptionRequest, ClientMessage, ErrorMessage,
+    ExchangeMessage, ExchangeSnapshotEncoding, ExchangeSubscriptionRequest, FillsMessage,
+    FillsSubscriptionRequest, FundingRateMessage, FundingRateSubscriptionRequest, L2BookMessage,
+    L2BookUpdate, L2OrderbookSubscriptionRequest, MarkPriceSubscriptionRequest, MarkPriceUpdate,
     MarketStatsUpdate, MarketStatsV2SubscriptionRequest, MarketStatsV2Update,
-    OrderbookSubscriptionRequest, ServerMessage, SubscriptionConfirmedMessage,
-    SubscriptionErrorMessage, SubscriptionRequest, Timeframe, TraderStateServerMessage,
-    TraderStateSubscriptionRequest, TradesMessage, TradesSubscriptionRequest,
+    OrderbookSubscriptionRequest, ServerMessage, SubscriptionRequest, SubscriptionStatusMessage,
+    Timeframe, TraderStateServerMessage, TraderStateSubscriptionRequest, TradesMessage,
+    TradesSubscriptionRequest,
 };
 use solana_pubkey::Pubkey;
 use tokio::sync::mpsc;
+use tokio::time::{Instant, Interval, MissedTickBehavior};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 #[cfg(feature = "opentelemetry")]
 use tokio_tungstenite::tungstenite::http::HeaderMap;
 use tokio_tungstenite::tungstenite::http::header::{AUTHORIZATION, SEC_WEBSOCKET_PROTOCOL};
 use tokio_tungstenite::tungstenite::http::{HeaderValue, StatusCode};
 use tokio_tungstenite::tungstenite::protocol::frame::CloseFrame;
-use tokio_tungstenite::tungstenite::{Error as TungsteniteError, Message};
+use tokio_tungstenite::tungstenite::{Bytes, Error as TungsteniteError, Message};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async};
 use tracing::{Instrument, debug, error, info, warn};
 #[cfg(feature = "opentelemetry")]
@@ -75,6 +77,116 @@ pub enum WsSubscriptionEvent {
         code: String,
         message: String,
     },
+}
+
+/// Client-side liveness checks for a [`PhoenixWSClient`] connection.
+///
+/// Any inbound frame (data, ping, pong, close) counts as activity. After
+/// `ping_interval` of inbound silence the client sends a Ping so a live
+/// server answers with a Pong. After `idle_timeout` of inbound silence the
+/// client closes the socket and reports [`WsConnectionStatus::Disconnected`],
+/// so a half-open connection is detected. The client does not reconnect.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WsHeartbeatConfig {
+    /// Send a client Ping after this much inbound silence. `None` = never.
+    pub ping_interval: Option<Duration>,
+    /// Report `Disconnected` after this much inbound silence. `None` = never.
+    pub idle_timeout: Option<Duration>,
+}
+
+impl Default for WsHeartbeatConfig {
+    /// Ping after 30 s of silence; disconnect after 90 s (three server ping
+    /// periods).
+    fn default() -> Self {
+        Self {
+            ping_interval: Some(Duration::from_secs(30)),
+            idle_timeout: Some(Duration::from_secs(90)),
+        }
+    }
+}
+
+impl WsHeartbeatConfig {
+    /// Period of the liveness check, or `None` when both checks are off.
+    fn check_period(&self) -> Option<Duration> {
+        let shortest = match (self.ping_interval, self.idle_timeout) {
+            (Some(ping), Some(idle)) => ping.min(idle),
+            (Some(period), None) | (None, Some(period)) => period,
+            (None, None) => return None,
+        };
+        Some((shortest / 2).max(Duration::from_millis(1)))
+    }
+}
+
+/// Builder for [`PhoenixWSClient`], created by [`PhoenixWSClient::builder`].
+#[must_use]
+pub struct PhoenixWsClientBuilder {
+    ws_url: String,
+    connection_status: bool,
+    auth_client: Option<PhoenixHttpClient>,
+    heartbeat: WsHeartbeatConfig,
+    #[cfg(feature = "opentelemetry")]
+    trace_context_provider: Option<TraceContextProvider>,
+}
+
+impl PhoenixWsClientBuilder {
+    fn new(ws_url: &str) -> Self {
+        Self {
+            ws_url: ws_url.to_string(),
+            connection_status: false,
+            auth_client: None,
+            heartbeat: WsHeartbeatConfig::default(),
+            #[cfg(feature = "opentelemetry")]
+            trace_context_provider: None,
+        }
+    }
+
+    /// Enable connection status updates; take the receiver with
+    /// [`PhoenixWSClient::connection_status_receiver`].
+    pub fn with_connection_status(mut self) -> Self {
+        self.connection_status = true;
+        self
+    }
+
+    /// Authenticate the websocket with the session of `auth_client`, and
+    /// refresh and reconnect on recoverable auth closes.
+    pub fn with_auth(mut self, auth_client: PhoenixHttpClient) -> Self {
+        self.auth_client = Some(auth_client);
+        self
+    }
+
+    /// Override the liveness checks. Defaults to
+    /// [`WsHeartbeatConfig::default`].
+    pub fn with_heartbeat(mut self, heartbeat: WsHeartbeatConfig) -> Self {
+        self.heartbeat = heartbeat;
+        self
+    }
+
+    /// Set an OpenTelemetry parent context provider for the outbound connect
+    /// span and trace header propagation. A provider configured on the auth
+    /// client takes precedence.
+    #[cfg(feature = "opentelemetry")]
+    pub fn with_trace_context_provider<F>(mut self, provider: F) -> Self
+    where
+        F: Fn() -> Context + Send + Sync + 'static,
+    {
+        self.trace_context_provider = Some(Arc::new(provider));
+        self
+    }
+
+    /// Build the client and spawn its connection task.
+    pub fn build(self) -> Result<PhoenixWSClient, PhoenixWsError> {
+        #[cfg(feature = "opentelemetry")]
+        let trace_context_provider = self.trace_context_provider;
+        #[cfg(not(feature = "opentelemetry"))]
+        let trace_context_provider = None;
+        PhoenixWSClient::new_internal(
+            &self.ws_url,
+            self.connection_status,
+            self.auth_client,
+            trace_context_provider,
+            self.heartbeat,
+        )
+    }
 }
 
 /// Handle for managing an active subscription.
@@ -168,6 +280,243 @@ enum ControlMessage {
     Shutdown,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PendingOp {
+    Subscribe,
+    Unsubscribe,
+}
+
+/// A subscribe or unsubscribe frame sent on the current socket that has no
+/// server response yet.
+struct PendingFrame {
+    key: SubscriptionKey,
+    request: SubscriptionRequest,
+    op: PendingOp,
+}
+
+/// The most recent status for one subscription on this socket. Other
+/// subscriptions' statuses must not erase a possible trailing error's owner.
+#[derive(Debug)]
+enum PrevResponse {
+    TraderStateAck,
+    ServerEnded(SubscriptionRequest),
+    MaybeEnded(SubscriptionRequest),
+}
+
+/// The server's responses can no longer be matched to the frames that caused
+/// them, so the socket must be dropped.
+#[derive(Debug)]
+struct ResponseMismatch(String);
+
+/// Per-socket subscription state owned by the connection manager.
+///
+/// Responses for different subscriptions can arrive out of send order.
+/// Echoes identify subscriptions, not request attempts; an error must have
+/// only one possible owner among the matching pending frames and ended context.
+#[derive(Default)]
+struct SocketState {
+    subscribers: HashMap<SubscriptionKey, HashMap<u64, Subscriber>>,
+    active_subscriptions: HashMap<SubscriptionKey, SubscriptionRequest>,
+    /// Wire frames with no response yet, in send order.
+    pending: VecDeque<PendingFrame>,
+    prev: HashMap<SubscriptionKey, PrevResponse>,
+}
+
+impl SocketState {
+    fn push_pending(&mut self, key: SubscriptionKey, request: SubscriptionRequest, op: PendingOp) {
+        self.pending.push_back(PendingFrame { key, request, op });
+    }
+
+    /// Drop the subscription for `key`: every receiver for it yields `None`,
+    /// and the later handle drop sends nothing.
+    fn close(&mut self, key: &SubscriptionKey) {
+        self.subscribers.remove(key);
+        self.active_subscriptions.remove(key);
+    }
+
+    /// A response to an older frame must not close a replacement that is
+    /// still awaiting its own subscribe response.
+    fn close_unless_replaced(&mut self, key: &SubscriptionKey) {
+        if self
+            .oldest_pending(key, Some(PendingOp::Subscribe))
+            .is_none()
+        {
+            self.close(key);
+        }
+    }
+
+    /// Position of the oldest pending frame for `key`, optionally of one op.
+    fn oldest_pending(&self, key: &SubscriptionKey, op: Option<PendingOp>) -> Option<usize> {
+        self.pending
+            .iter()
+            .position(|frame| frame.key == *key && op.is_none_or(|op| frame.op == op))
+    }
+
+    fn handle_status(
+        &mut self,
+        status: SubscriptionStatusMessage,
+        event_tx: &mpsc::UnboundedSender<WsSubscriptionEvent>,
+    ) -> Result<(), ResponseMismatch> {
+        let SubscriptionStatusMessage {
+            status,
+            subscription: echo,
+            ..
+        } = status;
+        let Some(key) = SubscriptionKey::from_request(&echo) else {
+            Self::emit_status(event_tx, status, echo);
+            return Ok(());
+        };
+        let prev = self.prev.remove(&key);
+
+        match status.as_str() {
+            "subscribed" => {
+                let Some(position) = self.oldest_pending(&key, Some(PendingOp::Subscribe)) else {
+                    Self::emit_status(event_tx, status, echo);
+                    return Ok(());
+                };
+                self.pending.remove(position);
+                if matches!(key, SubscriptionKey::TraderState { .. }) {
+                    self.prev.insert(key, PrevResponse::TraderStateAck);
+                }
+            }
+            "unsubscribed" if matches!(prev, Some(PrevResponse::TraderStateAck)) => {
+                if let Some(position) = self.oldest_pending(&key, Some(PendingOp::Unsubscribe)) {
+                    // Either our unsubscribe reply or the server ending the
+                    // older subscription; a pending replacement stays open.
+                    self.pending.remove(position);
+                    self.prev
+                        .insert(key, PrevResponse::MaybeEnded(echo.clone()));
+                } else {
+                    self.close_unless_replaced(&key);
+                    self.prev
+                        .insert(key, PrevResponse::ServerEnded(echo.clone()));
+                }
+            }
+            "unsubscribed" => match self.oldest_pending(&key, None) {
+                Some(position) => {
+                    let frame = self.pending.remove(position).expect("pending frame exists");
+                    if frame.op == PendingOp::Subscribe {
+                        self.close_unless_replaced(&key);
+                        self.prev
+                            .insert(key, PrevResponse::ServerEnded(echo.clone()));
+                    }
+                }
+                None => {
+                    if self.active_subscriptions.contains_key(&key) {
+                        self.close_unless_replaced(&key);
+                        self.prev
+                            .insert(key, PrevResponse::ServerEnded(echo.clone()));
+                    }
+                }
+            },
+            _ => {}
+        }
+        Self::emit_status(event_tx, status, echo);
+        Ok(())
+    }
+
+    fn handle_error(
+        &mut self,
+        error: ErrorMessage,
+        event_tx: &mpsc::UnboundedSender<WsSubscriptionEvent>,
+    ) -> Result<(), ResponseMismatch> {
+        let ErrorMessage {
+            error: message,
+            code,
+            subscription: echo,
+        } = error;
+        let emit = |subscription: Option<SubscriptionRequest>| {
+            let _ = event_tx.send(WsSubscriptionEvent::Error {
+                subscription,
+                code: code.to_string(),
+                message: message.clone(),
+            });
+        };
+
+        if let Some(echo) = echo {
+            let Some(key) = SubscriptionKey::from_request(&echo) else {
+                // A channel this SDK never subscribes to.
+                emit(Some(echo));
+                return Ok(());
+            };
+            // Status and error queues are independent. An echo cannot tell
+            // whether an older operation or a same-key replacement failed.
+            let ended = matches!(
+                self.prev.get(&key),
+                Some(PrevResponse::ServerEnded(_) | PrevResponse::MaybeEnded(_))
+            );
+            let pending_count = self
+                .pending
+                .iter()
+                .filter(|frame| frame.key == key)
+                .take(2)
+                .count();
+            if pending_count + usize::from(ended) > 1 {
+                emit(Some(echo));
+                return Err(ResponseMismatch(
+                    "echoed error has multiple possible owners for the same subscription"
+                        .to_string(),
+                ));
+            }
+            if let Some(PrevResponse::ServerEnded(request) | PrevResponse::MaybeEnded(request)) =
+                self.prev.remove(&key)
+            {
+                emit(Some(request));
+                return Ok(());
+            }
+            if let Some(position) = self.oldest_pending(&key, None) {
+                let frame = self.pending.remove(position).expect("pending frame exists");
+                if frame.op == PendingOp::Subscribe {
+                    self.close_unless_replaced(&key);
+                }
+            }
+            emit(Some(echo));
+            return Ok(());
+        }
+
+        let mut ended = self.prev.iter().filter(|(_, response)| {
+            matches!(
+                response,
+                PrevResponse::ServerEnded(_) | PrevResponse::MaybeEnded(_)
+            )
+        });
+        let ended_count = ended.clone().count();
+        if self.pending.len() + ended_count > 1 {
+            emit(None);
+            return Err(ResponseMismatch(
+                "legacy error without subscription echo has multiple possible owners".to_string(),
+            ));
+        }
+        if let Some((key, _)) = ended.next() {
+            let key = key.clone();
+            let response = self.prev.remove(&key).expect("ended response exists");
+            if let PrevResponse::ServerEnded(request) | PrevResponse::MaybeEnded(request) = response
+            {
+                emit(Some(request));
+            }
+        } else if let Some(frame) = self.pending.pop_front() {
+            if frame.op == PendingOp::Subscribe {
+                self.close_unless_replaced(&frame.key);
+            }
+            emit(Some(frame.request));
+        } else {
+            emit(None);
+        }
+        Ok(())
+    }
+
+    fn emit_status(
+        event_tx: &mpsc::UnboundedSender<WsSubscriptionEvent>,
+        status: String,
+        subscription: SubscriptionRequest,
+    ) {
+        let _ = event_tx.send(WsSubscriptionEvent::Status {
+            status,
+            subscription,
+        });
+    }
+}
+
 type PhoenixWsStream = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
 type PhoenixWsSink = futures_util::stream::SplitSink<PhoenixWsStream, Message>;
 type PhoenixWsRead = futures_util::stream::SplitStream<PhoenixWsStream>;
@@ -205,6 +554,13 @@ pub struct PhoenixWSClient {
 }
 
 impl PhoenixWSClient {
+    /// Start building a client for `ws_url` (e.g.
+    /// "wss://api.phoenix.trade/ws"). The builder defaults to no connection
+    /// status updates, no auth, and [`WsHeartbeatConfig::default`].
+    pub fn builder(ws_url: &str) -> PhoenixWsClientBuilder {
+        PhoenixWsClientBuilder::new(ws_url)
+    }
+
     /// Create a new WebSocket client using environment variables.
     ///
     /// Uses `PhoenixEnv::load()` to read configuration from environment.
@@ -223,7 +579,7 @@ impl PhoenixWSClient {
 
     /// Create a new WebSocket client from a `PhoenixEnv`.
     pub fn from_env(env: PhoenixEnv) -> Result<Self, PhoenixWsError> {
-        Self::new_internal(&env.ws_url, false, None, None)
+        Self::builder(&env.ws_url).build()
     }
 
     /// Create a new WebSocket client from a `PhoenixEnv` with connection status
@@ -232,14 +588,14 @@ impl PhoenixWSClient {
     /// Use `connection_status_receiver()` to get the receiver for status
     /// updates.
     pub fn from_env_with_connection_status(env: PhoenixEnv) -> Result<Self, PhoenixWsError> {
-        Self::new_internal(&env.ws_url, true, None, None)
+        Self::builder(&env.ws_url).with_connection_status().build()
     }
 
     pub(crate) fn from_env_with_connection_status_and_auth(
         env: PhoenixEnv,
         auth_client: PhoenixHttpClient,
     ) -> Result<Self, PhoenixWsError> {
-        Self::new_internal(&env.ws_url, true, Some(auth_client), None)
+        Self::new_with_connection_status_and_auth(&env.ws_url, auth_client)
     }
 
     /// Create a new authenticated WebSocket client with connection status
@@ -248,7 +604,10 @@ impl PhoenixWSClient {
         ws_url: &str,
         auth_client: PhoenixHttpClient,
     ) -> Result<Self, PhoenixWsError> {
-        Self::new_internal(ws_url, true, Some(auth_client), None)
+        Self::builder(ws_url)
+            .with_connection_status()
+            .with_auth(auth_client)
+            .build()
     }
 
     /// Create a new WebSocket client and connect to the server.
@@ -256,7 +615,7 @@ impl PhoenixWSClient {
     /// # Arguments
     /// * `ws_url` - The WebSocket URL (e.g., "wss://api.phoenix.trade/ws")
     pub fn new(ws_url: &str) -> Result<Self, PhoenixWsError> {
-        Self::new_internal(ws_url, false, None, None)
+        Self::builder(ws_url).build()
     }
 
     /// Create a new WebSocket client with an OpenTelemetry parent context
@@ -269,7 +628,9 @@ impl PhoenixWSClient {
     where
         F: Fn() -> Context + Send + Sync + 'static,
     {
-        Self::new_internal(ws_url, false, None, Some(Arc::new(provider)))
+        Self::builder(ws_url)
+            .with_trace_context_provider(provider)
+            .build()
     }
 
     /// Create a new WebSocket client with connection status updates enabled.
@@ -280,7 +641,7 @@ impl PhoenixWSClient {
     /// # Arguments
     /// * `ws_url` - The WebSocket URL (e.g., "wss://api.phoenix.trade/ws")
     pub fn new_with_connection_status(ws_url: &str) -> Result<Self, PhoenixWsError> {
-        Self::new_internal(ws_url, true, None, None)
+        Self::builder(ws_url).with_connection_status().build()
     }
 
     /// Create a new WebSocket client with connection status updates and an
@@ -294,7 +655,10 @@ impl PhoenixWSClient {
     where
         F: Fn() -> Context + Send + Sync + 'static,
     {
-        Self::new_internal(ws_url, true, None, Some(Arc::new(provider)))
+        Self::builder(ws_url)
+            .with_connection_status()
+            .with_trace_context_provider(provider)
+            .build()
     }
 
     /// Internal constructor.
@@ -303,6 +667,7 @@ impl PhoenixWSClient {
         receiver_connection_status: bool,
         auth_client: Option<PhoenixHttpClient>,
         trace_context_provider: Option<TraceContextProvider>,
+        heartbeat: WsHeartbeatConfig,
     ) -> Result<Self, PhoenixWsError> {
         let url = Url::parse(ws_url)?;
         let (control_tx, control_rx) = mpsc::unbounded_channel();
@@ -341,6 +706,7 @@ impl PhoenixWSClient {
             ws_connection_status_tx,
             ws_subscription_event_tx,
             trace_context_provider,
+            heartbeat,
         ));
 
         Ok(client)
@@ -630,7 +996,13 @@ impl PhoenixWSClient {
     /// * `symbol` - Market symbol (e.g., "SOL" or "BTC")
     ///
     /// Returns a tuple of (receiver, handle). The receiver will receive
-    /// `MarketStatsUpdate` messages. Drop the handle to unsubscribe.
+    /// `MarketStatsUpdate` messages, with `mid_price: None` when the market
+    /// has no orderbook midpoint. Drop the handle to unsubscribe.
+    ///
+    /// The server acknowledges this subscription as
+    /// `SubscriptionRequest::MarketStatsV2 { symbols: Some([<symbol>]) }`
+    /// (the one-symbol `marketStatsV2` request), not as
+    /// `SubscriptionRequest::Market`.
     pub fn subscribe_to_market(
         &self,
         symbol: String,
@@ -981,15 +1353,16 @@ impl PhoenixWSClient {
         ws_connection_status_tx: Option<mpsc::UnboundedSender<WsConnectionStatus>>,
         ws_subscription_event_tx: mpsc::UnboundedSender<WsSubscriptionEvent>,
         trace_context_provider: Option<TraceContextProvider>,
+        heartbeat: WsHeartbeatConfig,
     ) {
-        let mut subscribers: HashMap<SubscriptionKey, HashMap<u64, Subscriber>> = HashMap::new();
-        let mut active_subscriptions: HashMap<SubscriptionKey, SubscriptionRequest> =
-            HashMap::new();
+        let mut state = SocketState::default();
+        let send_status = |status: WsConnectionStatus| {
+            if let Some(tx) = ws_connection_status_tx.as_ref() {
+                let _ = tx.send(status);
+            }
+        };
 
-        // Send connecting status
-        if let Some(ref tx) = ws_connection_status_tx {
-            let _ = tx.send(WsConnectionStatus::Connecting);
-        }
+        send_status(WsConnectionStatus::Connecting);
 
         let ws_stream = match Self::connect(
             &url,
@@ -1000,172 +1373,244 @@ impl PhoenixWSClient {
         {
             Ok(stream) => {
                 info!("Connected to WebSocket: {}", url);
-                if let Some(ref tx) = ws_connection_status_tx {
-                    let _ = tx.send(WsConnectionStatus::Connected);
-                }
+                send_status(WsConnectionStatus::Connected);
                 stream
             }
             Err(e) => {
                 error!("Failed to connect: {:?}", e);
-                if let Some(ref tx) = ws_connection_status_tx {
-                    let _ = tx.send(WsConnectionStatus::ConnectionFailed);
-                }
+                send_status(WsConnectionStatus::ConnectionFailed);
                 return;
             }
         };
 
         let mut active_ws = ActiveWebSocket::new(ws_stream);
+        let mut last_frame_at = Instant::now();
+        let mut last_ping_at = last_frame_at;
+        let mut heartbeat_timer = heartbeat.check_period().map(|period| {
+            let mut timer = tokio::time::interval(period);
+            timer.set_missed_tick_behavior(MissedTickBehavior::Delay);
+            timer
+        });
 
         // Main message loop
         loop {
             tokio::select! {
-                            // Handle incoming WebSocket messages
-                            ws_msg = active_ws.read.next() => {
-                                match ws_msg {
-                                    Some(Ok(Message::Text(text))) => {
-                                        Self::process_message(
-                                            text.as_bytes(),
-                                            &subscribers,
-                                            &ws_subscription_event_tx,
-                                        );
+                // Handle incoming WebSocket messages
+                ws_msg = active_ws.read.next() => {
+                    if matches!(ws_msg, Some(Ok(_))) {
+                        last_frame_at = Instant::now();
+                    }
+                    let processed = match ws_msg {
+                        Some(Ok(Message::Text(text))) => Self::process_message(
+                            text.as_bytes(),
+                            &mut state,
+                            &ws_subscription_event_tx,
+                        ),
+                        Some(Ok(Message::Binary(data))) => {
+                            Self::process_message(&data, &mut state, &ws_subscription_event_tx)
+                        }
+                        Some(Ok(Message::Ping(data))) => {
+                            if let Err(e) = active_ws.sink.send(Message::Pong(data)).await {
+                                debug!("Failed to respond to Ping: {e:?}");
+                            }
+                            Ok(())
+                        }
+                        Some(Ok(Message::Pong(_))) => {
+                            debug!("Received pong");
+                            Ok(())
+                        }
+                        Some(Ok(Message::Close(frame))) => {
+                            let reason = Self::close_reason(frame.as_ref());
+                            if let Some(frame) = frame.as_ref() {
+                                warn!("WebSocket closed: code={}, reason={}", frame.code, frame.reason);
+                            } else {
+                                warn!("WebSocket closed without frame");
+                            }
+                            if Self::is_recoverable_auth_close(frame.as_ref())
+                                && let Some(auth_client) = auth_client.as_ref()
+                            {
+                                match Self::refresh_and_reconnect(
+                                    &url,
+                                    auth_client,
+                                    &mut state,
+                                    &mut active_ws,
+                                    ws_connection_status_tx.as_ref(),
+                                    trace_context_provider.as_ref(),
+                                )
+                                .await
+                                {
+                                    Ok(()) => {
+                                        last_frame_at = Instant::now();
+                                        last_ping_at = last_frame_at;
+                                        continue;
                                     }
-                                    Some(Ok(Message::Binary(data))) => {
-                                        Self::process_message(
-                                            &data,
-                                            &subscribers,
-                                            &ws_subscription_event_tx,
-                                        );
-                                    }
-                                    Some(Ok(Message::Ping(data))) => {
-                                        if let Err(e) = active_ws.sink.send(Message::Pong(data)).await {
-                                            debug!("Failed to respond to Ping: {e:?}");
-                                        }
-                                    }
-                                    Some(Ok(Message::Pong(_))) => {
-                                        debug!("Received pong");
-                                    }
-                                    Some(Ok(Message::Close(frame))) => {
-                                        let reason = Self::close_reason(frame.as_ref());
-                                        if let Some(frame) = frame.as_ref() {
-                                            warn!("WebSocket closed: code={}, reason={}", frame.code, frame.reason);
-                                        } else {
-                                            warn!("WebSocket closed without frame");
-                                        }
-                                        if Self::is_recoverable_auth_close(frame.as_ref()) {
-                                            let Some(auth_client) = auth_client.as_ref() else {
-                                                if let Some(ref tx) = ws_connection_status_tx {
-                                                    let _ = tx.send(WsConnectionStatus::Disconnected(reason));
-                                                }
-                                                return;
-                                            };
-                                            match Self::refresh_and_reconnect(
-                                                &url,
-                                                auth_client,
-                                                &active_subscriptions,
-                                                &mut active_ws,
-                                                ws_connection_status_tx.as_ref(),
-            trace_context_provider.as_ref(),
-                                            )
-                                            .await
-                                            {
-                                                Ok(()) => continue,
-                                                Err(error) => {
-                                                    error!("Failed to refresh and reconnect WebSocket auth: {:?}", error);
-                                                    if let Some(ref tx) = ws_connection_status_tx {
-                                                        let _ = tx.send(WsConnectionStatus::Disconnected(reason));
-                                                    }
-                                                    return;
-                                                }
-                                            }
-                                        }
-                                        if let Some(ref tx) = ws_connection_status_tx {
-                                            let _ = tx.send(WsConnectionStatus::Disconnected(reason));
-                                        }
-                                        return;
-                                    }
-                                    Some(Ok(_)) => {} // Ignore other message types
-                                    Some(Err(e)) => {
-                                        error!("WebSocket error: {:?}", e);
-                                        if let Some(ref tx) = ws_connection_status_tx {
-                                            let _ = tx.send(WsConnectionStatus::Disconnected(format!("error: {:?}", e)));
-                                        }
-                                        return;
-                                    }
-                                    None => {
-                                        warn!("WebSocket stream ended");
-                                        if let Some(ref tx) = ws_connection_status_tx {
-                                            let _ = tx.send(WsConnectionStatus::Disconnected("stream ended".to_string()));
-                                        }
-                                        return;
+                                    Err(error) => {
+                                        error!("Failed to refresh and reconnect WebSocket auth: {:?}", error);
                                     }
                                 }
                             }
+                            send_status(WsConnectionStatus::Disconnected(reason));
+                            return;
+                        }
+                        Some(Ok(_)) => Ok(()), // Ignore other message types
+                        Some(Err(e)) => {
+                            error!("WebSocket error: {:?}", e);
+                            send_status(WsConnectionStatus::Disconnected(format!("error: {:?}", e)));
+                            return;
+                        }
+                        None => {
+                            warn!("WebSocket stream ended");
+                            send_status(WsConnectionStatus::Disconnected("stream ended".to_string()));
+                            return;
+                        }
+                    };
+                    if let Err(ResponseMismatch(detail)) = processed {
+                        // Once a response is missing or ambiguous, later
+                        // responses cannot be attributed safely; only a new
+                        // socket can recover.
+                        warn!("Subscription response mismatch; closing WebSocket: {detail}");
+                        send_status(WsConnectionStatus::Disconnected(format!(
+                            "subscription response mismatch: {detail}"
+                        )));
+                        let _ = tokio::time::timeout(Duration::from_secs(1), active_ws.sink.close()).await;
+                        return;
+                    }
+                }
 
-                            // Handle control messages
-                            control_msg = control_rx.recv() => {
-                                match control_msg {
-                                    Some(ControlMessage::Subscribe { key, request, subscriber, subscriber_id }) => {
-                                        let key = key.routing_key();
-                                        // Get or create the inner HashMap for this key
-                                        let key_subscribers = subscribers.entry(key.clone()).or_default();
+                // Client-side liveness checks
+                _ = Self::next_heartbeat_tick(heartbeat_timer.as_mut()) => {
+                    let now = Instant::now();
+                    let silence = now.duration_since(last_frame_at);
+                    if heartbeat.idle_timeout.is_some_and(|idle| silence >= idle) {
+                        warn!("WebSocket idle for {silence:?}; closing");
+                        let _ = tokio::time::timeout(Duration::from_secs(1), active_ws.sink.close()).await;
+                        send_status(WsConnectionStatus::Disconnected(format!(
+                            "idle timeout: no frames for {:.1}s",
+                            silence.as_secs_f64()
+                        )));
+                        return;
+                    }
+                    if heartbeat.ping_interval.is_some_and(|interval| {
+                        silence >= interval && now.duration_since(last_ping_at) >= interval
+                    }) {
+                        last_ping_at = now;
+                        if let Err(e) = active_ws.sink.send(Message::Ping(Bytes::new())).await {
+                            error!("Failed to send WebSocket ping: {e:?}");
+                            send_status(WsConnectionStatus::Disconnected(format!("ping send failed: {e}")));
+                            return;
+                        }
+                    }
+                }
 
-                                        // Check if this is the first subscriber for this key
-                                        let is_first_subscriber = key_subscribers.is_empty();
+                // Handle control messages
+                control_msg = control_rx.recv() => {
+                    match control_msg {
+                        Some(ControlMessage::Subscribe { key, request, subscriber, subscriber_id }) => {
+                            let key = key.routing_key();
+                            // Get or create the inner HashMap for this key
+                            let key_subscribers = state.subscribers.entry(key.clone()).or_default();
 
-                                        // Insert the new subscriber
-                                        key_subscribers.insert(subscriber_id, subscriber);
+                            // Check if this is the first subscriber for this key
+                            let is_first_subscriber = key_subscribers.is_empty();
 
-                                        // Only send wire subscription on first subscriber
-                                        if is_first_subscriber {
-                                            active_subscriptions.insert(key.clone(), request.clone());
+                            // Insert the new subscriber
+                            key_subscribers.insert(subscriber_id, subscriber);
 
-                                            // Send subscription request
-                                            let msg = ClientMessage::Subscribe { subscription: request };
-                                            if let Ok(bytes) = serde_json::to_vec(&msg) {
-                                                debug!("Sending subscription: {}", String::from_utf8_lossy(&bytes));
-                                                if let Err(e) = active_ws.sink.send(Message::Binary(bytes.into())).await {
-                                                    error!("Failed to send subscription: {:?}", e);
-                                                }
-                                            }
-                                        }
-                                    }
-                                    Some(ControlMessage::Unsubscribe { key, subscriber_id }) => {
-                                        let key = key.routing_key();
-                                        // Remove this specific subscriber
-                                        let should_unsubscribe = if let Some(key_subscribers) = subscribers.get_mut(&key) {
-                                            key_subscribers.remove(&subscriber_id);
-                                            key_subscribers.is_empty()
-                                        } else {
-                                            false
-                                        };
+                            // Only send wire subscription on first subscriber
+                            if is_first_subscriber {
+                                state.active_subscriptions.insert(key.clone(), request.clone());
+                                Self::send_subscription_frame(
+                                    &mut active_ws.sink,
+                                    &mut state,
+                                    key,
+                                    request,
+                                    PendingOp::Subscribe,
+                                )
+                                .await;
+                            }
+                        }
+                        Some(ControlMessage::Unsubscribe { key, subscriber_id }) => {
+                            let key = key.routing_key();
+                            // Remove this specific subscriber
+                            let should_unsubscribe = if let Some(key_subscribers) = state.subscribers.get_mut(&key) {
+                                key_subscribers.remove(&subscriber_id);
+                                key_subscribers.is_empty()
+                            } else {
+                                false
+                            };
 
-                                        // If no subscribers remain for this key, unsubscribe from server
-                                        if should_unsubscribe {
-                                            subscribers.remove(&key);
-                                            if let Some(request) = active_subscriptions.remove(&key) {
-                                                // Send unsubscription request
-                                                let msg = ClientMessage::Unsubscribe { subscription: request };
-                                                if let Ok(bytes) = serde_json::to_vec(&msg) {
-                                                    let _ = active_ws.sink.send(Message::Binary(bytes.into())).await;
-                                                }
-                                            }
-                                        }
-                                    }
-                                    Some(ControlMessage::Shutdown) | None => {
-                                        info!("Shutting down WebSocket client");
-                                        let _ = active_ws.sink.close().await;
-                                        return;
-                                    }
+                            // If no subscribers remain for this key, unsubscribe from server
+                            if should_unsubscribe {
+                                state.subscribers.remove(&key);
+                                if let Some(request) = state.active_subscriptions.remove(&key) {
+                                    Self::send_subscription_frame(
+                                        &mut active_ws.sink,
+                                        &mut state,
+                                        key,
+                                        request,
+                                        PendingOp::Unsubscribe,
+                                    )
+                                    .await;
                                 }
                             }
                         }
+                        Some(ControlMessage::Shutdown) | None => {
+                            info!("Shutting down WebSocket client");
+                            let _ = active_ws.sink.close().await;
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Wait for the next liveness check; never resolves when both checks are
+    /// disabled.
+    async fn next_heartbeat_tick(timer: Option<&mut Interval>) {
+        match timer {
+            Some(timer) => {
+                timer.tick().await;
+            }
+            None => std::future::pending().await,
+        }
+    }
+
+    /// Send a subscribe or unsubscribe frame and record it as awaiting a
+    /// response.
+    async fn send_subscription_frame(
+        ws_sink: &mut PhoenixWsSink,
+        state: &mut SocketState,
+        key: SubscriptionKey,
+        request: SubscriptionRequest,
+        op: PendingOp,
+    ) {
+        let msg = match op {
+            PendingOp::Subscribe => ClientMessage::Subscribe {
+                subscription: request.clone(),
+            },
+            PendingOp::Unsubscribe => ClientMessage::Unsubscribe {
+                subscription: request.clone(),
+            },
+        };
+        let bytes = match serde_json::to_vec(&msg) {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                error!("Failed to serialize {op:?} frame: {error}");
+                return;
+            }
+        };
+        debug!("Sending {op:?}: {}", String::from_utf8_lossy(&bytes));
+        match ws_sink.send(Message::Binary(bytes.into())).await {
+            Ok(()) => state.push_pending(key, request, op),
+            Err(error) => error!("Failed to send {op:?} frame: {:?}", error),
         }
     }
 
     async fn refresh_and_reconnect(
         url: &Url,
         auth_client: &PhoenixHttpClient,
-        active_subscriptions: &HashMap<SubscriptionKey, SubscriptionRequest>,
+        state: &mut SocketState,
         active_ws: &mut ActiveWebSocket,
         ws_connection_status_tx: Option<&mpsc::UnboundedSender<WsConnectionStatus>>,
         trace_context_provider: Option<&TraceContextProvider>,
@@ -1182,30 +1627,23 @@ impl PhoenixWSClient {
         if let Some(tx) = ws_connection_status_tx {
             let _ = tx.send(WsConnectionStatus::Connected);
         }
-        Self::resend_active_subscriptions(&mut active_ws.sink, active_subscriptions).await;
+        Self::resend_active_subscriptions(&mut active_ws.sink, state).await;
         Ok(())
     }
 
-    async fn resend_active_subscriptions(
-        ws_sink: &mut PhoenixWsSink,
-        active_subscriptions: &HashMap<SubscriptionKey, SubscriptionRequest>,
-    ) {
-        for request in active_subscriptions.values() {
-            let msg = ClientMessage::Subscribe {
-                subscription: request.clone(),
-            };
-            if let Ok(bytes) = serde_json::to_vec(&msg) {
-                debug!(
-                    "Resending subscription after auth reconnect: {}",
-                    String::from_utf8_lossy(&bytes)
-                );
-                if let Err(error) = ws_sink.send(Message::Binary(bytes.into())).await {
-                    error!(
-                        "Failed to resend subscription after auth reconnect: {:?}",
-                        error
-                    );
-                }
-            }
+    /// Resubscribe every active subscription on a fresh socket. The old
+    /// socket's unanswered frames and response history do not carry over.
+    async fn resend_active_subscriptions(ws_sink: &mut PhoenixWsSink, state: &mut SocketState) {
+        state.pending.clear();
+        state.prev.clear();
+        let resend = state
+            .active_subscriptions
+            .iter()
+            .map(|(key, request)| (key.clone(), request.clone()))
+            .collect::<Vec<_>>();
+        for (key, request) in resend {
+            debug!("Resending subscription after auth reconnect: {request:?}");
+            Self::send_subscription_frame(ws_sink, state, key, request, PendingOp::Subscribe).await;
         }
     }
 
@@ -1362,59 +1800,59 @@ impl PhoenixWSClient {
         }
     }
 
-    /// Handle an incoming WebSocket message.
-    /// Process an incoming WebSocket data message (subscription confirmations,
-    /// errors, and channel payloads).
+    /// Process an incoming WebSocket text or binary frame: route channel
+    /// payloads to subscribers and apply subscription statuses and errors to
+    /// the socket state.
+    ///
+    /// Returns an error when a status or error frame cannot be matched to
+    /// the frames that caused it; the caller must then drop the socket.
     fn process_message(
         data: &[u8],
-        subscribers: &HashMap<SubscriptionKey, HashMap<u64, Subscriber>>,
+        state: &mut SocketState,
         subscription_event_tx: &mpsc::UnboundedSender<WsSubscriptionEvent>,
-    ) {
+    ) -> Result<(), ResponseMismatch> {
         let text = match std::str::from_utf8(data) {
             Ok(s) => s,
             Err(e) => {
                 debug!("Received non-UTF8 binary message: {:?}", e);
-                return;
+                return Ok(());
             }
         };
         debug!("Received message: {}", text);
 
-        // Handle subscription confirmed messages
-        if let Ok(confirmed) = serde_json::from_slice::<SubscriptionConfirmedMessage>(data) {
-            debug!("Subscription confirmed: {:?}", confirmed.subscription);
-            let _ = subscription_event_tx.send(WsSubscriptionEvent::Status {
-                status: "subscribed".to_string(),
-                subscription: confirmed.subscription,
-            });
-            return;
+        match serde_json::from_slice::<ServerMessage>(data) {
+            Ok(ServerMessage::Error(err)) => {
+                error!(
+                    "Server error: code={}, error={}, subscription={:?}",
+                    err.code, err.error, err.subscription
+                );
+                state.handle_error(err, subscription_event_tx)
+            }
+            Ok(ServerMessage::SubscriptionStatus(status)) => {
+                debug!(
+                    "Subscription status: status={}, subscription={:?}",
+                    status.status, status.subscription
+                );
+                state.handle_status(status, subscription_event_tx)
+            }
+            Ok(message) => {
+                Self::route_data_message(message, &state.subscribers);
+                Ok(())
+            }
+            Err(e) => {
+                debug!("Failed to parse message: {} - {}", e, text);
+                Ok(())
+            }
         }
-
-        // Handle subscription error messages
-        if let Ok(error) = serde_json::from_slice::<SubscriptionErrorMessage>(data) {
-            error!(
-                "Subscription error: code={}, message={}",
-                error.code, error.message
-            );
-            let _ = subscription_event_tx.send(WsSubscriptionEvent::Error {
-                subscription: Some(error.subscription),
-                code: error.code,
-                message: error.message,
-            });
-            return;
-        }
-
-        Self::handle_message(data, text, subscribers, subscription_event_tx);
     }
 
-    /// Handle a data message and route to subscribers.
-    fn handle_message(
-        data: &[u8],
-        text: &str,
+    /// Route a channel payload to its subscribers.
+    fn route_data_message(
+        message: ServerMessage,
         subscribers: &HashMap<SubscriptionKey, HashMap<u64, Subscriber>>,
-        subscription_event_tx: &mpsc::UnboundedSender<WsSubscriptionEvent>,
     ) {
-        match serde_json::from_slice::<ServerMessage>(data) {
-            Ok(ServerMessage::AllMids(msg)) => {
+        match message {
+            ServerMessage::AllMids(msg) => {
                 let key = SubscriptionKey::all_mids();
                 Self::broadcast_to_subscribers(
                     subscribers,
@@ -1422,7 +1860,7 @@ impl PhoenixWSClient {
                     |sub| matches!(sub, Subscriber::AllMids(tx) if tx.send(msg.clone()).is_err()),
                 );
             }
-            Ok(ServerMessage::FundingRate(msg)) => {
+            ServerMessage::FundingRate(msg) => {
                 let key = SubscriptionKey::funding_rate(msg.symbol.clone());
                 Self::broadcast_to_subscribers(
                     subscribers,
@@ -1430,7 +1868,7 @@ impl PhoenixWSClient {
                     |sub| matches!(sub, Subscriber::FundingRate(tx) if tx.send(msg.clone()).is_err()),
                 );
             }
-            Ok(ServerMessage::Orderbook(msg)) => {
+            ServerMessage::Orderbook(msg) => {
                 let key = SubscriptionKey::orderbook_with_options(
                     msg.symbol.clone(),
                     msg.bypass_execution_band,
@@ -1441,7 +1879,7 @@ impl PhoenixWSClient {
                     |sub| matches!(sub, Subscriber::Orderbook(tx) if tx.send(msg.clone()).is_err()),
                 );
             }
-            Ok(ServerMessage::L2Book(msg)) => {
+            ServerMessage::L2Book(msg) => {
                 let key = SubscriptionKey::l2_book_from_message(&msg);
                 Self::broadcast_to_subscribers(
                     subscribers,
@@ -1449,7 +1887,7 @@ impl PhoenixWSClient {
                     |sub| matches!(sub, Subscriber::L2Book(tx) if tx.send(msg.clone()).is_err()),
                 );
             }
-            Ok(ServerMessage::MarkPrice(msg)) => {
+            ServerMessage::MarkPrice(msg) => {
                 let key = SubscriptionKey::mark_price(msg.symbol.clone());
                 Self::broadcast_to_subscribers(
                     subscribers,
@@ -1457,7 +1895,7 @@ impl PhoenixWSClient {
                     |sub| matches!(sub, Subscriber::MarkPrice(tx) if tx.send(msg.clone()).is_err()),
                 );
             }
-            Ok(ServerMessage::Fills(msg)) => {
+            ServerMessage::Fills(msg) => {
                 for key in [
                     SubscriptionKey::fills(Some(msg.symbol.clone())),
                     SubscriptionKey::fills(None),
@@ -1469,7 +1907,7 @@ impl PhoenixWSClient {
                     );
                 }
             }
-            Ok(ServerMessage::TraderState(msg)) => {
+            ServerMessage::TraderState(msg) => {
                 let key = SubscriptionKey::TraderState {
                     authority: msg.authority.clone(),
                     trader_pda_index: msg.trader_pda_index,
@@ -1480,7 +1918,7 @@ impl PhoenixWSClient {
                     |sub| matches!(sub, Subscriber::TraderState(tx) if tx.send(msg.clone()).is_err()),
                 );
             }
-            Ok(ServerMessage::Market(msg)) => {
+            ServerMessage::Market(msg) => {
                 let key = SubscriptionKey::market(msg.symbol.clone());
                 Self::broadcast_to_subscribers(
                     subscribers,
@@ -1488,7 +1926,7 @@ impl PhoenixWSClient {
                     |sub: &Subscriber| matches!(sub, Subscriber::MarketStats(tx) if tx.send(msg.clone()).is_err()),
                 );
             }
-            Ok(ServerMessage::MarketStatsV2(msg)) => {
+            ServerMessage::MarketStatsV2(msg) => {
                 let key = SubscriptionKey::market_stats_v2(msg.symbols.clone());
                 let legacy_update = msg.legacy_market_stats_update();
                 Self::broadcast_to_subscribers(subscribers, &key, |sub| match sub {
@@ -1499,7 +1937,7 @@ impl PhoenixWSClient {
                     _ => false,
                 });
             }
-            Ok(ServerMessage::Trades(msg)) => {
+            ServerMessage::Trades(msg) => {
                 let key = SubscriptionKey::trades(msg.symbol.clone());
                 Self::broadcast_to_subscribers(
                     subscribers,
@@ -1507,7 +1945,7 @@ impl PhoenixWSClient {
                     |sub| matches!(sub, Subscriber::Trades(tx) if tx.send(msg.clone()).is_err()),
                 );
             }
-            Ok(ServerMessage::Candles(msg)) => {
+            ServerMessage::Candles(msg) => {
                 let Some(timeframe) = msg.timeframe.parse().ok() else {
                     debug!(
                         "Failed to parse timeframe from candle message: {}",
@@ -1522,7 +1960,7 @@ impl PhoenixWSClient {
                     |sub| matches!(sub, Subscriber::Candles(tx) if tx.send(msg.clone()).is_err()),
                 );
             }
-            Ok(ServerMessage::Exchange(msg)) => {
+            ServerMessage::Exchange(msg) => {
                 let key = SubscriptionKey::exchange();
                 Self::broadcast_to_subscribers(
                     subscribers,
@@ -1530,30 +1968,9 @@ impl PhoenixWSClient {
                     |sub| matches!(sub, Subscriber::Exchange(tx) if tx.send(msg.clone()).is_err()),
                 );
             }
-            Ok(ServerMessage::Error(err)) => {
-                error!("Server error: code={}, error={}", err.code, err.error);
-                let _ = subscription_event_tx.send(WsSubscriptionEvent::Error {
-                    subscription: None,
-                    code: err.code.to_string(),
-                    message: err.error,
-                });
-            }
-            Ok(ServerMessage::SubscriptionStatus(status)) => {
-                debug!(
-                    "Subscription status: status={}, subscription={:?}",
-                    status.status, status.subscription
-                );
-                let _ = subscription_event_tx.send(WsSubscriptionEvent::Status {
-                    status: status.status,
-                    subscription: status.subscription,
-                });
-            }
-            Ok(_) => {
-                // Ignore other message types
-            }
-            Err(e) => {
-                debug!("Failed to parse message: {} - {}", e, text);
-            }
+            ServerMessage::Error(_)
+            | ServerMessage::SubscriptionStatus(_)
+            | ServerMessage::Other => {}
         }
     }
 }
@@ -1616,7 +2033,6 @@ mod tests {
 
     use base64::Engine as _;
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-    use futures_util::StreamExt as _;
     #[cfg(feature = "opentelemetry")]
     use opentelemetry::trace::{
         SpanContext, SpanId, TraceContextExt, TraceFlags, TraceId, TraceState,
@@ -1628,6 +2044,7 @@ mod tests {
     use serde_json::json;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
+    use tokio::sync::mpsc::error::TryRecvError;
     use tokio::sync::{mpsc, oneshot};
     use tokio_tungstenite::accept_hdr_async;
     use tokio_tungstenite::tungstenite::Utf8Bytes;
@@ -1723,7 +2140,7 @@ mod tests {
     #[test]
     fn process_message_forwards_subscription_status_event() {
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let subscribers = HashMap::new();
+        let mut state = SocketState::default();
         let json = br#"{
             "channel": "subscriptionStatus",
             "status": "subscribed",
@@ -1735,7 +2152,7 @@ mod tests {
             }
         }"#;
 
-        PhoenixWSClient::process_message(json, &subscribers, &tx);
+        PhoenixWSClient::process_message(json, &mut state, &tx).expect("status should apply");
 
         let event = rx.try_recv().expect("subscription event should be sent");
         assert!(matches!(
@@ -1760,6 +2177,10 @@ mod tests {
             HashMap::from([(1, Subscriber::TraderState(tx))]),
         )]);
         let (event_tx, mut events) = mpsc::unbounded_channel();
+        let mut state = SocketState {
+            subscribers,
+            ..SocketState::default()
+        };
         for message in [
             json!({"channel": "futureChannel"}),
             json!({"channel": "traderState", "messageType": "futureMessage"}),
@@ -1781,9 +2202,10 @@ mod tests {
         ] {
             PhoenixWSClient::process_message(
                 &serde_json::to_vec(&message).unwrap(),
-                &subscribers,
+                &mut state,
                 &event_tx,
-            );
+            )
+            .expect("unknown messages are tolerated");
         }
         let mut trader = crate::trader_state::Trader::new(crate::trader_key::TraderKey::new(
             Pubkey::new_unique(),
@@ -1850,7 +2272,11 @@ mod tests {
         }))
         .unwrap();
 
-        PhoenixWSClient::process_message(&json, &subscribers, &event_tx);
+        let mut state = SocketState {
+            subscribers,
+            ..SocketState::default()
+        };
+        PhoenixWSClient::process_message(&json, &mut state, &event_tx).expect("data frame");
 
         let update = filtered_rx
             .try_recv()
@@ -1861,7 +2287,7 @@ mod tests {
             .expect("legacy subscriber should receive the adapted V2 entry");
         assert_eq!(legacy_update.symbol, "kBONK");
         assert_eq!(legacy_update.mark_price, 3.0);
-        assert_eq!(legacy_update.mid_price, 3.5);
+        assert_eq!(legacy_update.mid_price, Some(3.5));
         assert!(all_rx.try_recv().is_err());
     }
 
@@ -1899,8 +2325,13 @@ mod tests {
         }))
         .unwrap();
 
-        PhoenixWSClient::process_message(&book, &subscribers, &event_tx);
-        PhoenixWSClient::process_message(&mark, &subscribers, &event_tx);
+        let mut state = SocketState {
+            subscribers,
+            ..SocketState::default()
+        };
+        PhoenixWSClient::process_message(&book, &mut state, &event_tx).expect("l2Book data frame");
+        PhoenixWSClient::process_message(&mark, &mut state, &event_tx)
+            .expect("markPrice data frame");
 
         let book_update = book_rx
             .try_recv()
@@ -1951,7 +2382,11 @@ mod tests {
         }))
         .unwrap();
 
-        PhoenixWSClient::process_message(&fills, &subscribers, &event_tx);
+        let mut state = SocketState {
+            subscribers,
+            ..SocketState::default()
+        };
+        PhoenixWSClient::process_message(&fills, &mut state, &event_tx).expect("fills data frame");
 
         let bonk = bonk_rx
             .try_recv()
@@ -2036,7 +2471,10 @@ mod tests {
                 Some(600),
             ),
         );
-        let mut client = PhoenixWSClient::new_internal(&ws_url, true, Some(auth_client), None)
+        let mut client = PhoenixWSClient::builder(&ws_url)
+            .with_connection_status()
+            .with_auth(auth_client)
+            .build()
             .expect("ws client should build");
         let mut status_rx = client
             .connection_status_receiver()
@@ -2069,7 +2507,10 @@ mod tests {
             refresh_url,
             test_session_store(token, Some(REFRESH_TOKEN.to_string()), Some(600)),
         );
-        let mut client = PhoenixWSClient::new_internal(&ws_url, true, Some(auth_client), None)
+        let mut client = PhoenixWSClient::builder(&ws_url)
+            .with_connection_status()
+            .with_auth(auth_client)
+            .build()
             .expect("ws client should build");
         let mut status_rx = client
             .connection_status_receiver()
@@ -2609,5 +3050,1251 @@ mod tests {
             reason.contains(expected_reason),
             "expected disconnected reason {reason:?} to contain {expected_reason:?}"
         );
+    }
+
+    // ------------------------------------------------------------------
+    // Heartbeat
+    // ------------------------------------------------------------------
+
+    const FAST_HEARTBEAT: WsHeartbeatConfig = WsHeartbeatConfig {
+        ping_interval: Some(Duration::from_millis(100)),
+        idle_timeout: Some(Duration::from_millis(300)),
+    };
+
+    /// Server that completes the handshake, then never reads or writes.
+    async fn spawn_silent_ws_server() -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("ws listener should bind");
+        let url = format!("ws://{}", listener.local_addr().expect("ws addr"));
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept");
+            let _ws = tokio_tungstenite::accept_async(stream)
+                .await
+                .expect("handshake");
+            std::future::pending::<()>().await;
+        });
+        url
+    }
+
+    fn client_with_heartbeat(url: &str, heartbeat: WsHeartbeatConfig) -> PhoenixWSClient {
+        PhoenixWSClient::builder(url)
+            .with_connection_status()
+            .with_heartbeat(heartbeat)
+            .build()
+            .expect("ws client should build")
+    }
+
+    async fn assert_connected(status: &mut mpsc::UnboundedReceiver<WsConnectionStatus>) {
+        assert_status(status, WsConnectionStatus::Connecting).await;
+        assert_status(status, WsConnectionStatus::Connected).await;
+    }
+
+    async fn assert_no_status_for(
+        status: &mut mpsc::UnboundedReceiver<WsConnectionStatus>,
+        duration: Duration,
+    ) {
+        if let Ok(next) = tokio::time::timeout(duration, status.recv()).await {
+            panic!("expected no status change, got {next:?}");
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn silent_socket_is_reported_disconnected() {
+        let url = spawn_silent_ws_server().await;
+        let mut client = PhoenixWSClient::new_with_connection_status(&url).unwrap();
+        let mut status = client.connection_status_receiver().unwrap();
+        let (_rx, _h) = client
+            .subscribe_to_trader_state(&Pubkey::new_unique())
+            .unwrap();
+        assert_eq!(status.recv().await, Some(WsConnectionStatus::Connecting));
+        assert_eq!(status.recv().await, Some(WsConnectionStatus::Connected));
+        // Default heartbeat: the idle timeout is 90 s of (paused) time.
+        let next = tokio::time::timeout(Duration::from_secs(120), status.recv()).await;
+        assert!(matches!(
+            next,
+            Ok(Some(WsConnectionStatus::Disconnected(_)))
+        ));
+    }
+
+    #[tokio::test]
+    async fn idle_timeout_disconnects_and_closes_receivers() {
+        let url = spawn_silent_ws_server().await;
+        let mut client = client_with_heartbeat(&url, FAST_HEARTBEAT);
+        let mut status = client.connection_status_receiver().unwrap();
+        let (mut trader_rx, _trader) = client
+            .subscribe_to_trader_state(&Pubkey::new_unique())
+            .unwrap();
+        let (mut mids_rx, _mids) = client.subscribe_to_all_mids().unwrap();
+        assert_connected(&mut status).await;
+
+        let next = tokio::time::timeout(Duration::from_secs(1), status.recv())
+            .await
+            .expect("idle timeout should report within 1s");
+        let Some(WsConnectionStatus::Disconnected(reason)) = next else {
+            panic!("expected Disconnected, got {next:?}");
+        };
+        assert!(reason.starts_with("idle timeout"), "{reason}");
+        assert!(timeout_closed(&mut trader_rx).await);
+        assert!(timeout_closed(&mut mids_rx).await);
+    }
+
+    #[tokio::test]
+    async fn client_pings_keep_a_quiet_reading_server_alive() {
+        let server = spawn_scripted_ws_server(None).await;
+        let mut client = client_with_heartbeat(&server.url, FAST_HEARTBEAT);
+        let mut status = client.connection_status_receiver().unwrap();
+        assert_connected(&mut status).await;
+
+        assert_no_status_for(&mut status, Duration::from_secs(1)).await;
+        assert!(server.client_pings.load(AtomicOrdering::SeqCst) >= 1);
+    }
+
+    #[tokio::test]
+    async fn server_pings_count_as_activity() {
+        let server = spawn_scripted_ws_server(Some(Duration::from_millis(100))).await;
+        let mut client = client_with_heartbeat(
+            &server.url,
+            WsHeartbeatConfig {
+                ping_interval: None,
+                idle_timeout: Some(Duration::from_millis(300)),
+            },
+        );
+        let mut status = client.connection_status_receiver().unwrap();
+        assert_connected(&mut status).await;
+
+        assert_no_status_for(&mut status, Duration::from_secs(1)).await;
+        assert_eq!(server.client_pings.load(AtomicOrdering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn disabled_heartbeat_keeps_a_silent_socket_open() {
+        let url = spawn_silent_ws_server().await;
+        let mut client = client_with_heartbeat(
+            &url,
+            WsHeartbeatConfig {
+                ping_interval: None,
+                idle_timeout: None,
+            },
+        );
+        let mut status = client.connection_status_receiver().unwrap();
+        let (mut rx, _handle) = client.subscribe_to_all_mids().unwrap();
+        assert_connected(&mut status).await;
+
+        assert_no_status_for(&mut status, Duration::from_secs(1)).await;
+        assert!(matches!(rx.try_recv(), Err(TryRecvError::Empty)));
+    }
+
+    #[test]
+    fn heartbeat_check_period_uses_half_the_shortest_enabled_interval() {
+        assert_eq!(
+            FAST_HEARTBEAT.check_period(),
+            Some(Duration::from_millis(50))
+        );
+        assert_eq!(
+            WsHeartbeatConfig {
+                ping_interval: None,
+                idle_timeout: Some(Duration::from_millis(300)),
+            }
+            .check_period(),
+            Some(Duration::from_millis(150))
+        );
+        assert_eq!(
+            WsHeartbeatConfig {
+                ping_interval: None,
+                idle_timeout: None,
+            }
+            .check_period(),
+            None
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // Subscription status and error attribution
+    // ------------------------------------------------------------------
+
+    /// Scripted server: records client frames and pings, and sends whatever
+    /// the test pushes, in order.
+    struct ScriptedWsServer {
+        url: String,
+        client_frames: mpsc::UnboundedReceiver<serde_json::Value>,
+        outbound: mpsc::UnboundedSender<Message>,
+        client_pings: Arc<AtomicUsize>,
+    }
+
+    impl ScriptedWsServer {
+        async fn next_client_frame(&mut self) -> serde_json::Value {
+            timeout_recv(&mut self.client_frames).await
+        }
+
+        fn send(&self, value: serde_json::Value) {
+            self.outbound
+                .send(Message::Text(Utf8Bytes::from(value.to_string())))
+                .expect("scripted server should be running");
+        }
+
+        fn send_status(&self, status: &str, subscription: serde_json::Value) {
+            self.send(json!({
+                "channel": "subscriptionStatus",
+                "status": status,
+                "subscription": subscription,
+                "clientId": "client-1",
+            }));
+        }
+
+        fn send_error(&self, code: u16, error: &str) {
+            self.send(json!({ "channel": "error", "error": error, "code": code }));
+        }
+
+        /// Read one subscribe from the client and acknowledge it.
+        async fn ack_next_subscribe(&mut self) -> serde_json::Value {
+            let frame = self.next_client_frame().await;
+            assert_eq!(frame["type"], "subscribe", "{frame}");
+            self.send_status("subscribed", frame["subscription"].clone());
+            frame["subscription"].clone()
+        }
+    }
+
+    async fn spawn_scripted_ws_server(server_ping_every: Option<Duration>) -> ScriptedWsServer {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("ws listener should bind");
+        let url = format!("ws://{}", listener.local_addr().expect("ws addr"));
+        let (frames_tx, client_frames) = mpsc::unbounded_channel();
+        let (outbound, mut outbound_rx) = mpsc::unbounded_channel::<Message>();
+        let client_pings = Arc::new(AtomicUsize::new(0));
+        let pings = Arc::clone(&client_pings);
+        tokio::spawn(async move {
+            let Ok((stream, _)) = listener.accept().await else {
+                return;
+            };
+            let Ok(mut ws) = tokio_tungstenite::accept_async(stream).await else {
+                return;
+            };
+            let mut ping_timer = server_ping_every.map(tokio::time::interval);
+            loop {
+                tokio::select! {
+                    frame = ws.next() => match frame {
+                        Some(Ok(Message::Text(text))) => {
+                            let _ = frames_tx.send(serde_json::from_str(text.as_str()).expect("json frame"));
+                        }
+                        Some(Ok(Message::Binary(data))) => {
+                            let _ = frames_tx.send(serde_json::from_slice(&data).expect("json frame"));
+                        }
+                        Some(Ok(Message::Ping(_))) => {
+                            pings.fetch_add(1, AtomicOrdering::SeqCst);
+                        }
+                        Some(Ok(_)) => {}
+                        Some(Err(_)) | None => return,
+                    },
+                    out = outbound_rx.recv() => {
+                        let Some(out) = out else { return };
+                        if ws.send(out).await.is_err() {
+                            return;
+                        }
+                    }
+                    _ = PhoenixWSClient::next_heartbeat_tick(ping_timer.as_mut()) => {
+                        if ws.send(Message::Ping(Bytes::new())).await.is_err() {
+                            return;
+                        }
+                    }
+                }
+            }
+        });
+        ScriptedWsServer {
+            url,
+            client_frames,
+            outbound,
+            client_pings,
+        }
+    }
+
+    fn scripted_client(server: &ScriptedWsServer) -> PhoenixWSClient {
+        PhoenixWSClient::new_with_connection_status(&server.url).expect("ws client should build")
+    }
+
+    fn all_mids_frame() -> serde_json::Value {
+        json!({ "channel": "allMids", "mids": { "SOL": 1.0 }, "slot": 1, "slotIndex": 0 })
+    }
+
+    fn trader_state_frame(authority: &Pubkey, slot: u64) -> serde_json::Value {
+        json!({
+            "channel": "traderState",
+            "authority": authority.to_string(),
+            "traderPdaIndex": 0,
+            "slot": slot,
+            "messageType": "delta",
+            "deltas": [],
+        })
+    }
+
+    fn trader_state_request(authority: &Pubkey) -> SubscriptionRequest {
+        SubscriptionRequest::TraderState(TraderStateSubscriptionRequest {
+            authority: authority.to_string(),
+            trader_pda_index: 0,
+        })
+    }
+
+    async fn timeout_closed<T>(rx: &mut mpsc::UnboundedReceiver<T>) -> bool {
+        tokio::time::timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("receiver should resolve")
+            .is_none()
+    }
+
+    fn assert_status_event(
+        event: WsSubscriptionEvent,
+        expected_status: &str,
+        expected: &SubscriptionRequest,
+    ) {
+        assert_eq!(
+            event,
+            WsSubscriptionEvent::Status {
+                status: expected_status.to_string(),
+                subscription: expected.clone(),
+            }
+        );
+    }
+
+    fn assert_error_event(
+        event: WsSubscriptionEvent,
+        expected_code: &str,
+        expected: Option<&SubscriptionRequest>,
+    ) {
+        let WsSubscriptionEvent::Error {
+            subscription, code, ..
+        } = event
+        else {
+            panic!("expected error event, got {event:?}");
+        };
+        assert_eq!(code, expected_code);
+        assert_eq!(subscription.as_ref(), expected);
+    }
+
+    #[test]
+    fn unsubscribed_status_keeps_its_status() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        PhoenixWSClient::process_message(
+            br#"{"channel":"subscriptionStatus","status":"unsubscribed","subscription":{"channel":"allMids"},"clientId":"c"}"#,
+            &mut SocketState::default(),
+            &tx,
+        )
+        .expect("status should apply");
+        assert!(
+            matches!(rx.try_recv().unwrap(), WsSubscriptionEvent::Status { status, .. } if status == "unsubscribed")
+        );
+    }
+
+    #[tokio::test]
+    async fn trader_end_preserves_replacement_and_cancellation() {
+        let mut server = spawn_scripted_ws_server(None).await;
+        let mut client = scripted_client(&server);
+        let mut events = client.subscription_event_receiver().unwrap();
+        let authority = Pubkey::new_unique();
+        let (old_rx, old_handle) = client.subscribe_to_trader_state(&authority).unwrap();
+        let echo = server.next_client_frame().await["subscription"].clone();
+        drop(old_handle);
+        drop(old_rx);
+        assert_eq!(server.next_client_frame().await["type"], "unsubscribe");
+        let (mut replacement_rx, replacement) =
+            client.subscribe_to_trader_state(&authority).unwrap();
+        assert_eq!(server.next_client_frame().await["type"], "subscribe");
+
+        server.send_status("subscribed", echo.clone());
+        server.send_status("unsubscribed", echo.clone());
+        server.send_status("subscribed", echo.clone());
+        server.send(trader_state_frame(&authority, 42));
+        assert_eq!(timeout_recv(&mut replacement_rx).await.slot, 42);
+
+        // Status-only ordering still permits cancellation of the replacement.
+        drop(replacement);
+        let unsubscribe = server.next_client_frame().await;
+        assert_eq!(unsubscribe["type"], "unsubscribe");
+        assert_eq!(unsubscribe["subscription"], echo);
+        assert!(timeout_closed(&mut replacement_rx).await);
+        let request = trader_state_request(&authority);
+        assert_status_event(timeout_recv(&mut events).await, "subscribed", &request);
+        assert_status_event(timeout_recv(&mut events).await, "unsubscribed", &request);
+        assert_status_event(timeout_recv(&mut events).await, "subscribed", &request);
+    }
+
+    #[test]
+    fn repeated_subscribe_keeps_newer_receiver_after_trader_end() {
+        let authority = Pubkey::new_unique();
+        let (subscriber_tx, mut subscriber_rx) = mpsc::unbounded_channel();
+        let (event_tx, mut events) = mpsc::unbounded_channel();
+        let request = trader_state_request(&authority);
+        let key = SubscriptionKey::trader(&authority, 0);
+        let mut state = SocketState {
+            subscribers: HashMap::from([(
+                key.clone(),
+                HashMap::from([(2, Subscriber::TraderState(subscriber_tx))]),
+            )]),
+            active_subscriptions: HashMap::from([(key.clone(), request.clone())]),
+            ..SocketState::default()
+        };
+        state.push_pending(key.clone(), request.clone(), PendingOp::Subscribe);
+        state.push_pending(key.clone(), request.clone(), PendingOp::Subscribe);
+        let echo = serde_json::to_value(&request).unwrap();
+        for status in ["subscribed", "unsubscribed"] {
+            PhoenixWSClient::process_message(
+                &serde_json::to_vec(&json!({
+                    "channel": "subscriptionStatus", "status": status,
+                    "subscription": echo, "clientId": "c",
+                }))
+                .unwrap(),
+                &mut state,
+                &event_tx,
+            )
+            .expect("old status should apply");
+            assert_status_event(events.try_recv().unwrap(), status, &request);
+        }
+        assert_eq!(state.pending.len(), 1);
+        assert_eq!(state.active_subscriptions.get(&key), Some(&request));
+        PhoenixWSClient::process_message(
+            &serde_json::to_vec(&json!({
+                "channel": "subscriptionStatus", "status": "subscribed",
+                "subscription": echo, "clientId": "c",
+            }))
+            .unwrap(),
+            &mut state,
+            &event_tx,
+        )
+        .expect("replacement acknowledgement should apply");
+        PhoenixWSClient::process_message(
+            &serde_json::to_vec(&trader_state_frame(&authority, 42)).unwrap(),
+            &mut state,
+            &event_tx,
+        )
+        .expect("replacement data should apply");
+        assert_eq!(subscriber_rx.try_recv().unwrap().slot, 42);
+        assert!(state.pending.is_empty());
+    }
+
+    #[tokio::test]
+    async fn echoed_error_after_exchange_end_and_retry_fails_closed() {
+        for replacement_pending in [false, true] {
+            let mut server = spawn_scripted_ws_server(None).await;
+            let mut client = scripted_client(&server);
+            let mut status = client.connection_status_receiver().unwrap();
+            let mut events = client.subscription_event_receiver().unwrap();
+            assert_connected(&mut status).await;
+            let (mut old_rx, old_handle) = client.subscribe_to_exchange().unwrap();
+            let echo = server.next_client_frame().await["subscription"].clone();
+            let mut old_handle = Some(old_handle);
+            let pending_retry = if replacement_pending {
+                drop(old_handle.take());
+                assert_eq!(server.next_client_frame().await["type"], "unsubscribe");
+                let retry = client.subscribe_to_exchange().unwrap();
+                assert_eq!(server.next_client_frame().await["type"], "subscribe");
+                Some(retry)
+            } else {
+                None
+            };
+            server.send_status("unsubscribed", echo.clone());
+            let request = SubscriptionRequest::Exchange(ExchangeSubscriptionRequest {
+                encoding: Some(ExchangeSnapshotEncoding::Json),
+            });
+            assert_status_event(timeout_recv(&mut events).await, "unsubscribed", &request);
+            assert!(timeout_closed(&mut old_rx).await);
+            drop(old_handle);
+            let (mut retry_rx, _retry) = if let Some(retry) = pending_retry {
+                retry
+            } else {
+                let retry = client.subscribe_to_exchange().unwrap();
+                assert_eq!(server.next_client_frame().await["type"], "subscribe");
+                retry
+            };
+            // A different key's acknowledgement cannot disambiguate the
+            // old exchange error from a rejection of its pending retry.
+            let (mut mids_rx, _mids) = client.subscribe_to_all_mids().unwrap();
+            let mids_echo = server.next_client_frame().await["subscription"].clone();
+            server.send_status("subscribed", mids_echo);
+            assert_status_event(
+                timeout_recv(&mut events).await,
+                "subscribed",
+                &SubscriptionRequest::AllMids,
+            );
+            server.send(json!({
+                "channel": "error", "error": "old bootstrap failed", "code": 500,
+                "subscription": echo.clone(),
+            }));
+            assert_error_event(timeout_recv(&mut events).await, "500", Some(&request));
+            assert_disconnected_contains(&mut status, "subscription response mismatch").await;
+            assert!(timeout_closed(&mut retry_rx).await);
+            assert!(timeout_closed(&mut mids_rx).await);
+        }
+    }
+
+    #[test]
+    fn echoed_error_does_not_choose_between_ended_context_and_pending_operation() {
+        for definite_end in [false, true] {
+            for op in [PendingOp::Subscribe, PendingOp::Unsubscribe] {
+                let authority = Pubkey::new_unique();
+                let key = SubscriptionKey::trader(&authority, 0);
+                let request = trader_state_request(&authority);
+                let (subscriber_tx, mut subscriber_rx) = mpsc::unbounded_channel();
+                let (event_tx, mut events) = mpsc::unbounded_channel();
+                let ended = if definite_end {
+                    PrevResponse::ServerEnded(request.clone())
+                } else {
+                    PrevResponse::MaybeEnded(request.clone())
+                };
+                let mut state = SocketState {
+                    subscribers: HashMap::from([(
+                        key.clone(),
+                        HashMap::from([(1, Subscriber::TraderState(subscriber_tx))]),
+                    )]),
+                    prev: HashMap::from([(key.clone(), ended)]),
+                    ..SocketState::default()
+                };
+                state.push_pending(key.clone(), request.clone(), op);
+
+                let result = PhoenixWSClient::process_message(
+                    &serde_json::to_vec(&json!({
+                        "channel": "error", "error": "retry later", "code": 429,
+                        "subscription": request,
+                    }))
+                    .unwrap(),
+                    &mut state,
+                    &event_tx,
+                );
+
+                assert!(
+                    result.is_err(),
+                    "the manager must disconnect rather than guess"
+                );
+                assert_error_event(events.try_recv().unwrap(), "429", Some(&request));
+                assert_eq!(state.pending.len(), 1, "no attempt is consumed");
+                assert!(state.prev.contains_key(&key), "ended context is retained");
+                assert!(matches!(subscriber_rx.try_recv(), Err(TryRecvError::Empty)));
+            }
+        }
+    }
+
+    #[test]
+    fn echoed_error_does_not_choose_between_same_key_pending_operations() {
+        for second_op in [PendingOp::Subscribe, PendingOp::Unsubscribe] {
+            let authority = Pubkey::new_unique();
+            let key = SubscriptionKey::trader(&authority, 0);
+            let request = trader_state_request(&authority);
+            let (event_tx, mut events) = mpsc::unbounded_channel();
+            let mut state = SocketState::default();
+            state.push_pending(key.clone(), request.clone(), PendingOp::Subscribe);
+            state.push_pending(key, request.clone(), second_op);
+
+            let result = PhoenixWSClient::process_message(
+                &serde_json::to_vec(&json!({
+                    "channel": "error", "error": "quota exceeded", "code": 429,
+                    "subscription": request,
+                }))
+                .unwrap(),
+                &mut state,
+                &event_tx,
+            );
+
+            assert!(
+                result.is_err(),
+                "the manager must disconnect rather than guess"
+            );
+            assert_error_event(events.try_recv().unwrap(), "429", Some(&request));
+            assert_eq!(state.pending.len(), 2, "neither attempt is consumed");
+        }
+    }
+
+    #[tokio::test]
+    async fn echoed_replacement_rejection_overtaking_old_trader_statuses_fails_closed() {
+        let mut server = spawn_scripted_ws_server(None).await;
+        let mut client = scripted_client(&server);
+        let mut status = client.connection_status_receiver().unwrap();
+        let mut events = client.subscription_event_receiver().unwrap();
+        assert_connected(&mut status).await;
+        let authority = Pubkey::new_unique();
+
+        let (mut old_rx, old_handle) = client.subscribe_to_trader_state(&authority).unwrap();
+        let first = server.next_client_frame().await;
+        assert_eq!(first["type"], "subscribe");
+        let echo = first["subscription"].clone();
+        drop(old_handle);
+        let unsubscribe = server.next_client_frame().await;
+        assert_eq!(unsubscribe["type"], "unsubscribe");
+        assert_eq!(unsubscribe["subscription"], echo);
+        assert!(timeout_closed(&mut old_rx).await);
+
+        let (mut mids_rx, _mids) = client.subscribe_to_all_mids().unwrap();
+        let mids = server.next_client_frame().await;
+        assert_eq!(mids["type"], "subscribe");
+        assert_eq!(mids["subscription"]["channel"], "allMids");
+        let (mut replacement_rx, _replacement) =
+            client.subscribe_to_trader_state(&authority).unwrap();
+        let replacement = server.next_client_frame().await;
+        assert_eq!(replacement["type"], "subscribe");
+        assert_eq!(replacement["subscription"], echo);
+
+        // The shared error queue can overtake traderState's status queue.
+        // B's acknowledgement does not identify which A attempt was rejected.
+        // Send one batch so the old statuses are already queued at disconnect.
+        server.send_status("subscribed", mids["subscription"].clone());
+        server.send(json!({
+            "channel": "error", "error": "quota exceeded", "code": 429,
+            "subscription": echo,
+        }));
+        server.send_status("subscribed", echo.clone());
+        server.send_status("unsubscribed", echo);
+
+        assert_status_event(
+            timeout_recv(&mut events).await,
+            "subscribed",
+            &SubscriptionRequest::AllMids,
+        );
+        assert_error_event(
+            timeout_recv(&mut events).await,
+            "429",
+            Some(&trader_state_request(&authority)),
+        );
+        assert_disconnected_contains(&mut status, "subscription response mismatch").await;
+        assert!(timeout_closed(&mut replacement_rx).await);
+        assert!(timeout_closed(&mut mids_rx).await);
+        assert!(
+            timeout_closed(&mut events).await,
+            "old statuses must not revive A"
+        );
+    }
+
+    /// Without a pending frame the echo can only belong to the subscription
+    /// that just ended, so it stays attributed to that request.
+    #[test]
+    fn echoed_error_with_nothing_pending_keeps_the_ended_subscription() {
+        let authority = Pubkey::new_unique();
+        let key = SubscriptionKey::trader(&authority, 0);
+        let (event_tx, mut events) = mpsc::unbounded_channel();
+        let mut state = SocketState {
+            prev: HashMap::from([(
+                key.clone(),
+                PrevResponse::ServerEnded(trader_state_request(&authority)),
+            )]),
+            ..SocketState::default()
+        };
+
+        PhoenixWSClient::process_message(
+            &serde_json::to_vec(&json!({
+                "channel": "error",
+                "error": "retry later",
+                "code": 429,
+                "subscription": {
+                    "channel": "traderState",
+                    "authority": authority.to_string(),
+                    "traderPdaIndex": 0,
+                },
+            }))
+            .unwrap(),
+            &mut state,
+            &event_tx,
+        )
+        .expect("echoed error should apply");
+
+        assert_error_event(
+            events.try_recv().unwrap(),
+            "429",
+            Some(&trader_state_request(&authority)),
+        );
+    }
+
+    #[test]
+    fn legacy_type_tagged_frames_are_not_confirmations() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        PhoenixWSClient::process_message(
+            br#"{"type":"subscriptionError","subscription":{"channel":"allMids"},"code":"400","message":"bad"}"#,
+            &mut SocketState::default(),
+            &tx,
+        )
+        .expect("unknown frame is ignored");
+        assert!(matches!(rx.try_recv(), Err(TryRecvError::Empty)));
+    }
+
+    #[test]
+    fn trades_ack_with_market_symbol_echo_parses() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        PhoenixWSClient::process_message(
+            br#"{"channel":"subscriptionStatus","status":"subscribed","subscription":{"channel":"trades","marketSymbol":"SOL"},"clientId":"c"}"#,
+            &mut SocketState::default(),
+            &tx,
+        )
+        .expect("status should apply");
+        assert_status_event(
+            rx.try_recv().unwrap(),
+            "subscribed",
+            &SubscriptionRequest::Trades(TradesSubscriptionRequest {
+                symbol: "SOL".to_string(),
+            }),
+        );
+    }
+
+    #[test]
+    fn market_update_without_mid_is_delivered() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let (event_tx, _events) = mpsc::unbounded_channel();
+        let mut state = SocketState {
+            subscribers: HashMap::from([(
+                SubscriptionKey::market_stats_v2(Some(vec!["SOL".into()])).routing_key(),
+                HashMap::from([(1, Subscriber::MarketStats(tx))]),
+            )]),
+            ..SocketState::default()
+        };
+        PhoenixWSClient::process_message(br#"{"channel":"marketStatsV2","symbols":["SOL"],"stats":[{"symbol":"SOL","timestamp":1,"openInterest":2.0,"markPrice":3.0,"oraclePrice":4.0,"prevDayMarkPrice":5.0,"dayVolumeUsd":6.0,"dayVolumeBase":7.0,"currentFundingRate":8.0,"eightHourFundingRate":9.0,"annualizedFundingRate":10.0}]}"#,
+            &mut state, &event_tx).expect("data frame");
+        let update = rx
+            .try_recv()
+            .expect("update without mid should be delivered");
+        assert_eq!(update.mid_price, None);
+    }
+
+    #[tokio::test]
+    async fn rejected_subscription_is_attributed_and_closed() {
+        // The server keeps the socket open and pings every 50 ms, so the
+        // heartbeat alone would never surface the rejection.
+        let mut server = spawn_scripted_ws_server(Some(Duration::from_millis(50))).await;
+        let mut client = scripted_client(&server);
+        let mut status = client.connection_status_receiver().unwrap();
+        let mut events = client.subscription_event_receiver().unwrap();
+        let authority = Pubkey::new_unique();
+        let (mut rx, _h) = client.subscribe_to_trader_state(&authority).unwrap();
+        assert_connected(&mut status).await;
+        server.next_client_frame().await;
+        server.send_error(403, "insufficient_scope_trader_state_subscription");
+
+        assert_error_event(
+            timeout_recv(&mut events).await,
+            "403",
+            Some(&trader_state_request(&authority)),
+        );
+        assert!(timeout_closed(&mut rx).await);
+
+        // The connection stays up and other subscriptions keep receiving.
+        let (mut mids_rx, _mids) = client.subscribe_to_all_mids().unwrap();
+        server.ack_next_subscribe().await;
+        server.send(all_mids_frame());
+        assert_status_event(
+            timeout_recv(&mut events).await,
+            "subscribed",
+            &SubscriptionRequest::AllMids,
+        );
+        timeout_recv(&mut mids_rx).await;
+        assert!(matches!(status.try_recv(), Err(TryRecvError::Empty)));
+    }
+
+    #[tokio::test]
+    async fn register_failure_ends_only_the_failed_trader_state() {
+        let mut server = spawn_scripted_ws_server(None).await;
+        let mut client = scripted_client(&server);
+        let mut status = client.connection_status_receiver().unwrap();
+        let mut events = client.subscription_event_receiver().unwrap();
+        let (mut mids_rx, _c) = client.subscribe_to_all_mids().unwrap();
+        server.ack_next_subscribe().await;
+        assert_status_event(
+            timeout_recv(&mut events).await,
+            "subscribed",
+            &SubscriptionRequest::AllMids,
+        );
+
+        let (a, b) = (Pubkey::new_unique(), Pubkey::new_unique());
+        let (mut a_rx, _a) = client.subscribe_to_trader_state(&a).unwrap();
+        let (mut b_rx, _b) = client.subscribe_to_trader_state(&b).unwrap();
+        let a_echo = server.next_client_frame().await["subscription"].clone();
+        let b_echo = server.next_client_frame().await["subscription"].clone();
+        server.send_status("subscribed", a_echo.clone());
+        server.send(trader_state_frame(&a, 1));
+        server.send_status("unsubscribed", a_echo.clone());
+        server.send(json!({
+            "channel": "error", "error": "trader state actor unavailable", "code": 500,
+            "subscription": a_echo,
+        }));
+        server.send_status("subscribed", b_echo);
+        server.send(trader_state_frame(&b, 2));
+        server.send(all_mids_frame());
+
+        let (a_req, b_req) = (trader_state_request(&a), trader_state_request(&b));
+        assert_status_event(timeout_recv(&mut events).await, "subscribed", &a_req);
+        assert_status_event(timeout_recv(&mut events).await, "unsubscribed", &a_req);
+        assert_error_event(timeout_recv(&mut events).await, "500", Some(&a_req));
+        assert_status_event(timeout_recv(&mut events).await, "subscribed", &b_req);
+        assert_eq!(timeout_recv(&mut a_rx).await.slot, 1);
+        assert!(timeout_closed(&mut a_rx).await);
+        assert_eq!(timeout_recv(&mut b_rx).await.slot, 2);
+        timeout_recv(&mut mids_rx).await;
+        assert!(matches!(b_rx.try_recv(), Err(TryRecvError::Empty)));
+        assert!(matches!(mids_rx.try_recv(), Err(TryRecvError::Empty)));
+        assert_connected(&mut status).await;
+        assert!(matches!(status.try_recv(), Err(TryRecvError::Empty)));
+    }
+
+    #[tokio::test]
+    async fn exchange_bootstrap_failure_is_attributed_to_exchange() {
+        let mut server = spawn_scripted_ws_server(None).await;
+        let mut client = scripted_client(&server);
+        let mut events = client.subscription_event_receiver().unwrap();
+        let (mut exchange_rx, _exchange) = client.subscribe_to_exchange().unwrap();
+        let (mut mids_rx, _mids) = client.subscribe_to_all_mids().unwrap();
+        let exchange_echo = server.next_client_frame().await["subscription"].clone();
+        let mids_echo = server.next_client_frame().await["subscription"].clone();
+        server
+            .send(serde_json::from_str(&exchange_snapshot_json(1, &Pubkey::new_unique())).unwrap());
+        server.send_status("unsubscribed", exchange_echo.clone());
+        server.send(json!({
+            "channel": "error", "error": "exchange bootstrap failed", "code": 500,
+            "subscription": exchange_echo,
+        }));
+        server.send_status("subscribed", mids_echo);
+        server.send(all_mids_frame());
+
+        let exchange_request = SubscriptionRequest::Exchange(ExchangeSubscriptionRequest {
+            encoding: Some(ExchangeSnapshotEncoding::Json),
+        });
+        assert_status_event(
+            timeout_recv(&mut events).await,
+            "unsubscribed",
+            &exchange_request,
+        );
+        assert_error_event(
+            timeout_recv(&mut events).await,
+            "500",
+            Some(&exchange_request),
+        );
+        assert_status_event(
+            timeout_recv(&mut events).await,
+            "subscribed",
+            &SubscriptionRequest::AllMids,
+        );
+        assert!(matches!(
+            timeout_recv(&mut exchange_rx).await,
+            ExchangeMessage::Snapshot(_)
+        ));
+        assert!(timeout_closed(&mut exchange_rx).await);
+        timeout_recv(&mut mids_rx).await;
+    }
+
+    #[tokio::test]
+    async fn error_after_a_status_belongs_to_the_next_pending_frame() {
+        let mut server = spawn_scripted_ws_server(None).await;
+        let mut client = scripted_client(&server);
+        let mut events = client.subscription_event_receiver().unwrap();
+        let (mut a_rx, _a) = client.subscribe_to_all_mids().unwrap();
+        let (mut b_rx, _b) = client.subscribe_to_trades(TEST_SYMBOL.to_string()).unwrap();
+        let a_echo = server.next_client_frame().await["subscription"].clone();
+        server.next_client_frame().await;
+        server.send_status("subscribed", a_echo);
+        server.send_error(400, "Unknown market symbol");
+        server.send(all_mids_frame());
+
+        let trades_request = SubscriptionRequest::Trades(TradesSubscriptionRequest {
+            symbol: TEST_SYMBOL.to_string(),
+        });
+        assert_status_event(
+            timeout_recv(&mut events).await,
+            "subscribed",
+            &SubscriptionRequest::AllMids,
+        );
+        assert_error_event(
+            timeout_recv(&mut events).await,
+            "400",
+            Some(&trades_request),
+        );
+        assert!(timeout_closed(&mut b_rx).await);
+        timeout_recv(&mut a_rx).await;
+    }
+
+    #[tokio::test]
+    async fn legacy_error_with_multiple_pending_requests_is_unattributed_and_fails_closed() {
+        let mut server = spawn_scripted_ws_server(None).await;
+        let mut client = scripted_client(&server);
+        let mut status = client.connection_status_receiver().unwrap();
+        let mut events = client.subscription_event_receiver().unwrap();
+        let (mut a_rx, _a) = client.subscribe_to_all_mids().unwrap();
+        let (mut b_rx, _b) = client.subscribe_to_trades(TEST_SYMBOL.to_string()).unwrap();
+        assert_connected(&mut status).await;
+        server.next_client_frame().await;
+        server.next_client_frame().await;
+        server.send_error(403, "subscription rejected without an echo");
+
+        assert_error_event(timeout_recv(&mut events).await, "403", None);
+        assert_disconnected_contains(&mut status, "subscription response mismatch").await;
+        assert!(timeout_closed(&mut a_rx).await);
+        assert!(timeout_closed(&mut b_rx).await);
+    }
+
+    #[tokio::test]
+    async fn canonical_echoes_match_their_requests() {
+        let mut server = spawn_scripted_ws_server(None).await;
+        let mut client = scripted_client(&server);
+        let mut status = client.connection_status_receiver().unwrap();
+        let mut events = client.subscription_event_receiver().unwrap();
+        let (_book_rx, _book) = client.subscribe_to_orderbook("sol".to_string()).unwrap();
+        let (_trades_rx, _trades) = client.subscribe_to_trades("sol".to_string()).unwrap();
+        server.next_client_frame().await;
+        server.next_client_frame().await;
+        let book_echo = json!({ "channel": "orderbook", "symbol": "SOL" });
+        let trades_echo = json!({ "channel": "trades", "marketSymbol": "SOL" });
+        server.send_status("subscribed", book_echo.clone());
+        server.send_status("subscribed", trades_echo.clone());
+        // With nothing left pending, a stray error is unattributed.
+        server.send_error(400, "stray");
+
+        let book_request: SubscriptionRequest = serde_json::from_value(book_echo).unwrap();
+        let trades_request: SubscriptionRequest = serde_json::from_value(trades_echo).unwrap();
+        assert_status_event(timeout_recv(&mut events).await, "subscribed", &book_request);
+        assert_status_event(
+            timeout_recv(&mut events).await,
+            "subscribed",
+            &trades_request,
+        );
+        assert_error_event(timeout_recv(&mut events).await, "400", None);
+        assert_connected(&mut status).await;
+        assert!(matches!(status.try_recv(), Err(TryRecvError::Empty)));
+    }
+
+    #[tokio::test]
+    async fn unsubscribe_reply_only_reports_status() {
+        let mut server = spawn_scripted_ws_server(None).await;
+        let mut client = scripted_client(&server);
+        let mut events = client.subscription_event_receiver().unwrap();
+        let (mut mids_rx, _mids) = client.subscribe_to_all_mids().unwrap();
+        server.ack_next_subscribe().await;
+        let authority = Pubkey::new_unique();
+        let (_a_rx, a_handle) = client.subscribe_to_trader_state(&authority).unwrap();
+        server.ack_next_subscribe().await;
+        let a_request = trader_state_request(&authority);
+        assert_status_event(
+            timeout_recv(&mut events).await,
+            "subscribed",
+            &SubscriptionRequest::AllMids,
+        );
+        assert_status_event(timeout_recv(&mut events).await, "subscribed", &a_request);
+
+        drop(a_handle);
+        let unsubscribe = server.next_client_frame().await;
+        assert_eq!(unsubscribe["type"], "unsubscribe");
+        server.send_status("unsubscribed", unsubscribe["subscription"].clone());
+        server.send(all_mids_frame());
+
+        assert_status_event(timeout_recv(&mut events).await, "unsubscribed", &a_request);
+        timeout_recv(&mut mids_rx).await;
+        assert!(matches!(events.try_recv(), Err(TryRecvError::Empty)));
+    }
+
+    #[tokio::test]
+    async fn unsolicited_error_is_unattributed_and_closes_nothing() {
+        let mut server = spawn_scripted_ws_server(None).await;
+        let mut client = scripted_client(&server);
+        let mut status = client.connection_status_receiver().unwrap();
+        let mut events = client.subscription_event_receiver().unwrap();
+        let (mut mids_rx, _mids) = client.subscribe_to_all_mids().unwrap();
+        server.ack_next_subscribe().await;
+        server.send_error(400, "Invalid JSON");
+        server.send(all_mids_frame());
+
+        assert_status_event(
+            timeout_recv(&mut events).await,
+            "subscribed",
+            &SubscriptionRequest::AllMids,
+        );
+        assert_error_event(timeout_recv(&mut events).await, "400", None);
+        timeout_recv(&mut mids_rx).await;
+        assert_connected(&mut status).await;
+        assert!(matches!(status.try_recv(), Err(TryRecvError::Empty)));
+    }
+
+    struct AmbiguousScenario {
+        server: ScriptedWsServer,
+        _client: PhoenixWSClient,
+        status: mpsc::UnboundedReceiver<WsConnectionStatus>,
+        events: mpsc::UnboundedReceiver<WsSubscriptionEvent>,
+        b_rx: mpsc::UnboundedReceiver<TraderStateServerMessage>,
+        _b_handle: SubscriptionHandle,
+        a: Pubkey,
+        b: Pubkey,
+        b_echo: serde_json::Value,
+    }
+
+    /// Subscribe `traderState` A, drop A after the server read it, then
+    /// subscribe B. The server reads all three frames and answers
+    /// `subscribed(A)`, `unsubscribed(A)` and the error built from A's echo.
+    async fn ambiguous_error_scenario(
+        error: impl FnOnce(serde_json::Value) -> serde_json::Value,
+    ) -> AmbiguousScenario {
+        let mut server = spawn_scripted_ws_server(None).await;
+        let mut client = scripted_client(&server);
+        let mut status = client.connection_status_receiver().unwrap();
+        let events = client.subscription_event_receiver().unwrap();
+        assert_connected(&mut status).await;
+        let (a, b) = (Pubkey::new_unique(), Pubkey::new_unique());
+        let (_a_rx, a_handle) = client.subscribe_to_trader_state(&a).unwrap();
+        let a_echo = server.next_client_frame().await["subscription"].clone();
+        drop(a_handle);
+        let (b_rx, b_handle) = client.subscribe_to_trader_state(&b).unwrap();
+        assert_eq!(server.next_client_frame().await["type"], "unsubscribe");
+        let b_echo = server.next_client_frame().await["subscription"].clone();
+        server.send_status("subscribed", a_echo.clone());
+        server.send_status("unsubscribed", a_echo.clone());
+        server.send(error(a_echo));
+        AmbiguousScenario {
+            server,
+            _client: client,
+            status,
+            events,
+            b_rx,
+            _b_handle: b_handle,
+            a,
+            b,
+            b_echo,
+        }
+    }
+
+    #[tokio::test]
+    async fn ambiguous_error_fails_closed() {
+        let mut scenario = ambiguous_error_scenario(|_| {
+            json!({ "channel": "error", "error": "trader state actor unavailable", "code": 500 })
+        })
+        .await;
+
+        let a_request = trader_state_request(&scenario.a);
+        let events = &mut scenario.events;
+        assert_status_event(timeout_recv(events).await, "subscribed", &a_request);
+        assert_status_event(timeout_recv(events).await, "unsubscribed", &a_request);
+        assert_error_event(timeout_recv(events).await, "500", None);
+        assert_disconnected_contains(&mut scenario.status, "subscription response mismatch").await;
+        assert!(timeout_closed(&mut scenario.b_rx).await);
+    }
+
+    #[tokio::test]
+    async fn echoed_error_resolves_the_ambiguity() {
+        let mut scenario = ambiguous_error_scenario(|a_echo| {
+            json!({
+                "channel": "error",
+                "error": "trader state actor unavailable",
+                "code": 500,
+                "subscription": a_echo,
+            })
+        })
+        .await;
+        scenario
+            .server
+            .send_status("subscribed", scenario.b_echo.clone());
+        scenario.server.send(trader_state_frame(&scenario.b, 3));
+
+        let a_request = trader_state_request(&scenario.a);
+        let b_request = trader_state_request(&scenario.b);
+        let events = &mut scenario.events;
+        assert_status_event(timeout_recv(events).await, "subscribed", &a_request);
+        assert_status_event(timeout_recv(events).await, "unsubscribed", &a_request);
+        assert_error_event(timeout_recv(events).await, "500", Some(&a_request));
+        assert_status_event(timeout_recv(events).await, "subscribed", &b_request);
+        assert_eq!(timeout_recv(&mut scenario.b_rx).await.slot, 3);
+        assert!(matches!(
+            scenario.status.try_recv(),
+            Err(TryRecvError::Empty)
+        ));
+    }
+
+    #[tokio::test]
+    async fn mixed_channel_acknowledgements_can_arrive_in_reverse_order() {
+        let mut server = spawn_scripted_ws_server(None).await;
+        let mut client = scripted_client(&server);
+        let mut status = client.connection_status_receiver().unwrap();
+        let mut events = client.subscription_event_receiver().unwrap();
+        let authority = Pubkey::new_unique();
+        let (mut trader_rx, trader) = client.subscribe_to_trader_state(&authority).unwrap();
+        let (mut mids_rx, mids) = client.subscribe_to_all_mids().unwrap();
+        assert_connected(&mut status).await;
+        let trader_echo = server.next_client_frame().await["subscription"].clone();
+        let mids_echo = server.next_client_frame().await["subscription"].clone();
+        server.send_status("subscribed", mids_echo.clone());
+        server.send_status("subscribed", trader_echo.clone());
+        server.send(all_mids_frame());
+        server.send(trader_state_frame(&authority, 7));
+
+        assert_status_event(
+            timeout_recv(&mut events).await,
+            "subscribed",
+            &SubscriptionRequest::AllMids,
+        );
+        assert_status_event(
+            timeout_recv(&mut events).await,
+            "subscribed",
+            &trader_state_request(&authority),
+        );
+        timeout_recv(&mut mids_rx).await;
+        assert_eq!(timeout_recv(&mut trader_rx).await.slot, 7);
+        assert!(matches!(status.try_recv(), Err(TryRecvError::Empty)));
+
+        drop(trader);
+        assert_eq!(server.next_client_frame().await["type"], "unsubscribe");
+        drop(mids);
+        assert_eq!(server.next_client_frame().await["type"], "unsubscribe");
+        server.send_status("unsubscribed", mids_echo);
+        server.send_status("unsubscribed", trader_echo);
+        assert_status_event(
+            timeout_recv(&mut events).await,
+            "unsubscribed",
+            &SubscriptionRequest::AllMids,
+        );
+        assert_status_event(
+            timeout_recv(&mut events).await,
+            "unsubscribed",
+            &trader_state_request(&authority),
+        );
+        assert!(timeout_closed(&mut mids_rx).await);
+        assert!(timeout_closed(&mut trader_rx).await);
+        assert!(matches!(status.try_recv(), Err(TryRecvError::Empty)));
+    }
+
+    #[tokio::test]
+    async fn echoed_error_can_overtake_an_earlier_trader_state_acknowledgement() {
+        let mut server = spawn_scripted_ws_server(None).await;
+        let mut client = scripted_client(&server);
+        let mut status = client.connection_status_receiver().unwrap();
+        let mut events = client.subscription_event_receiver().unwrap();
+        let authority = Pubkey::new_unique();
+        let (mut trader_rx, _trader) = client.subscribe_to_trader_state(&authority).unwrap();
+        let (mut trades_rx, _trades) = client.subscribe_to_trades(TEST_SYMBOL.to_string()).unwrap();
+        let (mut mids_rx, _mids) = client.subscribe_to_all_mids().unwrap();
+        assert_connected(&mut status).await;
+        let trader_echo = server.next_client_frame().await["subscription"].clone();
+        let trades_echo = server.next_client_frame().await["subscription"].clone();
+        let mids_echo = server.next_client_frame().await["subscription"].clone();
+
+        server.send(json!({
+            "channel": "error", "error": "Unknown market symbol", "code": 400,
+            "subscription": trades_echo,
+        }));
+        server.send_status("subscribed", mids_echo);
+        server.send_status("subscribed", trader_echo);
+        server.send(all_mids_frame());
+        server.send(trader_state_frame(&authority, 8));
+
+        assert_error_event(
+            timeout_recv(&mut events).await,
+            "400",
+            Some(&SubscriptionRequest::Trades(TradesSubscriptionRequest {
+                symbol: TEST_SYMBOL.to_string(),
+            })),
+        );
+        assert_status_event(
+            timeout_recv(&mut events).await,
+            "subscribed",
+            &SubscriptionRequest::AllMids,
+        );
+        assert_status_event(
+            timeout_recv(&mut events).await,
+            "subscribed",
+            &trader_state_request(&authority),
+        );
+        assert!(timeout_closed(&mut trades_rx).await);
+        timeout_recv(&mut mids_rx).await;
+        assert_eq!(timeout_recv(&mut trader_rx).await.slot, 8);
+        assert!(matches!(status.try_recv(), Err(TryRecvError::Empty)));
+    }
+
+    #[test]
+    fn legacy_error_does_not_consume_ambiguous_same_key_generations() {
+        let authority = Pubkey::new_unique();
+        let key = SubscriptionKey::trader(&authority, 0);
+        let request = trader_state_request(&authority);
+        let (subscriber_tx, mut subscriber_rx) = mpsc::unbounded_channel();
+        let (event_tx, mut events) = mpsc::unbounded_channel();
+        let mut state = SocketState {
+            subscribers: HashMap::from([(
+                key.clone(),
+                HashMap::from([(1, Subscriber::TraderState(subscriber_tx))]),
+            )]),
+            active_subscriptions: HashMap::from([(key.clone(), request.clone())]),
+            ..SocketState::default()
+        };
+        state.push_pending(key.clone(), request.clone(), PendingOp::Subscribe);
+        state.push_pending(key.clone(), request.clone(), PendingOp::Subscribe);
+
+        let result = PhoenixWSClient::process_message(
+            br#"{"channel":"error","error":"rejected","code":403}"#,
+            &mut state,
+            &event_tx,
+        );
+
+        assert!(
+            result.is_err(),
+            "the manager must disconnect rather than guess"
+        );
+        assert_error_event(events.try_recv().unwrap(), "403", None);
+        assert_eq!(state.pending.len(), 2);
+        assert_eq!(state.active_subscriptions.get(&key), Some(&request));
+        assert!(matches!(subscriber_rx.try_recv(), Err(TryRecvError::Empty)));
+    }
+
+    #[tokio::test]
+    async fn error_after_auth_reconnect_is_attributed_to_the_resent_request() {
+        let stale_token = test_jwt_with_exp("stale-reject-jti", future_unix_secs(600));
+        let fresh_token = test_jwt_with_exp("fresh-reject-jti", future_unix_secs(600));
+        let (refresh_url, _refresh_auth_rx, _refresh_count) =
+            spawn_refresh_server(fresh_token).await;
+        let ws_url =
+            spawn_auth_close_then_reject_ws_server(Iana(4401), "access_token_expired").await;
+        let auth_client = test_auth_client(
+            refresh_url,
+            test_session_store(stale_token, Some(REFRESH_TOKEN.to_string()), Some(600)),
+        );
+        let mut client = PhoenixWSClient::builder(&ws_url)
+            .with_auth(auth_client)
+            .build()
+            .expect("ws client should build");
+        let mut events = client.subscription_event_receiver().unwrap();
+        let (mut rx, _handle) = client
+            .subscribe_to_trades(TEST_SYMBOL.to_string())
+            .expect("subscribe should succeed");
+
+        assert_error_event(
+            timeout_recv(&mut events).await,
+            "403",
+            Some(&SubscriptionRequest::Trades(TradesSubscriptionRequest {
+                symbol: TEST_SYMBOL.to_string(),
+            })),
+        );
+        assert!(timeout_closed(&mut rx).await);
+    }
+
+    /// First connection: read the subscribe, then close with an auth code.
+    /// Second connection: read the resent subscribe, reject it, stay open.
+    async fn spawn_auth_close_then_reject_ws_server(
+        close_code: CloseCode,
+        close_reason: &'static str,
+    ) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("ws listener should bind");
+        let addr = listener.local_addr().expect("ws addr should exist");
+        let (tx, _rx) = mpsc::unbounded_channel();
+        tokio::spawn(async move {
+            handle_ws_connection(&listener, tx, Some(close_frame(close_code, close_reason))).await;
+            let Ok((stream, _)) = listener.accept().await else {
+                return;
+            };
+            let callback = |request: &Request, mut response: Response| {
+                select_ws_protocol(request, &mut response);
+                Ok(response)
+            };
+            let Ok(mut websocket) = accept_hdr_async(stream, callback).await else {
+                return;
+            };
+            if websocket.next().await.is_none() {
+                return;
+            }
+            let error = json!({ "channel": "error", "error": "insufficient_scope", "code": 403 });
+            if websocket
+                .send(Message::Text(Utf8Bytes::from(error.to_string())))
+                .await
+                .is_err()
+            {
+                return;
+            }
+            while websocket.next().await.is_some() {}
+        });
+        format!("ws://{addr}/v1/ws")
     }
 }

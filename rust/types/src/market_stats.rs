@@ -37,7 +37,7 @@ impl MarketStats {
     }
 
     pub fn mid_price(&self) -> Option<f64> {
-        self.stats.as_ref().map(|s| s.mid_price)
+        self.stats.as_ref().and_then(|s| s.mid_price)
     }
 
     pub fn oracle_price(&self) -> Option<f64> {
@@ -80,7 +80,7 @@ mod tests {
             symbol: symbol.to_string(),
             open_interest: 1000000.0,
             mark_price,
-            mid_price: mark_price - 0.025,
+            mid_price: Some(mark_price - 0.025),
             oracle_price: mark_price - 0.05,
             prev_day_mark_price: mark_price * 0.98,
             day_volume_usd: 50000000.0,

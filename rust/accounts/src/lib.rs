@@ -30,12 +30,15 @@ macro_rules! const_assert_eq {
     };
 }
 
+pub mod active_trader_buffer;
 pub mod common;
 pub mod conditional_orders;
 pub mod discriminants;
 pub mod escrow;
 pub mod global_config;
+pub mod global_trader_index;
 pub mod multi_arena;
+mod multi_arena_tree;
 pub mod orderbook;
 pub mod pda;
 pub mod permission;
@@ -51,11 +54,13 @@ pub use discriminants::PhoenixAccount;
 
 /// Explicit broad import surface for account views and account helper types.
 pub mod prelude {
+    pub use super::active_trader_buffer::{ActiveTraderBuffer, ActiveTraderPosition};
     pub use super::common::*;
     pub use super::conditional_orders::*;
     pub use super::discriminants::*;
     pub use super::escrow::*;
     pub use super::global_config::*;
+    pub use super::global_trader_index::*;
     pub use super::multi_arena::*;
     pub use super::orderbook::*;
     pub use super::pda::*;

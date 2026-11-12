@@ -139,4 +139,7 @@ pub enum PhoenixIxError {
 
     #[error("scale_set_continuation requires a nonzero scale_set_id")]
     ScaleSetContinuationRequiresId,
+
+    #[error("post-only orders do not support {0}")]
+    PostOnlyIncompatible(&'static str),
 }

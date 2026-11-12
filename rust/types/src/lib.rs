@@ -156,9 +156,12 @@ pub mod prelude {
         L2OrderbookSubscriptionRequest, MarkPriceSubscriptionRequest, MarkPriceUpdate,
         MarketStatsV2Data, MarketStatsV2SubscriptionRequest, MarketStatsV2Update,
         MarketSubscriptionRequest, OrderbookSubscriptionRequest, ServerMessage,
-        SubscriptionConfirmedMessage, SubscriptionErrorMessage, SubscriptionRequest,
-        SubscriptionStatusMessage, TraderStateSubscriptionRequest,
+        SubscriptionRequest, SubscriptionStatusMessage, TraderStateSubscriptionRequest,
     };
+    // Deprecated wire types stay importable from the prelude until they are
+    // removed; re-exporting them is intentional.
+    #[allow(deprecated)]
+    pub use super::ws::{SubscriptionConfirmedMessage, SubscriptionErrorMessage};
 }
 
 /// Deprecated module for backwards compatibility.

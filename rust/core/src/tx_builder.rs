@@ -2181,7 +2181,7 @@ impl<'a> PhoenixTxBuilder<'a> {
             .active_trader_buffer(params.active_trader_buffer().to_vec())
             .payer(params.trader())
             .trader_conditional_orders(get_conditional_orders_address(&params.trader_account())?)
-            .order_packet(limit_order_packet(params));
+            .order_packet(params.order_packet());
 
         if let Some(trigger) = greater_trigger_order {
             builder = builder.greater_trigger_order(trigger);
@@ -2346,20 +2346,6 @@ pub(crate) fn parse_metadata_pubkey_vec(
         .iter()
         .map(|s| Pubkey::from_str(s).map_err(PhoenixTxBuilderError::from))
         .collect()
-}
-
-fn limit_order_packet(params: &LimitOrderParams) -> OrderPacket {
-    OrderPacket::limit(
-        params.side(),
-        params.price_in_ticks(),
-        params.num_base_lots(),
-        params.self_trade_behavior(),
-        params.match_limit(),
-        client_order_id_to_bytes(params.client_order_id()),
-        params.last_valid_slot(),
-        params.order_flags(),
-        params.cancel_existing(),
-    )
 }
 
 #[cfg(test)]
@@ -2685,6 +2671,129 @@ mod tests {
                 .build_deposit_funds(authority, trader, -1.0)
                 .is_err()
         );
+    }
+
+    fn post_only_test_ticket(
+        authority: Pubkey,
+        trader_account: Pubkey,
+    ) -> crate::order_tickets::LimitOrderTicketBuilder {
+        LimitOrderTicket::builder()
+            .authority(authority)
+            .trader_account(trader_account)
+            .symbol("SOL")
+            .side(Side::Bid)
+            .price(150.0)
+            .num_base_lots(10)
+            .client_order_id(7)
+            .last_valid_slot(99)
+    }
+
+    #[tokio::test]
+    async fn test_post_only_ticket_encodes_post_only_packet_under_place_limit_order() {
+        let metadata = mock_metadata("SOL");
+        let builder = PhoenixTxBuilder::new(&metadata);
+        let authority = Pubkey::new_unique();
+        let trader_account = Pubkey::new_unique();
+
+        let default_ixs = builder
+            .place_limit_order(
+                post_only_test_ticket(authority, trader_account)
+                    .build()
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let post_only_ixs = builder
+            .place_limit_order(
+                post_only_test_ticket(authority, trader_account)
+                    .post_only(true)
+                    .build()
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(default_ixs.len(), 1);
+        assert_eq!(post_only_ixs.len(), 1);
+        let (default_ix, post_only_ix) = (&default_ixs[0], &post_only_ixs[0]);
+
+        let mut expected = PhoenixInstruction::PlaceLimitOrder.discriminant().to_vec();
+        expected.extend(
+            borsh::to_vec(&phoenix_rise_ix::order_packet::OrderPacket::post_only(
+                Side::Bid,
+                150,
+                10,
+                phoenix_rise_ix::prelude::client_order_id_to_bytes(7),
+                true,
+                Some(99),
+                OrderFlags::None,
+                false,
+            ))
+            .unwrap(),
+        );
+        assert_eq!(post_only_ix.data, expected);
+        assert_eq!(post_only_ix.data[8], 0, "PostOnly packet tag");
+        assert_eq!(default_ix.data[8], 1, "Limit packet tag");
+        assert_eq!(post_only_ix.program_id, default_ix.program_id);
+        assert_eq!(post_only_ix.accounts, default_ix.accounts);
+    }
+
+    #[tokio::test]
+    async fn test_post_only_ticket_with_bracket_carries_post_only_packet() {
+        let metadata = mock_metadata("SOL");
+        let builder = PhoenixTxBuilder::new(&metadata);
+        let bracket = BracketLegTicket::new(
+            std::sync::Arc::new(RpcClient::new_mock("succeeds".to_string())),
+            BracketLegOrders {
+                stop_loss: Some(BracketLeg::new(140.0)),
+                take_profit: Some(BracketLeg::new(160.0)),
+            },
+        )
+        .without_conditional_orders_account_check();
+        let ticket = post_only_test_ticket(Pubkey::new_unique(), Pubkey::new_unique())
+            .post_only(false)
+            .bracket_leg_ticket(bracket)
+            .build()
+            .unwrap();
+
+        let ixs = builder.place_limit_order(ticket).await.unwrap();
+        assert_eq!(ixs.len(), 1);
+
+        let mut expected_prefix = PhoenixInstruction::PlaceLimitOrderWithConditionals
+            .discriminant()
+            .to_vec();
+        expected_prefix.extend(
+            borsh::to_vec(&phoenix_rise_ix::order_packet::OrderPacket::post_only(
+                Side::Bid,
+                150,
+                10,
+                phoenix_rise_ix::prelude::client_order_id_to_bytes(7),
+                false,
+                Some(99),
+                OrderFlags::None,
+                false,
+            ))
+            .unwrap(),
+        );
+        assert!(ixs[0].data.starts_with(&expected_prefix));
+    }
+
+    #[tokio::test]
+    async fn test_post_only_ticket_rejects_limit_only_fields() {
+        let metadata = mock_metadata("SOL");
+        let builder = PhoenixTxBuilder::new(&metadata);
+        let ticket = post_only_test_ticket(Pubkey::new_unique(), Pubkey::new_unique())
+            .post_only(true)
+            .match_limit(5)
+            .build()
+            .unwrap();
+
+        let err = builder.place_limit_order(ticket).await.unwrap_err();
+        assert!(matches!(
+            err,
+            PhoenixTxBuilderError::Instruction(
+                phoenix_rise_ix::PhoenixIxError::PostOnlyIncompatible("match_limit")
+            )
+        ));
     }
 
     #[test]
