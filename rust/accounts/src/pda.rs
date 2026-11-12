@@ -2,6 +2,18 @@
 
 use solana_pubkey::Pubkey;
 
+/// Derives a global trader index account. Index zero is the header account;
+/// subsequent indices identify overflow arenas.
+pub fn derive_global_trader_index_address(program_id: &Pubkey, index: u16) -> Pubkey {
+    Pubkey::find_program_address(&[b"global_trader_index", &index.to_le_bytes()], program_id).0
+}
+
+/// Derives an active trader buffer account. Index zero is the header account;
+/// subsequent indices identify overflow arenas.
+pub fn derive_active_trader_buffer_address(program_id: &Pubkey, index: u16) -> Pubkey {
+    Pubkey::find_program_address(&[b"active_trader_buffer", &index.to_le_bytes()], program_id).0
+}
+
 /// Derives the stop-loss PDA for a given trader account and asset ID.
 ///
 /// Seeds: `["stoploss", trader_account, asset_id.to_le_bytes()]`.

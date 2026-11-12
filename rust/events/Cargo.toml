@@ -16,9 +16,11 @@ serde   = ["dep:serde", "phoenix-rise-math/serde"]
 
 [dependencies]
 borsh             = { workspace = true }
+five8             = { workspace = true }
 phoenix-rise-math = { workspace = true }
 serde             = { workspace = true, optional = true }
 thiserror         = { workspace = true }
+uuid              = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

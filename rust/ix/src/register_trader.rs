@@ -68,7 +68,8 @@ pub struct RegisterTraderParams {
     /// Cross margin: 128, Isolated margin: 1.
     max_positions: u64,
     /// Trader preference bitfield. Registration applies only
-    /// `DisableCollateralSweep`; set other preferences with
+    /// `DisableCollateralSweep` from it and always sets
+    /// `DisablePositionAuthoritySwap`; change preferences with
     /// `update_trader_preference_bits` after registering.
     trader_preference_bits: u32,
     /// The PDA index for trader account derivation (0-255).

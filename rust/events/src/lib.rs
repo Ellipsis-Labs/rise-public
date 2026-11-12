@@ -12,6 +12,7 @@ use std::collections::{BTreeMap, VecDeque};
 use borsh::BorshDeserialize;
 use thiserror::Error;
 
+pub mod fill_id;
 pub mod market_events;
 pub use market_events::{
     MarketEvent, MarketEventType, OffChainMarketEvent, OffChainMarketEventLengths,

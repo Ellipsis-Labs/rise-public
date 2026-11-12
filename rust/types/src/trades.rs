@@ -82,7 +82,9 @@ pub struct TradeEvent {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct TradesSubscriptionRequest {
-    /// Market symbol to filter trades (e.g., "SOL").
+    /// Market symbol to filter trades (e.g., "SOL"). Server acknowledgements
+    /// echo it as `marketSymbol`.
+    #[serde(alias = "marketSymbol")]
     pub symbol: String,
 }
 

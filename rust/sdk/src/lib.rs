@@ -64,20 +64,20 @@
 //!
 //! - Fetch exchange metadata, then build and send a limit order:
 //!   [`core::PhoenixTxBuilder::place_limit_order`] and
-//!   [`examples/send_limit_order.rs`](https://github.com/ellipsis-labs/rise-public/blob/master/rise/rust/sdk/examples/send_limit_order.rs).
+//!   [`examples/send_limit_order.rs`](https://github.com/ellipsis-labs/rise-public/blob/master/rust/sdk/examples/send_limit_order.rs).
 //! - Deposit or withdraw collateral through Ember:
 //!   [`core::PhoenixTxBuilder::build_deposit_funds`] and
 //!   [`core::PhoenixTxBuilder::build_withdraw_funds`], with
-//!   [`examples/deposit_funds.rs`](https://github.com/ellipsis-labs/rise-public/blob/master/rise/rust/sdk/examples/deposit_funds.rs).
+//!   [`examples/deposit_funds.rs`](https://github.com/ellipsis-labs/rise-public/blob/master/rust/sdk/examples/deposit_funds.rs).
 //! - Build raw instruction bundles when you already know the accounts:
-//!   [`ix::prelude`] and [`examples/build_all_ix.rs`](https://github.com/ellipsis-labs/rise-public/blob/master/rise/rust/sdk/examples/build_all_ix.rs).
+//!   [`ix::prelude`] and [`examples/build_all_ix.rs`](https://github.com/ellipsis-labs/rise-public/blob/master/rust/sdk/examples/build_all_ix.rs).
 //! - Decode account bytes for market metadata or trader state:
 //!   [`accounts::perp_asset_map::PerpAssetMap`] and
 //!   [`accounts::trader::TraderHeader`].
 //! - Invoke Phoenix from an on-chain program:
 //!   [`ix::cpi`] and the CPI-oriented examples in
-//!   [`examples/fetch_on_chain_accounts.rs`](https://github.com/ellipsis-labs/rise-public/blob/master/rise/rust/sdk/examples/fetch_on_chain_accounts.rs).
-//! - Subscribe to live market and trader state: [`api::PhoenixWSClient`] and [`examples/compute_trader_margin.rs`](https://github.com/ellipsis-labs/rise-public/blob/master/rise/rust/sdk/examples/compute_trader_margin.rs).
+//!   [`examples/fetch_on_chain_accounts.rs`](https://github.com/ellipsis-labs/rise-public/blob/master/rust/sdk/examples/fetch_on_chain_accounts.rs).
+//! - Subscribe to live market and trader state: [`api::PhoenixWSClient`] and [`examples/compute_trader_margin.rs`](https://github.com/ellipsis-labs/rise-public/blob/master/rust/sdk/examples/compute_trader_margin.rs).
 //!
 //! For protocol concepts, account semantics, and product behavior, start with
 //! the [Phoenix Eternal docs](https://docs.phoenix.trade/).

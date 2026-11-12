@@ -219,20 +219,20 @@ pub struct MarketStatsV2Data {
 }
 
 impl MarketStatsV2Data {
-    fn legacy_market_stats_update(&self) -> Option<MarketStatsUpdate> {
-        Some(MarketStatsUpdate {
+    fn legacy_market_stats_update(&self) -> MarketStatsUpdate {
+        MarketStatsUpdate {
             cumulative_funding_quote_lots_per_base_lot: self
                 .cumulative_funding_quote_lots_per_base_lot
                 .clone(),
             symbol: self.symbol.clone(),
             open_interest: self.open_interest,
             mark_price: self.mark_price,
-            mid_price: self.mid_price?,
+            mid_price: self.mid_price,
             oracle_price: self.oracle_price,
             prev_day_mark_price: self.prev_day_mark_price,
             day_volume_usd: self.day_volume_usd,
             funding_rate: self.current_funding_rate,
-        })
+        }
     }
 }
 
@@ -254,8 +254,9 @@ pub struct MarketStatsV2Update {
 impl MarketStatsV2Update {
     /// Adapt a one-symbol V2 batch to the legacy `market` update shape.
     ///
-    /// The legacy shape requires a midpoint, so entries without one cannot be
-    /// represented losslessly.
+    /// Returns `None` unless the batch is filtered to exactly one symbol and
+    /// carries an entry for it. An entry without a midpoint adapts to
+    /// `mid_price: None`.
     pub fn legacy_market_stats_update(&self) -> Option<MarketStatsUpdate> {
         let [symbol] = self.symbols.as_deref()? else {
             return None;
@@ -263,7 +264,7 @@ impl MarketStatsV2Update {
         self.stats
             .iter()
             .find(|update| update.symbol == *symbol)
-            .and_then(MarketStatsV2Data::legacy_market_stats_update)
+            .map(MarketStatsV2Data::legacy_market_stats_update)
     }
 }
 
@@ -372,6 +373,10 @@ pub enum ServerMessage {
 
 /// Subscription confirmed message from server.
 /// Expected format: `{"type":"subscriptionConfirmed","subscription":{...}}`
+///
+/// The Phoenix server never sends this frame; acknowledgements arrive as
+/// [`ServerMessage::SubscriptionStatus`].
+#[deprecated(note = "the server never sends this frame; use ServerMessage::SubscriptionStatus")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename = "subscriptionConfirmed")]
 pub struct SubscriptionConfirmedMessage {
@@ -391,6 +396,10 @@ pub struct SubscriptionStatusMessage {
 /// Expected format:
 /// `{"type":"subscriptionError","subscription":{...},"code":"...","message":"..
 /// ."}`
+///
+/// The Phoenix server never sends this frame; rejections arrive as
+/// [`ServerMessage::Error`].
+#[deprecated(note = "the server never sends this frame; use ServerMessage::Error")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename = "subscriptionError")]
 pub struct SubscriptionErrorMessage {
@@ -405,6 +414,11 @@ pub struct SubscriptionErrorMessage {
 pub struct ErrorMessage {
     pub error: String,
     pub code: u16,
+    /// The subscribe or unsubscribe request this error rejects, when the
+    /// server echoes it. Absent for errors not tied to a subscription request
+    /// and from servers that do not echo it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subscription: Option<SubscriptionRequest>,
 }
 
 #[cfg(test)]
@@ -835,5 +849,63 @@ mod tests {
             legacy_decoded.cumulative_funding_quote_lots_per_base_lot,
             legacy.cumulative_funding_quote_lots_per_base_lot
         );
+    }
+
+    #[test]
+    fn error_message_accepts_frames_with_and_without_echo() {
+        let ServerMessage::Error(plain) =
+            serde_json::from_str(r#"{"channel":"error","error":"bad","code":400}"#).unwrap()
+        else {
+            panic!("expected error message");
+        };
+        assert_eq!(plain.subscription, None);
+        assert!(
+            serde_json::to_value(&plain)
+                .unwrap()
+                .get("subscription")
+                .is_none()
+        );
+
+        let ServerMessage::Error(echoed) = serde_json::from_str(
+            r#"{"channel":"error","error":"bad","code":403,"subscription":{"channel":"traderState","authority":"A","traderPdaIndex":1}}"#,
+        )
+        .unwrap() else {
+            panic!("expected error message");
+        };
+        assert_eq!(
+            echoed.subscription,
+            Some(SubscriptionRequest::TraderState(
+                TraderStateSubscriptionRequest {
+                    authority: "A".to_string(),
+                    trader_pda_index: 1,
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn market_stats_v2_legacy_adapter_keeps_entries_without_mid() {
+        let update: MarketStatsV2Update = serde_json::from_value(serde_json::json!({
+            "symbols": ["SOL"],
+            "stats": [{
+                "symbol": "SOL",
+                "timestamp": 1,
+                "openInterest": 2.0,
+                "markPrice": 3.0,
+                "oraclePrice": 4.0,
+                "prevDayMarkPrice": 5.0,
+                "dayVolumeUsd": 6.0,
+                "dayVolumeBase": 7.0,
+                "currentFundingRate": 8.0,
+                "eightHourFundingRate": 9.0,
+                "annualizedFundingRate": 10.0
+            }]
+        }))
+        .unwrap();
+        let legacy = update
+            .legacy_market_stats_update()
+            .expect("entry without mid should adapt");
+        assert_eq!(legacy.mid_price, None);
+        assert_eq!(legacy.mark_price, 3.0);
     }
 }

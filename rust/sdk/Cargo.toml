@@ -128,8 +128,16 @@ name              = "fetch_on_chain_accounts"
 required-features = ["tx-builder"]
 
 [[example]]
+name              = "fetch_spline_state"
+required-features = ["tx-builder"]
+
+[[example]]
 name              = "http_client"
 required-features = ["api"]
+
+[[example]]
+name              = "index_transaction_events"
+required-features = ["events", "serde"]
 
 [[example]]
 name              = "isolated_limit_order"

@@ -412,7 +412,7 @@ mod tests {
             symbol: "SOL-PERP".to_string(),
             open_interest: 0.0,
             mark_price: 121.0,
-            mid_price: 121.0,
+            mid_price: Some(121.0),
             oracle_price: 121.0,
             prev_day_mark_price: 121.0,
             day_volume_usd: 0.0,

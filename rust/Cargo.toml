@@ -22,7 +22,7 @@ publish      = true
 readme       = "CRATES.md"
 repository   = "https://github.com/Ellipsis-Labs/rise-public"
 rust-version = "1.89.0"
-version      = "0.9.3"
+version      = "0.9.4"
 
 [workspace.metadata.workspace-lints]
 feature-exceptions = [
@@ -32,7 +32,7 @@ feature-exceptions = [
   "phoenix-rise-types",
 ]
 workspace-package-publish = true
-workspace-package-version = "0.9.3"
+workspace-package-version = "0.9.4"
 
 [workspace.dependencies]
 async-trait = "0.1"
@@ -45,22 +45,24 @@ bytemuck = { version = "1.21", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.5", features = ["derive"] }
 ed25519-dalek = "2"
+five8 = "1.0"
 fixed = "=1.29.0"
 futures-util = "0.3"
 litesvm = "=0.16.0"
+mockall = "0.14.0"
 opentelemetry = { version = "0.31", features = ["trace"] }
 opentelemetry-http = "0.31"
 opentelemetry_sdk = { version = "0.31", features = ["trace"] }
 parking_lot = "0.12"
 pastey = "0.2.3"
-phoenix-rise = { version = "0.9.3", path = "sdk", default-features = false }
-phoenix-rise-accounts = { version = "0.9.3", path = "accounts", default-features = false }
-phoenix-rise-api = { version = "0.9.3", path = "api", default-features = false }
-phoenix-rise-core = { version = "0.9.3", path = "core", default-features = false }
-phoenix-rise-events = { version = "0.9.3", path = "events", default-features = false }
-phoenix-rise-ix = { version = "0.9.3", path = "ix", default-features = false }
-phoenix-rise-math = { version = "0.9.3", path = "math", default-features = false }
-phoenix-rise-types = { version = "0.9.3", path = "types", default-features = false }
+phoenix-rise = { version = "0.9.4", path = "sdk", default-features = false }
+phoenix-rise-accounts = { version = "0.9.4", path = "accounts", default-features = false }
+phoenix-rise-api = { version = "0.9.4", path = "api", default-features = false }
+phoenix-rise-core = { version = "0.9.4", path = "core", default-features = false }
+phoenix-rise-events = { version = "0.9.4", path = "events", default-features = false }
+phoenix-rise-ix = { version = "0.9.4", path = "ix", default-features = false }
+phoenix-rise-math = { version = "0.9.4", path = "math", default-features = false }
+phoenix-rise-types = { version = "0.9.4", path = "types", default-features = false }
 pinocchio = "0.9.3"
 proptest = "1.11.0"
 rand = "0.10"
@@ -120,6 +122,7 @@ tracing-opentelemetry = "0.32"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2.5"
 utoipa = { version = "5.4", features = ["chrono"] }
+uuid = { version = "1.23", features = ["v3"] }
 
 [profile.ci]
 debug    = "line-tables-only"

@@ -60,7 +60,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Some(msg) = rx1.recv() => {
                 println!("[rx1] === {} Stats Update ===", msg.symbol);
                 println!("  Mark Price:    ${:.4}", msg.mark_price);
-                println!("  Mid Price:     ${:.4}", msg.mid_price);
+                match msg.mid_price {
+                    Some(mid) => println!("  Mid Price:     ${:.4}", mid),
+                    None => println!("  Mid Price:     n/a (no book midpoint)"),
+                }
                 println!("  Oracle Price:  ${:.4}", msg.oracle_price);
                 println!("  Funding Rate:  {:.6}%", msg.funding_rate * 100.0);
 

@@ -7,7 +7,9 @@ use phoenix_rise_core::events::{
     parse_events_from_rpc_instructions_with_errors,
 };
 use phoenix_rise_events::MarketEvent;
-use phoenix_rise_events::market_events::SlotContextEvent;
+use phoenix_rise_events::fill_id::generate_fill_id_from_pnl;
+use phoenix_rise_events::market_events::{PnLEvent, SlotContextEvent, Symbol};
+use phoenix_rise_math::{SignedBaseLots, SignedQuoteLots};
 
 const PHOENIX: &[u8] = &[7; 32];
 const OTHER: &[u8] = &[9; 32];
@@ -219,4 +221,174 @@ fn advance_inner_path_matches_rpc_preorder_transitions() {
     }
 
     assert_eq!(out, vec![vec![0], vec![0, 0], vec![0, 1], vec![1], vec![2]]);
+}
+
+#[test]
+fn nested_and_sibling_phoenix_invocations_preserve_fill_id_ordinals() {
+    let mut signature = [0; 64];
+    signature[0] = 7;
+    signature[63] = 8;
+    let signature = bs58::encode(signature).into_string();
+    let mut trader = [0; 32];
+    trader[0] = 11;
+    trader[31] = 12;
+    let pnl = |before, after| {
+        borsh::to_vec(&MarketEvent::PnL(PnLEvent {
+            trader,
+            asset_id: 42,
+            asset_symbol: Symbol::new("SOL").unwrap(),
+            realized_pnl: SignedQuoteLots::new(-25),
+            funding_payment: SignedQuoteLots::ZERO,
+            base_lots_before: SignedBaseLots::new(before),
+            base_lots_after: SignedBaseLots::new(after),
+            virtual_quote_lots_before: SignedQuoteLots::ZERO,
+            virtual_quote_lots_after: SignedQuoteLots::ZERO,
+        }))
+        .unwrap()
+    };
+    let first = pnl(100, 150);
+    let second = pnl(150, 175);
+    let lengths = |event: &[u8], batch| {
+        instruction_data(
+            LOG_EVENT_LENGTHS_INSTRUCTION_TAG,
+            &lengths_payload(batch, &[u16::try_from(event.len()).unwrap()]),
+        )
+    };
+    let log =
+        |event: &[u8], batch| instruction_data(LOG_INSTRUCTION_TAG, &log_payload(batch, &[event]));
+    let instructions = [
+        // Eventless Phoenix calls still consume an ordinal.
+        (
+            PHOENIX,
+            instruction_data(PLACE_LIMIT_ORDER_TAG, &[]),
+            vec![0],
+        ),
+        (OTHER, vec![], vec![1]),
+        (
+            PHOENIX,
+            instruction_data(PLACE_MARKET_ORDER_TAG, &[]),
+            vec![1, 0],
+        ),
+        (PHOENIX, lengths(&first, 0), vec![1, 0, 0]),
+        (PHOENIX, log(&first, 0), vec![1, 0, 1]),
+        (OTHER, vec![], vec![1, 0, 2]),
+        (
+            PHOENIX,
+            instruction_data(PLACE_MARKET_ORDER_TAG, &[]),
+            vec![1, 0, 2, 0],
+        ),
+        (PHOENIX, lengths(&first, 0), vec![1, 0, 2, 0, 0]),
+        (PHOENIX, log(&first, 0), vec![1, 0, 2, 0, 1]),
+        // The outer producer resumes after the nested invocation returns.
+        (PHOENIX, lengths(&second, 1), vec![1, 0, 3]),
+        (PHOENIX, log(&second, 1), vec![1, 0, 4]),
+        (
+            PHOENIX,
+            instruction_data(PLACE_MARKET_ORDER_TAG, &[]),
+            vec![1, 1],
+        ),
+        (PHOENIX, lengths(&first, 0), vec![1, 1, 0]),
+        (PHOENIX, log(&first, 0), vec![1, 1, 1]),
+    ];
+    let executed = parse_events_from_executed_instructions_with_errors(
+        instructions
+            .iter()
+            .map(|(program_id, data, stack_path)| ExecutedInstructionView {
+                program_id,
+                data,
+                stack_path,
+            }),
+        PHOENIX,
+    );
+    let top = instructions
+        .iter()
+        .filter(|(_, _, path)| path.len() == 1)
+        .map(|(program_id, data, _)| RpcInstructionView { program_id, data })
+        .collect::<Vec<_>>();
+    let inner = instructions
+        .iter()
+        .filter(|(_, _, path)| path.len() > 1)
+        .map(|(program_id, data, path)| RpcInnerInstructionView {
+            program_id,
+            data,
+            stack_height: Some(u32::try_from(path.len()).unwrap()),
+        })
+        .collect::<Vec<_>>();
+    let groups = [RpcInnerInstructionGroup {
+        index: 1,
+        instructions: &inner,
+    }];
+    let rpc = parse_events_from_rpc_instructions_with_errors(&top, &groups, PHOENIX);
+    for parsed in [executed, rpc] {
+        assert!(parsed.orphan_logs.is_empty());
+        assert_eq!(parsed.instructions.len(), 4);
+        assert_eq!(parsed.instructions[0].phoenix_instruction_index, 0);
+        assert!(parsed.instructions[0].events.is_empty());
+        let mut ids = Vec::new();
+        for (instruction, (ordinal, path)) in parsed.instructions.iter().skip(1).zip([
+            (1, vec![1, 0]),
+            (2, vec![1, 0, 2, 0]),
+            (3, vec![1, 1]),
+        ]) {
+            assert_eq!(instruction.phoenix_instruction_index, ordinal);
+            assert_eq!(instruction.stack_path, path);
+            assert!(
+                instruction.failures.is_empty(),
+                "{:?}",
+                instruction.failures
+            );
+            for event in &instruction.events {
+                let MarketEvent::PnL(event) = event else {
+                    panic!("expected PnL");
+                };
+                ids.push(
+                    generate_fill_id_from_pnl(&signature, i32::try_from(ordinal).unwrap(), event)
+                        .unwrap()
+                        .to_string(),
+                );
+            }
+        }
+        assert_eq!(
+            ids,
+            [
+                "cfa704c6-ffce-3b7d-8eb4-7a35ccf62d36",
+                "cd2e7836-9e21-3d4d-8c2e-1f4c9457f703",
+                "e7f270ef-baae-30e8-a37f-624e50e8ad66",
+                "7258cf00-6e98-3d3b-836f-220f47716e14",
+            ]
+        );
+    }
+}
+
+#[test]
+fn logger_with_known_missing_parent_is_not_attributed_to_an_unrelated_fill() {
+    let parent = instruction_data(PLACE_MARKET_ORDER_TAG, &[]);
+    let bytes = event(1, 10);
+    let lengths = instruction_data(
+        LOG_EVENT_LENGTHS_INSTRUCTION_TAG,
+        &lengths_payload(0, &[bytes.len() as u16]),
+    );
+    let log = instruction_data(LOG_INSTRUCTION_TAG, &log_payload(0, &[&bytes]));
+    let parsed = parse_events_from_executed_instructions_with_errors(
+        [
+            ExecutedInstructionView {
+                program_id: PHOENIX,
+                data: &parent,
+                stack_path: &[0],
+            },
+            ExecutedInstructionView {
+                program_id: PHOENIX,
+                data: &lengths,
+                stack_path: &[1, 0],
+            },
+            ExecutedInstructionView {
+                program_id: PHOENIX,
+                data: &log,
+                stack_path: &[1, 1],
+            },
+        ],
+        PHOENIX,
+    );
+    assert_eq!(parsed.orphan_logs.len(), 2);
+    assert!(parsed.instructions[0].events.is_empty());
 }

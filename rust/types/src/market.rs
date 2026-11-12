@@ -155,9 +155,10 @@ pub struct MarketStatsUpdate {
     /// Current mark price
     #[serde(rename = "markPx")]
     pub mark_price: f64,
-    /// Current mid price
-    #[serde(rename = "midPx")]
-    pub mid_price: f64,
+    /// Current mid price. Omitted when the orderbook has no midpoint (an
+    /// empty or one-sided book).
+    #[serde(rename = "midPx", default, skip_serializing_if = "Option::is_none")]
+    pub mid_price: Option<f64>,
     /// Current oracle price
     #[serde(rename = "oraclePx")]
     pub oracle_price: f64,
@@ -318,7 +319,7 @@ mod tests {
         let update: MarketStatsUpdate = serde_json::from_str(json).unwrap();
         assert_eq!(update.symbol, "SOL");
         assert_eq!(update.mark_price, 97.35);
-        assert_eq!(update.mid_price, 97.315);
+        assert_eq!(update.mid_price, Some(97.315));
         assert_eq!(update.oracle_price, 97.4);
         assert_eq!(update.prev_day_mark_price, 104.14);
     }
@@ -330,7 +331,7 @@ mod tests {
             symbol: "BTC".to_string(),
             open_interest: 500000.0,
             mark_price: 65000.0,
-            mid_price: 64995.0,
+            mid_price: Some(64995.0),
             oracle_price: 64990.0,
             prev_day_mark_price: 64000.0,
             day_volume_usd: 1000000000.0,
@@ -341,6 +342,15 @@ mod tests {
         assert!(json.contains("\"symbol\":\"BTC\""));
         assert!(json.contains("\"markPx\":65000"));
         assert!(json.contains("\"oraclePx\":64990"));
+        assert!(json.contains("\"midPx\":64995"));
+    }
+
+    #[test]
+    fn market_stats_update_mid_is_optional() {
+        let json = r#"{"symbol":"SOL","openInterest":1.0,"markPx":2.0,"oraclePx":3.0,"prevDayPx":4.0,"dayNtlVlm":5.0,"funding":0.0}"#;
+        let update: MarketStatsUpdate = serde_json::from_str(json).unwrap();
+        assert_eq!(update.mid_price, None);
+        assert!(!serde_json::to_string(&update).unwrap().contains("midPx"));
     }
 
     #[test]

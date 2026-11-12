@@ -21,6 +21,7 @@ mod bracket_pricing;
 pub mod events;
 mod hawkeye_client;
 mod order_tickets;
+mod trader_snapshot;
 mod tx_builder;
 
 pub use account_client::{
@@ -35,5 +36,8 @@ pub use order_tickets::{
 pub use phoenix_rise_api::{
     CROSS_MARGIN_SUBACCOUNT_IDX, ExchangeKeysView, ExchangeMarketConfig, ExchangeView,
     PhoenixMetadata, Trader, TraderKey, types,
+};
+pub use trader_snapshot::{
+    AccountSnapshotFetcher, FetchedAccountSnapshot, TraderSnapshot, TraderSnapshotError,
 };
 pub use tx_builder::{PhoenixTxBuilder, PhoenixTxBuilderError};

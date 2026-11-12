@@ -23,10 +23,10 @@
 //!
 //! Two custom program errors are specific to these instructions:
 //!
-//! - **7100 `FeatureDisabled`** — the exchange has native SOL collateral turned
-//!   off, or the asset is not active.
-//! - **7101 `PositionAuthoritySwapDisabled`** — a `SwapNative` was signed by a
-//!   position authority while either opt-out gate is set. See
+//! - **0x2002 `ExchangeNativeSolCollateralDisabled`** — the exchange has native
+//!   SOL collateral turned off, or the asset is not active.
+//! - **0x1001 `AuthPositionAuthoritySwapDisabled`** — a `SwapNative` was signed
+//!   by a position authority while either opt-out gate is set. See
 //!   [`create_swap_native_ix`].
 
 use solana_pubkey::Pubkey;
@@ -1375,10 +1375,11 @@ impl SwapNativeParamsBuilder {
 /// The signer may be the trader's *position authority* rather than its wallet,
 /// and the venue instructions are entirely caller-supplied. A position
 /// authority you do not control can therefore route a delegator's collateral
-/// through a venue of its choosing, bounded only by `min_amount_out`. Two
+/// through a venue of its choosing, bounded only by `min_amount_out`.
 /// The trader's own `disable_position_authority_swap` preference bit gates
-/// that path, making such a swap fail with error **7101
-/// `PositionAuthoritySwapDisabled`**.
+/// that path, making such a swap fail with error **0x1001
+/// `AuthPositionAuthoritySwapDisabled`**. Registration sets the bit; the trader
+/// clears it with `update_trader_preference_bits` to allow such swaps.
 ///
 /// Swaps signed by the trader's wallet are never gated. Use
 /// `phoenix_rise_accounts` to check the preference bit before building the

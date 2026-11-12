@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use phoenix_rise_api::types::ix::TpSlOrderConfig;
 use phoenix_rise_api::{CROSS_MARGIN_SUBACCOUNT_IDX, ExchangeKeysView, ExchangeMarketConfig};
-use phoenix_rise_ix::limit_order::LimitOrderParams;
+use phoenix_rise_ix::limit_order::{LimitOrderKind, LimitOrderParams};
 use phoenix_rise_ix::market_order::MarketOrderParams;
 use phoenix_rise_ix::types::{OrderFlags, SelfTradeBehavior, Side, StopLossOrderKind};
 use phoenix_rise_math::{BasisPoints, MarketCalculator};
@@ -315,7 +315,9 @@ pub struct LimitOrderTicket {
     side: Side,
     price: f64,
     num_base_lots: u64,
-    self_trade_behavior: SelfTradeBehavior,
+    /// `None` keeps the params default (`Abort`) and stays compatible with
+    /// post-only.
+    self_trade_behavior: Option<SelfTradeBehavior>,
     match_limit: Option<u64>,
     client_order_id: u128,
     last_valid_slot: Option<u64>,
@@ -323,6 +325,7 @@ pub struct LimitOrderTicket {
     cancel_existing: bool,
     subaccount_index: u8,
     bracket_leg_ticket: Option<BracketLegTicket>,
+    kind: LimitOrderKind,
 }
 
 impl LimitOrderTicket {
@@ -380,13 +383,18 @@ impl LimitOrderTicket {
             .num_base_lots(self.num_base_lots)
             .symbol(self.symbol.clone())
             .subaccount_index(self.subaccount_index)
-            .self_trade_behavior(self.self_trade_behavior)
             .order_flags(self.order_flags)
             .cancel_existing(self.cancel_existing)
             .client_order_id(self.client_order_id);
 
+        if let Some(self_trade_behavior) = self.self_trade_behavior {
+            builder = builder.self_trade_behavior(self_trade_behavior);
+        }
         if let Some(match_limit) = self.match_limit {
             builder = builder.match_limit(match_limit);
+        }
+        if let LimitOrderKind::PostOnly { slide } = self.kind {
+            builder = builder.post_only(slide);
         }
         if let Some(last_valid_slot) = self.last_valid_slot {
             builder = builder.last_valid_slot(last_valid_slot);
@@ -412,6 +420,7 @@ pub struct LimitOrderTicketBuilder {
     cancel_existing: Option<bool>,
     subaccount_index: Option<u8>,
     bracket_leg_ticket: Option<BracketLegTicket>,
+    kind: LimitOrderKind,
 }
 
 impl LimitOrderTicketBuilder {
@@ -489,6 +498,17 @@ impl LimitOrderTicketBuilder {
         self
     }
 
+    /// Place the order as post-only; see
+    /// [`LimitOrderParamsBuilder::post_only`](phoenix_rise_ix::limit_order::LimitOrderParamsBuilder::post_only).
+    ///
+    /// Cannot be combined with [`Self::self_trade_behavior`] or
+    /// [`Self::match_limit`]; [`LimitOrderTicket::to_params`] then fails with
+    /// `PhoenixIxError::PostOnlyIncompatible`.
+    pub fn post_only(mut self, slide: bool) -> Self {
+        self.kind = LimitOrderKind::PostOnly { slide };
+        self
+    }
+
     pub fn build(self) -> Result<LimitOrderTicket, phoenix_rise_ix::PhoenixIxError> {
         Ok(LimitOrderTicket {
             authority: self
@@ -509,7 +529,7 @@ impl LimitOrderTicketBuilder {
             num_base_lots: self.num_base_lots.ok_or(
                 phoenix_rise_ix::PhoenixIxError::MissingField("num_base_lots"),
             )?,
-            self_trade_behavior: self.self_trade_behavior.unwrap_or(SelfTradeBehavior::Abort),
+            self_trade_behavior: self.self_trade_behavior,
             match_limit: self.match_limit,
             client_order_id: self.client_order_id.unwrap_or(0),
             last_valid_slot: self.last_valid_slot,
@@ -517,6 +537,7 @@ impl LimitOrderTicketBuilder {
             cancel_existing: self.cancel_existing.unwrap_or(false),
             subaccount_index: self.subaccount_index.unwrap_or(CROSS_MARGIN_SUBACCOUNT_IDX),
             bracket_leg_ticket: self.bracket_leg_ticket,
+            kind: self.kind,
         })
     }
 }

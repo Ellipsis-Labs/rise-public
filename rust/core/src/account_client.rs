@@ -78,6 +78,38 @@ pub trait AccountDataFetcher {
     }
 }
 
+impl AccountDataFetcher for solana_rpc_client::rpc_client::RpcClient {
+    type Error = solana_rpc_client_api::client_error::Error;
+
+    fn fetch_account_data(&self, address: &Pubkey) -> Result<Vec<u8>, Self::Error> {
+        self.get_account_data(address)
+    }
+
+    fn fetch_account(&self, address: &Pubkey) -> Result<FetchedAccount, Self::Error> {
+        self.get_account(address)
+            .map(|account| FetchedAccount::new(account.data, account.owner, account.executable))
+    }
+}
+
+pub(crate) fn verify_account_owner(
+    account: &FetchedAccount,
+    expected_owner: &Pubkey,
+) -> Result<(), PhoenixAccountClientError> {
+    if account.executable {
+        return Err(PhoenixAccountClientError::ExecutableAccount);
+    }
+    let owner = account
+        .owner
+        .ok_or(PhoenixAccountClientError::OwnerUnavailable)?;
+    if owner != *expected_owner {
+        return Err(PhoenixAccountClientError::OwnerMismatch {
+            expected: *expected_owner,
+            actual: owner,
+        });
+    }
+    Ok(())
+}
+
 /// Typed account reader over an arbitrary [`AccountDataFetcher`].
 ///
 /// This is useful for off-chain tooling that wants owned, serde-friendly
@@ -138,20 +170,7 @@ where
             .fetch_account(address)
             .map_err(|error| PhoenixAccountClientError::Fetch(error.to_string()))?;
 
-        if account.executable {
-            return Err(PhoenixAccountClientError::ExecutableAccount);
-        }
-
-        let Some(owner) = account.owner else {
-            return Err(PhoenixAccountClientError::OwnerUnavailable);
-        };
-
-        if owner != *expected_owner {
-            return Err(PhoenixAccountClientError::OwnerMismatch {
-                expected: *expected_owner,
-                actual: owner,
-            });
-        }
+        verify_account_owner(&account, expected_owner)?;
 
         Ok(T::try_from_account_bytes(&account.data)?)
     }
