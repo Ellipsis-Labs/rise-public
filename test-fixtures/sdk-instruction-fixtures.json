@@ -1064,6 +1064,16 @@
     {
       "program": "phoenix-eternal",
       "enumName": "PhoenixInstruction",
+      "instructionName": "WithdrawSpotWithFee",
+      "snakeCaseName": "withdraw_spot_with_fee",
+      "preimage": "global:withdraw_spot_with_fee",
+      "tag": "16194744136725188999",
+      "discriminatorHex": "8751d829fd49bfe0",
+      "discriminatorBase64": "h1HYKf1Jv+A="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
       "instructionName": "TransferSpot",
       "snakeCaseName": "transfer_spot",
       "preimage": "global:transfer_spot",

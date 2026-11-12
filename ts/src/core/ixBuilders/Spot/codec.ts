@@ -16,8 +16,19 @@ import type { WithdrawSpotAction } from "./types";
 export const encodeSyncSpot = (): Uint8Array =>
   new Uint8Array(DISCRIMINANTS.SYNC_SPOT);
 
-export const encodeWithdrawSpot = (action: WithdrawSpotAction): Uint8Array => {
-  const prefix = new Uint8Array(DISCRIMINANTS.WITHDRAW_SPOT);
+export const encodeWithdrawSpot = (action: WithdrawSpotAction): Uint8Array =>
+  encodeWithdrawSpotAction(DISCRIMINANTS.WITHDRAW_SPOT, action);
+
+export const encodeWithdrawSpotWithFee = (
+  action: WithdrawSpotAction
+): Uint8Array =>
+  encodeWithdrawSpotAction(DISCRIMINANTS.WITHDRAW_SPOT_WITH_FEE, action);
+
+const encodeWithdrawSpotAction = (
+  discriminant: Uint8Array,
+  action: WithdrawSpotAction
+): Uint8Array => {
+  const prefix = new Uint8Array(discriminant);
   switch (action.kind) {
     case "allExcess":
       return concat(prefix, u8(0));

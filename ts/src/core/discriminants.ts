@@ -50,6 +50,7 @@ export const DISCRIMINANTS: DiscriminantMap = {
   SWAP_NATIVE: sha2_const("global:swap_native"),
   SYNC_SPOT: sha2_const("global:sync_spot"),
   WITHDRAW_SPOT: sha2_const("global:withdraw_spot"),
+  WITHDRAW_SPOT_WITH_FEE: sha2_const("global:withdraw_spot_with_fee"),
   TRANSFER_SPOT: sha2_const("global:transfer_spot"),
   TRANSFER_SPOT_FROM_CHILD_TO_PARENT: sha2_const(
     "global:transfer_spot_from_child_to_parent"
