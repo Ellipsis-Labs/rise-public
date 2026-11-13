@@ -94,6 +94,7 @@ pub mod create_ata;
 pub mod data;
 pub mod delegate_trader;
 pub mod deposit_funds;
+pub mod diagnostics;
 pub mod discriminants;
 pub mod ember_deposit;
 pub mod ember_withdraw;

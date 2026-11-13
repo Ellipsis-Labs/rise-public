@@ -22,6 +22,7 @@ pub mod events;
 mod hawkeye_client;
 mod order_tickets;
 mod trader_snapshot;
+pub mod transaction_errors;
 mod tx_builder;
 
 pub use account_client::{
