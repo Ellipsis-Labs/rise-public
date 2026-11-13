@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.10.1 - 2026-11-13
+
+Source Phoenix commit: `c18a11134a969691aba13699b804678b537771b2`
+
+### Summary
+
+- Added `core::transaction_errors::parse_transaction_error`. It takes the instructions you submitted, a `TransactionError` from an RPC call or simulation, and the optional logs. It returns a `TransactionFailure` with the failing instruction index, program and instruction names, and the original Solana `InstructionError`. It returns `None` for transaction-wide errors such as `BlockhashNotFound`.
+- When the logs form a complete, aligned invocation trace, `TransactionFailure.failure` also names the program that rejected the transaction. It includes the custom error code, the IDL error name, and the message. Missing, truncated, or mismatched logs leave `failure` as `None`.
+- Added a `diagnostics` module to `ix`. It has `identify_instruction`, `decode_program_error`, `decode_instruction_error`, and `decode_runtime_failure`. The catalogs cover Eternal (including its beta address), Ember, Flame, Flight, Flicker, Hawkeye, and Punchcard.
+- Added an `InstructionFailureHint` enum, marked `#[non_exhaustive]`. It currently has one variant, `ConditionalOrdersAccountUninitialized`, which marks a missing TP/SL setup account. A hint adds context and does not replace the native error.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- The changes are additive. The `ix` diagnostics helpers don't need the API/RPC feature stack. `transaction_errors` needs `tx-builder` enabled. Because `InstructionFailureHint` is `#[non_exhaustive]`, `match` on it needs a wildcard arm.
+- Decoded messages keep the IDL's `<field>` placeholders, such as `<asset_id>`. Unknown programs, error codes, and discriminators return no decoded name, and the raw custom code is still available.
+- When an error comes from a nested call (CPI), the instruction name is absent because runtime logs don't include the CPI instruction bytes. If you have those bytes, pass them to `decode_instruction_error`. These hints don't say whether a transaction was delivered or whether it is safe to retry, so confirm delivery and outcome before resubmitting.
+- The `phoenix-rise-core` crate archive on crates.io leaves out `tests/transaction_errors.rs`. That test reads a shared fixture that exists only in a source checkout. The published library doesn't depend on that fixture.
+- All Rise crates move to the shared version `0.10.1`.
+
 ## v0.10.0 - 2026-11-13
 
 Source Phoenix commit: `f373db07b2c96ff656be0bcfb3be22f50163f251`

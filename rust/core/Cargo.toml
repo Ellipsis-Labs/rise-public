@@ -1,6 +1,8 @@
 [package]
-description  = "Phoenix Rise core off-chain account and transaction helpers"
-edition      = { workspace = true }
+description = "Phoenix Rise core off-chain account and transaction helpers"
+edition     = { workspace = true }
+# This source-checkout integration test reads the shared Rise corpus.
+exclude      = ["tests/transaction_errors.rs"]
 homepage     = { workspace = true }
 license      = { workspace = true }
 name         = "phoenix-rise-core"
