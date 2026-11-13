@@ -1,0 +1,3401 @@
+[
+  {
+    "name": "margin failure is not classified from self_trade_behavior",
+    "instructions": [
+      {
+        "programAddress": "ComputeBudget111111111111111111111111111111",
+        "data": [1]
+      },
+      {
+        "programAddress": "ComputeBudget111111111111111111111111111111",
+        "data": [2]
+      },
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        2,
+        {
+          "Custom": 20481
+        }
+      ]
+    },
+    "logs": [
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy invoke [2]",
+      "Program log: self_trade_behavior: Abort",
+      "Program log: MarginInsufficient: Insufficient margin",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x5001"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": 20481,
+      "errorName": "MarginInsufficient",
+      "message": "Insufficient margin"
+    }
+  },
+  {
+    "name": "a propagated Eternal error is not decoded as a Flight error",
+    "instructions": [
+      {
+        "programAddress": "F1ightu9cujFYo34k9CabifLrJT8qzfDVM2Q7BqhJn2W",
+        "data": [24, 154, 56, 104, 106, 8, 35, 7]
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 20481
+        }
+      ]
+    },
+    "logs": [
+      "Program F1ightu9cujFYo34k9CabifLrJT8qzfDVM2Q7BqhJn2W invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program log: MarginInsufficient: Insufficient margin",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x5001",
+      "Program F1ightu9cujFYo34k9CabifLrJT8qzfDVM2Q7BqhJn2W failed: custom program error: 0x5001"
+    ],
+    "instructionName": "ProxyInstruction",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": null,
+      "errorCode": 20481,
+      "errorName": "MarginInsufficient",
+      "message": "Insufficient margin"
+    }
+  },
+  {
+    "name": "a caught error with a different code does not own the abort",
+    "instructions": [
+      {
+        "programAddress": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+        "data": [242, 35, 198, 137, 82, 225, 242, 182]
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 6000
+        }
+      ]
+    },
+    "logs": [
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x5001",
+      "Program log: Unauthorized: Unauthorized",
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy failed: custom program error: 0x1770"
+    ],
+    "instructionName": "Deposit",
+    "failure": {
+      "programAddress": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+      "programName": "Ember",
+      "instructionName": "Deposit",
+      "errorCode": 6000,
+      "errorName": "Unauthorized",
+      "message": "Unauthorized"
+    }
+  },
+  {
+    "name": "unknown CPI codes do not collide with the caller catalog",
+    "instructions": [
+      {
+        "programAddress": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+        "data": [242, 35, 198, 137, 82, 225, 242, 182]
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 6000
+        }
+      ]
+    },
+    "logs": [
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy invoke [1]",
+      "Program 11111111111111111111111111111111 invoke [2]",
+      "Program 11111111111111111111111111111111 failed: custom program error: 0x1770",
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy failed: custom program error: 0x1770"
+    ],
+    "instructionName": "Deposit",
+    "failure": {
+      "programAddress": "11111111111111111111111111111111",
+      "programName": null,
+      "instructionName": null,
+      "errorCode": 6000,
+      "errorName": null,
+      "message": "Custom program error: 0x1770"
+    }
+  },
+  {
+    "name": "filled values come from the failing frame",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [108, 176, 33, 186, 146, 229, 1, 197]
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24577
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: OrderPostOnlyCross: PostOnly order would cross the book and was rejected (client order id: 7)",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x6001"
+    ],
+    "instructionName": "PlaceLimitOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceLimitOrder",
+      "errorCode": 24577,
+      "errorName": "OrderPostOnlyCross",
+      "message": "PostOnly order would cross the book and was rejected (client order id: 7)"
+    }
+  },
+  {
+    "name": "unknown instructions and codes preserve the original code",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [1, 2, 3]
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 4294967295
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0xffffffff"
+    ],
+    "instructionName": null,
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": null,
+      "errorCode": 4294967295,
+      "errorName": null,
+      "message": "Custom program error: 0xffffffff"
+    }
+  },
+  {
+    "name": "missing logs do not guess the origin",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 20481
+        }
+      ]
+    },
+    "logs": null,
+    "instructionName": "PlaceMarketOrder",
+    "failure": null
+  },
+  {
+    "name": "truncated logs do not invent a failure frame",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 20481
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: self_trade_behavior: Abort",
+      "Program log: MarginInsufficient: Insufficient margin"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": null
+  },
+  {
+    "name": "mismatched runtime results do not invent a failure frame",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24585
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: self_trade_behavior: Abort",
+      "Program log: MarginInsufficient: Insufficient margin",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x5001"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": null
+  },
+  {
+    "name": "built-in errors retain their runtime reason",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "InvalidInstructionData"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: invalid instruction data"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "invalid instruction data"
+    }
+  },
+  {
+    "name": "mismatched program identities do not decode another program catalog",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 20481
+        }
+      ]
+    },
+    "logs": [
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy invoke [1]",
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy failed: custom program error: 0x5001"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": null
+  },
+  {
+    "name": "litesvm-self-trade",
+    "instructions": [
+      {
+        "data": [90, 118, 192, 252, 192, 99, 39, 145],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24585
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Market Order",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to add position to trader",
+      "Program log: 5SmNcV2fXEBJ8BRknUbHzipQFtRzre6MVbpY8j7oD525",
+      "Program log: Successfully added position to selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Interacting with matching engine",
+      "Program log: Placing order",
+      "Program log: MatchingEngine: Uncross book",
+      "Program log: MatchingEngine: Match splines against orderbook",
+      "Program log: MatchingEngine: PlaceOrder: Reduce-only check",
+      "Program log: MatchingEngine: Handle cross",
+      "Program log: MatchingEngine: Match order",
+      "Program log: MatchingEngine: Match orderbook",
+      "Program log: Failed to perform MatchingEngine::place_order",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 1368429 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 1366821 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: OrderSelfTradeAbort: Order would trade against your own resting order",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 34524 of 1400000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x6009"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": 24585,
+      "errorName": "OrderSelfTradeAbort",
+      "message": "Order would trade against your own resting order"
+    },
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/order_limit.rs::test_self_trade_abort_reports_structured_reason"
+  },
+  {
+    "name": "litesvm-ioc-minimum-fill",
+    "instructions": [
+      {
+        "data": [90, 118, 192, 252, 192, 99, 39, 145],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24578
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Market Order",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to add position to trader",
+      "Program log: 5SmNcV2fXEBJ8BRknUbHzipQFtRzre6MVbpY8j7oD525",
+      "Program log: Successfully added position to selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Interacting with matching engine",
+      "Program log: Placing order",
+      "Program log: MatchingEngine: Uncross book",
+      "Program log: MatchingEngine: Match splines against orderbook",
+      "Program log: MatchingEngine: PlaceOrder: Reduce-only check",
+      "Program log: MatchingEngine: Handle cross",
+      "Program log: MatchingEngine: Match order",
+      "Program log: Failed to perform MatchingEngine::place_order",
+      "Program log: OrderIocMinimumNotMet: IOC order does not meet minimum requirements. Min base: 1 base lots, Min quote: 0 quote lots, Filled base: 0 base lots, Filled quote: 0 quote lots",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 1371921 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 1370313 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 30349 of 1400000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x6002"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": 24578,
+      "errorName": "OrderIocMinimumNotMet",
+      "message": "IOC order does not meet minimum requirements. Min base: 1 base lots, Min quote: 0 quote lots, Filled base: 0 base lots, Filled quote: 0 quote lots"
+    },
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/order_limit.rs::test_ioc_minimum_fill_reports_structured_reason"
+  },
+  {
+    "name": "litesvm-uninitialized-conditional-account",
+    "instructions": [
+      {
+        "data": [65, 108, 83, 129, 76, 193, 92, 143],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "InvalidAccountData"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Position Conditional Order",
+      "Program log: assert_with_side_effect failed",
+      "Program log: \"Invalid account data length for phoenix_exchange::accounts::conditional_orders::ConditionalOrderHeader. Size: 0, Expected: 96\"\neternal-lib/src/loaders/mod.rs:60:22",
+      "Program log: Failed to load account in loader",
+      "Program log: index: 9, error: InvalidAccountData",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 190986 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 189378 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 11211 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: invalid account data for instruction"
+    ],
+    "instructionName": "PlacePositionConditionalOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlacePositionConditionalOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "invalid account data for instruction",
+      "hint": "conditionalOrdersAccountUninitialized"
+    },
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/conditional_orders/error_handling.rs::uncreated_conditional_account_has_setup_hint_without_inventing_a_custom_error"
+  },
+  {
+    "name": "litesvm-transfer-insufficient-margin",
+    "instructions": [
+      {
+        "data": [157, 163, 63, 27, 242, 72, 251, 97],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 20484
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Transfer Collateral",
+      "Program log: after settle funding",
+      "Program log: after settle funding",
+      "Program log: MarginInsufficientCollateral: Insufficient withdrawable collateral: requested 1000000001 quote lots, available 1000000000 quote lots",
+      "Program log: total_collateral=1000000000",
+      "Program log: max_withdrawable=1000000000",
+      "Program log: requested=1000000001",
+      "Program log: get_collateral_amount_to_transfer for TransferCollateralRegular: insufficient collateral for withdrawal",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 185873 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 184265 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 16375 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x5004"
+    ],
+    "instructionName": "TransferCollateral",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "TransferCollateral",
+      "errorCode": 20484,
+      "errorName": "MarginInsufficientCollateral",
+      "message": "Insufficient withdrawable collateral: requested 1000000001 quote lots, available 1000000000 quote lots"
+    },
+    "contractTest": "sdk/programs/eternal/tests/eternal/collateral/transfer.rs::test_transfer_collateral_fail_insufficient_margin"
+  },
+  {
+    "name": "litesvm-transfer-uninitialized-destination",
+    "instructions": [
+      {
+        "data": [157, 163, 63, 27, 242, 72, 251, 97],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "InvalidAccountData"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Transfer Collateral",
+      "Program log: DynamicTrader header is too small",
+      "Program log: Failed to load account in loader",
+      "Program log: index: 3, error: InvalidAccountData",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 195448 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 193840 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 6749 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: invalid account data for instruction"
+    ],
+    "instructionName": "TransferCollateral",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "TransferCollateral",
+      "errorCode": null,
+      "errorName": null,
+      "message": "invalid account data for instruction"
+    },
+    "contractTest": "sdk/programs/eternal/tests/eternal/collateral/transfer.rs::transfer_to_uncreated_subaccount_keeps_account_error_separate_from_margin"
+  },
+  {
+    "name": "litesvm-child-sweep-requires-signature",
+    "instructions": [
+      {
+        "data": [51, 100, 177, 115, 139, 135, 247, 139],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "MissingRequiredSignature"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Transfer Collateral Child to Parent",
+      "Program log: Child trader has disabled collateral sweep and trader wallet is not signer",
+      "Program log: Child trader has disabled collateral sweep and trader wallet is not signer",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 194730 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 193122 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 7468 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: missing required signature for instruction"
+    ],
+    "instructionName": "TransferCollateralChildToParent",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "TransferCollateralChildToParent",
+      "errorCode": null,
+      "errorName": null,
+      "message": "missing required signature for instruction"
+    },
+    "contractTest": "sdk/programs/eternal/tests/eternal/collateral/transfer_child_to_parent.rs::update_trader_preferences_changes_the_runtime_sweep_gate"
+  },
+  {
+    "name": "nonempty conditional header does not prove missing setup",
+    "instructions": [
+      {
+        "data": [
+          65, 108, 83, 129, 76, 193, 92, 143, 0, 0, 0, 0, 0, 1, 1, 1, 1, 144,
+          95, 1, 0, 0, 0, 0, 0, 168, 91, 1, 0, 0, 0, 0, 0, 0, 1, 100
+        ],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "InvalidAccountData"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Position Conditional Order",
+      "Program log: assert_with_side_effect failed",
+      "Program log: \"Invalid account data length for phoenix_exchange::accounts::conditional_orders::ConditionalOrderHeader. Size: 1, Expected: 96\"\neternal-lib/src/loaders/mod.rs:60:22",
+      "Program log: Failed to load account in loader",
+      "Program log: index: 9, error: InvalidAccountData",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 190986 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 189378 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 11211 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: invalid account data for instruction"
+    ],
+    "instructionName": "PlacePositionConditionalOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlacePositionConditionalOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "invalid account data for instruction"
+    }
+  },
+  {
+    "name": "an empty unrelated account does not prove missing TP-SL setup",
+    "instructions": [
+      {
+        "data": [
+          65, 108, 83, 129, 76, 193, 92, 143, 0, 0, 0, 0, 0, 1, 1, 1, 1, 144,
+          95, 1, 0, 0, 0, 0, 0, 168, 91, 1, 0, 0, 0, 0, 0, 0, 1, 100
+        ],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "InvalidAccountData"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Position Conditional Order",
+      "Program log: assert_with_side_effect failed",
+      "Program log: \"Invalid account data length for phoenix_exchange::accounts::conditional_orders::GlobalConfiguration. Size: 0, Expected: 96\"\neternal-lib/src/loaders/mod.rs:60:22",
+      "Program log: Failed to load account in loader",
+      "Program log: index: 9, error: InvalidAccountData",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 190986 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 189378 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 11211 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: invalid account data for instruction"
+    ],
+    "instructionName": "PlacePositionConditionalOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlacePositionConditionalOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "invalid account data for instruction"
+    }
+  },
+  {
+    "name": "another program cannot create an Eternal account hint",
+    "instructions": [
+      {
+        "programAddress": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+        "data": [242, 35, 198, 137, 82, 225, 242, 182]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "InvalidAccountData"]
+    },
+    "logs": [
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy invoke [1]",
+      "Program log: Phoenix Eternal: Place Position Conditional Order",
+      "Program log: assert_with_side_effect failed",
+      "Program log: \"Invalid account data length for phoenix_exchange::accounts::conditional_orders::ConditionalOrderHeader. Size: 0, Expected: 96\"\neternal-lib/src/loaders/mod.rs:60:22",
+      "Program log: Failed to load account in loader",
+      "Program log: index: 9, error: InvalidAccountData",
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy invoke [2]",
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy consumed 602 of 190986 compute units",
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy success",
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy invoke [2]",
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy consumed 448 of 189378 compute units",
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy success",
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy consumed 11211 of 200000 compute units",
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy failed: invalid account data for instruction"
+    ],
+    "instructionName": "Deposit",
+    "failure": {
+      "programAddress": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+      "programName": "Ember",
+      "instructionName": "Deposit",
+      "errorCode": null,
+      "errorName": null,
+      "message": "invalid account data for instruction"
+    }
+  },
+  {
+    "name": "a successful prior invocation cannot explain the failing account",
+    "instructions": [
+      {
+        "data": [
+          65, 108, 83, 129, 76, 193, 92, 143, 0, 0, 0, 0, 0, 1, 1, 1, 1, 144,
+          95, 1, 0, 0, 0, 0, 0, 168, 91, 1, 0, 0, 0, 0, 0, 0, 1, 100
+        ],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      },
+      {
+        "data": [
+          65, 108, 83, 129, 76, 193, 92, 143, 0, 0, 0, 0, 0, 1, 1, 1, 1, 144,
+          95, 1, 0, 0, 0, 0, 0, 168, 91, 1, 0, 0, 0, 0, 0, 0, 1, 100
+        ],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [1, "InvalidAccountData"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: \"Invalid account data length for phoenix_exchange::accounts::conditional_orders::ConditionalOrderHeader. Size: 0, Expected: 96\"\neternal-lib/src/loaders/mod.rs:60:22",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Position Conditional Order",
+      "Program log: assert_with_side_effect failed",
+      "Program log: Failed to load account in loader",
+      "Program log: index: 9, error: InvalidAccountData",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 190986 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 189378 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 11211 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: invalid account data for instruction"
+    ],
+    "instructionName": "PlacePositionConditionalOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlacePositionConditionalOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "invalid account data for instruction"
+    }
+  },
+  {
+    "name": "a mismatched native runtime result cannot produce a setup hint",
+    "instructions": [
+      {
+        "data": [
+          65, 108, 83, 129, 76, 193, 92, 143, 0, 0, 0, 0, 0, 1, 1, 1, 1, 144,
+          95, 1, 0, 0, 0, 0, 0, 168, 91, 1, 0, 0, 0, 0, 0, 0, 1, 100
+        ],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "InvalidInstructionData"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Position Conditional Order",
+      "Program log: assert_with_side_effect failed",
+      "Program log: \"Invalid account data length for phoenix_exchange::accounts::conditional_orders::ConditionalOrderHeader. Size: 0, Expected: 96\"\neternal-lib/src/loaders/mod.rs:60:22",
+      "Program log: Failed to load account in loader",
+      "Program log: index: 9, error: InvalidAccountData",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 190986 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 189378 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 11211 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: invalid account data for instruction"
+    ],
+    "instructionName": "PlacePositionConditionalOrder",
+    "failure": null
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/conditional_orders/resize.rs::test_placement_fails_at_hard_limit",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 28685
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 28685,
+      "errorName": "StopLossTooManyConditionalOrders",
+      "hint": null,
+      "instructionName": "PlacePositionConditionalOrder",
+      "message": "The trader has too many open conditional orders",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlacePositionConditionalOrder",
+    "instructions": [
+      {
+        "data": [65, 108, 83, 129, 76, 193, 92, 143],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Position Conditional Order",
+      "Program log: Phoenix Eternal: PlacePositionConditionalOrder",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 140041 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 138433 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: StopLossTooManyConditionalOrders: The trader has too many open conditional orders",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 62884 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x700d"
+    ],
+    "name": "litesvm-conditional-capacity"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/conditional_orders/error_handling.rs::test_place_position_conditional_order_rejects_same_direction_as_long_position",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 28675
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 28675,
+      "errorName": "StopLossPositionDirectionMismatch",
+      "hint": null,
+      "instructionName": "PlacePositionConditionalOrder",
+      "message": "Stop loss order direction must oppose the position",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlacePositionConditionalOrder",
+    "instructions": [
+      {
+        "data": [65, 108, 83, 129, 76, 193, 92, 143],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Position Conditional Order",
+      "Program log: Phoenix Eternal: PlacePositionConditionalOrder",
+      "Program log: assert_with_side_effect failed",
+      "Program log: \"Conditional order must be in opposite direction of trader position\"\neternal-lib/src/loaders/mod.rs:60:22",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 187541 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 185933 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: StopLossPositionDirectionMismatch: Stop loss order direction must oppose the position",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 15384 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x7003"
+    ],
+    "name": "litesvm-conditional-direction"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/conditional_orders/self_trade.rs::test_co_execution_aborts_on_self_trade",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24585
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 24585,
+      "errorName": "OrderSelfTradeAbort",
+      "hint": null,
+      "instructionName": "ExecuteConditionalOrders",
+      "message": "Order would trade against your own resting order",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "ExecuteConditionalOrders",
+    "instructions": [
+      {
+        "data": [101, 214, 110, 0, 190, 226, 177, 236],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Execute Conditional Orders",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to activate trader",
+      "Program log: FMotwHtUPpUpHCQx7jCT5KLaohxEpLwGuRBjS83yb4Vc",
+      "Program log: Successfully activated selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Interacting with matching engine",
+      "Program log: Placing order",
+      "Program log: MatchingEngine: Uncross book",
+      "Program log: MatchingEngine: Match splines against orderbook",
+      "Program log: MatchingEngine: PlaceOrder: Reduce-only check",
+      "Program log: MatchingEngine: Handle cross",
+      "Program log: MatchingEngine: Match order",
+      "Program log: MatchingEngine: Match orderbook",
+      "Program log: Failed to perform MatchingEngine::place_order",
+      "Program log: Conditional order execution failed: Order(SelfTradeAbort)",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 163772 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 162164 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: OrderSelfTradeAbort: Order would trade against your own resting order",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 39181 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x6009"
+    ],
+    "name": "litesvm-conditional-self-trade"
+  },
+  {
+    "contractTest": "sdk/programs/flicker/tests/runtime/margin.rs::insufficient_margin_does_not_cancel_before_child_is_due",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 8001
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 8001,
+      "errorName": "Retry",
+      "hint": null,
+      "instructionName": "ExecuteTWAPOrder",
+      "message": "TWAP order execution failed and should be retried",
+      "programAddress": "FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU",
+      "programName": "Flicker"
+    },
+    "instructionName": "ExecuteTWAPOrder",
+    "instructions": [
+      {
+        "data": [145, 69, 214, 36, 128, 146, 55, 207],
+        "programAddress": "FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU"
+      }
+    ],
+    "logs": [
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU invoke [1]",
+      "Program log: TWAP: Execute TWAP Order",
+      "Program log: TWAP: order is not scheduled for execution",
+      "Program log: TWAP order execution failed and should be retried",
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU consumed 25976 of 1400000 compute units",
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU failed: custom program error: 0x1f41"
+    ],
+    "name": "litesvm-twap-not-due"
+  },
+  {
+    "contractTest": "sdk/programs/flicker/tests/runtime/dust_and_fills.rs::unfilled_dust_child_retries_without_advancing_the_schedule",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24578
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 24578,
+      "errorName": "OrderIocMinimumNotMet",
+      "hint": null,
+      "instructionName": null,
+      "message": "IOC order does not meet minimum requirements. Min base: 500 base lots, Min quote: 0 quote lots, Filled base: 250 base lots, Filled quote: 1250000000 quote lots",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "ExecuteTWAPOrder",
+    "instructions": [
+      {
+        "data": [145, 69, 214, 36, 128, 146, 55, 207],
+        "programAddress": "FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU"
+      }
+    ],
+    "logs": [
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU invoke [1]",
+      "Program log: TWAP: Execute TWAP Order",
+      "Program RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj invoke [2]",
+      "Program RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj consumed 4796 of 1349358 compute units",
+      "Program return: RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj cUGnH6Mfyu8BAAIAAAAAAAAAAAAAAAAAUMMAAAAAAABQwwAAAAAAAFDDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+      "Program RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program log: Phoenix Eternal: Place Market Order",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to add position to trader",
+      "Program log: 8ZJNvA291WoDSksp1F92CEdVYzu6r3JfdppbmoLJotsE",
+      "Program log: Successfully added position to selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Interacting with matching engine",
+      "Program log: Placing order",
+      "Program log: MatchingEngine: Uncross book",
+      "Program log: MatchingEngine: Match splines against orderbook",
+      "Program log: MatchingEngine: PlaceOrder: Reduce-only check",
+      "Program log: MatchingEngine: Handle cross",
+      "Program log: MatchingEngine: Match order",
+      "Program log: MatchingEngine: Match orderbook",
+      "Program log: MatchingEngine: Remove order from book inner",
+      "Program log: Failed to perform MatchingEngine::place_order",
+      "Program log: OrderIocMinimumNotMet: IOC order does not meet minimum requirements. Min base: 500 base lots, Min quote: 0 quote lots, Filled base: 250 base lots, Filled quote: 1250000000 quote lots",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [3]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 1290626 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [3]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 1289016 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 41343 of 1329697 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x6002",
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU consumed 111646 of 1400000 compute units",
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU failed: custom program error: 0x6002"
+    ],
+    "name": "litesvm-twap-unfilled-child"
+  },
+  {
+    "contractTest": "sdk/programs/flight/tests/per_order_fee/adversarial/atomic_mark_move.rs::atomic_adverse_close_after_deferred_fee_and_book_move_rolls_back",
+    "error": {
+      "InstructionError": [
+        4,
+        {
+          "Custom": 20481
+        }
+      ]
+    },
+    "failure": null,
+    "instructionName": "PlaceMarketOrder",
+    "instructions": [
+      {
+        "data": [225, 237, 101, 127, 134, 17, 167, 68],
+        "programAddress": "F1ightu9cujFYo34k9CabifLrJT8qzfDVM2Q7BqhJn2W"
+      },
+      {
+        "data": [90, 118, 192, 252, 192, 99, 39, 145],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      },
+      {
+        "data": [90, 118, 192, 252, 192, 99, 39, 145],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      },
+      {
+        "data": [108, 176, 33, 186, 146, 229, 1, 197],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      },
+      {
+        "data": [90, 118, 192, 252, 192, 99, 39, 145],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program F1ightu9cujFYo34k9CabifLrJT8qzfDVM2Q7BqhJn2W invoke [1]",
+      "Program log: Phoenix Flight: Proxy",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program log: Phoenix Eternal: PlaceLimitOrder",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to activate trader",
+      "Program log: Ae3QbkCE5b9f1FMsvcagCpvJniFwSeb5QjiZh8fk4pF9",
+      "Program log: Successfully activated selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Interacting with matching engine",
+      "Program log: Placing order",
+      "Program log: MatchingEngine: Uncross book",
+      "Program log: MatchingEngine: Match splines against orderbook",
+      "Program log: MatchingEngine: PlaceOrder: Reduce-only check",
+      "Program log: MatchingEngine: Handle cross",
+      "Program log: MatchingEngine: Match order",
+      "Program log: MatchingEngine: Insert limit order",
+      "Program log: Order placed",
+      "Program log: Cannot update mark price, no enough valid components",
+      "Program log: Post-margin check",
+      "Program log: Validate margin state change",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [3]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 1317024 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [3]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 1315415 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 52541 of 1367272 compute units",
+      "Program return: EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih UMMAAAAAAAD2/////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGXNHQAAAABkAAAAAAAAAA==",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program F1ightu9cujFYo34k9CabifLrJT8qzfDVM2Q7BqhJn2W consumed 85566 of 1400000 compute units",
+      "Program return: F1ightu9cujFYo34k9CabifLrJT8qzfDVM2Q7BqhJn2W UMMAAAAAAAD2/////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGXNHQAAAABkAAAAAAAAAA==",
+      "Program F1ightu9cujFYo34k9CabifLrJT8qzfDVM2Q7BqhJn2W success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Market Order",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to add position to trader",
+      "Program log: 8qHJxkSzuQUjJthUKQbUpD9WSohWjEkWgh8CZ8Z1Xpa1",
+      "Program log: Successfully added position to selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Interacting with matching engine",
+      "Program log: Placing order",
+      "Program log: MatchingEngine: Uncross book",
+      "Program log: MatchingEngine: Match splines against orderbook",
+      "Program log: MatchingEngine: PlaceOrder: Reduce-only check",
+      "Program log: MatchingEngine: Handle cross",
+      "Program log: MatchingEngine: Match order",
+      "Program log: MatchingEngine: Match orderbook",
+      "Program log: MatchingEngine: Remove order from book inner",
+      "Log truncated"
+    ],
+    "name": "litesvm-close-after-fees"
+  },
+  {
+    "contractTest": "sdk/programs/flight/tests/per_order_fee/adversarial/atomic_fee_edge_routes.rs::finite_flight_ioc_quote_budget_excludes_separate_builder_debit_and_reverts_at_margin",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 20484
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 20484,
+      "errorName": "MarginInsufficientCollateral",
+      "hint": null,
+      "instructionName": null,
+      "message": "Insufficient withdrawable collateral: requested 350525 quote lots, available 149750 quote lots",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "ProxyInstructionWithFeeOverride",
+    "instructions": [
+      {
+        "data": [225, 237, 101, 127, 134, 17, 167, 68],
+        "programAddress": "F1ightu9cujFYo34k9CabifLrJT8qzfDVM2Q7BqhJn2W"
+      }
+    ],
+    "logs": [
+      "Program F1ightu9cujFYo34k9CabifLrJT8qzfDVM2Q7BqhJn2W invoke [1]",
+      "Program log: Phoenix Flight: Proxy",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program log: Phoenix Eternal: Place Market Order",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to add position to trader",
+      "Program log: 5ERuq1XoHQ7mVPuaadZQyM6hmeERnkMquJ4GFBCg9Kzn",
+      "Program log: Successfully added position to selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Interacting with matching engine",
+      "Program log: Placing order",
+      "Program log: MatchingEngine: Uncross book",
+      "Program log: MatchingEngine: Match splines against orderbook",
+      "Program log: MatchingEngine: PlaceOrder: Reduce-only check",
+      "Program log: MatchingEngine: Handle cross",
+      "Program log: MatchingEngine: Match order",
+      "Program log: MatchingEngine: Match orderbook",
+      "Program log: MatchingEngine: Remove order from book inner",
+      "Program log: Order placed",
+      "Program log: Post-margin check",
+      "Program log: Validate margin state change",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [3]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 1323579 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [3]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 1321968 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 45922 of 1367206 compute units",
+      "Program return: EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih AAAAAAAAAAAAAAAAAAAAAKrX2B0AAAAAAAAAAAAAAAAAAAAAAAAAAGQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program log: Phoenix Eternal: Transfer Collateral",
+      "Program log: after settle funding",
+      "Program log: after settle funding",
+      "Program log: MarginInsufficientCollateral: Insufficient withdrawable collateral: requested 350525 quote lots, available 149750 quote lots",
+      "Program log: total_collateral=25649750",
+      "Program log: max_withdrawable=149750",
+      "Program log: requested=350525",
+      "Program log: get_collateral_amount_to_transfer for TransferCollateralRegular: insufficient collateral for withdrawal",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [3]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 1294107 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [3]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 1292499 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 17551 of 1309410 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x5004",
+      "Program F1ightu9cujFYo34k9CabifLrJT8qzfDVM2Q7BqhJn2W consumed 108141 of 1400000 compute units",
+      "Program F1ightu9cujFYo34k9CabifLrJT8qzfDVM2Q7BqhJn2W failed: custom program error: 0x5004"
+    ],
+    "name": "litesvm-flight-fee-transfer-margin"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/multi_limit_v2_flags.rs::test_multi_limit_v2_rejects_unknown_flag_bits",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24584
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 24584,
+      "errorName": "OrderInvalidPacket",
+      "hint": null,
+      "instructionName": "PlaceMultiLimitOrderV2",
+      "message": "Invalid order parameters",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlaceMultiLimitOrderV2",
+    "instructions": [
+      {
+        "data": [64, 111, 40, 210, 2, 177, 38, 178],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: PlaceMultiLimitOrderV2",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to activate trader",
+      "Program log: 5SmNcV2fXEBJ8BRknUbHzipQFtRzre6MVbpY8j7oD525",
+      "Program log: Successfully activated selected trader",
+      "Program log: Pre-margin check",
+      "Program log: MultipleOrderPacketV2::to_order_packets failed",
+      "Program log: Invalid order packet: Unknown CondensedOrderV2 flag bits: 0x04",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 178643 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 177035 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: OrderInvalidPacket: Invalid order parameters",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 24310 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x6008"
+    ],
+    "name": "litesvm-scale-invalid-flags"
+  },
+  {
+    "name": "an unhandled native error cannot borrow the loader hint",
+    "instructions": [
+      {
+        "data": [
+          65, 108, 83, 129, 76, 193, 92, 143, 0, 0, 0, 0, 0, 1, 1, 1, 1, 144,
+          95, 1, 0, 0, 0, 0, 0, 168, 91, 1, 0, 0, 0, 0, 0, 0, 1, 100
+        ],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "AccountAlreadyInitialized"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Position Conditional Order",
+      "Program log: assert_with_side_effect failed",
+      "Program log: \"Invalid account data length for phoenix_exchange::accounts::conditional_orders::ConditionalOrderHeader. Size: 0, Expected: 96\"\neternal-lib/src/loaders/mod.rs:60:22",
+      "Program log: Failed to load account in loader",
+      "Program log: index: 9, error: InvalidAccountData",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 190986 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 189378 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 11211 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: invalid account data for instruction"
+    ],
+    "instructionName": "PlacePositionConditionalOrder",
+    "failure": null
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/stop_loss.rs::test_place_stop_loss_position_check",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 28674
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 28674,
+      "errorName": "StopLossNoPosition",
+      "hint": null,
+      "instructionName": "PlaceStopLoss",
+      "message": "A stop loss requires an open position",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlaceStopLoss",
+    "instructions": [
+      {
+        "data": [236, 46, 164, 66, 235, 92, 162, 137],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Stop Loss",
+      "Program 11111111111111111111111111111111 invoke [2]",
+      "Program 11111111111111111111111111111111 success",
+      "Program 11111111111111111111111111111111 invoke [2]",
+      "Program 11111111111111111111111111111111 success",
+      "Program 11111111111111111111111111111111 invoke [2]",
+      "Program 11111111111111111111111111111111 success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 186231 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 184623 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: StopLossNoPosition: A stop loss requires an open position",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 16694 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x7002"
+    ],
+    "name": "litesvm-stop-loss-no-position"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/order_limit.rs::test_post_only_cross_fails_without_slide_and_rests_with_slide",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24577
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 24577,
+      "errorName": "OrderPostOnlyCross",
+      "hint": null,
+      "instructionName": "PlaceLimitOrder",
+      "message": "PostOnly order would cross the book and was rejected (client order id: 0)",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlaceLimitOrder",
+    "instructions": [
+      {
+        "data": [108, 176, 33, 186, 146, 229, 1, 197],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: PlaceLimitOrder",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to activate trader",
+      "Program log: 5SmNcV2fXEBJ8BRknUbHzipQFtRzre6MVbpY8j7oD525",
+      "Program log: Successfully activated selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Interacting with matching engine",
+      "Program log: Placing order",
+      "Program log: MatchingEngine: Uncross book",
+      "Program log: MatchingEngine: Match splines against orderbook",
+      "Program log: MatchingEngine: PlaceOrder: Reduce-only check",
+      "Program log: MatchingEngine: Check for cross",
+      "Program log: Failed to perform MatchingEngine::place_order",
+      "Program log: OrderPostOnlyCross: PostOnly order would cross the book and was rejected (client order id: 0)",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 1369560 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 1367951 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 32711 of 1400000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x6001"
+    ],
+    "name": "litesvm-post-only-cross"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/reduce_only.rs::explicit_reduce_only_orders_report_wrong_side_and_flat_positions",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24588
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 24588,
+      "errorName": "OrderReduceOnlyIncreaseExposure",
+      "hint": null,
+      "instructionName": "PlaceLimitOrder",
+      "message": "Reduce-only order would increase exposure (position: 1000 base lots, order: 100 base lots, order side: Bid)",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlaceLimitOrder",
+    "instructions": [
+      {
+        "data": [108, 176, 33, 186, 146, 229, 1, 197],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: PlaceLimitOrder",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to activate trader",
+      "Program log: FMotwHtUPpUpHCQx7jCT5KLaohxEpLwGuRBjS83yb4Vc",
+      "Program log: Successfully activated selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Trade rejected",
+      "Program log: OrderReduceOnlyIncreaseExposure: Reduce-only order would increase exposure (position: 1000 base lots, order: 100 base lots, order side: Bid)",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 173917 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 172309 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 28353 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x600c"
+    ],
+    "name": "litesvm-reduce-only-limit-increase"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/reduce_only.rs::explicit_reduce_only_orders_report_wrong_side_and_flat_positions",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24580
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 24580,
+      "errorName": "OrderReduceOnlyViolation",
+      "hint": null,
+      "instructionName": "PlaceLimitOrder",
+      "message": "Order violates reduce-only restrictions",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlaceLimitOrder",
+    "instructions": [
+      {
+        "data": [108, 176, 33, 186, 146, 229, 1, 197],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: PlaceLimitOrder",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to activate trader",
+      "Program log: FMotwHtUPpUpHCQx7jCT5KLaohxEpLwGuRBjS83yb4Vc",
+      "Program log: Successfully activated selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Reduce-only order requires an existing position",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 178111 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 176503 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: OrderReduceOnlyViolation: Order violates reduce-only restrictions",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 24842 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x6004"
+    ],
+    "name": "litesvm-reduce-only-limit-flat"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/reduce_only.rs::explicit_reduce_only_orders_report_wrong_side_and_flat_positions",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24588
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 24588,
+      "errorName": "OrderReduceOnlyIncreaseExposure",
+      "hint": null,
+      "instructionName": "PlaceMarketOrder",
+      "message": "Reduce-only order would increase exposure (position: 1000 base lots, order: 100 base lots, order side: Bid)",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlaceMarketOrder",
+    "instructions": [
+      {
+        "data": [90, 118, 192, 252, 192, 99, 39, 145],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Market Order",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to add position to trader",
+      "Program log: FMotwHtUPpUpHCQx7jCT5KLaohxEpLwGuRBjS83yb4Vc",
+      "Program log: Successfully added position to selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Interacting with matching engine",
+      "Program log: Placing order",
+      "Program log: MatchingEngine: Uncross book",
+      "Program log: MatchingEngine: Match splines against orderbook",
+      "Program log: MatchingEngine: PlaceOrder: Reduce-only check",
+      "Program log: Failed to perform MatchingEngine::place_order",
+      "Program log: OrderReduceOnlyIncreaseExposure: Reduce-only order would increase exposure (position: 1000 base lots, order: 100 base lots, order side: Bid)",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 177292 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 175684 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 24978 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x600c"
+    ],
+    "name": "litesvm-reduce-only-market-increase"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/collateral/transfer.rs::test_transfer_collateral_rejected_within_cooldown_for_non_self",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 37123
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 37123,
+      "errorName": "WithdrawDepositCooldownActive",
+      "hint": null,
+      "instructionName": "TransferCollateral",
+      "message": "Deposit cooldown has not elapsed",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "TransferCollateral",
+    "instructions": [
+      {
+        "data": [157, 163, 63, 27, 242, 72, 251, 97],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Transfer Collateral",
+      "Program log: transfer_collateral: src trader is within withdraw cooldown period",
+      "Program log: src trader last deposit slot: 0, deposit cooldown period in slots: 25, current slot: 0",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 193750 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 192142 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: WithdrawDepositCooldownActive: Deposit cooldown has not elapsed",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 9184 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x9103"
+    ],
+    "name": "litesvm-transfer-deposit-cooldown"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/perp/open_interest_cap.rs::test_low_open_interest_cap_basic",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24581
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 24581,
+      "errorName": "OrderOpenInterestCapExceeded",
+      "hint": null,
+      "instructionName": "PlaceLimitOrder",
+      "message": "Order would exceed the market open-interest cap",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlaceLimitOrder",
+    "instructions": [
+      {
+        "data": [108, 176, 33, 186, 146, 229, 1, 197],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: PlaceLimitOrder",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to activate trader",
+      "Program log: 5SmNcV2fXEBJ8BRknUbHzipQFtRzre6MVbpY8j7oD525",
+      "Program log: Successfully activated selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Trade rejected: trade of size BaseLots(600) would exceed OI cap",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 176725 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 175117 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: OrderOpenInterestCapExceeded: Order would exceed the market open-interest cap",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 26228 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x6005"
+    ],
+    "name": "litesvm-open-interest-cap"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/market_status/post_only.rs::test_post_only_limit_order_out_of_radius_rejected",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24582
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 24582,
+      "errorName": "OrderPriceOutsideAllowedBand",
+      "hint": null,
+      "instructionName": "PlaceLimitOrder",
+      "message": "Order price is outside the allowed band",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlaceLimitOrder",
+    "instructions": [
+      {
+        "data": [108, 176, 33, 186, 146, 229, 1, 197],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: PlaceLimitOrder",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to activate trader",
+      "Program log: 5SmNcV2fXEBJ8BRknUbHzipQFtRzre6MVbpY8j7oD525",
+      "Program log: Successfully activated selected trader",
+      "Program log: Pre-margin check",
+      "Program log: assert_with_side_effect failed",
+      "Program log: \"Post-only limit price outside allowed radius: price=1000, index_price=50000, radius_percent=10\"\neternal-lib/src/loaders/mod.rs:60:22",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 175640 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 174032 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: OrderPriceOutsideAllowedBand: Order price is outside the allowed band",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 27313 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x6006"
+    ],
+    "name": "litesvm-limit-price-band"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/conditional_orders/error_handling.rs::test_place_position_conditional_order_rejects_unauthorized_position_authority",
+    "error": {
+      "InstructionError": [0, "IncorrectAuthority"]
+    },
+    "failure": {
+      "errorCode": null,
+      "errorName": null,
+      "hint": null,
+      "instructionName": "PlacePositionConditionalOrder",
+      "message": "Incorrect authority provided",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlacePositionConditionalOrder",
+    "instructions": [
+      {
+        "data": [65, 108, 83, 129, 76, 193, 92, 143],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Position Conditional Order",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 193986 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 192378 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 8212 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: Incorrect authority provided"
+    ],
+    "name": "litesvm-conditional-unauthorized"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/conditional_orders/error_handling.rs::test_place_attached_conditional_order_rejects_other_trader_order_id",
+    "error": {
+      "InstructionError": [0, "InvalidArgument"]
+    },
+    "failure": {
+      "errorCode": null,
+      "errorName": null,
+      "hint": null,
+      "instructionName": "PlaceAttachedConditionalOrder",
+      "message": "invalid program argument",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlaceAttachedConditionalOrder",
+    "instructions": [
+      {
+        "data": [43, 117, 136, 128, 72, 150, 101, 122],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: PlaceAttachedConditionalOrder",
+      "Program log: assert_with_side_effect failed",
+      "Program log: \"PlaceAttachedConditionalOrder: order does not belong to trader\"\neternal-lib/src/loaders/mod.rs:60:22",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 186731 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 185123 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 15466 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: invalid program argument"
+    ],
+    "name": "litesvm-attached-conditional-wrong-parent"
+  },
+  {
+    "contractTest": "sdk/programs/ember/tests/test.rs::test_deposit_more_than_input_balance_fails",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 6028
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 6028,
+      "errorName": "InsufficientBalance",
+      "hint": null,
+      "instructionName": "Deposit",
+      "message": "Insufficient balance. Expected: {0}, Actual: {1}",
+      "programAddress": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+      "programName": "Ember"
+    },
+    "instructionName": "Deposit",
+    "instructions": [
+      {
+        "data": [242, 35, 198, 137, 82, 225, 242, 182],
+        "programAddress": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy"
+      }
+    ],
+    "logs": [
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy invoke [1]",
+      "Program log: EmberError: 6028 - Insufficient balance. Expected: 1000000, Actual: 800000",
+      "Program log: EmberError returned",
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy consumed 4527 of 200000 compute units",
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy failed: custom program error: 0x178c"
+    ],
+    "name": "litesvm-ember-insufficient-balance"
+  },
+  {
+    "contractTest": "sdk/programs/flame/tests/runtime.rs::set_crank_delegation_rotates_withdraw_access",
+    "error": {
+      "InstructionError": [0, "IncorrectAuthority"]
+    },
+    "failure": {
+      "errorCode": null,
+      "errorName": null,
+      "hint": null,
+      "instructionName": "WithdrawToken",
+      "message": "Incorrect authority provided",
+      "programAddress": "FLameGi7e6q6oDf4osFqQFtFJureWKKpnMFU4JmiRDvF",
+      "programName": "Flame"
+    },
+    "instructionName": "WithdrawToken",
+    "instructions": [
+      {
+        "data": [136, 235, 181, 5, 101, 109, 57, 81],
+        "programAddress": "FLameGi7e6q6oDf4osFqQFtFJureWKKpnMFU4JmiRDvF"
+      }
+    ],
+    "logs": [
+      "Program FLameGi7e6q6oDf4osFqQFtFJureWKKpnMFU4JmiRDvF invoke [1]",
+      "Program log: Flame: Withdraw Token",
+      "Program log: Flame: Not the crank delegation",
+      "Program FLameGi7e6q6oDf4osFqQFtFJureWKKpnMFU4JmiRDvF consumed 5245 of 1400000 compute units",
+      "Program FLameGi7e6q6oDf4osFqQFtFJureWKKpnMFU4JmiRDvF failed: Incorrect authority provided"
+    ],
+    "name": "litesvm-flame-withdraw-authority"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/margin_checks/market.rs::test_cold_and_hot_trader_margin_check",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 20482
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 20482,
+      "errorName": "MarginInvalidStateChange",
+      "hint": null,
+      "instructionName": "PlaceMarketOrder",
+      "message": "Change would worsen the account's margin state",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlaceMarketOrder",
+    "instructions": [
+      {
+        "data": [90, 118, 192, 252, 192, 99, 39, 145],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Market Order",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to add position to trader",
+      "Program log: BogrfcMXMiPzKY8fHs9TFEHepnfAcGKCgDrordZHg2Gj",
+      "Program log: Successfully added position to selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Trade rejected: Unhealthy trader cannot increase exposure (position: SignedBaseLots(4000000), projected: 4100000, order side: Bid, order quantity: BaseLots(100000))",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 182158 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 180550 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: MarginInvalidStateChange: Change would worsen the account's margin state",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 20773 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x5002"
+    ],
+    "name": "litesvm-order-worsens-margin"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/margin_checks/market.rs::test_4x_leverage_margin_failure",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 20481
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 20481,
+      "errorName": "MarginInsufficient",
+      "hint": null,
+      "instructionName": "PlaceMarketOrder",
+      "message": "Insufficient margin",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlaceMarketOrder",
+    "instructions": [
+      {
+        "data": [90, 118, 192, 252, 192, 99, 39, 145],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Market Order",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to add position to trader",
+      "Program log: BogrfcMXMiPzKY8fHs9TFEHepnfAcGKCgDrordZHg2Gj",
+      "Program log: Successfully added position to selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Interacting with matching engine",
+      "Program log: Placing order",
+      "Program log: MatchingEngine: Uncross book",
+      "Program log: MatchingEngine: Match splines against orderbook",
+      "Program log: MatchingEngine: PlaceOrder: Reduce-only check",
+      "Program log: MatchingEngine: Handle cross",
+      "Program log: MatchingEngine: Match order",
+      "Program log: MatchingEngine: Match orderbook",
+      "Program log: Order placed",
+      "Program log: Post-margin check",
+      "Program log: Validate margin state change",
+      "Program log: pre_initial_margin=250000000",
+      "Program log: pre_effective_collateral=1010000000",
+      "Program log: post_initial_margin=1033333334",
+      "Program log: post_effective_collateral=1010000000",
+      "Program log: validate_margin_state_change failed",
+      "Program log: Invalid margin after trade",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 153413 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 151802 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: MarginInsufficient: Insufficient margin",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 49521 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x5001"
+    ],
+    "name": "litesvm-order-insufficient-margin"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/margin_checks/market.rs::test_4x_leverage_margin_failure",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 20481
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 20481,
+      "errorName": "MarginInsufficient",
+      "hint": null,
+      "instructionName": "PlaceMarketOrder",
+      "message": "Insufficient margin",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlaceMarketOrder",
+    "instructions": [
+      {
+        "data": [90, 118, 192, 252, 192, 99, 39, 145],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Market Order",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to add position to trader",
+      "Program log: BogrfcMXMiPzKY8fHs9TFEHepnfAcGKCgDrordZHg2Gj",
+      "Program log: Successfully added position to selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Interacting with matching engine",
+      "Program log: Placing order",
+      "Program log: MatchingEngine: Uncross book",
+      "Program log: MatchingEngine: Match splines against orderbook",
+      "Program log: MatchingEngine: PlaceOrder: Reduce-only check",
+      "Program log: MatchingEngine: Handle cross",
+      "Program log: MatchingEngine: Match order",
+      "Program log: MatchingEngine: Match orderbook",
+      "Program log: Order placed",
+      "Program log: Post-margin check",
+      "Program log: Validate margin state change",
+      "Program log: pre_initial_margin=250000000",
+      "Program log: pre_effective_collateral=1010000000",
+      "Program log: post_initial_margin=1033333334",
+      "Program log: post_effective_collateral=1010000000",
+      "Program log: validate_margin_state_change failed",
+      "Program log: Invalid margin after trade",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 150204 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 148593 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: MarginInsufficient: Insufficient margin",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 52730 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x5001"
+    ],
+    "name": "litesvm-reverse-insufficient-margin"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/multi_limit.rs::test_multi_limit_zero_quantity_rejected_by_builder_and_program",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24584
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 24584,
+      "errorName": "OrderInvalidPacket",
+      "hint": null,
+      "instructionName": "PlaceMultiLimitOrder",
+      "message": "Invalid order parameters",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlaceMultiLimitOrder",
+    "instructions": [
+      {
+        "data": [236, 208, 221, 172, 141, 226, 129, 84],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: PlaceMultiLimitOrder",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to activate trader",
+      "Program log: 5SmNcV2fXEBJ8BRknUbHzipQFtRzre6MVbpY8j7oD525",
+      "Program log: Successfully activated selected trader",
+      "Program log: Pre-margin check",
+      "Program log: MultipleOrderPacketV2::to_order_packets failed",
+      "Program log: Zero base lots not allowed",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 178579 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 176971 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: OrderInvalidPacket: Invalid order parameters",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 24374 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x6008"
+    ],
+    "name": "litesvm-scale-zero-quantity"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/locked_deposits/spot_swap.rs::quote_to_spot_swap_cannot_spend_an_account_containing_only_locked_quote",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 20486
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 20486,
+      "errorName": "MarginLockedDepositReserveInsufficient",
+      "hint": null,
+      "instructionName": "SwapSpotWithUsdc",
+      "message": "Locked deposit requires 1000000000 quote lots of withdrawal capacity, available 999999999 quote lots",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "SwapSpotWithUsdc",
+    "instructions": [
+      {
+        "data": [119, 121, 96, 136, 111, 0, 215, 223],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: SwapSpotWithUsdc",
+      "Program log: CollateralSwap: transferring 1 quote tokens from global vault",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 134 of 176040 compute units",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+      "Program log: transferring 0 spot tokens to custody",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 94 of 174272 compute units",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+      "Program log: CollateralSwap: failed to check locked-deposit reserve",
+      "Program log: MarginLockedDepositReserveInsufficient: Locked deposit requires 1000000000 quote lots of withdrawal capacity, available 999999999 quote lots",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 168120 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 166512 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 34128 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x5006"
+    ],
+    "name": "litesvm-locked-deposit-reserve"
+  },
+  {
+    "name": "transfer risk-state rejection is not an insufficient-funds message",
+    "instructions": [
+      {
+        "data": [
+          157, 163, 63, 27, 242, 72, 251, 97, 1, 202, 154, 59, 0, 0, 0, 0
+        ],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 20482
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x5002"
+    ],
+    "instructionName": "TransferCollateral",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "TransferCollateral",
+      "errorCode": 20482,
+      "errorName": "MarginInvalidStateChange",
+      "message": "Change would worsen the account's margin state",
+      "hint": null
+    }
+  },
+  {
+    "name": "transfer locked-reserve rejection is not an insufficient-funds message",
+    "instructions": [
+      {
+        "data": [
+          157, 163, 63, 27, 242, 72, 251, 97, 1, 202, 154, 59, 0, 0, 0, 0
+        ],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 20486
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x5006"
+    ],
+    "instructionName": "TransferCollateral",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "TransferCollateral",
+      "errorCode": 20486,
+      "errorName": "MarginLockedDepositReserveInsufficient",
+      "message": "Locked deposit requires <required> quote lots of withdrawal capacity, available <available> quote lots",
+      "hint": null
+    }
+  },
+  {
+    "name": "account-not-initialized",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 262
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x106"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": 262,
+      "errorName": "AccountNotInitialized",
+      "message": "Account is not initialized"
+    }
+  },
+  {
+    "name": "reduce-or-close-without-position",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 16387
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x4003"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": 16387,
+      "errorName": "TraderNoPosition",
+      "message": "Trader has no position in market <asset_id>"
+    }
+  },
+  {
+    "name": "ember-state-not-initialized",
+    "instructions": [
+      {
+        "programAddress": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+        "data": [242, 35, 198, 137, 82, 225, 242, 182]
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 6001
+        }
+      ]
+    },
+    "logs": [
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy invoke [1]",
+      "Program EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy failed: custom program error: 0x1771"
+    ],
+    "instructionName": "Deposit",
+    "failure": {
+      "programAddress": "EMBERpYNE6ehWmXymZZS2skiFmCa9V5dp14e1iduM5qy",
+      "programName": "Ember",
+      "instructionName": "Deposit",
+      "errorCode": 6001,
+      "errorName": "StateNotInitialized",
+      "message": "State account not initialized"
+    }
+  },
+  {
+    "name": "twap-bbo-outside-price-range",
+    "instructions": [
+      {
+        "programAddress": "FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU",
+        "data": [145, 69, 214, 36, 128, 146, 55, 207]
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 8004
+        }
+      ]
+    },
+    "logs": [
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU invoke [1]",
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU failed: custom program error: 0x1f44"
+    ],
+    "instructionName": "ExecuteTWAPOrder",
+    "failure": {
+      "programAddress": "FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU",
+      "programName": "Flicker",
+      "instructionName": "ExecuteTWAPOrder",
+      "errorCode": 8004,
+      "errorName": "BboPriceOutOfRangeRetry",
+      "message": "TWAP child order price is outside configured bounds and should be retried"
+    }
+  },
+  {
+    "name": "twap-child-returned-unfilled",
+    "instructions": [
+      {
+        "programAddress": "FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU",
+        "data": [145, 69, 214, 36, 128, 146, 55, 207]
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 8006
+        }
+      ]
+    },
+    "logs": [
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU invoke [1]",
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU failed: custom program error: 0x1f46"
+    ],
+    "instructionName": "ExecuteTWAPOrder",
+    "failure": {
+      "programAddress": "FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU",
+      "programName": "Flicker",
+      "instructionName": "ExecuteTWAPOrder",
+      "errorCode": 8006,
+      "errorName": "ChildOrderUnfilledRetry",
+      "message": "TWAP child order did not fully fill and should be retried"
+    }
+  },
+  {
+    "name": "native-account-already-initialized",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "AccountAlreadyInitialized"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: instruction requires an uninitialized account"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "instruction requires an uninitialized account"
+    }
+  },
+  {
+    "name": "native-account-data-too-small",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "AccountDataTooSmall"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: account data too small for instruction"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "account data too small for instruction"
+    }
+  },
+  {
+    "name": "native-account-not-rent-exempt",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "AccountNotRentExempt"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: An account does not have enough lamports to be rent-exempt"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "An account does not have enough lamports to be rent-exempt"
+    }
+  },
+  {
+    "name": "native-arithmetic-overflow",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "ArithmeticOverflow"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: Program arithmetic overflowed"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "Program arithmetic overflowed"
+    }
+  },
+  {
+    "name": "native-borsh-io-error",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "BorshIoError"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: Failed to serialize or deserialize account data"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "Failed to serialize or deserialize account data"
+    }
+  },
+  {
+    "name": "native-computational-budget-exceeded",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "ComputationalBudgetExceeded"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: Computational budget exceeded"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "Computational budget exceeded"
+    }
+  },
+  {
+    "name": "native-illegal-owner",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "IllegalOwner"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: Provided owner is not allowed"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "Provided owner is not allowed"
+    }
+  },
+  {
+    "name": "native-incorrect-program-id",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "IncorrectProgramId"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: incorrect program id for instruction"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "incorrect program id for instruction"
+    }
+  },
+  {
+    "name": "native-insufficient-funds",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "InsufficientFunds"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: insufficient funds for instruction"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "insufficient funds for instruction"
+    }
+  },
+  {
+    "name": "native-invalid-account-owner",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "InvalidAccountOwner"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: Invalid account owner"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "Invalid account owner"
+    }
+  },
+  {
+    "name": "native-invalid-realloc",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "InvalidRealloc"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: Failed to reallocate account data"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "Failed to reallocate account data"
+    }
+  },
+  {
+    "name": "native-invalid-seeds",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "InvalidSeeds"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: Provided seeds do not result in a valid address"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "Provided seeds do not result in a valid address"
+    }
+  },
+  {
+    "name": "native-missing-account",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "MissingAccount"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: An account required by the instruction is missing"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "An account required by the instruction is missing"
+    }
+  },
+  {
+    "name": "native-not-enough-account-keys",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "NotEnoughAccountKeys"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: insufficient account keys for instruction"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "insufficient account keys for instruction"
+    }
+  },
+  {
+    "name": "native-privilege-escalation",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "PrivilegeEscalation"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: Cross-program invocation with unauthorized signer or writable account"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "Cross-program invocation with unauthorized signer or writable account"
+    }
+  },
+  {
+    "name": "native-program-failed-to-complete",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "ProgramFailedToComplete"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: Program failed to complete"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "Program failed to complete"
+    }
+  },
+  {
+    "name": "native-readonly-data-modified",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "ReadonlyDataModified"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: instruction modified data of a read-only account"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "instruction modified data of a read-only account"
+    }
+  },
+  {
+    "name": "native-readonly-lamport-change",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "ReadonlyLamportChange"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: instruction changed the balance of a read-only account"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "instruction changed the balance of a read-only account"
+    }
+  },
+  {
+    "name": "native-uninitialized-account",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "UninitializedAccount"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: instruction requires an initialized account"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceMarketOrder",
+      "errorCode": null,
+      "errorName": null,
+      "message": "instruction requires an initialized account"
+    }
+  },
+  {
+    "name": "native-funds-code-rejects-another-native-reason",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "InsufficientFunds"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: instruction requires an initialized account"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": null
+  },
+  {
+    "name": "litesvm-conditional-capability-blocked",
+    "instructions": [
+      {
+        "data": [101, 214, 110, 0, 190, 226, 177, 236],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 28680
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Execute Conditional Orders",
+      "Program log: Trader lacks risk-increasing capability; blocking CO execution to preserve order",
+      "Program log: Conditional order execution failed: StopLoss(TraderCapabilityBlocked)",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 190094 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 188486 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: StopLossTraderCapabilityBlocked: Trader capability blocks this stop loss execution",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 12831 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x7008"
+    ],
+    "instructionName": "ExecuteConditionalOrders",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "ExecuteConditionalOrders",
+      "errorCode": 28680,
+      "errorName": "StopLossTraderCapabilityBlocked",
+      "message": "Trader capability blocks this stop loss execution"
+    },
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/conditional_orders/capability_gating.rs::test_co_execution_blocked_when_risk_increase_disabled"
+  },
+  {
+    "name": "litesvm-limit-order-capacity",
+    "instructions": [
+      {
+        "data": [108, 176, 33, 186, 146, 229, 1, 197],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24579
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: PlaceLimitOrder",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to activate trader",
+      "Program log: 5SmNcV2fXEBJ8BRknUbHzipQFtRzre6MVbpY8j7oD525",
+      "Program log: Successfully activated selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Interacting with matching engine",
+      "Program log: Placing order",
+      "Program log: Failed to perform MatchingEngine::place_order",
+      "Program log: OrderTooManyLimitOrders: Trader has too many limit orders on market 0 (client order id: 0)",
+      "Program log: trader",
+      "Program log: 5SmNcV2fXEBJ8BRknUbHzipQFtRzre6MVbpY8j7oD525",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 1365804 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 1364196 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 36466 of 1400000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x6003"
+    ],
+    "instructionName": "PlaceLimitOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceLimitOrder",
+      "errorCode": 24579,
+      "errorName": "OrderTooManyLimitOrders",
+      "message": "Trader has too many limit orders on market 0 (client order id: 0)"
+    },
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/order_limit.rs::test_single_limit_order_rejected_at_side_limit"
+  },
+  {
+    "name": "litesvm-limit-order-invalid-expiry",
+    "instructions": [
+      {
+        "data": [108, 176, 33, 186, 146, 229, 1, 197],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24583
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: PlaceLimitOrder",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to activate trader",
+      "Program log: 5SmNcV2fXEBJ8BRknUbHzipQFtRzre6MVbpY8j7oD525",
+      "Program log: Successfully activated selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Interacting with matching engine",
+      "Program log: Placing order",
+      "Program log: MatchingEngine: Uncross book",
+      "Program log: MatchingEngine: Match splines against orderbook",
+      "Program log: MatchingEngine: PlaceOrder: Reduce-only check",
+      "Program log: MatchingEngine: Handle cross",
+      "Program log: MatchingEngine: Match order",
+      "Program log: Failed to perform MatchingEngine::place_order",
+      "Program log: OrderInvalidExpiry: TiF invalid, last valid slot (4294967298) vs. current slot (2)",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 1365061 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 1363452 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 37210 of 1400000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x6007"
+    ],
+    "instructionName": "PlaceLimitOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceLimitOrder",
+      "errorCode": 24583,
+      "errorName": "OrderInvalidExpiry",
+      "message": "TiF invalid, last valid slot (4294967298) vs. current slot (2)"
+    },
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/order_limit.rs::test_invalid_limit_order_expiry_reports_structured_reason"
+  },
+  {
+    "name": "litesvm-order-mark-price-unavailable",
+    "instructions": [
+      {
+        "data": [108, 176, 33, 186, 146, 229, 1, 197],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 12289
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: PlaceLimitOrder",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to activate trader",
+      "Program log: 5SmNcV2fXEBJ8BRknUbHzipQFtRzre6MVbpY8j7oD525",
+      "Program log: Successfully activated selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Failed to setup mark price cache",
+      "Program log: OracleMarkPriceUnavailable: Mark price of market 0 is unavailable or stale for PlacingOrder { current_slot: Slot(35) } (last updated at slot 0)",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 183011 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 181403 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 19249 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x3001"
+    ],
+    "instructionName": "PlaceLimitOrder",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PlaceLimitOrder",
+      "errorCode": 12289,
+      "errorName": "OracleMarkPriceUnavailable",
+      "message": "Mark price of market 0 is unavailable or stale for PlacingOrder { current_slot: Slot(35) } (last updated at slot 0)"
+    },
+    "contractTest": "sdk/programs/eternal/tests/eternal/perp/oracle_staleness_quorum.rs::pr3289_vector1_quorum_not_padded_by_hard_stale_oracles"
+  },
+  {
+    "contractTest": "sdk/programs/eternal/tests/eternal/margin_checks/limit.rs::test_unhealthy_close_rejects_worsening_margin_ratio_with_distinct_code",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 20482
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 20482,
+      "errorName": "MarginInvalidStateChange",
+      "hint": null,
+      "instructionName": "PlaceMarketOrder",
+      "message": "Change would worsen the account's margin state",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlaceMarketOrder",
+    "instructions": [
+      {
+        "data": [90, 118, 192, 252, 192, 99, 39, 145],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Place Market Order",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to add position to trader",
+      "Program log: FMotwHtUPpUpHCQx7jCT5KLaohxEpLwGuRBjS83yb4Vc",
+      "Program log: Successfully added position to selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Interacting with matching engine",
+      "Program log: Placing order",
+      "Program log: MatchingEngine: Uncross book",
+      "Program log: MatchingEngine: Match splines against orderbook",
+      "Program log: MatchingEngine: PlaceOrder: Reduce-only check",
+      "Program log: MatchingEngine: Handle cross",
+      "Program log: MatchingEngine: Match order",
+      "Program log: MatchingEngine: Match orderbook",
+      "Program log: MatchingEngine: Remove order from book inner",
+      "Program log: Order placed",
+      "Program log: Post-margin check",
+      "Program log: Validate margin state change",
+      "Program log: pre_initial_margin=9000000000",
+      "Program log: pre_effective_collateral=5000000000",
+      "Program log: post_initial_margin=8775000000",
+      "Program log: post_effective_collateral=4500000000",
+      "Program log: validate_margin_state_change failed",
+      "Program log: Invalid margin after trade",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 151494 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 149883 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: MarginInvalidStateChange: Change would worsen the account's margin state",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 51440 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x5002"
+    ],
+    "name": "litesvm-close-worsens-margin"
+  },
+  {
+    "name": "litesvm-twap-expired",
+    "instructions": [
+      {
+        "data": [145, 69, 214, 36, 128, 146, 55, 207],
+        "programAddress": "FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU"
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 8002
+        }
+      ]
+    },
+    "logs": [
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU invoke [1]",
+      "Program log: TWAP: Execute TWAP Order",
+      "Program log: TWAP: order is expired",
+      "Program log: TWAP order expired and should be cancelled",
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU consumed 25959 of 1400000 compute units",
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU failed: custom program error: 0x1f42"
+    ],
+    "instructionName": "ExecuteTWAPOrder",
+    "failure": {
+      "programAddress": "FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU",
+      "programName": "Flicker",
+      "instructionName": "ExecuteTWAPOrder",
+      "errorCode": 8002,
+      "errorName": "ExpiredCancellable",
+      "message": "TWAP order expired and should be cancelled"
+    },
+    "contractTest": "sdk/programs/flicker/tests/runtime/cpi_execution.rs::execute_rejects_expired_completed_and_missing_orders"
+  },
+  {
+    "name": "litesvm-twap-completed",
+    "instructions": [
+      {
+        "data": [145, 69, 214, 36, 128, 146, 55, 207],
+        "programAddress": "FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU"
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 8000
+        }
+      ]
+    },
+    "logs": [
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU invoke [1]",
+      "Program log: TWAP: Execute TWAP Order",
+      "Program log: TWAP: order is complete",
+      "Program log: TWAP order execution failed and should be cancelled",
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU consumed 25967 of 1400000 compute units",
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU failed: custom program error: 0x1f40"
+    ],
+    "instructionName": "ExecuteTWAPOrder",
+    "failure": {
+      "programAddress": "FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU",
+      "programName": "Flicker",
+      "instructionName": "ExecuteTWAPOrder",
+      "errorCode": 8000,
+      "errorName": "Cancellable",
+      "message": "TWAP order execution failed and should be cancelled"
+    },
+    "contractTest": "sdk/programs/flicker/tests/runtime/cpi_execution.rs::execute_rejects_expired_completed_and_missing_orders"
+  },
+  {
+    "contractTest": "sdk/programs/flicker/tests/runtime/price_guards.rs::place_retries_when_bid_max_price_caps_limit_below_resting_ask",
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 24578
+        }
+      ]
+    },
+    "failure": {
+      "errorCode": 24578,
+      "errorName": "OrderIocMinimumNotMet",
+      "hint": null,
+      "instructionName": null,
+      "message": "IOC order does not meet minimum requirements. Min base: 1000 base lots, Min quote: 0 quote lots, Filled base: 0 base lots, Filled quote: 0 quote lots",
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal"
+    },
+    "instructionName": "PlaceTWAPOrder",
+    "instructions": [
+      {
+        "data": [0, 140, 86, 197, 70, 38, 229, 173],
+        "programAddress": "FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU"
+      }
+    ],
+    "logs": [
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU invoke [1]",
+      "Program log: TWAP: Place TWAP Order",
+      "Program RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj invoke [2]",
+      "Program RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj consumed 4852 of 1359693 compute units",
+      "Program return: RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj cUGnH6Mfyu8BAAIAAAAAAAAAAAAAAAAAUMMAAAAAAABQwwAAAAAAAFDDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+      "Program RiSeVw3ZjNfsaXPRb4mgaqYaEEt41pNNJoDvVh7pgQj success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program log: Phoenix Eternal: Place Market Order",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to add position to trader",
+      "Program log: 8ZJNvA291WoDSksp1F92CEdVYzu6r3JfdppbmoLJotsE",
+      "Program log: Successfully added position to selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Interacting with matching engine",
+      "Program log: Placing order",
+      "Program log: MatchingEngine: Uncross book",
+      "Program log: MatchingEngine: Match splines against orderbook",
+      "Program log: MatchingEngine: PlaceOrder: Reduce-only check",
+      "Program log: MatchingEngine: Handle cross",
+      "Program log: MatchingEngine: Match order",
+      "Program log: Failed to perform MatchingEngine::place_order",
+      "Program log: OrderIocMinimumNotMet: IOC order does not meet minimum requirements. Min base: 1000 base lots, Min quote: 0 quote lots, Filled base: 0 base lots, Filled quote: 0 quote lots",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [3]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 1310671 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [3]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 1309063 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 31535 of 1339936 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x6002",
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU consumed 91599 of 1400000 compute units",
+      "Program FLickryJ5sBSyBRj7sSzMnsP93jvPxEqNKjvG49q9CEU failed: custom program error: 0x6002"
+    ],
+    "name": "litesvm-twap-price-cap-minimum-fill"
+  },
+  {
+    "name": "litesvm-conditional-parent-state-invalid",
+    "instructions": [
+      {
+        "data": [135, 170, 166, 34, 208, 230, 91, 64],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 28686
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Ping Conditional Orders",
+      "Program log: Invalid CO state: activation phase; state: Some(FIFORestingOrder { trader_position_id: TraderPositionId { trader_id: NodePointer(OptionalNonZeroU32(Some(1))), asset_id: AssetIndex(StableIndexedShortMapIndex(0)) }, initial_trade_size: BaseLots(1000), num_base_lots_remaining: BaseLots(1000), order_flags: OrderFlags { flags: 0 }, optional_conditional_order_index: OptionalConditionalOrderIndex(1), scale_set_id: OptionalNonZeroU8(None), additional_fee_tenths_bps: AdditionalFeeTenthsBps(None), expiration_offset: OptionalNonZeroU32(None), initial_slot: 0, prev: NodePointer(OptionalNonZeroU32(None)), next: NodePointer(OptionalNonZeroU32(None)) }) false true",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 185612 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 184004 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: StopLossConditionalOrderStateInvalid: Conditional order state is inconsistent with its resting order",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 17313 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x700e"
+    ],
+    "instructionName": "PingConditionalOrders",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PingConditionalOrders",
+      "errorCode": 28686,
+      "errorName": "StopLossConditionalOrderStateInvalid",
+      "message": "Conditional order state is inconsistent with its resting order"
+    },
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/conditional_orders/error_handling.rs::ping_rejects_inconsistent_parent_linkage_and_remaining_size"
+  },
+  {
+    "name": "litesvm-conditional-size-below-remaining",
+    "instructions": [
+      {
+        "data": [135, 170, 166, 34, 208, 230, 91, 64],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 28687
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Ping Conditional Orders",
+      "Program log: Max size is less than order's remaining fillable size",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 191977 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 190369 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: StopLossConditionalOrderSizeBelowRemaining: Conditional order max size is below its resting order's remaining size",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 10962 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x700f"
+    ],
+    "instructionName": "PingConditionalOrders",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "PingConditionalOrders",
+      "errorCode": 28687,
+      "errorName": "StopLossConditionalOrderSizeBelowRemaining",
+      "message": "Conditional order max size is below its resting order's remaining size"
+    },
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/conditional_orders/error_handling.rs::ping_rejects_inconsistent_parent_linkage_and_remaining_size"
+  },
+  {
+    "name": "litesvm-conditional-position-sequence-changed",
+    "instructions": [
+      {
+        "data": [101, 214, 110, 0, 190, 226, 177, 236],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 28681
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Execute Conditional Orders",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to activate trader",
+      "Program log: FMotwHtUPpUpHCQx7jCT5KLaohxEpLwGuRBjS83yb4Vc",
+      "Program log: Successfully activated selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Conditional order execution failed: StopLoss(PositionSequenceInvalidated)",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 172993 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 171385 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: StopLossPositionSequenceInvalidated: The position changed since the stop loss was placed",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 29932 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x7009"
+    ],
+    "instructionName": "ExecuteConditionalOrders",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "ExecuteConditionalOrders",
+      "errorCode": 28681,
+      "errorName": "StopLossPositionSequenceInvalidated",
+      "message": "The position changed since the stop loss was placed"
+    },
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/conditional_orders/position_sequence.rs::test_position_sequence_interleaved_fills_and_trades"
+  },
+  {
+    "name": "litesvm-conditional-margin-validation",
+    "instructions": [
+      {
+        "data": [38, 122, 90, 90, 182, 241, 7, 4],
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih"
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 28684
+        }
+      ]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: Phoenix Eternal: Execute Stop Loss",
+      "Program log: Settling funding and updating snapshot and initializing trader position",
+      "Program log: Attempting to activate trader",
+      "Program log: FMotwHtUPpUpHCQx7jCT5KLaohxEpLwGuRBjS83yb4Vc",
+      "Program log: Successfully activated selected trader",
+      "Program log: Pre-margin check",
+      "Program log: Interacting with matching engine",
+      "Program log: Placing order",
+      "Program log: MatchingEngine: Uncross book",
+      "Program log: MatchingEngine: Match splines against orderbook",
+      "Program log: MatchingEngine: PlaceOrder: Reduce-only check",
+      "Program log: MatchingEngine: Handle cross",
+      "Program log: MatchingEngine: Match order",
+      "Program log: MatchingEngine: Match orderbook",
+      "Program log: MatchingEngine: Insert limit order",
+      "Program log: Order placed",
+      "Program log: Post-margin check",
+      "Program log: Validate margin state change",
+      "Program log: assert_with_side_effect failed",
+      "Program log: \"Risk-reducing market order worsened risk state\"\neternal-lib/src/loaders/mod.rs:60:22",
+      "Program log: Stop loss execution failed: StopLoss(MarginValidationFailed)",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 602 of 138930 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [2]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 448 of 137319 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih success",
+      "Program log: StopLossMarginValidationFailed: The stop loss failed margin validation",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 63998 of 200000 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: custom program error: 0x700c"
+    ],
+    "instructionName": "ExecuteStopLoss",
+    "failure": {
+      "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+      "programName": "Eternal",
+      "instructionName": "ExecuteStopLoss",
+      "errorCode": 28684,
+      "errorName": "StopLossMarginValidationFailed",
+      "message": "The stop loss failed margin validation"
+    },
+    "contractTest": "sdk/programs/eternal/tests/eternal/orders/stop_loss.rs::test_execute_stop_loss_ioc_margin_check_failure"
+  },
+  {
+    "name": "uncatalogued-flame-custom-error",
+    "instructions": [
+      {
+        "data": [136, 235, 181, 5, 101, 109, 57, 81],
+        "programAddress": "FLameGi7e6q6oDf4osFqQFtFJureWKKpnMFU4JmiRDvF"
+      }
+    ],
+    "error": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 20481
+        }
+      ]
+    },
+    "logs": [
+      "Program FLameGi7e6q6oDf4osFqQFtFJureWKKpnMFU4JmiRDvF invoke [1]",
+      "Program FLameGi7e6q6oDf4osFqQFtFJureWKKpnMFU4JmiRDvF failed: custom program error: 0x5001"
+    ],
+    "instructionName": "WithdrawToken",
+    "failure": {
+      "programAddress": "FLameGi7e6q6oDf4osFqQFtFJureWKKpnMFU4JmiRDvF",
+      "programName": "Flame",
+      "instructionName": "WithdrawToken",
+      "errorCode": 20481,
+      "errorName": null,
+      "message": "Custom program error: 0x5001"
+    }
+  },
+  {
+    "name": "noncanonical-vm-trap-keeps-the-original-error",
+    "instructions": [
+      {
+        "programAddress": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "data": [90, 118, 192, 252, 192, 99, 39, 145]
+      }
+    ],
+    "error": {
+      "InstructionError": [0, "ProgramFailedToComplete"]
+    },
+    "logs": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: Access violation in stack frame 0 at address 0x200000000 of size 8"
+    ],
+    "instructionName": "PlaceMarketOrder",
+    "failure": null
+  }
+]

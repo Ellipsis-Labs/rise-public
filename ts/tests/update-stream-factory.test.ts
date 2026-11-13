@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { z } from "zod";
+import * as z from "zod";
 import { createUpdateStream } from "@/ws/adapters/_utils/updateStreamFactory";
 import { createFillsAdapter } from "@/ws/adapters/fills/adapter";
 import type { WsClient } from "@/ws/types";
