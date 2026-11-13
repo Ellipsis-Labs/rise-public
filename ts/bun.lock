@@ -25,6 +25,7 @@
         "litesvm": "1.4.1",
         "madge": "^8.0.0",
         "prettier": "3.9.10",
+        "ts-semver-checks": "0.9.0",
         "tsdown": "^0.20.0-beta.4",
         "typescript": "^5.9.3",
         "vitest": "^4.1.12",
@@ -703,6 +704,10 @@
     "ts-api-utils": ["ts-api-utils@2.4.0", "", { "peerDependencies": { "typescript": ">=4.8.4" } }, "sha512-3TaVTaAv2gTiMB35i3FiGJaRfwb3Pyn/j3m/bfAvGe8FB7CF6u+LMYqYlDh7reQf7UNvoTvdfAqHGmPGOSsPmA=="],
 
     "ts-graphviz": ["ts-graphviz@2.1.6", "", { "dependencies": { "@ts-graphviz/adapter": "^2.0.6", "@ts-graphviz/ast": "^2.0.7", "@ts-graphviz/common": "^2.1.5", "@ts-graphviz/core": "^2.0.7" } }, "sha512-XyLVuhBVvdJTJr2FJJV2L1pc4MwSjMhcunRVgDE9k4wbb2ee7ORYnPewxMWUav12vxyfUM686MSGsqnVRIInuw=="],
+
+    "ts-semver-checks": ["ts-semver-checks@0.9.0", "", { "dependencies": { "ts-semver-checks-core": "^0.8.0" }, "peerDependencies": { "typescript": ">=5.0.0 <7.0.0" }, "bin": { "ts-semver-checks": "./dist/cli.js" } }, "sha512-oX9Xmzxsz+nh/Xr9LOMA4so+UyF3wEfyUniysQ11Dz0Naydbj1Ephf/DTx0vOP3fMQ1XpjMgmW1Iq/bXEvs8ag=="],
+
+    "ts-semver-checks-core": ["ts-semver-checks-core@0.8.0", "", { "peerDependencies": { "typescript": ">=5.0.0 <7.0.0" } }, "sha512-p/Rw109jx0zCMwfMvqvGDpYGWtPI5NzujMxC6GtbtMZl5jsYITYodgiCsIqfMln0cpjqzSFolDKEoixzvTqKEA=="],
 
     "tsconfig-paths": ["tsconfig-paths@4.2.0", "", { "dependencies": { "json5": "^2.2.2", "minimist": "^1.2.6", "strip-bom": "^3.0.0" } }, "sha512-NoZ4roiN7LnbKn9QqE1amc9DJfzvZXxF4xDavcOWt1BPkdx+m+0gJuPM+S0vCe7zTJMYUP0R8pO2XMr+Y8oLIg=="],
 

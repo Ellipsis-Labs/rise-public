@@ -3,6 +3,25 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.8.0 - 2026-11-13
+
+Source Phoenix commit: `f373db07b2c96ff656be0bcfb3be22f50163f251`
+
+### Summary
+
+- Bumps `@ellipsis-labs/rise` from 0.7.15 to 0.8.0. In 0.x versioning, a minor bump is the one that signals breaking changes. The synced diff contains no source changes to the package, so it doesn't show what those changes are.
+- Adds a `semver-check` package script (`bun run semver-check`). It compares the built declarations in `dist/` against the latest npm release with `ts-semver-checks`. It fails if `package.json`'s version is too small a bump for the public API changes. This is a maintainer tool and does not change the published API.
+- Adds `ts-semver-checks` 0.9.0 as a dev dependency. It is not a runtime dependency, so consumers' installs are unaffected.
+
+### Breaking Changes
+
+- None identified in the synced diff. The 0.8.0 bump is a minor version in 0.x, which semver treats as the breaking-change bump. Reviewers should check the release for API changes that the diff doesn't show before publishing.
+
+### Consumer Notes
+
+- No export, type, client, runtime or packaging changes appear in the synced diff, so consumers need no code changes from it.
+- Consumers with a `^0.7.x` range will not pick up 0.8.0 automatically, because caret ranges on 0.x versions stay within the same minor. They must update the range to adopt it.
+
 ## v0.7.15 - 2026-11-13
 
 Source Phoenix commit: `2ea55b0cca007d5bbc019dbb12449193f6a745cc`
