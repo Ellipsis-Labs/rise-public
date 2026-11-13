@@ -1,5 +1,10 @@
-import type { AuthSession } from "./session";
-import { fromSnapshot, toSnapshot, type AuthSessionSnapshot } from "./session";
+import type { AuthSession, RiseSessionControl } from "./session";
+import {
+  fromExternalSnapshot,
+  fromSnapshot,
+  toSnapshot,
+  type AuthSessionSnapshot,
+} from "./session";
 
 export interface AuthSessionStorage {
   get(): Promise<AuthSession | null>;
@@ -34,6 +39,10 @@ export class MemoryAuthSessionStorage implements AuthSessionStorage {
   }
 }
 
+export interface LocalStorageAuthSessionStorageOptions {
+  sessionControl?: RiseSessionControl;
+}
+
 export class LocalStorageAuthSessionStorage
   implements AuthSessionStorage, AuthSessionStorageSubscriber
 {
@@ -41,7 +50,14 @@ export class LocalStorageAuthSessionStorage
   private readonly lockKey: string;
   private readonly refreshLockKey: string;
 
-  constructor(storageKey = "phoenix-rise-auth") {
+  constructor(
+    storageKey?: string,
+    private readonly options: LocalStorageAuthSessionStorageOptions = {}
+  ) {
+    storageKey ??=
+      options.sessionControl === "external"
+        ? "phoenix-rise-auth-external"
+        : "phoenix-rise-auth";
     this.storageKey = storageKey;
     this.lockKey = `${storageKey}:lock`;
     this.refreshLockKey = `${storageKey}:refresh-lock`;
@@ -129,10 +145,18 @@ export class LocalStorageAuthSessionStorage
   }
 
   async get(): Promise<AuthSession | null> {
+    return this.readSession();
+  }
+
+  private readSession(): AuthSession | null {
     const raw = window.localStorage.getItem(this.storageKey);
     if (!raw) return null;
     try {
-      return fromSnapshot(JSON.parse(raw) as AuthSessionSnapshot);
+      const restore =
+        this.options.sessionControl === "external"
+          ? fromExternalSnapshot
+          : fromSnapshot;
+      return restore(JSON.parse(raw) as AuthSessionSnapshot);
     } catch {
       try {
         window.localStorage.removeItem(this.storageKey);
@@ -165,17 +189,7 @@ export class LocalStorageAuthSessionStorage
 
     const handleStorage = (event: StorageEvent) => {
       if (event.key !== this.storageKey && event.key !== null) return;
-      const serialized = window.localStorage.getItem(this.storageKey);
-      if (!serialized) {
-        listener(null);
-        return;
-      }
-
-      try {
-        listener(fromSnapshot(JSON.parse(serialized) as AuthSessionSnapshot));
-      } catch {
-        listener(null);
-      }
+      listener(this.readSession());
     };
 
     window.addEventListener("storage", handleStorage);

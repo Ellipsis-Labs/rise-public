@@ -1,5 +1,14 @@
 import { base64urlnopad } from "@scure/base";
 
+/**
+ * Controls whether the SDK owns session refresh / persistence or relies on an
+ * external session owner.
+ *
+ * `managed` remains supported for compatibility and behaves like the default
+ * SDK-owned mode.
+ */
+export type RiseSessionControl = "managed" | "external";
+
 type AuthResponseLike = {
   access_token: string;
   refresh_token: string;
@@ -93,7 +102,11 @@ export const toSnapshot = (session: AuthSession): AuthSessionSnapshot => ({
   counter: session.counter.toString(10),
 });
 
+/** Restores an SDK-managed session, requiring a session id and JWT expiry. */
 export const fromSnapshot = (snapshot: AuthSessionSnapshot): AuthSession => {
+  if (snapshot.accessToken.length === 0) {
+    throw new Error("Access token is empty");
+  }
   const payload = decodeJwtPayload(snapshot.accessToken);
   const sid =
     typeof snapshot.sessionId === "string"
@@ -101,24 +114,65 @@ export const fromSnapshot = (snapshot: AuthSessionSnapshot): AuthSession => {
       : typeof payload.sid === "string"
         ? payload.sid
         : null;
-
   if (!sid) {
     throw new Error("Missing sid in access token snapshot");
   }
-
-  const exp = payload.exp;
-  if (typeof exp !== "number") {
+  if (typeof payload.exp !== "number") {
     throw new Error("Missing exp in access token snapshot");
   }
-
-  return {
-    sessionId: sid,
-    accessToken: snapshot.accessToken,
-    refreshToken: snapshot.refreshToken,
-    popKeyBytes: Uint8Array.from(base64urlnopad.decode(snapshot.popKey)),
-    accessJti: snapshot.accessJti,
-    expiresAt: exp * 1000,
-    refreshExpiresAt: snapshot.refreshExpiresAt,
-    counter: BigInt(snapshot.counter),
-  };
+  return restoreSnapshot(snapshot, sid, payload.exp * 1000);
 };
+
+const tryDecodeJwtPayload = (token: string): Record<string, unknown> | null => {
+  try {
+    return decodeJwtPayload(token);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Restores an externally owned session from a snapshot.
+ *
+ * The access token may be opaque or a JWT without `sid`/`jti`, as issued by
+ * an external session owner (`sessionControl: "external"`). The session id
+ * comes from `snapshot.sessionId`, then the JWT `sid`, else it is empty; the
+ * access expiry comes from the JWT `exp`, else `snapshot.expiresAt`.
+ */
+export const fromExternalSnapshot = (
+  snapshot: AuthSessionSnapshot
+): AuthSession => {
+  if (snapshot.accessToken.length === 0) {
+    throw new Error("Access token is empty");
+  }
+
+  const payload = tryDecodeJwtPayload(snapshot.accessToken);
+  const sid =
+    typeof snapshot.sessionId === "string"
+      ? snapshot.sessionId
+      : typeof payload?.sid === "string"
+        ? payload.sid
+        : "";
+  const exp = payload?.exp;
+
+  return restoreSnapshot(
+    snapshot,
+    sid,
+    typeof exp === "number" ? exp * 1000 : snapshot.expiresAt
+  );
+};
+
+const restoreSnapshot = (
+  snapshot: AuthSessionSnapshot,
+  sessionId: string,
+  expiresAt: number
+): AuthSession => ({
+  sessionId,
+  accessToken: snapshot.accessToken,
+  refreshToken: snapshot.refreshToken,
+  popKeyBytes: Uint8Array.from(base64urlnopad.decode(snapshot.popKey)),
+  accessJti: snapshot.accessJti,
+  expiresAt,
+  refreshExpiresAt: snapshot.refreshExpiresAt,
+  counter: BigInt(snapshot.counter),
+});

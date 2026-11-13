@@ -1,6 +1,6 @@
-import type { AuthSession } from "@/auth/session";
+import type { AuthSession, RiseSessionControl } from "@/auth/session";
 import type { AuthSessionManager } from "@/auth/manager";
-import type { RiseSessionControl, RiseWsAuthMode } from "@/auth/types";
+import type { RiseWsAuthMode } from "@/auth/types";
 
 export type WsServerErrorMessage = {
   channel: "error";

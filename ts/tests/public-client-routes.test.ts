@@ -12,6 +12,7 @@ import {
 } from "@/api/markets";
 import { V1OrdersClient } from "@/api/orders";
 import { V1TradersClient } from "@/api/traders";
+import { TraderStateMarginSchema } from "@/api/traders/traderState";
 import { V1TradesClient } from "@/api/trades";
 import { PhoenixHttpError } from "@/errors";
 import type { HttpTransport, QueryParams, RequestOptions } from "@/http";
@@ -219,6 +220,35 @@ const TRADER_VIEW_RESPONSE = {
   takerFeeOverrideMultiplier: 1,
 };
 
+const TRADER_STATE_MARGIN_RESPONSE = {
+  effectiveCollateral: TOKEN_AMOUNT,
+  effectiveCollateralForWithdrawals: TOKEN_AMOUNT,
+  withdrawableQuoteCollateral: TOKEN_AMOUNT,
+  lockedDepositRemaining: TOKEN_AMOUNT,
+  unrealizedPnl: TOKEN_AMOUNT,
+  discountedUnrealizedPnl: TOKEN_AMOUNT,
+  unsettledFundingOwed: TOKEN_AMOUNT,
+  accumulatedFunding: TOKEN_AMOUNT,
+  portfolioValue: TOKEN_AMOUNT,
+  maintenanceMargin: TOKEN_AMOUNT,
+  cancelMargin: TOKEN_AMOUNT,
+  initialMargin: TOKEN_AMOUNT,
+  initialMarginForWithdrawals: TOKEN_AMOUNT,
+  riskState: "healthy",
+  riskTier: "safe",
+  positions: {
+    "SOL-PERP": {
+      positionValue: { value: 1250000, decimals: 6, ui: "1.25" },
+      positionInitialMargin: TOKEN_AMOUNT,
+      initialMargin: TOKEN_AMOUNT,
+      maintenanceMargin: TOKEN_AMOUNT,
+      backstopMargin: TOKEN_AMOUNT,
+      limitOrderMargin: TOKEN_AMOUNT,
+      liquidationPrice: TOKEN_AMOUNT,
+    },
+  },
+};
+
 const createTransport = (
   responses: Map<string, unknown>,
   records: RequestRecord[]
@@ -248,6 +278,77 @@ const createTransport = (
 });
 
 describe("public client route mapping", () => {
+  it("accepts snapshot responses from servers without margin enrichment", async () => {
+    const transport = createTransport(
+      new Map<string, unknown>([
+        [
+          "/v1/trader/state/authority",
+          {
+            authority: "authority",
+            traderPdaIndex: 0,
+            slot: 1,
+            slotIndex: 2,
+            snapshot: {
+              version: 1,
+              capabilities: {
+                flags: 1,
+                state: "active",
+                capabilities: TRADER_CAPABILITIES,
+              },
+              makerFeeOverrideMultiplier: 1,
+              takerFeeOverrideMultiplier: 1,
+              subaccounts: [
+                { subaccountIndex: 0, sequence: 1, collateral: "1000" },
+              ],
+            },
+          },
+        ],
+      ]),
+      []
+    );
+    const response = await new V1TradersClient(
+      transport
+    ).getTraderStateSnapshot("authority");
+    expect(response.snapshot.subaccounts[0]).toMatchObject({
+      subaccountIndex: 0,
+      collateral: "1000",
+      positions: [],
+      orders: [],
+    });
+    expect(response.snapshot.subaccounts[0]).not.toHaveProperty("margin");
+    expect(response.snapshot.subaccounts[0]).not.toHaveProperty("marginError");
+  });
+
+  it("validates margin values using shared token and risk schemas", () => {
+    expect(TraderStateMarginSchema.parse(TRADER_STATE_MARGIN_RESPONSE)).toEqual(
+      TRADER_STATE_MARGIN_RESPONSE
+    );
+    expect(
+      TraderStateMarginSchema.safeParse({
+        ...TRADER_STATE_MARGIN_RESPONSE,
+        effectiveCollateral: "1.25",
+      }).success
+    ).toBe(false);
+    expect(
+      TraderStateMarginSchema.safeParse({
+        ...TRADER_STATE_MARGIN_RESPONSE,
+        riskState: "invalid",
+      }).success
+    ).toBe(false);
+    expect(
+      TraderStateMarginSchema.safeParse({
+        ...TRADER_STATE_MARGIN_RESPONSE,
+        riskTier: "invalid",
+      }).success
+    ).toBe(false);
+    expect(
+      TraderStateMarginSchema.safeParse({
+        ...TRADER_STATE_MARGIN_RESPONSE,
+        positions: { "SOL-PERP": { positionValue: TOKEN_AMOUNT } },
+      }).success
+    ).toBe(false);
+  });
+
   it("parses optional exchange market stats snapshots", async () => {
     const records: RequestRecord[] = [];
     const responses = new Map<string, unknown>([
@@ -576,7 +677,20 @@ describe("public client route mapping", () => {
               },
               makerFeeOverrideMultiplier: 1,
               takerFeeOverrideMultiplier: 1,
-              subaccounts: [],
+              subaccounts: [
+                {
+                  subaccountIndex: 0,
+                  sequence: 1,
+                  collateral: "1000",
+                  margin: TRADER_STATE_MARGIN_RESPONSE,
+                },
+                {
+                  subaccountIndex: 1,
+                  sequence: 2,
+                  collateral: "500",
+                  marginError: "margin_unavailable",
+                },
+              ],
             },
           },
         ],
@@ -793,7 +907,34 @@ describe("public client route mapping", () => {
 
     const traderView = await traders.getTrader("trader-pubkey");
     await traders.getTraderCapabilities();
-    await traders.getTraderStateSnapshot("authority", { traderPdaIndex: 0 });
+    const traderSnapshot = await traders.getTraderStateSnapshot("authority", {
+      traderPdaIndex: 0,
+    });
+    const [healthySubaccount, failedSubaccount] =
+      traderSnapshot.snapshot.subaccounts;
+    expect(healthySubaccount?.margin?.effectiveCollateral).toEqual(
+      traderView.effectiveCollateral
+    );
+    expect(healthySubaccount?.margin?.riskState).toBe(traderView.riskState);
+    expect(healthySubaccount?.margin?.riskTier).toBe(traderView.riskTier);
+    expect(
+      healthySubaccount?.margin?.positions["SOL-PERP"].positionValue
+    ).toEqual({
+      value: 1250000,
+      decimals: 6,
+      ui: "1.25",
+    });
+    expect(healthySubaccount?.marginError).toBeUndefined();
+    expect(failedSubaccount).toMatchObject({
+      subaccountIndex: 1,
+      sequence: 2,
+      collateral: "500",
+      marginError: "margin_unavailable",
+      positions: [],
+      orders: [],
+    });
+    expect(failedSubaccount?.margin).toBeUndefined();
+    expect(traderSnapshot.snapshot.capabilities.state).toBe("active");
     const userPnl = await traders.getTraderPnl("authority", {
       resolution: "1h",
       limit: 10,

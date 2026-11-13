@@ -132,6 +132,8 @@ describe("trader-state wire", () => {
     const position = parsed.subaccounts?.[0]?.positions?.[0];
     const order = parsed.subaccounts?.[0]?.orders?.[0]?.orders?.[0];
     expect(parsed.slot).toBe(123n);
+    expect(parsed.subaccounts?.[0]).not.toHaveProperty("margin");
+    expect(parsed.subaccounts?.[0]).not.toHaveProperty("marginError");
     expect(position?.takeProfitTriggers[0]?.takeProfitId).toBe("tp-1-1-gt");
     expect(position?.stopLossTriggers[0]?.stopLossId).toBe("sl-1-1-lt");
     expect(

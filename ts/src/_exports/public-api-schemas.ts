@@ -516,6 +516,11 @@ export {
 } from "../ws/adapters/trader-state/wire";
 
 export {
+  type TraderStateMargin,
+  type TraderStatePositionMargin,
+} from "../api/traders/traderState";
+
+export {
   type TwapOrderSnapshot,
   TwapOrderSnapshotSchema,
   type TwapAccountSnapshot,

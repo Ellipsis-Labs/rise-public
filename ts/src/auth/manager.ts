@@ -1,5 +1,14 @@
-import type { AuthSession, AuthSessionSnapshot } from "./session";
-import { fromSnapshot, isRefreshExpired, toSnapshot } from "./session";
+import type {
+  AuthSession,
+  AuthSessionSnapshot,
+  RiseSessionControl,
+} from "./session";
+import {
+  fromExternalSnapshot,
+  fromSnapshot,
+  isRefreshExpired,
+  toSnapshot,
+} from "./session";
 import type {
   AuthSessionRefreshLock,
   AuthSessionStorage,
@@ -51,6 +60,10 @@ class AsyncMutex {
   }
 }
 
+export interface AuthSessionManagerOptions {
+  sessionControl?: RiseSessionControl;
+}
+
 export class AuthSessionManager {
   private readonly mutex = new AsyncMutex();
   private refreshInFlight: Promise<AuthSession> | null = null;
@@ -60,7 +73,8 @@ export class AuthSessionManager {
 
   constructor(
     protected readonly storage: AuthSessionStorage,
-    initialSession?: AuthSession
+    initialSession?: AuthSession,
+    private readonly options: AuthSessionManagerOptions = {}
   ) {
     this.cachedSession = initialSession;
     if (initialSession) {
@@ -200,7 +214,11 @@ export class AuthSessionManager {
   }
 
   async importSnapshot(snapshot: AuthSessionSnapshot): Promise<void> {
-    await this.updateSession(fromSnapshot(snapshot));
+    const restore =
+      this.options.sessionControl === "external"
+        ? fromExternalSnapshot
+        : fromSnapshot;
+    await this.updateSession(restore(snapshot));
   }
 
   onChange(listener: (session: AuthSession | null) => void): () => void {

@@ -2,6 +2,7 @@ import { PhoenixAuthError } from "@/errors";
 import { AuthBackoffManager } from "./backoff";
 import { AuthSessionManager } from "./manager";
 import {
+  fromExternalSnapshot,
   fromSnapshot,
   isAccessExpired,
   isAccessExpiringWithin,
@@ -38,13 +39,17 @@ export class RiseAuthRuntime {
 
     const normalizedInitialSession = config.initialSession
       ? isSnapshot(config.initialSession)
-        ? fromSnapshot(config.initialSession)
+        ? (this.sessionIsExternallyManaged
+            ? fromExternalSnapshot
+            : fromSnapshot)(config.initialSession)
         : config.initialSession
       : undefined;
 
     const sessionManager =
       config.sessionManager ??
-      new AuthSessionManager(resolveStorage(config), normalizedInitialSession);
+      new AuthSessionManager(resolveStorage(config), normalizedInitialSession, {
+        sessionControl: config.sessionControl,
+      });
     this.sessionManager = sessionManager;
     this.authClient = new PhoenixAuthClient({
       apiUrl,

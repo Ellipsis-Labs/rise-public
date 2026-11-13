@@ -54,7 +54,10 @@ export const getGlobalConfigurationDecoder = (): Decoder<GlobalConfiguration> =>
         ["nativeSolSpotMetadata", getSpotCollateralMetadataDecoder()],
         ["acknowledgedRestartSlot", getU64Decoder()],
         ["pendingWithdrawThrottleReplenishment", getQuoteLotsDecoder()],
-        ["_padding1", getFixedArrayDecoder(getU64Decoder, 21)],
+        ["globalLiquidationFeeBps", getU16Decoder()],
+        ["liquidationFeeExchangePortionBps", getU16Decoder()],
+        ["_padding0a", getFixedArrayDecoder(getU8Decoder, 4)],
+        ["_padding1", getFixedArrayDecoder(getU64Decoder, 20)],
         ["_padding2", getFixedArrayDecoder(getU64Decoder, 32)],
         ["_padding3", getFixedArrayDecoder(getU64Decoder, 32)],
         ["_padding4", getFixedArrayDecoder(getU64Decoder, 32)],
@@ -64,6 +67,7 @@ export const getGlobalConfigurationDecoder = (): Decoder<GlobalConfiguration> =>
       [getConstantDecoder(ACCOUNT_DISCRIMINANTS.GLOBAL_CONFIGURATION)]
     ),
     ({
+      _padding0a,
       _padding1,
       _padding2,
       _padding3,

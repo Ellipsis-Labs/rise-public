@@ -434,6 +434,36 @@
     {
       "program": "phoenix-eternal",
       "enumName": "PhoenixInstruction",
+      "instructionName": "UpdatePerpLiquidationFee",
+      "snakeCaseName": "update_perp_liquidation_fee",
+      "preimage": "global:update_perp_liquidation_fee",
+      "tag": "16467919476821100299",
+      "discriminatorHex": "0b87a86d83cd89e4",
+      "discriminatorBase64": "C4eobYPNieQ="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdateGlobalLiquidationFee",
+      "snakeCaseName": "update_global_liquidation_fee",
+      "preimage": "global:update_global_liquidation_fee",
+      "tag": "16964581278169436871",
+      "discriminatorHex": "c7128850ca4c6eeb",
+      "discriminatorBase64": "xxKIUMpMbus="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
+      "instructionName": "UpdatePerpLiquidationMarginTolerance",
+      "snakeCaseName": "update_perp_liquidation_margin_tolerance",
+      "preimage": "global:update_perp_liquidation_margin_tolerance",
+      "tag": "15790052619655887643",
+      "discriminatorHex": "1bbb50c3328921db",
+      "discriminatorBase64": "G7tQwzKJIds="
+    },
+    {
+      "program": "phoenix-eternal",
+      "enumName": "PhoenixInstruction",
       "instructionName": "UpdatePerpMaxLiquidationSize",
       "snakeCaseName": "update_perp_max_liquidation_size",
       "preimage": "global:update_perp_max_liquidation_size",

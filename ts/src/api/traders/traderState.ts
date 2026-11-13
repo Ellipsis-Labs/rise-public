@@ -1,4 +1,6 @@
 import z from "zod";
+import { RiskState, RiskTier } from "@/types/trader";
+import { TokenAmountSchema, type TokenAmount } from "@/primitives/TokenAmount";
 
 import { ParentTwapIdSchema } from "@/api/utils/parentTwapId";
 import {
@@ -259,6 +261,67 @@ export interface TraderStateEscrowRequest {
   actions: TraderStateEscrowAction[];
 }
 
+/** HTTP-only margin values for one position, keyed by market symbol. */
+export interface TraderStatePositionMargin {
+  positionValue: TokenAmount;
+  positionInitialMargin: TokenAmount;
+  initialMargin: TokenAmount;
+  maintenanceMargin: TokenAmount;
+  backstopMargin: TokenAmount;
+  limitOrderMargin: TokenAmount;
+  liquidationPrice: TokenAmount;
+}
+
+export const TraderStatePositionMarginSchema: z.ZodType<TraderStatePositionMargin> =
+  z.object({
+    positionValue: TokenAmountSchema,
+    positionInitialMargin: TokenAmountSchema,
+    initialMargin: TokenAmountSchema,
+    maintenanceMargin: TokenAmountSchema,
+    backstopMargin: TokenAmountSchema,
+    limitOrderMargin: TokenAmountSchema,
+    liquidationPrice: TokenAmountSchema,
+  });
+
+/** HTTP-only margin and risk values computed at the snapshot's slot. */
+export interface TraderStateMargin {
+  effectiveCollateral: TokenAmount;
+  effectiveCollateralForWithdrawals: TokenAmount;
+  withdrawableQuoteCollateral: TokenAmount;
+  lockedDepositRemaining: TokenAmount;
+  unrealizedPnl: TokenAmount;
+  discountedUnrealizedPnl: TokenAmount;
+  unsettledFundingOwed: TokenAmount;
+  accumulatedFunding: TokenAmount;
+  portfolioValue: TokenAmount;
+  maintenanceMargin: TokenAmount;
+  cancelMargin: TokenAmount;
+  initialMargin: TokenAmount;
+  initialMarginForWithdrawals: TokenAmount;
+  riskState: RiskState;
+  riskTier: RiskTier;
+  positions: Record<string, TraderStatePositionMargin>;
+}
+
+export const TraderStateMarginSchema: z.ZodType<TraderStateMargin> = z.object({
+  effectiveCollateral: TokenAmountSchema,
+  effectiveCollateralForWithdrawals: TokenAmountSchema,
+  withdrawableQuoteCollateral: TokenAmountSchema,
+  lockedDepositRemaining: TokenAmountSchema,
+  unrealizedPnl: TokenAmountSchema,
+  discountedUnrealizedPnl: TokenAmountSchema,
+  unsettledFundingOwed: TokenAmountSchema,
+  accumulatedFunding: TokenAmountSchema,
+  portfolioValue: TokenAmountSchema,
+  maintenanceMargin: TokenAmountSchema,
+  cancelMargin: TokenAmountSchema,
+  initialMargin: TokenAmountSchema,
+  initialMarginForWithdrawals: TokenAmountSchema,
+  riskState: z.enum(RiskState),
+  riskTier: z.enum(RiskTier),
+  positions: z.record(z.string(), TraderStatePositionMarginSchema),
+});
+
 export interface TraderStateSubaccountSnapshot {
   subaccountIndex: number;
   sequence: number;
@@ -271,6 +334,10 @@ export interface TraderStateSubaccountSnapshot {
   escrowRequests?: TraderStateEscrowRequest[];
   capabilities?: TraderStateCapabilities;
   cooldownStatus?: CooldownStatus;
+  /** Optional HTTP-only enrichment; absent on WebSocket and older servers. */
+  margin?: TraderStateMargin;
+  /** HTTP-only error code when this subaccount's margin is unavailable. */
+  marginError?: string;
   positions: TraderStatePositionSnapshot[];
   orders: TraderStateLimitOrderEvent[];
   splines: TraderStateSplineSnapshot[];
@@ -612,6 +679,8 @@ const TraderStateSubaccountSnapshotSchema: z.ZodType<TraderStateSubaccountSnapsh
     escrowRequests: z.array(TraderStateEscrowRequestSchema).default([]),
     capabilities: TraderStateCapabilitiesSchema.optional(),
     cooldownStatus: CooldownStatusSchema.optional(),
+    margin: TraderStateMarginSchema.optional(),
+    marginError: z.string().optional(),
     positions: z.array(TraderStatePositionSnapshotSchema).default([]),
     orders: z.array(TraderStateLimitOrderEventSchema).default([]),
     splines: z.array(TraderStateSplineSnapshotSchema).default([]),

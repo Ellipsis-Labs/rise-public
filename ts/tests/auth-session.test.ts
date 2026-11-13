@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getRefreshRetryAfterMs } from "@/auth/refreshErrors";
-import { fromSnapshot } from "@/auth/session";
+import { fromExternalSnapshot, fromSnapshot } from "@/auth/session";
 
 const toBase64Url = (value: unknown): string =>
   Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -27,6 +27,33 @@ describe("auth session snapshots", () => {
     });
 
     expect(session.expiresAt).toBe(jwtExpiresAt * 1000);
+  });
+
+  it("accepts external tokens without jti or sid", () => {
+    const expiresAt = Date.now() + 60_000;
+    const jwtExp = Math.floor(expiresAt / 1000) + 30;
+    const base = {
+      refreshToken: "",
+      popKey: "",
+      accessJti: "",
+      expiresAt,
+      refreshExpiresAt: expiresAt,
+      counter: "0",
+    };
+
+    const jwtSession = fromExternalSnapshot({
+      ...base,
+      accessToken: makeJwt({ exp: jwtExp }),
+    });
+    expect(jwtSession.sessionId).toBe("");
+    expect(jwtSession.expiresAt).toBe(jwtExp * 1000);
+
+    const opaqueSession = fromExternalSnapshot({
+      ...base,
+      accessToken: "opaque",
+    });
+    expect(opaqueSession.accessToken).toBe("opaque");
+    expect(opaqueSession.expiresAt).toBe(expiresAt);
   });
 });
 
