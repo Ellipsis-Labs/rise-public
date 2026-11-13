@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.10.0 - 2026-11-13
+
+Source Phoenix commit: `f373db07b2c96ff656be0bcfb3be22f50163f251`
+
+### Summary
+
+- Rust SDK release 0.10.0, versioned together across all Rise components (`sdk`, `api`, `accounts`, `core`, `events`, `ix`, `math`, `types`).
+- The Agave RPC dependencies (`solana-rpc-client`, `solana-rpc-client-api` and `solana-transaction-status-client-types`) are now limited to `>=4.2.2, <4.4`. Before, they were `4.2.2`, which allowed any 4.x release, including 4.4 and later.
+- The Rust README has a new "Solana Dependency Compatibility" section. It explains the supported version range and how to run the published-API semver check.
+
+### Breaking Changes
+
+- Applications that already depend on Agave RPC crates 4.4 or later can no longer resolve them next to Rise. Agave 4.4 moves its public RPC types to incompatible major versions of `solana-transaction`, `solana-message` and `solana-transaction-error`. Pin those crates to 4.2.2 through 4.3.x.
+
+### Consumer Notes
+
+- When you add `solana-rpc-client`, `solana-rpc-client-api` or `solana-transaction-status-client-types` directly, keep all three on the same supported release line.
+- Rise's public types are built on Solana transaction/message 4.x and transaction-error 3.x.
+- To check API compatibility against the crates.io release, run `uv run --script .github/scripts/rise_rust_semver.py` from the repository root.
+
 ## v0.9.6 - 2026-11-13
 
 Source Phoenix commit: `2ea55b0cca007d5bbc019dbb12449193f6a745cc`

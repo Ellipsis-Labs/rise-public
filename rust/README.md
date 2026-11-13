@@ -364,6 +364,25 @@ Reference examples in `rust/sdk/examples/`:
 - Broader reference flows: `phoenix_client.rs`, `market_maker.rs`,
   `compute_trader_margin.rs`, `fetch_on_chain_accounts.rs`
 
+## Solana Dependency Compatibility
+
+Rise uses Solana transaction/message 4.x and transaction-error 3.x types. Its
+Agave RPC dependencies accept 4.2.2 through 4.3.x; Agave 4.4 switches those
+public types to incompatible major versions. Keep `solana-rpc-client`,
+`solana-rpc-client-api`, and `solana-transaction-status-client-types` on the
+same supported release line when adding direct dependencies to an integration.
+
+CI checks published API compatibility against crates.io. Current crates use
+fresh dependency resolution, independently of this workspace's `Cargo.lock`.
+Registry baselines use the lockfile shipped in each checksum-verified crate
+archive, so later upstream dependency breaks cannot change the release's build.
+Published source and feature definitions remain unchanged. From the repository
+root, run:
+
+```bash
+uv run --script .github/scripts/rise_rust_semver.py
+```
+
 ## Build And Run
 
 Run from `rust/`:
