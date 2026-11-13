@@ -3,6 +3,25 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.10.2 - 2026-11-13
+
+Source Phoenix commit: `c464b5a9649ead1a6da5f479724fe0eab343a5a1`
+
+### Summary
+- Adds multi-asset swap support to the `api` and `types` components: `CollateralClient::build_swap_transaction` posts to `/v1/ix/swap` and returns an unsigned transaction. The new `swap` module has `BuildSwapTransactionRequest`, `BuildSwapTransactionResponse`, and `SwapAsset`.
+- Adds mixed quote and spot collateral history clients: `get_user_collateral_history_v2`, `get_trader_collateral_history_v2`, and `get_authority_collateral_history_v2`. They return the new `CollateralHistoryV2Response` and `CollateralEventV2` types.
+- Adds `get_user_collateral_totals`, which returns lifetime per-asset deposit and withdrawal totals as `CollateralTotalsResponse`. The new `collateral` module exports these types, and both new modules are re-exported from `types::prelude`.
+- All Rise crates (`api`, `sdk`, `types`, and the rest of the workspace) move to the shared version `0.10.2`.
+
+### Breaking Changes
+- None identified in the synced diff. The changes only add APIs and types, and no existing public items were changed or removed.
+
+### Consumer Notes
+- The new `collateral` and `swap` types sit behind the `serde` feature of `types`. The new client methods are available through the `api` feature of `sdk`.
+- Swap responses carry the compiled transaction (v0 by default, v1 via `transaction_version`) and the instruction and lookup-table breakdown. A `sponsorship_attestation` is present only if the server has an attestation key configured. Sign `transaction` as returned, because recompiling invalidates the attestation.
+- `SwapAsset` serializes as camelCase. It is `"sol"` or `"quote"` for the unit variants, and `{"spot": "<mint>"}` for spot collateral. Set exactly one of `amount_atoms` or `quantity` on the request.
+- In collateral history events, `amount` is signed, with outflows negative. The totals response reports flows as positive magnitudes.
+
 ## v0.10.1 - 2026-11-13
 
 Source Phoenix commit: `c18a11134a969691aba13699b804678b537771b2`

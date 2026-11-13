@@ -10,6 +10,8 @@ pub mod auth;
 #[cfg(feature = "serde")]
 pub mod candles;
 #[cfg(feature = "serde")]
+pub mod collateral;
+#[cfg(feature = "serde")]
 pub mod core;
 #[cfg(feature = "serde")]
 pub mod exchange;
@@ -40,6 +42,8 @@ pub mod price;
 #[cfg(feature = "serde")]
 pub mod service_accounts;
 #[cfg(feature = "serde")]
+pub mod swap;
+#[cfg(feature = "serde")]
 pub mod trader;
 #[cfg(feature = "serde")]
 pub mod trader_http;
@@ -63,6 +67,10 @@ pub mod prelude {
         ApiCandle, ApiCandleV2, CandleData, CandlesQueryParams, CandlesV2CursorQueryParams,
         CandlesV2InitialQueryParams, CandlesV2Page, CandlesV2QueryParams, CandlesV2Response,
         Timeframe,
+    };
+    pub use super::collateral::{
+        CollateralAssetTotals, CollateralEventV2, CollateralFlowTotal, CollateralHistoryV2Response,
+        CollateralTotalsResponse,
     };
     pub use super::core::{Decimal, PaginatedResponse, Price, Side};
     pub use super::exchange::{
@@ -123,6 +131,7 @@ pub mod prelude {
         CreateServiceAccountRequest, CreateServiceKeyRequest, ServiceAccountDto,
         ServiceAccountKeyDto, ServiceAccountResponse, UpdateStatusRequest,
     };
+    pub use super::swap::{BuildSwapTransactionRequest, BuildSwapTransactionResponse, SwapAsset};
     pub use super::trader::{
         CapabilityAccess, CooldownStatus, OrderHistoryDelta, TradeHistoryDelta,
         TraderCapabilitiesView, TraderStateCapabilities, TraderStateConditionalStopLossTrigger,
