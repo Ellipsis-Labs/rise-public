@@ -44,4 +44,8 @@ export interface GlobalConfiguration {
   nativeSolSpotMetadata: SpotCollateralMetadata;
   acknowledgedRestartSlot: bigint;
   pendingWithdrawThrottleReplenishment: QuoteLots;
+  /** Liquidation fee rate in bps for markets without an override. */
+  globalLiquidationFeeBps: number;
+  /** Share of each liquidation fee, in bps, routed to the exchange fee pool. */
+  liquidationFeeExchangePortionBps: number;
 }

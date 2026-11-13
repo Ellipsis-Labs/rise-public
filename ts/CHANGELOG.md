@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.7.15 - 2026-11-13
+
+Source Phoenix commit: `2ea55b0cca007d5bbc019dbb12449193f6a745cc`
+
+### Summary
+- Added HTTP-only margin and risk data to trader-state snapshots: each subaccount from `getTraderStateSnapshot` now has an optional `margin` field (collateral, PnL, margin requirements, `riskState`/`riskTier`, and per-market `positions` keyed by symbol). When margin can't be computed for a subaccount, it has `marginError: "margin_unavailable"` instead, and the other subaccounts are unaffected. `TraderStateMargin` and `TraderStatePositionMargin` types are exported.
+- Added liquidation-fee fields to account decoding: `globalLiquidationFeeBps` and `liquidationFeeExchangePortionBps` on `GlobalConfiguration`. Per-market `riskParams` gained `liquidationFeeBps` and `liquidationMarginToleranceBps`, and `assetFlags` gained `hasLiquidationFeeOverride`.
+- Added support for externally managed auth sessions: `auth.fromExternalSnapshot`, an `{ sessionControl: "external" }` option on `AuthSessionManager` and `LocalStorageAuthSessionStorage`, and opaque or JWT access tokens without `sid`/`jti`. For tokens without a JWT `exp`, the snapshot's `expiresAt` is used.
+
+### Breaking Changes
+- Account decoders now read the new liquidation-fee fields from what used to be padding. The `GlobalConfiguration`, `RiskParams` and `AssetFlags` types gained required fields, which breaks code that constructs these objects by hand, such as test mocks. Decoders now require a Phoenix program/account layout that includes these fields.
+- Importing a snapshot with an empty `accessToken` now throws `"Access token is empty"`, including in default managed mode. Managed mode otherwise keeps its existing validation (session id and JWT `exp` required).
+- `RiseSessionControl` is now defined in `auth/session`. Code that imports it from `@/auth/types` internally may need to update the path.
+
+### Consumer Notes
+- `margin` and `marginError` appear only on HTTP snapshots. They are absent on WebSocket snapshots and deltas, and on older servers, so treat both as optional. An authority without a trader account returns empty `subaccounts`.
+- `LocalStorageAuthSessionStorage` in external mode defaults to the key `phoenix-rise-auth-external`, separate from the managed `phoenix-rise-auth` key. Pass `{ sessionControl: "external" }` to each manager and storage you create. Setting it on the runtime config does not reconfigure a manager or storage you supply yourself. If you supply custom storage keys, keep the managed and external keys distinct.
+- `LocalStorageAuthSessionStorage`'s constructor now takes `(storageKey?, options?)`. Calls with just a key still work. Cross-tab storage events now parse snapshots with the same mode and cleanup as direct reads.
+- The SDK includes updated instruction fixtures for `UpdatePerpLiquidationFee`, `UpdateGlobalLiquidationFee` and `UpdatePerpLiquidationMarginTolerance`. The package version is 0.7.15.
+
 ## v0.7.14 - 2026-11-12
 
 Source Phoenix commit: `f2e15a7c70ba0754c149be822244a414fd4b69d4`

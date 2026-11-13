@@ -15,9 +15,9 @@ import {
   createTraderStateAdapter,
 } from "./adapters";
 import type { PublicAdapterOptions } from "./adapters/options";
-import type { RiseSessionControl, RiseWsAuthMode } from "@/auth/types";
+import type { RiseWsAuthMode } from "@/auth/types";
 import type { AuthSessionManager } from "@/auth/manager";
-import type { AuthSession } from "@/auth/session";
+import type { AuthSession, RiseSessionControl } from "@/auth/session";
 import type {
   CustomSubscriptionDefinitions,
   CustomSubscriptionDefinition,

@@ -203,6 +203,10 @@ export interface RiskParams {
   cancelOrderRiskFactor: number;
   upnlRiskFactorForWithdrawals: bigint;
   isolatedOnly: number;
+  /** Fee override in bps; used only if `hasLiquidationFeeOverride` is set. */
+  liquidationFeeBps: number;
+  /** Liquidation margin tolerance in basis points. */
+  liquidationMarginToleranceBps: number;
 }
 
 export interface FundingAccumulator {
@@ -230,6 +234,7 @@ export interface AssetFlags {
   isCommodity: boolean;
   isCommoditiesReopen: boolean;
   isCommoditiesAfterHours: boolean;
+  hasLiquidationFeeOverride: boolean;
 }
 
 export interface PerpAssetMetadata {
@@ -929,9 +934,12 @@ export const getRiskParamsDecoder = (): Decoder<RiskParams> =>
       ["cancelOrderRiskFactor", getU16Decoder()],
       ["upnlRiskFactorForWithdrawals", getU64Decoder()],
       ["isolatedOnly", getU8Decoder()],
-      ["_padding", getFixedArrayDecoder(getU8Decoder, 7)],
+      ["_padding0", getFixedArrayDecoder(getU8Decoder, 1)],
+      ["liquidationFeeBps", getU16Decoder()],
+      ["liquidationMarginToleranceBps", getU16Decoder()],
+      ["_padding", getFixedArrayDecoder(getU8Decoder, 2)],
     ]),
-    ({ _padding, ...params }): RiskParams => params
+    ({ _padding0, _padding, ...params }): RiskParams => params
   );
 
 export const getFundingAccumulatorDecoder = (): Decoder<FundingAccumulator> =>
@@ -964,6 +972,7 @@ export const getOpenInterestParamsDecoder = (): Decoder<OpenInterestParams> =>
 const ASSET_FLAG_COMMODITY = 1 << 0;
 const ASSET_FLAG_COMMODITIES_REOPEN = 1 << 1;
 const ASSET_FLAG_COMMODITIES_AFTER_HOURS = 1 << 2;
+const ASSET_FLAG_LIQUIDATION_FEE_OVERRIDE = 1 << 3;
 
 export const getAssetFlagsDecoder = (): Decoder<AssetFlags> =>
   transformDecoder(getU8Decoder(), (bits): AssetFlags => ({
@@ -971,6 +980,8 @@ export const getAssetFlagsDecoder = (): Decoder<AssetFlags> =>
     isCommodity: (bits & ASSET_FLAG_COMMODITY) !== 0,
     isCommoditiesReopen: (bits & ASSET_FLAG_COMMODITIES_REOPEN) !== 0,
     isCommoditiesAfterHours: (bits & ASSET_FLAG_COMMODITIES_AFTER_HOURS) !== 0,
+    hasLiquidationFeeOverride:
+      (bits & ASSET_FLAG_LIQUIDATION_FEE_OVERRIDE) !== 0,
   }));
 
 const getOptionalTicksDecoder = (): Decoder<Ticks | null> =>

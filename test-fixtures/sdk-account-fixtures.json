@@ -272,7 +272,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -478,7 +479,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -684,7 +686,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -890,7 +893,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -1096,7 +1100,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -1297,7 +1302,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -1503,7 +1509,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -1709,7 +1716,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -1910,7 +1918,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -2116,7 +2125,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -2322,7 +2332,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -2528,7 +2539,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -2734,7 +2746,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -2940,7 +2953,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -3146,7 +3160,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -3352,7 +3367,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -3558,7 +3574,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -3764,7 +3781,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -3970,7 +3988,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -4176,7 +4195,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -4377,7 +4397,8 @@
               "bits": 1,
               "isCommodity": true,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -4578,7 +4599,8 @@
               "bits": 1,
               "isCommodity": true,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -4784,7 +4806,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -4990,7 +5013,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -5196,7 +5220,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -5402,7 +5427,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -5603,7 +5629,8 @@
               "bits": 1,
               "isCommodity": true,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -5804,7 +5831,8 @@
               "bits": 1,
               "isCommodity": true,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -6010,7 +6038,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -6216,7 +6245,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -6422,7 +6452,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -6628,7 +6659,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -6829,7 +6861,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -7035,7 +7068,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -7236,7 +7270,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -7442,7 +7477,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -7648,7 +7684,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -7849,7 +7886,8 @@
               "bits": 0,
               "isCommodity": false,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -8050,7 +8088,8 @@
               "bits": 1,
               "isCommodity": true,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -8251,7 +8290,8 @@
               "bits": 1,
               "isCommodity": true,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -8457,7 +8497,8 @@
               "bits": 1,
               "isCommodity": true,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -8658,7 +8699,8 @@
               "bits": 1,
               "isCommodity": true,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -8859,7 +8901,8 @@
               "bits": 1,
               "isCommodity": true,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,
@@ -9060,7 +9103,8 @@
               "bits": 1,
               "isCommodity": true,
               "isCommoditiesReopen": false,
-              "isCommoditiesAfterHours": false
+              "isCommoditiesAfterHours": false,
+              "hasLiquidationFeeOverride": false
             },
             "commoditiesAfterHoursRadius": "0",
             "lastKnownIndexPrice": null,

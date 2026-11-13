@@ -347,6 +347,25 @@ describe("raw account parsing", () => {
     TEST_TIMEOUT_MS
   );
 
+  it("decodes liquidation fee fields in GlobalConfiguration", () => {
+    const GLOBAL_LIQUIDATION_FEE_BPS_OFFSET = 1112;
+    const LIQUIDATION_FEE_EXCHANGE_PORTION_BPS_OFFSET = 1114;
+    const bytes = loadMockBytes("global_config.json");
+    const before = decodeGlobalConfiguration(bytes);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    view.setUint16(GLOBAL_LIQUIDATION_FEE_BPS_OFFSET, 250, true);
+    view.setUint16(LIQUIDATION_FEE_EXCHANGE_PORTION_BPS_OFFSET, 2_500, true);
+
+    const after = decodeGlobalConfiguration(bytes);
+    expect(after.globalLiquidationFeeBps).toBe(250);
+    expect(after.liquidationFeeExchangePortionBps).toBe(2_500);
+    expect({
+      ...after,
+      globalLiquidationFeeBps: before.globalLiquidationFeeBps,
+      liquidationFeeExchangePortionBps: before.liquidationFeeExchangePortionBps,
+    }).toEqual(before);
+  });
+
   it(
     "decodes PerpAssetMap fixtures",
     () => {
@@ -359,6 +378,47 @@ describe("raw account parsing", () => {
     },
     TEST_TIMEOUT_MS
   );
+
+  it("decodes a set liquidation fee override in PerpAssetMap", () => {
+    const bytes = loadMockBytes("perp_asset_map.json");
+    const ENTRIES_OFFSET = 48;
+    const KEY_LEN = 16;
+    const RISK_PARAMS_OFFSET = 1016;
+    const RISK_PARAMS_LIQUIDATION_FEE_BPS_OFFSET = 194;
+    const RISK_PARAMS_LIQUIDATION_MARGIN_TOLERANCE_BPS_OFFSET = 196;
+    const ASSET_FLAGS_OFFSET = 1456;
+    const ASSET_FLAG_LIQUIDATION_FEE_OVERRIDE = 1 << 3;
+    const firstValueOffset = ENTRIES_OFFSET + KEY_LEN;
+    const liquidationFeeBpsOffset =
+      firstValueOffset +
+      RISK_PARAMS_OFFSET +
+      RISK_PARAMS_LIQUIDATION_FEE_BPS_OFFSET;
+    const liquidationMarginToleranceBpsOffset =
+      firstValueOffset +
+      RISK_PARAMS_OFFSET +
+      RISK_PARAMS_LIQUIDATION_MARGIN_TOLERANCE_BPS_OFFSET;
+    const assetFlagsOffset = firstValueOffset + ASSET_FLAGS_OFFSET;
+    const before = decodePerpAssetMap(bytes);
+    const beforeEntry = before.metadata.entries[0].value;
+    expect(beforeEntry.riskParams.liquidationFeeBps).toBe(0);
+    expect(beforeEntry.riskParams.liquidationMarginToleranceBps).toBe(0);
+    expect(beforeEntry.assetFlags.hasLiquidationFeeOverride).toBe(false);
+
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    view.setUint16(liquidationFeeBpsOffset, 250, true);
+    view.setUint16(liquidationMarginToleranceBpsOffset, 25, true);
+    bytes[assetFlagsOffset] |= ASSET_FLAG_LIQUIDATION_FEE_OVERRIDE;
+
+    const after = decodePerpAssetMap(bytes);
+    const afterEntry = after.metadata.entries[0].value;
+    expect(afterEntry.riskParams.liquidationFeeBps).toBe(250);
+    expect(afterEntry.riskParams.liquidationMarginToleranceBps).toBe(25);
+    expect(afterEntry.assetFlags.hasLiquidationFeeOverride).toBe(true);
+    expect(afterEntry.assetFlags.bits).toBe(
+      beforeEntry.assetFlags.bits | ASSET_FLAG_LIQUIDATION_FEE_OVERRIDE
+    );
+    expect(after.metadata.entries[1]).toEqual(before.metadata.entries[1]);
+  });
 
   it("skips spot collateral collection slots in PerpAssetMap", () => {
     // Layout: 8 discriminant + 16 sequence number + 2 numAssets + 6 padding,

@@ -7,6 +7,7 @@ import {
   isAccessExpired,
   resetFromAuthResponse,
   type AuthSession,
+  type RiseSessionControl,
 } from "./session";
 import { resolvePhoenixApiUrl, type PhoenixApiUrlConfig } from "@/apiUrl";
 import {
@@ -16,7 +17,6 @@ import {
   PrivyWalletChallengeResponseSchema,
   WalletNonceResponseSchema,
   WalletTransactionChallengeResponseSchema,
-  type RiseSessionControl,
   type AuthChallengeResponse,
   type JsonWebKeySet,
   type PrivyLoginRequest,

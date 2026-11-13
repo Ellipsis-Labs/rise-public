@@ -19,8 +19,10 @@ exports[`raw account parsing > decodes GlobalConfiguration fixtures 1`] = `
   "depositCooldownPeriodInSlots": "0",
   "exchangeStatus": 131,
   "featureSet": 0,
+  "globalLiquidationFeeBps": 0,
   "globalTraderIndexHeaderKey": "HCrPXLByGqRh2szQi3gj7oRdRVBNi1gccAyn4CQCT3HK",
   "globalVaultKey": "csZXgw2G58hbiWc9ndxaxrQVYVvqdXgQzYLuznEzHJu",
+  "liquidationFeeExchangePortionBps": 0,
   "nativeSolSpotMetadata": {
     "currGlobalBalance": "0",
     "decimals": 0,
@@ -110,6 +112,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
         "value": {
           "assetFlags": {
             "bits": 0,
+            "hasLiquidationFeeOverride": false,
             "isCommoditiesAfterHours": false,
             "isCommoditiesReopen": false,
             "isCommodity": false,
@@ -551,6 +554,8 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "upperBoundSize": "8800000",
               },
             ],
+            "liquidationFeeBps": 0,
+            "liquidationMarginToleranceBps": 0,
             "maxLiquidationSize": "50000",
             "riskFactors": [
               5000,
@@ -591,6 +596,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
         "value": {
           "assetFlags": {
             "bits": 0,
+            "hasLiquidationFeeOverride": false,
             "isCommoditiesAfterHours": false,
             "isCommoditiesReopen": false,
             "isCommodity": false,
@@ -1032,6 +1038,8 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "upperBoundSize": "1500000",
               },
             ],
+            "liquidationFeeBps": 0,
+            "liquidationMarginToleranceBps": 0,
             "maxLiquidationSize": "5000",
             "riskFactors": [
               5000,
@@ -1072,6 +1080,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
         "value": {
           "assetFlags": {
             "bits": 0,
+            "hasLiquidationFeeOverride": false,
             "isCommoditiesAfterHours": false,
             "isCommoditiesReopen": false,
             "isCommodity": false,
@@ -1513,6 +1522,8 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "upperBoundSize": "5000000",
               },
             ],
+            "liquidationFeeBps": 0,
+            "liquidationMarginToleranceBps": 0,
             "maxLiquidationSize": "20000",
             "riskFactors": [
               5000,
@@ -1553,6 +1564,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
         "value": {
           "assetFlags": {
             "bits": 0,
+            "hasLiquidationFeeOverride": false,
             "isCommoditiesAfterHours": false,
             "isCommoditiesReopen": false,
             "isCommodity": false,
@@ -1994,6 +2006,8 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "upperBoundSize": "407500000",
               },
             ],
+            "liquidationFeeBps": 0,
+            "liquidationMarginToleranceBps": 0,
             "maxLiquidationSize": "10000000",
             "riskFactors": [
               5000,
@@ -2034,6 +2048,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
         "value": {
           "assetFlags": {
             "bits": 0,
+            "hasLiquidationFeeOverride": false,
             "isCommoditiesAfterHours": false,
             "isCommoditiesReopen": false,
             "isCommodity": false,
@@ -2475,6 +2490,8 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "upperBoundSize": "20000000",
               },
             ],
+            "liquidationFeeBps": 0,
+            "liquidationMarginToleranceBps": 0,
             "maxLiquidationSize": "200000",
             "riskFactors": [
               5000,
@@ -2515,6 +2532,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
         "value": {
           "assetFlags": {
             "bits": 0,
+            "hasLiquidationFeeOverride": false,
             "isCommoditiesAfterHours": false,
             "isCommoditiesReopen": false,
             "isCommodity": false,
@@ -2956,6 +2974,8 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "upperBoundSize": "15000003",
               },
             ],
+            "liquidationFeeBps": 0,
+            "liquidationMarginToleranceBps": 0,
             "maxLiquidationSize": "1400000",
             "riskFactors": [
               5000,
@@ -2996,6 +3016,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
         "value": {
           "assetFlags": {
             "bits": 0,
+            "hasLiquidationFeeOverride": false,
             "isCommoditiesAfterHours": false,
             "isCommoditiesReopen": false,
             "isCommodity": false,
@@ -3437,6 +3458,8 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "upperBoundSize": "77300",
               },
             ],
+            "liquidationFeeBps": 0,
+            "liquidationMarginToleranceBps": 0,
             "maxLiquidationSize": "8000",
             "riskFactors": [
               5000,
@@ -3477,6 +3500,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
         "value": {
           "assetFlags": {
             "bits": 0,
+            "hasLiquidationFeeOverride": false,
             "isCommoditiesAfterHours": false,
             "isCommoditiesReopen": false,
             "isCommodity": false,
@@ -3918,6 +3942,8 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "upperBoundSize": "5391653",
               },
             ],
+            "liquidationFeeBps": 0,
+            "liquidationMarginToleranceBps": 0,
             "maxLiquidationSize": "539170",
             "riskFactors": [
               5000,
@@ -3958,6 +3984,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
         "value": {
           "assetFlags": {
             "bits": 0,
+            "hasLiquidationFeeOverride": false,
             "isCommoditiesAfterHours": false,
             "isCommoditiesReopen": false,
             "isCommodity": false,
@@ -4399,6 +4426,8 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "upperBoundSize": "449300",
               },
             ],
+            "liquidationFeeBps": 0,
+            "liquidationMarginToleranceBps": 0,
             "maxLiquidationSize": "45000",
             "riskFactors": [
               5000,
@@ -4439,6 +4468,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
         "value": {
           "assetFlags": {
             "bits": 0,
+            "hasLiquidationFeeOverride": false,
             "isCommoditiesAfterHours": false,
             "isCommoditiesReopen": false,
             "isCommodity": false,
@@ -4880,6 +4910,8 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "upperBoundSize": "513753",
               },
             ],
+            "liquidationFeeBps": 0,
+            "liquidationMarginToleranceBps": 0,
             "maxLiquidationSize": "51380",
             "riskFactors": [
               5000,
@@ -4920,6 +4952,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
         "value": {
           "assetFlags": {
             "bits": 0,
+            "hasLiquidationFeeOverride": false,
             "isCommoditiesAfterHours": false,
             "isCommoditiesReopen": false,
             "isCommodity": false,
@@ -5361,6 +5394,8 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "upperBoundSize": "238300",
               },
             ],
+            "liquidationFeeBps": 0,
+            "liquidationMarginToleranceBps": 0,
             "maxLiquidationSize": "24000",
             "riskFactors": [
               5000,
@@ -5401,6 +5436,7 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
         "value": {
           "assetFlags": {
             "bits": 0,
+            "hasLiquidationFeeOverride": false,
             "isCommoditiesAfterHours": false,
             "isCommoditiesReopen": false,
             "isCommodity": false,
@@ -5842,6 +5878,8 @@ exports[`raw account parsing > decodes PerpAssetMap fixtures 1`] = `
                 "upperBoundSize": "1473000",
               },
             ],
+            "liquidationFeeBps": 0,
+            "liquidationMarginToleranceBps": 0,
             "maxLiquidationSize": "150000",
             "riskFactors": [
               5000,

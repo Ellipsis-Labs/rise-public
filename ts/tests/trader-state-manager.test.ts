@@ -111,6 +111,27 @@ const createPushPort = () => {
 };
 
 describe("createPhoenixTraderStateManager", () => {
+  it("hydrates every subaccount when HTTP margin calculation fails", async () => {
+    const response = createSnapshotResponse();
+    response.snapshot.subaccounts[0].marginError = "margin_unavailable";
+    const manager = createPhoenixTraderStateManager({
+      api: { getTraderStateSnapshot: async () => response },
+    });
+    const resource = manager.resource({
+      authority: "authority-1",
+      traderPdaIndex: 0,
+    });
+    await resource.ready();
+    expect(resource.subaccount(0)?.positionSymbols).toEqual(["SOL-PERP"]);
+    expect(resource.position(0, "SOL-PERP")?.basePositionLots).toBe("2");
+    expect(
+      resource
+        .snapshot()
+        ?.subaccounts.map((subaccount) => subaccount.subaccountIndex)
+    ).toEqual([0, 1]);
+    manager.close();
+  });
+
   it("keeps on-chain position symbols while accepting case-insensitive lookups", async () => {
     const response = createSnapshotResponse();
     response.snapshot.subaccounts[0].positions[0].symbol = "kBONK";

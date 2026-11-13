@@ -1,5 +1,9 @@
 import z from "zod";
-import type { AuthSession, AuthSessionSnapshot } from "./session";
+import type {
+  AuthSession,
+  AuthSessionSnapshot,
+  RiseSessionControl,
+} from "./session";
 import type { AuthSessionManager } from "./manager";
 import type { AuthSessionStorage } from "./storage";
 
@@ -182,14 +186,6 @@ export const JsonWebKeySetSchema: z.ZodType<JsonWebKeySet> = z.object({
   keys: z.array(z.unknown()).transform((keys) => keys as JsonWebKey[]),
 });
 
-/**
- * Controls whether the SDK owns session refresh / persistence or relies on an
- * external session owner.
- *
- * `managed` remains supported for compatibility and behaves like the default
- * SDK-owned mode.
- */
-export type RiseSessionControl = "managed" | "external";
 export type RiseWsAuthMode = "auto" | "authenticated" | "anonymous";
 
 export const isExternalSessionControl = (

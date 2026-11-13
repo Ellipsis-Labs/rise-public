@@ -55,6 +55,17 @@ import {
 `client.pda` uses a bounded LRU cache (`pdaCache: { maxEntries: 1024 }`) by
 default; pass `pdaCache: false` to disable memoization.
 
+`client.api.traders.getTraderStateSnapshot(authority, { traderPdaIndex })`
+returns every subaccount with optional `margin` and `marginError` fields.
+Margin/risk values use the response's `slot` and `slotIndex`; per-market margin
+is keyed by symbol without duplicating position or order rows. A computation
+failure omits `margin` and sets `marginError: "margin_unavailable"`, preserving
+the subaccount's other state and successful sibling margins. Older servers
+may omit both fields. An authority without a trader account returns empty
+subaccounts. WebSocket trader-state snapshots and deltas are unchanged.
+The unreleased duplicate `traderViews` field was removed; consume each
+`snapshot.subaccounts[i].margin` instead.
+
 ### WebSocket subscription failures
 
 Subscription replies are correlated by the echoed subscription, not global
@@ -583,7 +594,9 @@ session through your `sessionManager` still writes to its backing storage.
 import { auth, createPhoenixClient } from "@ellipsis-labs/rise";
 
 const sessionManager = new auth.AuthSessionManager(
-  new auth.MemoryAuthSessionStorage()
+  new auth.MemoryAuthSessionStorage(),
+  undefined,
+  { sessionControl: "external" }
 );
 
 const client = createPhoenixClient({
@@ -597,6 +610,31 @@ const client = createPhoenixClient({
 
 await sessionManager.importSnapshot(snapshotFromYourApp);
 ```
+
+Externally controlled sessions may carry access tokens that are opaque or JWTs
+without `jti`/`sid`. `rise` sends them as bearer tokens unchanged; when the
+token has no JWT `exp`, the snapshot's `expiresAt` is used as the access
+expiry. Empty access tokens are rejected when importing a snapshot. Use
+`auth.fromExternalSnapshot(snapshot)` to restore one directly. The default
+`auth.fromSnapshot(snapshot)` and managers without external options retain
+managed validation: a session id (from the snapshot or JWT) and JWT `exp` are
+required.
+
+Set external mode on each component that restores snapshots. For browser
+persistence, use
+`new auth.LocalStorageAuthSessionStorage(undefined, { sessionControl: "external" })`
+and pass it to an externally configured manager, or directly as
+`authConfig.storage` alongside `authConfig.sessionControl: "external"`.
+External local storage defaults to `phoenix-rise-auth-external`, separate from
+the managed `phoenix-rise-auth` key. When supplying custom storage keys, keep
+managed and external keys distinct. Both storage reads and cross-tab events
+apply the storage instance's configured mode. Setting runtime session control
+does not reconfigure an app-provided manager or storage instance.
+
+With an explicit `authConfig.storage`, the runtime configures its own manager
+from `authConfig.sessionControl`; this also controls restoration of
+`authConfig.initialSession` snapshots. External mode always requires an
+explicit manager or storage.
 
 With `auth: true`, `rise` hydrates from storage without forcing an eager login.
 Built-in route clients attach the shared session opportunistically; custom
