@@ -1,6 +1,6 @@
 {
   "name": "@ellipsis-labs/rise",
-  "version": "0.7.15",
+  "version": "0.8.0",
   "packageManager": "bun@1.4.4",
   "repository": {
     "type": "git",
@@ -50,6 +50,7 @@
     "publish:alpha": "bun --bun run scripts/publish-alpha.ts",
     "prepare": "bun run build",
     "prepublishOnly": "bun run build",
+    "semver-check": "bun run scripts/semver-check.ts",
     "test": "vitest run --passWithNoTests",
     "test:sdk-localnet": "vitest run tests/sdk-localnet-*.test.ts",
     "test:sdk-localnet:ci": "bun --bun run scripts/run-sdk-localnet-ci.ts",
@@ -94,6 +95,7 @@
     "litesvm": "1.4.1",
     "madge": "^8.0.0",
     "prettier": "3.9.10",
+    "ts-semver-checks": "0.9.0",
     "tsdown": "^0.20.0-beta.4",
     "typescript": "^5.9.3",
     "vitest": "^4.1.12"
