@@ -1,5 +1,11 @@
+import {
+  BuildSwapTransactionRequestSchema,
+  BuildSwapTransactionResponseSchema,
+  type BuildSwapTransactionRequest,
+  type BuildSwapTransactionResponse,
+} from "./swap";
 import type { HttpTransport } from "@/http/transport";
-import { get } from "@/http/transport";
+import { get, post } from "@/http/transport";
 import type { ParamValue } from "@/http/transport";
 import type {
   CollateralAssetsResponse,
@@ -34,6 +40,18 @@ const buildCollateralHistoryQuery = (
 
 export class V1CollateralClient {
   constructor(private readonly http: HttpTransport) {}
+
+  /** Builds an unsigned transaction; the caller signs and submits it. */
+  async buildSwapTransaction(
+    request: BuildSwapTransactionRequest
+  ): Promise<BuildSwapTransactionResponse> {
+    return post(
+      this.http,
+      "/v1/ix/swap",
+      BuildSwapTransactionResponseSchema,
+      BuildSwapTransactionRequestSchema.parse(request)
+    );
+  }
 
   async getAssets(): Promise<CollateralAssetsResponse> {
     return get(

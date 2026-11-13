@@ -3,6 +3,25 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.8.2 - 2026-11-13
+
+Source Phoenix commit: `c464b5a9649ead1a6da5f479724fe0eab343a5a1`
+
+### Summary
+- Adds `buildSwapTransaction(request)` to `V1CollateralClient`, which posts to `/v1/ix/swap` and returns an unsigned transaction, venue quote, instruction breakdown, and optional sponsorship attestation. The SDK does not sign or submit.
+- Supports swaps between `"sol"`, `"quote"`, and SPL collateral given as `{ spot: mint }`. Size the input with either `amountAtoms` or `quantity` (whole asset units). You can also set `positionAuthority`, `traderPdaIndex`, `traderSubaccountIndex`, `feePayer`, `slippageBps`, `venue`, and `transactionVersion` (0 or 1).
+- Exports the new swap types and Zod schemas from the public API schemas entrypoint and the collateral module: `SwapAsset`, `BuildSwapTransactionRequest` and `BuildSwapTransactionResponse`, plus their `*Schema` counterparts.
+- Adds a README section on the multi-asset collateral HTTP APIs, with a TypeScript/Rust method mapping for assets, totals, mixed history, and swap building.
+
+### Breaking Changes
+- None identified in the synced diff.
+
+### Consumer Notes
+- Requests are validated client-side before sending. Supply exactly one of `amountAtoms` or `quantity`. Integer amounts must be safe JavaScript integers. Invalid requests throw before any network call.
+- Responses are validated too. A response with a missing field, or a numeric field above `Number.MAX_SAFE_INTEGER`, is rejected.
+- Sign the returned `transaction` bytes verbatim to preserve the sponsorship attestation. The attestation expiry is `attestationExpiresAt`.
+- A nonzero `traderSubaccountIndex` requires an API deployment that supports it. Older deployments may ignore it and target cross margin.
+
 ## v0.8.1 - 2026-11-13
 
 Source Phoenix commit: `c18a11134a969691aba13699b804678b537771b2`

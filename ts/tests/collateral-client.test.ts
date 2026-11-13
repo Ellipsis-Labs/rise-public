@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { V1CollateralClient } from "@/api/collateral";
 import { SpotAssetConfigSchema } from "@/api/collateral/types";
 import type { HttpTransport, RequestOptions } from "@/http";
+import swapResponse from "./mocks/swap-transaction.json";
 
 const transportWithResponse = (
   responseBody: unknown,
@@ -246,4 +247,92 @@ describe("V1CollateralClient native amount precision", () => {
       ).rejects.toThrow();
     }
   );
+});
+
+describe("V1CollateralClient.buildSwapTransaction", () => {
+  it("forwards the isolated account, asset, and signing options without changing the attested response", async () => {
+    const response = swapResponse;
+    const requests: unknown[] = [];
+    const client = new V1CollateralClient({
+      fetch: async (method, endpoint, _options, body) => {
+        requests.push({ method, endpoint, body });
+        return Response.json(response);
+      },
+    });
+    const request = {
+      authority: "owner",
+      positionAuthority: "delegate",
+      assetIn: { spot: "mint" },
+      assetOut: "quote" as const,
+      amountAtoms: 1_000_000_000,
+      traderPdaIndex: 2,
+      traderSubaccountIndex: 3,
+      feePayer: "sponsor",
+      slippageBps: 50,
+      computeUnitPriceMicroLamports: 1000,
+      transactionVersion: 0 as const,
+    };
+
+    await expect(client.buildSwapTransaction(request)).resolves.toEqual(
+      response
+    );
+    const defaultRequest = {
+      authority: "owner",
+      assetIn: "sol" as const,
+      assetOut: "quote" as const,
+      quantity: 0.5,
+    };
+    await expect(client.buildSwapTransaction(defaultRequest)).resolves.toEqual(
+      response
+    );
+    expect(requests).toEqual([
+      { method: "POST", endpoint: "/v1/ix/swap", body: request },
+      { method: "POST", endpoint: "/v1/ix/swap", body: defaultRequest },
+    ]);
+  });
+
+  it("rejects unsafe amounts and ambiguous sizes before sending", async () => {
+    const fetch = vi.fn<HttpTransport["fetch"]>();
+    const client = new V1CollateralClient({ fetch });
+    const request = {
+      authority: "owner",
+      assetIn: "sol" as const,
+      assetOut: "quote" as const,
+    };
+    for (const size of [
+      {},
+      { amountAtoms: 1, quantity: 1 },
+      { amountAtoms: Number.MAX_SAFE_INTEGER + 1 },
+    ]) {
+      await expect(
+        client.buildSwapTransaction({ ...request, ...size })
+      ).rejects.toThrow();
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects incomplete quotes and propagates API failures", async () => {
+    const request = {
+      authority: "owner",
+      assetIn: "sol" as const,
+      assetOut: "quote" as const,
+      quantity: 0.5,
+    };
+    for (const response of [
+      { transaction: "bytes" },
+      { ...swapResponse, minAmountOutAtoms: Number.MAX_SAFE_INTEGER + 1 },
+    ]) {
+      const client = new V1CollateralClient({
+        fetch: async () => Response.json(response),
+      });
+      await expect(client.buildSwapTransaction(request)).rejects.toThrow();
+    }
+    const unavailable = new V1CollateralClient({
+      fetch: async () =>
+        Response.json({ error: "swap_unavailable" }, { status: 503 }),
+    });
+    await expect(
+      unavailable.buildSwapTransaction(request)
+    ).rejects.toMatchObject({ status: 503 });
+  });
 });
