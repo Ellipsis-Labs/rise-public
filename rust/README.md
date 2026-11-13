@@ -79,13 +79,29 @@ Public Rust SDK changelog:
 
 Typed REST access without the reconnecting live runtime.
 
-- Exchange and market data: `exchange()`, `markets()`, `candles()`
+- Exchange and market data: `exchange()`, `markets()`, `candles()`;
+  `markets()` includes `get_market_view` and `get_price_history`
 - Trader and history routes: `traders()`, `orders()`, `trades()`,
-  `collateral()`, `funding()`
+  `collateral()`, `funding()`; `traders()` includes
+  `get_trader_state_snapshot` (every subaccount of one trader PDA with optional
+  margin/risk at the response's slot and slot index) and
+  `get_trader_order_history_v2`. Margin is HTTP-only: each subaccount has
+  `margin` on success or `marginError: "margin_unavailable"` on computation
+  failure, without withholding positions or orders. Older servers may omit
+  both fields; WebSocket trader-state payloads are unchanged. The unreleased
+  `get_trader_views` helper and duplicate `traderViews` response field were
+  removed; consume `get_trader_state_snapshot().snapshot.subaccounts` instead.
 - Invite activation: `invite()`
 - Public constructors: `PhoenixHttpClient::new_from_env()` and
   `PhoenixHttpClient::builder(...)`
 - Auth-enabled constructor: `PhoenixHttpClient::new_from_env_with_auth()`
+- Externally owned bearer tokens: pass `ExternalBearer::new()` to
+  `builder(...).with_session_manager(...)` and install tokens with
+  `set_access_token`. New instances and instances reset with `clear()` send
+  anonymous requests. Installed tokens are sent as-is, even after local expiry
+  (opaque tokens and JWTs without `jti` are accepted), with no automatic refresh.
+  A 401 is reported as `PhoenixHttpError::Authentication`, preserving the
+  server's error code and message without retrying or recording a refresh failure.
 
 #### Atomic isolated market entry with TP/SL v2
 
@@ -276,8 +292,9 @@ using the builder's registered fee.
 ### `types/src/`
 
 - Exchange and market payloads: `exchange.rs`, `exchange_ws.rs`, `market.rs`,
-  `market_state.rs`, `market_stats.rs`, `l2book.rs`, `candles.rs`, `trades.rs`
-- Trader payloads: `trader.rs`, `trader_http.rs`
+  `market_state.rs`, `market_stats.rs`, `l2book.rs`, `candles.rs`, `trades.rs`,
+  `price.rs`
+- Trader payloads: `trader.rs`, `trader_http.rs`, `order_history_v2.rs`
 - Shared protocol types: `auth.rs`, `core.rs`, `ix.rs`, `service_accounts.rs`,
   `ws.rs`
 

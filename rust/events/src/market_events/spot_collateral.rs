@@ -99,7 +99,7 @@ pub struct SpotCollateralDepositedEvent {
     /// Amount credited, in native units. For a sync this is the credited
     /// delta after any protocol-cap clamp.
     pub amount: u64,
-    /// The delta the trader tried to credit before any cap clamp (lamports
+    /// The delta the trader tried to credit before any cap clamp (units
     /// physically moved in). `requested_amount - amount` is the excess that
     /// stayed uncounted in the trader account.
     pub requested_amount: u64,
@@ -126,7 +126,7 @@ pub struct SpotCollateralWithdrawnEvent {
     /// Where the debited funds went: the withdrawal destination, the signer
     /// for swap sells, the liquidator for seizures, the destination trader
     /// account for transfers, or the trader account itself for downward syncs
-    /// (the lamports never left; they were absorbed by rent).
+    /// (the funds never left; they were absorbed by rent).
     pub destination: Pubkey,
     /// Accounted collateral debited, in native units.
     pub amount: u64,

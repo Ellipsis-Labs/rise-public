@@ -74,6 +74,8 @@ fn test_apply_snapshot() {
         maker_fee_override_multiplier: 0.9,
         taker_fee_override_multiplier: 1.1,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            margin: None,
+            margin_error: None,
             escrow_requests: Vec::new(),
             locked_deposit: None,
             triggers: vec![],
@@ -131,6 +133,8 @@ fn test_apply_delta_updates_position() {
         maker_fee_override_multiplier: 1.0,
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            margin: None,
+            margin_error: None,
             escrow_requests: Vec::new(),
             locked_deposit: None,
             triggers: vec![],
@@ -210,6 +214,8 @@ fn test_apply_delta_closes_position() {
         maker_fee_override_multiplier: 1.0,
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            margin: None,
+            margin_error: None,
             escrow_requests: Vec::new(),
             locked_deposit: None,
             triggers: vec![],
@@ -285,6 +291,8 @@ fn test_stale_delta_ignored() {
         maker_fee_override_multiplier: 1.0,
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            margin: None,
+            margin_error: None,
             escrow_requests: Vec::new(),
             locked_deposit: None,
             triggers: vec![],
@@ -353,6 +361,8 @@ fn test_multiple_subaccounts() {
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![
             TraderStateSubaccountSnapshot {
+                margin: None,
+                margin_error: None,
                 escrow_requests: Vec::new(),
                 locked_deposit: None,
                 triggers: vec![],
@@ -367,6 +377,8 @@ fn test_multiple_subaccounts() {
                 splines: vec![],
             },
             TraderStateSubaccountSnapshot {
+                margin: None,
+                margin_error: None,
                 escrow_requests: Vec::new(),
                 locked_deposit: None,
                 triggers: vec![],
@@ -412,6 +424,8 @@ fn test_cooldown_status_snapshot_and_delta() {
         maker_fee_override_multiplier: 1.0,
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            margin: None,
+            margin_error: None,
             escrow_requests: Vec::new(),
             locked_deposit: None,
             triggers: vec![],
@@ -542,6 +556,8 @@ fn trader_state_cache_preserves_triggers_and_conditional_order_metadata() {
         maker_fee_override_multiplier: 1.0,
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![TraderStateSubaccountSnapshot {
+            margin: None,
+            margin_error: None,
             escrow_requests: Vec::new(),
             locked_deposit: None,
             triggers: vec![],
@@ -605,6 +621,8 @@ fn isolated_subaccount_selection_is_deterministic() {
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![
             TraderStateSubaccountSnapshot {
+                margin: None,
+                margin_error: None,
                 escrow_requests: Vec::new(),
                 locked_deposit: None,
                 triggers: vec![],
@@ -622,6 +640,8 @@ fn isolated_subaccount_selection_is_deterministic() {
                 splines: vec![],
             },
             TraderStateSubaccountSnapshot {
+                margin: None,
+                margin_error: None,
                 escrow_requests: Vec::new(),
                 locked_deposit: None,
                 triggers: vec![],
@@ -639,6 +659,8 @@ fn isolated_subaccount_selection_is_deterministic() {
                 splines: vec![],
             },
             TraderStateSubaccountSnapshot {
+                margin: None,
+                margin_error: None,
                 escrow_requests: Vec::new(),
                 locked_deposit: None,
                 triggers: vec![],
@@ -678,6 +700,8 @@ fn isolated_empty_subaccount_ties_choose_lowest_index() {
         taker_fee_override_multiplier: 1.0,
         subaccounts: vec![
             TraderStateSubaccountSnapshot {
+                margin: None,
+                margin_error: None,
                 escrow_requests: Vec::new(),
                 locked_deposit: None,
                 triggers: vec![],
@@ -692,6 +716,8 @@ fn isolated_empty_subaccount_ties_choose_lowest_index() {
                 splines: vec![],
             },
             TraderStateSubaccountSnapshot {
+                margin: None,
+                margin_error: None,
                 escrow_requests: Vec::new(),
                 locked_deposit: None,
                 triggers: vec![],

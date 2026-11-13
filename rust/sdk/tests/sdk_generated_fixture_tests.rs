@@ -176,6 +176,7 @@ struct AssetFlagsExpected {
     is_commodity: bool,
     is_commodities_reopen: bool,
     is_commodities_after_hours: bool,
+    has_liquidation_fee_override: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -280,7 +281,7 @@ fn generated_instruction_fixtures_match_rise_discriminants() {
     // missed regeneration fails loudly instead.
     assert_eq!(
         instruction_fixtures().instructions.len(),
-        133,
+        136,
         "regenerate with `cargo run -p eternal-cli -- sdk-fixtures export`"
     );
 
@@ -680,6 +681,10 @@ fn assert_asset_flags(actual: impl AssetFlagsView, expected: &AssetFlagsExpected
         actual.is_commodities_after_hours(),
         expected.is_commodities_after_hours
     );
+    assert_eq!(
+        actual.has_liquidation_fee_override(),
+        expected.has_liquidation_fee_override
+    );
 }
 
 fn assert_sequence_number(
@@ -972,6 +977,7 @@ trait AssetFlagsView {
     fn is_commodity(&self) -> bool;
     fn is_commodities_reopen(&self) -> bool;
     fn is_commodities_after_hours(&self) -> bool;
+    fn has_liquidation_fee_override(&self) -> bool;
 }
 
 impl AssetFlagsView for accounts::AssetFlags {
@@ -990,6 +996,10 @@ impl AssetFlagsView for accounts::AssetFlags {
     fn is_commodities_after_hours(&self) -> bool {
         self.is_commodities_after_hours
     }
+
+    fn has_liquidation_fee_override(&self) -> bool {
+        self.has_liquidation_fee_override
+    }
 }
 
 impl AssetFlagsView for AssetFlags {
@@ -1007,5 +1017,9 @@ impl AssetFlagsView for AssetFlags {
 
     fn is_commodities_after_hours(&self) -> bool {
         self.is_commodities_after_hours
+    }
+
+    fn has_liquidation_fee_override(&self) -> bool {
+        self.has_liquidation_fee_override
     }
 }

@@ -36,6 +36,8 @@ pub mod next_market_calendar_transition;
 #[cfg(feature = "serde")]
 pub mod order_history_v2;
 #[cfg(feature = "serde")]
+pub mod price;
+#[cfg(feature = "serde")]
 pub mod service_accounts;
 #[cfg(feature = "serde")]
 pub mod trader;
@@ -95,9 +97,10 @@ pub mod prelude {
     pub use super::js_safe_ints::{JsSafeI64, JsSafeU64};
     pub use super::l2book::{L2Book, PriceLevel};
     pub use super::market::{
-        L2BookUpdate, L2Orderbook, LeverageTier, MarkPriceResponse, MarketFeeConfig, MarketInfo,
-        MarketStatsUpdate, MarketStatus, MarketSummary, MarketUnitConfig, MarketView, MarketsView,
-        OrderbookView, RiskFactors, RiskState, RiskTier,
+        CommodityMetadata, L2BookUpdate, L2Orderbook, LeverageTier, MarkPriceResponse,
+        MarketFeeConfig, MarketInfo, MarketPriceBand, MarketStatsUpdate, MarketStatus,
+        MarketSummary, MarketUnitConfig, MarketView, MarketsView, OrderbookView, RiskFactors,
+        RiskState, RiskTier,
     };
     pub use super::market_state::Market;
     pub use super::market_stats::MarketStats;
@@ -111,9 +114,11 @@ pub mod prelude {
         MarketCalendarSummary, MarketCalendarView, NextMarketCalendarTransition,
     };
     pub use super::order_history_v2::{
-        OrderHistoryV2Item, OrderHistoryV2QueryParams, OrderHistoryV2Response,
-        OrganizedOrderHistoryV2Data, OrganizedOrderHistoryV2Response, TwapParentOrderHistoryItem,
+        AggregatedTrades, CurrentOrderState, IntendedOrder, OrderHistoryV2Item,
+        OrderHistoryV2QueryParams, OrderHistoryV2Response, OrganizedOrderHistoryV2Data,
+        OrganizedOrderHistoryV2Response, PlacedOrder, TwapParentOrderHistoryItem,
     };
+    pub use super::price::{PriceHistoryQuery, PriceHistoryResponse, PricePoint};
     pub use super::service_accounts::{
         CreateServiceAccountRequest, CreateServiceKeyRequest, ServiceAccountDto,
         ServiceAccountKeyDto, ServiceAccountResponse, UpdateStatusRequest,
@@ -123,9 +128,10 @@ pub mod prelude {
         TraderCapabilitiesView, TraderStateCapabilities, TraderStateConditionalStopLossTrigger,
         TraderStateConditionalTakeProfitTrigger, TraderStateConditionalTrigger, TraderStateDelta,
         TraderStateEscrowAction, TraderStateEscrowRequest, TraderStateLimitOrderEvent,
-        TraderStateLockedDeposit, TraderStateMarketLimitOrderEvent, TraderStatePayload,
-        TraderStatePositionDelta, TraderStatePositionRow, TraderStatePositionSnapshot,
-        TraderStateRowChangeKind, TraderStateServerMessage, TraderStateSnapshot,
+        TraderStateLockedDeposit, TraderStateMargin, TraderStateMarketLimitOrderEvent,
+        TraderStatePayload, TraderStatePositionDelta, TraderStatePositionMargin,
+        TraderStatePositionRow, TraderStatePositionSnapshot, TraderStateRowChangeKind,
+        TraderStateServerMessage, TraderStateSnapshot, TraderStateSnapshotResponse,
         TraderStateSplineDelta, TraderStateSplineRow, TraderStateSplineSnapshot,
         TraderStateSpotCollateralSnapshot, TraderStateStopLossTrigger, TraderStateSubaccountDelta,
         TraderStateSubaccountSnapshot, TraderStateTakeProfitTrigger, TraderStateTickRegion,

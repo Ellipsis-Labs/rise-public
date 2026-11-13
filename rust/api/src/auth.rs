@@ -41,6 +41,9 @@ pub enum AuthError {
     #[error("no auth session available")]
     NoAuthSession,
 
+    #[error("access token is empty")]
+    EmptyAccessToken,
+
     #[error("missing refresh token")]
     MissingRefreshToken,
 
@@ -49,6 +52,9 @@ pub enum AuthError {
 
     #[error("invalid jwt format")]
     InvalidJwtFormat,
+
+    #[error("expiry timestamp is out of range: {unix_secs}")]
+    InvalidExpiryTimestamp { unix_secs: u64 },
 
     #[error("invalid jwt payload encoding: {source}")]
     InvalidJwtPayloadEncoding {
@@ -194,6 +200,14 @@ pub trait PhoenixSessionManager: Send + Sync {
     async fn current_session(&self) -> Result<Option<AuthSession>, PhoenixHttpError>;
 
     async fn refresh_session(&self) -> Result<(), PhoenixHttpError>;
+
+    /// Whether the SDK may renew this manager's session before a request or
+    /// connection, or after a server rejection. Managers that only accept
+    /// caller-installed credentials should return false: their tokens are sent
+    /// unchanged, including after local expiry, and server errors pass through.
+    fn supports_automatic_refresh(&self) -> bool {
+        true
+    }
 
     fn session_store(&self) -> Option<Arc<dyn AuthSessionStore>> {
         None
@@ -405,6 +419,61 @@ impl PhoenixSessionManager for PhoenixWalletSessionManager {
     }
 }
 
+/// Session manager for integrations that own login and token refresh.
+///
+/// The integration installs the current access token with
+/// [`set_access_token`](Self::set_access_token); requests and websocket
+/// connects send it as a plain bearer token (no refresh token, no PoP key).
+/// The SDK never refreshes it: when the server rejects the token with a 401,
+/// the request fails with [`PhoenixHttpError::Authentication`], preserving the
+/// server's error code and message. Installed tokens are sent even after local
+/// expiry; the server decides whether they are valid.
+#[derive(Default)]
+pub struct ExternalBearer {
+    session: RwLock<Option<AuthSession>>,
+}
+
+impl ExternalBearer {
+    /// Creates a manager with no token installed; requests are sent
+    /// unauthenticated until [`set_access_token`](Self::set_access_token) is
+    /// called.
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self::default())
+    }
+
+    /// Installs `token` as the bearer for subsequent requests. See
+    /// [`AuthSession::from_access_token`] for the accepted formats.
+    pub fn set_access_token(&self, token: String) -> Result<(), AuthError> {
+        let session = AuthSession::from_access_token(token)?;
+        *self.session.write() = Some(session);
+        Ok(())
+    }
+
+    /// Removes the installed token; subsequent requests are unauthenticated.
+    pub fn clear(&self) {
+        *self.session.write() = None;
+    }
+}
+
+#[async_trait]
+impl PhoenixSessionManager for ExternalBearer {
+    async fn current_session(&self) -> Result<Option<AuthSession>, PhoenixHttpError> {
+        Ok(self.session.read().clone())
+    }
+
+    fn supports_automatic_refresh(&self) -> bool {
+        false
+    }
+
+    async fn refresh_session(&self) -> Result<(), PhoenixHttpError> {
+        Err(PhoenixHttpError::Authentication {
+            status: None,
+            message: "external bearer sessions must be refreshed by the caller".into(),
+            error_code: None,
+        })
+    }
+}
+
 #[derive(Default)]
 pub struct PhoenixHttpAuthConfig {
     pub initial_session: Option<AuthSession>,
@@ -517,7 +586,7 @@ impl AuthSession {
         let access_expires_at = access_expires_at_from_jwt_exp_or_expires_in(
             access_claims.exp,
             Some(response.expires_in),
-        );
+        )?;
         let refresh_expires_at =
             Some(Instant::now() + Duration::from_secs(response.refresh_expires_in));
 
@@ -541,7 +610,7 @@ impl AuthSession {
     ) -> Result<Self, AuthError> {
         let access_claims = parse_jwt_claims(&access_token)?;
         let access_expires_at =
-            access_expires_at_from_jwt_exp_or_expires_in(access_claims.exp, expires_in);
+            access_expires_at_from_jwt_exp_or_expires_in(access_claims.exp, expires_in)?;
         let refresh_expires_at =
             refresh_expires_in.map(|secs| Instant::now() + Duration::from_secs(secs));
 
@@ -556,13 +625,45 @@ impl AuthSession {
         ))
     }
 
+    /// Creates a bearer-only session from an access token issued elsewhere.
+    ///
+    /// The token may be opaque or a JWT. For a JWT with a numeric `exp`
+    /// claim, the session expires at `exp`; otherwise it has no known expiry.
+    /// No `jti`, refresh token or PoP key is required: the session's
+    /// [`access_jti`](Self::access_jti) and PoP key are empty, and it cannot be
+    /// refreshed by the SDK. Use it with [`ExternalBearer`] when the caller
+    /// owns refresh.
+    /// Returns [`AuthError::InvalidExpiryTimestamp`] if `exp` cannot be
+    /// represented by the platform's clocks.
+    pub fn from_access_token(access_token: String) -> Result<Self, AuthError> {
+        if access_token.is_empty() {
+            return Err(AuthError::EmptyAccessToken);
+        }
+        let access_expires_at = jwt_exp_if_present(&access_token)
+            .map(instant_from_unix_secs)
+            .transpose()?;
+
+        Ok(Self::from_parts(
+            access_token,
+            None,
+            String::new(),
+            String::new(),
+            access_expires_at,
+            None,
+            0,
+        ))
+    }
+
     pub fn from_snapshot(snapshot: AuthSessionSnapshot) -> Result<Self, AuthError> {
         let access_claims = parse_jwt_claims(&snapshot.access_token)?;
         let access_expires_at = access_expires_at_from_jwt_exp_or_unix_secs(
             access_claims.exp,
             snapshot.access_expires_at,
-        );
-        let refresh_expires_at = snapshot.refresh_expires_at.map(instant_from_unix_secs);
+        )?;
+        let refresh_expires_at = snapshot
+            .refresh_expires_at
+            .map(instant_from_unix_secs)
+            .transpose()?;
 
         Ok(Self::from_parts(
             snapshot.access_token,
@@ -690,8 +791,11 @@ impl AuthSession {
         let access_expires_at = access_expires_at_from_jwt_exp_or_unix_secs(
             access_claims.exp,
             snapshot.access_expires_at,
-        );
-        let refresh_expires_at = snapshot.refresh_expires_at.map(instant_from_unix_secs);
+        )?;
+        let refresh_expires_at = snapshot
+            .refresh_expires_at
+            .map(instant_from_unix_secs)
+            .transpose()?;
 
         *self.inner.access_token.write() = snapshot.access_token;
         *self.inner.refresh_token.write() = snapshot.refresh_token;
@@ -712,7 +816,7 @@ impl AuthSession {
         let access_expires_at = access_expires_at_from_jwt_exp_or_expires_in(
             access_claims.exp,
             Some(response.expires_in),
-        );
+        )?;
 
         *self.inner.access_token.write() = response.access_token;
         *self.inner.refresh_token.write() = Some(response.refresh_token);
@@ -1281,11 +1385,7 @@ fn parse_jwt_claims(token: &str) -> Result<JwtClaims, AuthError> {
     let mut parts = token.split('.');
     let _header = parts.next().ok_or(AuthError::InvalidJwtFormat)?;
     let payload = parts.next().ok_or(AuthError::InvalidJwtFormat)?;
-    let payload_bytes = URL_SAFE_NO_PAD
-        .decode(payload)
-        .map_err(|source| AuthError::InvalidJwtPayloadEncoding { source })?;
-    let payload_json: serde_json::Value = serde_json::from_slice(&payload_bytes)
-        .map_err(|source| AuthError::InvalidJwtPayload { source })?;
+    let payload_json = decode_jwt_payload(payload)?;
     let jti = payload_json
         .get("jti")
         .and_then(|value| value.as_str())
@@ -1297,19 +1397,43 @@ fn parse_jwt_claims(token: &str) -> Result<JwtClaims, AuthError> {
     })
 }
 
+/// Returns the numeric `exp` claim when `token` is a JWT carrying one, and
+/// `None` for opaque tokens.
+fn jwt_exp_if_present(token: &str) -> Option<u64> {
+    let mut parts = token.split('.');
+    let (Some(_header), Some(payload), Some(_signature), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return None;
+    };
+    let payload_json = decode_jwt_payload(payload).ok()?;
+    payload_json.get("exp").and_then(|value| value.as_u64())
+}
+
+fn decode_jwt_payload(payload: &str) -> Result<serde_json::Value, AuthError> {
+    let payload_bytes = URL_SAFE_NO_PAD
+        .decode(payload)
+        .map_err(|source| AuthError::InvalidJwtPayloadEncoding { source })?;
+    serde_json::from_slice(&payload_bytes).map_err(|source| AuthError::InvalidJwtPayload { source })
+}
+
 fn access_expires_at_from_jwt_exp_or_expires_in(
     exp: Option<u64>,
     expires_in: Option<u64>,
-) -> Option<Instant> {
-    exp.map(instant_from_unix_secs)
-        .or_else(|| expires_in.map(|secs| Instant::now() + Duration::from_secs(secs)))
+) -> Result<Option<Instant>, AuthError> {
+    match exp {
+        Some(exp) => instant_from_unix_secs(exp).map(Some),
+        None => Ok(expires_in.map(|secs| Instant::now() + Duration::from_secs(secs))),
+    }
 }
 
 fn access_expires_at_from_jwt_exp_or_unix_secs(
     exp: Option<u64>,
     fallback_unix_secs: Option<u64>,
-) -> Option<Instant> {
-    exp.or(fallback_unix_secs).map(instant_from_unix_secs)
+) -> Result<Option<Instant>, AuthError> {
+    exp.or(fallback_unix_secs)
+        .map(instant_from_unix_secs)
+        .transpose()
 }
 
 fn access_expires_at_is_expired(session: &AuthSession) -> bool {
@@ -1334,13 +1458,15 @@ fn unix_secs_from_instant(instant: Instant) -> Option<u64> {
         .map(|duration| duration.as_secs())
 }
 
-fn instant_from_unix_secs(secs: u64) -> Instant {
+fn instant_from_unix_secs(secs: u64) -> Result<Instant, AuthError> {
     let now_system = SystemTime::now();
-    let target = UNIX_EPOCH + Duration::from_secs(secs);
-    match target.duration_since(now_system) {
-        Ok(remaining) => Instant::now() + remaining,
-        Err(_) => Instant::now(),
-    }
+    let target = UNIX_EPOCH
+        .checked_add(Duration::from_secs(secs))
+        .ok_or(AuthError::InvalidExpiryTimestamp { unix_secs: secs })?;
+    let remaining = target.duration_since(now_system).unwrap_or_default();
+    Instant::now()
+        .checked_add(remaining)
+        .ok_or(AuthError::InvalidExpiryTimestamp { unix_secs: secs })
 }
 
 fn extract_timestamp(message: &str) -> Option<String> {
@@ -1593,6 +1719,68 @@ mod tests {
         .expect("session should parse jwt exp from snapshot");
 
         assert!(session.should_refresh_within(Duration::from_secs(60)));
+    }
+
+    #[test]
+    fn from_access_token_accepts_opaque_and_jwt_without_jti() {
+        let opaque = AuthSession::from_access_token("opaque".to_string())
+            .expect("opaque token should be accepted");
+        assert_eq!(opaque.access_token(), "opaque");
+        assert_eq!(opaque.access_jti(), "");
+        assert_eq!(opaque.access_expires_at(), None);
+        assert_eq!(opaque.refresh_token(), None);
+        assert!(!opaque.can_refresh());
+
+        let header = URL_SAFE_NO_PAD.encode(r#"{"alg":"none"}"#);
+        let payload = URL_SAFE_NO_PAD.encode(format!(
+            r#"{{"exp":{}}}"#,
+            future_unix_secs(Duration::from_secs(30))
+        ));
+        let jwt = AuthSession::from_access_token(format!("{header}.{payload}.sig"))
+            .expect("jwt without jti should be accepted");
+        let expires_at = jwt.access_expires_at().expect("jwt exp should set expiry");
+        let now = Instant::now();
+        assert!(expires_at > now && expires_at <= now + Duration::from_secs(60));
+        assert_eq!(jwt.access_jti(), "");
+
+        assert!(matches!(
+            AuthSession::from_access_token(String::new()),
+            Err(AuthError::EmptyAccessToken)
+        ));
+    }
+
+    #[test]
+    fn from_access_token_keeps_opaque_and_non_numeric_expiry_unknown() {
+        let expired_payload = URL_SAFE_NO_PAD.encode(r#"{"exp":0}"#);
+        for token in [
+            "opaque".to_string(),
+            format!("header.{expired_payload}"),
+            format!("header.{expired_payload}.signature.extra"),
+            "header.!.signature".to_string(),
+            format!("header.{}.signature", URL_SAFE_NO_PAD.encode(b"not json")),
+        ] {
+            let session = AuthSession::from_access_token(token.clone())
+                .expect("opaque token should be accepted");
+            assert_eq!(session.access_token(), token);
+            assert_eq!(session.access_expires_at(), None);
+        }
+
+        for payload in [r#"{}"#, r#"{"exp":"0"}"#, r#"{"exp":-1}"#, r#"{"exp":0.5}"#] {
+            let token = format!("header.{}.signature", URL_SAFE_NO_PAD.encode(payload));
+            let session = AuthSession::from_access_token(token)
+                .expect("JWT without numeric expiry should be accepted");
+            assert_eq!(session.access_expires_at(), None);
+        }
+    }
+
+    #[test]
+    fn from_access_token_rejects_unrepresentable_expiry() {
+        assert!(matches!(
+            AuthSession::from_access_token(test_jwt("external-jti", u64::MAX)),
+            Err(AuthError::InvalidExpiryTimestamp {
+                unix_secs: u64::MAX
+            })
+        ));
     }
 
     #[tokio::test]

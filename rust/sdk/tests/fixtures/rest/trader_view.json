@@ -1,0 +1,105 @@
+{
+  "flags": 0,
+  "state": "active",
+  "capabilities": {
+    "placeLimitOrder": {
+      "immediate": true
+    },
+    "placeMarketOrder": {
+      "immediate": true
+    },
+    "riskIncreasingTrade": {
+      "immediate": true
+    },
+    "riskReducingTrade": {
+      "immediate": true
+    },
+    "depositCollateral": {
+      "immediate": true
+    },
+    "withdrawCollateral": {
+      "immediate": true
+    }
+  },
+  "slot": 1,
+  "slotIndex": 2,
+  "traderKey": "TRADER_KEY",
+  "traderPdaIndex": 0,
+  "traderSubaccountIndex": 0,
+  "authority": "AUTHORITY",
+  "collateralBalance": {
+    "value": 0,
+    "decimals": 6,
+    "ui": "0"
+  },
+  "effectiveCollateral": {
+    "value": 0,
+    "decimals": 6,
+    "ui": "0"
+  },
+  "effectiveCollateralForWithdrawals": {
+    "value": 0,
+    "decimals": 6,
+    "ui": "0"
+  },
+  "withdrawableQuoteCollateral": {
+    "value": 0,
+    "decimals": 6,
+    "ui": "0"
+  },
+  "unrealizedPnl": {
+    "value": 0,
+    "decimals": 6,
+    "ui": "0"
+  },
+  "discountedUnrealizedPnl": {
+    "value": 0,
+    "decimals": 6,
+    "ui": "0"
+  },
+  "unsettledFundingOwed": {
+    "value": 0,
+    "decimals": 6,
+    "ui": "0"
+  },
+  "accumulatedFunding": {
+    "value": 0,
+    "decimals": 6,
+    "ui": "0"
+  },
+  "portfolioValue": {
+    "value": 0,
+    "decimals": 6,
+    "ui": "0"
+  },
+  "maintenanceMargin": {
+    "value": 0,
+    "decimals": 6,
+    "ui": "0"
+  },
+  "cancelMargin": {
+    "value": 0,
+    "decimals": 6,
+    "ui": "0"
+  },
+  "initialMargin": {
+    "value": 0,
+    "decimals": 6,
+    "ui": "0"
+  },
+  "initialMarginForWithdrawals": {
+    "value": 0,
+    "decimals": 6,
+    "ui": "0"
+  },
+  "riskState": "healthy",
+  "riskTier": "safe",
+  "positions": [],
+  "limitOrders": {},
+  "makerFeeOverrideMultiplier": 1.0,
+  "takerFeeOverrideMultiplier": 1.0,
+  "maxPositions": 0,
+  "lastDepositSlot": 0,
+  "isInActiveTraders": false,
+  "numMarketsWithSplines": 0
+}

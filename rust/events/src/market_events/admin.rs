@@ -192,6 +192,15 @@ pub struct MarketFeeConfig {
     pub default_maker_fee_micro: i32,
 }
 
+/// One tier of the liquidation-transfer haircut schedule.
+#[derive(Copy, Clone, BorshDeserialize, BorshSerialize, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TransferFeeTier {
+    pub position_size_limit: BaseLots,
+    pub fee_rate: u16,
+    pub _padding: [u8; 6],
+}
+
 /// The type of admin parameter update that occurred.
 /// Used to emit events when risk/market/root authority parameters are changed.
 #[derive(Copy, Clone, BorshDeserialize, BorshSerialize, Debug)]
@@ -282,8 +291,66 @@ pub enum AdminParameterUpdateKind {
         previous: SpotCollateralMetadata,
         new: SpotCollateralMetadata,
     },
-    /// Reserved tag 17; must not be emitted.
-    Reserved,
+    /// Risk tier thresholds in basis points, `[maintenance, backstop,
+    /// high_risk]`, in non-increasing order.
+    RiskFactors {
+        previous: [u16; 3],
+        new: [u16; 3],
+    },
+    TraderCapOverride {
+        trader: Pubkey,
+        asset_index: u32,
+        previous: u64,
+        new: u64,
+    },
+    /// Liquidation-transfer haircut schedule, ordered by strictly increasing
+    /// `position_size_limit`.
+    TransferFeeTiers {
+        previous: [TransferFeeTier; 4],
+        new: [TransferFeeTier; 4],
+    },
+    /// Market display name: NUL-padded ASCII, empty when unset.
+    DisplayName {
+        previous: [u8; 16],
+        new: [u8; 16],
+    },
+    TraderPreferenceBits {
+        trader: Pubkey,
+        previous: u32,
+        new: u32,
+    },
+    /// Per-market override in basis points; `None` means the global rate.
+    LiquidationFeeBps {
+        previous: Option<u16>,
+        new: Option<u16>,
+    },
+    /// Global default liquidation fee rate in basis points.
+    GlobalLiquidationFeeBps {
+        previous: u16,
+        new: u16,
+    },
+    /// Exchange fee pool's share of each liquidation fee, in basis points.
+    LiquidationFeeExchangePortionBps {
+        previous: u16,
+        new: u16,
+    },
+    /// Liquidation margin tolerance in basis points.
+    LiquidationMarginToleranceBps {
+        previous: u16,
+        new: u16,
+    },
+}
+
+fn display_name(bytes: &[u8; 16]) -> std::borrow::Cow<'_, str> {
+    let end = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
+    String::from_utf8_lossy(&bytes[..end])
+}
+
+fn fmt_optional_bps(f: &mut fmt::Formatter<'_>, value: Option<u16>) -> fmt::Result {
+    match value {
+        Some(bps) => write!(f, "{bps}"),
+        None => write!(f, "unset"),
+    }
 }
 
 impl fmt::Display for AdminParameterUpdateKind {
@@ -365,7 +432,55 @@ impl fmt::Display for AdminParameterUpdateKind {
                     "SpotCollateralConfig(asset_index={asset_index}, {previous:?} -> {new:?})"
                 )
             }
-            Self::Reserved => write!(f, "Reserved"),
+            Self::RiskFactors { previous, new } => {
+                write!(f, "RiskFactors({previous:?} -> {new:?})")
+            }
+            Self::TraderCapOverride {
+                trader,
+                asset_index,
+                previous,
+                new,
+            } => {
+                write!(
+                    f,
+                    "TraderCapOverride(trader={trader:?}, asset_index={asset_index}, {previous} \
+                     -> {new})"
+                )
+            }
+            Self::TransferFeeTiers { previous, new } => {
+                write!(f, "TransferFeeTiers({previous:?} -> {new:?})")
+            }
+            Self::TraderPreferenceBits {
+                trader,
+                previous,
+                new,
+            } => {
+                write!(f, "TraderPreferenceBits({trader:?}: {previous} -> {new})")
+            }
+            Self::DisplayName { previous, new } => {
+                write!(
+                    f,
+                    "DisplayName({} -> {})",
+                    display_name(previous),
+                    display_name(new)
+                )
+            }
+            Self::LiquidationFeeBps { previous, new } => {
+                write!(f, "LiquidationFeeBps(")?;
+                fmt_optional_bps(f, *previous)?;
+                write!(f, " -> ")?;
+                fmt_optional_bps(f, *new)?;
+                write!(f, ")")
+            }
+            Self::GlobalLiquidationFeeBps { previous, new } => {
+                write!(f, "GlobalLiquidationFeeBps({previous} -> {new})")
+            }
+            Self::LiquidationFeeExchangePortionBps { previous, new } => {
+                write!(f, "LiquidationFeeExchangePortionBps({previous} -> {new})")
+            }
+            Self::LiquidationMarginToleranceBps { previous, new } => {
+                write!(f, "LiquidationMarginToleranceBps({previous} -> {new})")
+            }
         }
     }
 }

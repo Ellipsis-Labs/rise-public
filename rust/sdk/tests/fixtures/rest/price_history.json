@@ -1,0 +1,21 @@
+{
+  "market_id": 1,
+  "symbol": "SOL",
+  "timeframe": "1m",
+  "prices": [
+    {
+      "mark_price": 150.25,
+      "timestamp": "2025-05-29T19:20:00Z",
+      "sequence_number": 77,
+      "exchange_spot_price": 150.2,
+      "exchange_perp_price": null,
+      "best_bid": 150.2,
+      "best_ask": 150.3,
+      "last_trade": null,
+      "mid_spot_diff_ema_ticks": -3,
+      "cumulative_funding_rate": 12,
+      "settled_contribution": null,
+      "interval_accumulator": 170141183460469231731687303715884105727
+    }
+  ]
+}

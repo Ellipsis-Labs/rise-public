@@ -46,7 +46,8 @@ impl Fixture {
             atb_key,
             derive_active_trader_buffer_address(&program, 1),
         ];
-        let mut config = vec![0; 1104];
+        // Full on-chain account size, so every decoded field is present.
+        let mut config = vec![0; 2560];
         config[..8].copy_from_slice(&PhoenixAccount::GlobalConfiguration.discriminant());
         config[8..40].copy_from_slice(config_key.as_ref());
         config[392..424].copy_from_slice(gti_key.as_ref());

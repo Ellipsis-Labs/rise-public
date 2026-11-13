@@ -344,6 +344,10 @@ pub struct RiskParams {
     pub cancel_order_risk_factor: u16,
     pub upnl_risk_factor_for_withdrawals: UPnlRiskFactor,
     pub isolated_only: u8,
+    /// Fee override in bps; used only if `has_liquidation_fee_override` is set.
+    pub liquidation_fee_bps: u16,
+    /// Liquidation margin tolerance in basis points.
+    pub liquidation_margin_tolerance_bps: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -374,6 +378,7 @@ pub struct AssetFlags {
     pub is_commodity: bool,
     pub is_commodities_reopen: bool,
     pub is_commodities_after_hours: bool,
+    pub has_liquidation_fee_override: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -1158,6 +1163,8 @@ impl From<&borrowed_perp::RiskParams> for RiskParams {
             cancel_order_risk_factor: value.cancel_order_risk_factor,
             upnl_risk_factor_for_withdrawals: value.upnl_risk_factor_for_withdrawals,
             isolated_only: value.isolated_only,
+            liquidation_fee_bps: value.liquidation_fee_bps,
+            liquidation_margin_tolerance_bps: value.liquidation_margin_tolerance_bps,
         }
     }
 }
@@ -1215,6 +1222,7 @@ impl From<borrowed_perp::AssetFlags> for AssetFlags {
             is_commodity: value.is_commodity,
             is_commodities_reopen: value.is_commodities_reopen,
             is_commodities_after_hours: value.is_commodities_after_hours,
+            has_liquidation_fee_override: value.has_liquidation_fee_override,
         }
     }
 }

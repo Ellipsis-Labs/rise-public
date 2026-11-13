@@ -193,12 +193,14 @@ impl PhoenixApiClient {
         self.maybe_refresh_before_request().await?;
 
         match self.current_auth_session().await? {
-            Some(session) if !access_expires_at_is_expired(&session) => Ok(Some(session)),
+            Some(session)
+                if self.has_external_session_manager()
+                    || !access_expires_at_is_expired(&session) =>
+            {
+                Ok(Some(session))
+            }
             Some(session) => {
-                if session.can_refresh()
-                    || self.auth_signer.is_some()
-                    || self.session_manager.is_some()
-                {
+                if self.can_automatically_refresh_session(Some(&session)) {
                     self.refresh_session().await?;
                     return self.current_auth_session().await.map(|session| {
                         session.filter(|session| !access_expires_at_is_expired(session))
@@ -207,7 +209,7 @@ impl PhoenixApiClient {
 
                 Ok(None)
             }
-            None if self.auth_signer.is_some() || self.session_manager.is_some() => {
+            None if self.can_automatically_refresh_session(None) => {
                 self.refresh_session().await?;
                 self.current_auth_session()
                     .await
@@ -306,9 +308,9 @@ impl PhoenixApiClient {
 
         loop {
             let session = self.current_auth_session().await?;
-            let valid_session = session
-                .as_ref()
-                .filter(|session| !access_expires_at_is_expired(session));
+            let valid_session = session.as_ref().filter(|session| {
+                self.has_external_session_manager() || !access_expires_at_is_expired(session)
+            });
             let response = self
                 .send_request_once(method.clone(), url.clone(), body.clone(), valid_session)
                 .await?;
@@ -330,7 +332,11 @@ impl PhoenixApiClient {
                 || self.auth_signer.is_some()
                 || self.session_manager.is_some();
 
-            if allow_auth_retry && status == StatusCode::UNAUTHORIZED && can_retry_auth {
+            if allow_auth_retry
+                && status == StatusCode::UNAUTHORIZED
+                && can_retry_auth
+                && !self.has_external_session_manager()
+            {
                 if allow_store_reload
                     && should_reload_for_error_code(error_code.as_deref())
                     && self.reload_session_from_store(session.as_ref()).await?
@@ -353,6 +359,19 @@ impl PhoenixApiClient {
         }
     }
 
+    fn has_external_session_manager(&self) -> bool {
+        self.session_manager
+            .as_ref()
+            .is_some_and(|manager| !manager.supports_automatic_refresh())
+    }
+
+    fn can_automatically_refresh_session(&self, session: Option<&AuthSession>) -> bool {
+        match &self.session_manager {
+            Some(manager) => manager.supports_automatic_refresh(),
+            None => session.is_some_and(AuthSession::can_refresh) || self.auth_signer.is_some(),
+        }
+    }
+
     async fn maybe_refresh_before_request(&self) -> Result<(), PhoenixApiError> {
         let Some(session) = self.current_auth_session().await? else {
             return Ok(());
@@ -361,8 +380,7 @@ impl PhoenixApiClient {
             .access_expires_at()
             .map(|expires_at| expires_at <= Instant::now() + ACCESS_REFRESH_WINDOW)
             .unwrap_or(false);
-        let can_renew_session =
-            session.can_refresh() || self.auth_signer.is_some() || self.session_manager.is_some();
+        let can_renew_session = self.can_automatically_refresh_session(Some(&session));
 
         if !should_rotate_access_token || !can_renew_session {
             return Ok(());
@@ -1177,6 +1195,119 @@ mod tests {
         };
         shared_session.update_from_snapshot(replacement).unwrap();
         assert!(!session_credentials_match(&session.snapshot(), &candidate));
+    }
+
+    #[tokio::test]
+    async fn external_bearer_sends_tokens_even_after_local_expiry() {
+        for exp in [
+            future_unix_secs(Duration::from_secs(30)),
+            past_unix_secs(Duration::from_secs(30)),
+        ] {
+            let token = test_jwt("external-jti", exp);
+            let manager = crate::auth::ExternalBearer::new();
+            manager
+                .set_access_token(token.clone())
+                .expect("external token should install");
+            let (base_url, requests) = spawn_auth_test_server(RefreshResponse::Success, 1);
+            let client = PhoenixApiClient::builder(base_url)
+                .with_session_manager(manager)
+                .build()
+                .expect("client should build");
+
+            #[cfg(feature = "ws")]
+            {
+                let session = client
+                    .auth_session_for_request()
+                    .await
+                    .expect("websocket credentials should load")
+                    .expect("installed external token must not be dropped");
+                assert_eq!(session.access_token(), token);
+            }
+
+            let value: serde_json::Value = client
+                .get_json_typed("/v1/view/markets")
+                .await
+                .expect("external bearer request should succeed without refresh");
+
+            assert_eq!(value, json!({ "ok": true }));
+            assert!(client.auth_lifecycle_last_error().is_none());
+            assert_eq!(
+                requests.lock().as_slice(),
+                &[TestRequest {
+                    path: "/v1/view/markets".to_string(),
+                    authorization: Some(format!("Bearer {token}")),
+                }]
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn external_bearer_rejection_preserves_server_error_without_refresh() {
+        for error_code in ["invalid_access_token", "rate_limited"] {
+            let token = test_jwt("external-jti", past_unix_secs(Duration::from_secs(30)));
+            let manager = crate::auth::ExternalBearer::new();
+            manager
+                .set_access_token(token.clone())
+                .expect("external token should install");
+            let listener = TcpListener::bind("127.0.0.1:0").expect("test server should bind");
+            let base_url = format!("http://{}", listener.local_addr().unwrap());
+            let body = json!({
+                "error": error_code,
+                "message": "server rejection details",
+            })
+            .to_string();
+            let rejection = response("401 Unauthorized", body.clone(), &[("retry-after", "7")]);
+            let server = thread::spawn(move || {
+                let (mut stream, _) = listener.accept().expect("request should connect");
+                let mut buffer = [0_u8; 4096];
+                let read = stream.read(&mut buffer).expect("request should read");
+                stream
+                    .write_all(rejection.as_bytes())
+                    .expect("response should write");
+                String::from_utf8_lossy(&buffer[..read]).into_owned()
+            });
+            let client = PhoenixApiClient::builder(base_url)
+                .with_session_manager(manager)
+                .build()
+                .expect("client should build");
+            let initial_lifecycle_state = client.auth_lifecycle_state();
+
+            let error = client
+                .get_json_typed::<serde_json::Value>("/v1/view/markets")
+                .await
+                .expect_err("server rejection should surface without refreshing");
+
+            match error {
+                PhoenixApiError::ApiError {
+                    status,
+                    message,
+                    error_code: actual_code,
+                } => {
+                    assert_eq!(error_code, "invalid_access_token");
+                    assert_eq!(status, StatusCode::UNAUTHORIZED);
+                    assert_eq!(message, body);
+                    assert_eq!(actual_code.as_deref(), Some(error_code));
+                }
+                PhoenixApiError::RateLimited {
+                    status,
+                    message,
+                    error_code: actual_code,
+                    retry_after_seconds,
+                } => {
+                    assert_eq!(error_code, "rate_limited");
+                    assert_eq!(status, StatusCode::UNAUTHORIZED);
+                    assert_eq!(message, body);
+                    assert_eq!(actual_code.as_deref(), Some(error_code));
+                    assert_eq!(retry_after_seconds, Some(7));
+                }
+                other => panic!("expected server error, got {other:?}"),
+            }
+            assert_eq!(client.auth_lifecycle_state(), initial_lifecycle_state);
+            assert!(client.auth_lifecycle_last_error().is_none());
+            let request = server.join().expect("test server should finish");
+            assert!(request.starts_with("GET /v1/view/markets HTTP/1.1\r\n"));
+            assert!(request.contains(&format!("authorization: Bearer {token}\r\n")));
+        }
     }
 
     #[tokio::test]

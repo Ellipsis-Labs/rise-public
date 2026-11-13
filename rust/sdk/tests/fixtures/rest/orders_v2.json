@@ -1,0 +1,80 @@
+{
+  "data": [
+    {
+      "userId": 7,
+      "traderId": 11,
+      "traderPdaIndex": 0,
+      "traderSubaccountIndex": 0,
+      "slot": 355000000,
+      "slotIndex": 4,
+      "instructionIndex": 1,
+      "eventIndex": 2,
+      "marketSymbol": "SOL",
+      "instructionType": "PlaceLimitOrder",
+      "orderType": "limit",
+      "createdAt": "2025-05-29T19:20:00Z",
+      "price": "150.25",
+      "intended": {
+        "orderKind": "limit",
+        "side": "bid",
+        "priceInTicks": 15025,
+        "priceUsd": "150.25",
+        "hasPriceLimit": true,
+        "baseLots": 1000,
+        "baseQty": "1.0",
+        "quoteLotBudget": null,
+        "matchLimit": 5,
+        "lastValidSlot": null,
+        "clientOrderId": "42",
+        "orderFlags": 1,
+        "isReduceOnly": false,
+        "isStopLoss": false,
+        "isStopLossDirection": false,
+        "isConditionalOrder": false,
+        "isPostOnly": true,
+        "isTakeOnly": false,
+        "cancelExisting": false
+      },
+      "fillBeforePlacement": {
+        "totalBaseQtyFilled": "0.25",
+        "totalQuoteQtyFilled": "37.5",
+        "totalTakerFee": "0.01",
+        "totalNumFills": 2,
+        "numTrades": 1
+      },
+      "placedOrder": {
+        "orderSequenceNumber": 99,
+        "eventIndex": 3,
+        "side": "bid",
+        "price": "150.25",
+        "baseQty": "0.75",
+        "lastValidSlot": 355000100,
+        "initialSlot": 355000000,
+        "orderFlags": 1,
+        "scaleSetId": 3,
+        "transactionTimestamp": "2025-05-29T19:20:00Z"
+      },
+      "currentOrderState": {
+        "orderSequenceNumber": 99,
+        "side": "bid",
+        "price": "150.25",
+        "baseQty": "0.75",
+        "remainingBaseQty": "0.5",
+        "filledBaseQty": "0.25",
+        "releasedBaseQty": "0.25",
+        "orderStatus": "active",
+        "placedAt": "2025-05-29T19:20:00Z",
+        "cancelledAt": null,
+        "lastFillAt": "2025-05-29T19:20:00Z"
+      },
+      "isReduceOnly": false,
+      "isStopLoss": false,
+      "isStopLossDirection": false,
+      "isConditionalOrder": false,
+      "status": "active"
+    }
+  ],
+  "prevCursor": "prev",
+  "nextCursor": "next",
+  "hasMore": true
+}

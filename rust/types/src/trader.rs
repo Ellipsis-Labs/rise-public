@@ -1,14 +1,18 @@
-//! WebSocket protocol types for trader state synchronization.
+//! Trader-state snapshot and WebSocket synchronization types.
 //!
-//! These types represent snapshots and deltas for trader positions,
-//! orders, splines, trade history, and capabilities received via WebSocket.
+//! Snapshots and deltas carry positions, orders, splines, trade history, and
+//! capabilities. HTTP snapshots additionally include optional per-subaccount
+//! margin and risk data, which is absent from WebSocket snapshots.
 //!
-//! For HTTP API types (views, history), see [`crate::trader_http`].
+//! For other HTTP API types (views, history), see [`crate::trader_http`].
+
+use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::core::Side;
+use crate::core::{Decimal, Side};
 use crate::js_safe_ints::JsSafeU64;
+use crate::market::{RiskState, RiskTier};
 
 // ============================================================================
 // State Envelope Types
@@ -33,6 +37,23 @@ pub enum TraderStatePayload {
     Snapshot(TraderStateSnapshot),
     #[serde(rename = "delta")]
     Delta(TraderStateDelta),
+}
+
+/// REST response for `GET /v1/trader/state/{authority}`: the snapshot of one
+/// trader PDA under an authority.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TraderStateSnapshotResponse {
+    /// Trader authority public key.
+    pub authority: String,
+    /// Trader PDA index under the authority.
+    pub trader_pda_index: u8,
+    /// Solana slot for this snapshot.
+    pub slot: u64,
+    /// Slot-local index used for deterministic ordering.
+    pub slot_index: u32,
+    /// Full trader-state snapshot, including every registered subaccount.
+    pub snapshot: TraderStateSnapshot,
 }
 
 /// Snapshot payload covering every subaccount belonging to a trader PDA.
@@ -109,6 +130,53 @@ pub struct TraderStateSubaccountSnapshot {
     pub splines: Vec<TraderStateSplineSnapshot>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub triggers: Vec<TraderStateTriggerSnapshot>,
+    /// HTTP-only margin and risk values from the same state as this snapshot.
+    /// Absent on WebSocket snapshots and when margin calculation fails.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub margin: Option<TraderStateMargin>,
+    /// HTTP-only stable error code, `margin_unavailable`, when this
+    /// subaccount's margin cannot be calculated. Other subaccounts remain
+    /// available.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub margin_error: Option<String>,
+}
+
+/// HTTP-only margin and risk values for a subaccount, without duplicating its
+/// identity, positions, orders, or fees.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraderStateMargin {
+    pub effective_collateral: Decimal,
+    pub effective_collateral_for_withdrawals: Decimal,
+    pub withdrawable_quote_collateral: Decimal,
+    pub locked_deposit_remaining: Decimal,
+    pub unrealized_pnl: Decimal,
+    pub discounted_unrealized_pnl: Decimal,
+    pub unsettled_funding_owed: Decimal,
+    pub accumulated_funding: Decimal,
+    pub portfolio_value: Decimal,
+    pub maintenance_margin: Decimal,
+    pub cancel_margin: Decimal,
+    pub initial_margin: Decimal,
+    pub initial_margin_for_withdrawals: Decimal,
+    pub risk_state: RiskState,
+    pub risk_tier: RiskTier,
+    /// Position margin values keyed by market symbol.
+    pub positions: HashMap<String, TraderStatePositionMargin>,
+}
+
+/// HTTP-only margin values for one position, keyed by symbol in its
+/// subaccount's margin payload.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraderStatePositionMargin {
+    pub position_value: Decimal,
+    pub position_initial_margin: Decimal,
+    pub initial_margin: Decimal,
+    pub maintenance_margin: Decimal,
+    pub backstop_margin: Decimal,
+    pub limit_order_margin: Decimal,
+    pub liquidation_price: Decimal,
 }
 
 /// Current subaccount lock. The cross-margin entry owns the grant; isolated
@@ -558,6 +626,42 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn websocket_subaccount_snapshot_omits_http_only_margin() {
+        let subaccount: TraderStateSubaccountSnapshot = serde_json::from_value(json!({
+            "subaccountIndex": 0,
+            "sequence": 1,
+            "collateral": "1000"
+        }))
+        .unwrap();
+
+        assert_eq!(subaccount.margin, None);
+        assert_eq!(subaccount.margin_error, None);
+        let serialized = serde_json::to_value(subaccount).unwrap();
+        assert!(serialized.get("margin").is_none());
+        assert!(serialized.get("marginError").is_none());
+    }
+
+    #[test]
+    fn margin_failure_round_trips_without_a_margin_payload() {
+        let subaccount: TraderStateSubaccountSnapshot = serde_json::from_value(json!({
+            "subaccountIndex": 3,
+            "sequence": 11,
+            "collateral": "250",
+            "marginError": "margin_unavailable"
+        }))
+        .unwrap();
+
+        assert_eq!(subaccount.margin, None);
+        assert_eq!(
+            subaccount.margin_error.as_deref(),
+            Some("margin_unavailable")
+        );
+        let serialized = serde_json::to_value(subaccount).unwrap();
+        assert!(serialized.get("margin").is_none());
+        assert_eq!(serialized["marginError"], "margin_unavailable");
+    }
 
     #[test]
     fn unknown_escrow_actions_do_not_drop_known_trader_deltas() {

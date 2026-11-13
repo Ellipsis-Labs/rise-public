@@ -1,0 +1,144 @@
+{
+  "slot": 355000000,
+  "market": {
+    "symbol": "SOL",
+    "assetId": 0,
+    "marketStatus": "active",
+    "commodityMetadata": {
+      "isCommodity": true,
+      "isReopen": false,
+      "isAfterHours": true,
+      "status": "afterHours",
+      "afterHoursRadius": {
+        "value": 150250000,
+        "decimals": 6,
+        "ui": "150.25"
+      },
+      "lastKnownIndexPrice": {
+        "value": 150250000,
+        "decimals": 6,
+        "ui": "150.25"
+      },
+      "markPriceBand": {
+        "min": {
+          "value": 150250000,
+          "decimals": 6,
+          "ui": "150.25"
+        },
+        "max": {
+          "value": 150250000,
+          "decimals": 6,
+          "ui": "150.25"
+        }
+      },
+      "lastIndexExpiryTimestamp": 1748000000
+    },
+    "metadata": {
+      "name": "Solana",
+      "description": null,
+      "searchAliases": ["sol"],
+      "logoUri": null,
+      "coinGeckoId": "solana",
+      "coinMarketCapId": 5426,
+      "tokensXyzAssetId": null,
+      "displayColor": null,
+      "circulatingSupply": null
+    },
+    "marketKey": "market-key",
+    "units": {
+      "tickSizeInQuoteLotsPerBaseLot": 1,
+      "baseLotsDecimals": 3
+    },
+    "fees": {
+      "takerFeeMicro": 500,
+      "makerFeeMicro": -100
+    },
+    "riskActionPriceValidityRules": [
+      [
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1]
+      ],
+      [
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1]
+      ],
+      [
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1]
+      ],
+      [
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1]
+      ],
+      [
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1]
+      ],
+      [
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1]
+      ],
+      [
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1]
+      ],
+      [
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1]
+      ]
+    ],
+    "openInterest": {
+      "value": 150250000,
+      "decimals": 6,
+      "ui": "150.25"
+    },
+    "leverageTiers": [
+      {
+        "maxLeverage": 20.0,
+        "maxSizeBaseLots": 1000000,
+        "limitOrderRiskFactor": 100
+      }
+    ],
+    "riskFactors": {
+      "maintenance": 500,
+      "backstop": 300,
+      "highRisk": 250,
+      "upnl": 1000,
+      "upnlForWithdrawals": 1000,
+      "cancelOrder": 200
+    },
+    "spotPrice": {
+      "price": 150.2,
+      "slot": 355000000
+    },
+    "markPrice": null,
+    "fundingIntervalSeconds": 3600,
+    "fundingPeriodSeconds": 86400,
+    "fundingStartIntervalTimestamp": 1748000000,
+    "cumulativeFundingRate": -12,
+    "maxFundingRatePerInterval": 100,
+    "currentFundingRatePercentage": 0.01,
+    "annualizedFundingRatePercentage": 87.6,
+    "l2Orderbook": {
+      "bids": [[150.2, 1.5]],
+      "asks": [[150.3, 2.0]],
+      "mid": 150.25
+    }
+  }
+}
