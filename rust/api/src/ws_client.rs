@@ -2456,6 +2456,91 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn connect_sends_external_bearer_token() {
+        let (ws_url, mut ws_rx) = spawn_recording_ws_server(None).await;
+        let bearer_manager = crate::auth::ExternalBearer::new();
+        bearer_manager
+            .set_access_token("opaque-external-token".to_string())
+            .expect("token should install");
+        let auth_client = PhoenixHttpClient::builder("http://127.0.0.1:1")
+            .with_session_manager(bearer_manager)
+            .build()
+            .expect("auth client should build");
+        let url = Url::parse(&ws_url).expect("ws url should parse");
+
+        let mut stream = PhoenixWSClient::connect(&url, Some(&auth_client), None)
+            .await
+            .expect("websocket should connect");
+        let _ = stream.close(None).await;
+
+        let observed = timeout_recv(&mut ws_rx).await;
+        assert_eq!(
+            observed.authorization,
+            Some(bearer("opaque-external-token"))
+        );
+        assert_eq!(
+            observed.protocol,
+            Some(ws_protocol("opaque-external-token"))
+        );
+    }
+
+    #[tokio::test]
+    async fn connect_anonymously_with_unset_or_cleared_external_bearer() {
+        for clear_installed_token in [false, true] {
+            let (ws_url, mut ws_rx) = spawn_recording_ws_server(None).await;
+            let manager = crate::auth::ExternalBearer::new();
+            let auth_client = PhoenixHttpClient::builder("http://127.0.0.1:1")
+                .with_session_manager(manager.clone())
+                .build()
+                .expect("auth client should build");
+            if clear_installed_token {
+                manager
+                    .set_access_token("opaque-external-token".to_string())
+                    .expect("token should install");
+                manager.clear();
+            }
+            let url = Url::parse(&ws_url).expect("ws url should parse");
+
+            let mut stream = PhoenixWSClient::connect(&url, Some(&auth_client), None)
+                .await
+                .expect("websocket should connect anonymously");
+            let _ = stream.close(None).await;
+
+            let observed = timeout_recv(&mut ws_rx).await;
+            assert_eq!(observed.authorization, None);
+            assert_eq!(observed.protocol, None);
+            assert!(auth_client.auth_lifecycle_last_error().is_none());
+        }
+    }
+
+    #[tokio::test]
+    async fn connect_sends_external_bearer_even_after_local_expiry_without_lifecycle_error() {
+        for exp in [future_unix_secs(30), past_unix_secs(30)] {
+            let token = test_jwt_with_exp("external-ws-jti", exp);
+            let (ws_url, mut ws_rx) = spawn_recording_ws_server(None).await;
+            let manager = crate::auth::ExternalBearer::new();
+            manager
+                .set_access_token(token.clone())
+                .expect("token should install");
+            let auth_client = PhoenixHttpClient::builder("http://127.0.0.1:1")
+                .with_session_manager(manager)
+                .build()
+                .expect("auth client should build");
+            let url = Url::parse(&ws_url).expect("ws url should parse");
+
+            let mut stream = PhoenixWSClient::connect(&url, Some(&auth_client), None)
+                .await
+                .expect("websocket should connect without refreshing the external token");
+            let _ = stream.close(None).await;
+
+            let observed = timeout_recv(&mut ws_rx).await;
+            assert_eq!(observed.authorization, Some(bearer(&token)));
+            assert_eq!(observed.protocol, Some(ws_protocol(&token)));
+            assert!(auth_client.auth_lifecycle_last_error().is_none());
+        }
+    }
+
+    #[tokio::test]
     async fn auth_close_refreshes_reconnects_and_resubscribes() {
         let stale_token = test_jwt_with_exp("stale-close-jti", future_unix_secs(600));
         let fresh_token = test_jwt_with_exp("fresh-close-jti", future_unix_secs(600));

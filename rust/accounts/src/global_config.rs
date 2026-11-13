@@ -41,7 +41,7 @@ pub(crate) const fn is_exchange_active(
 }
 
 const_assert_eq!(core::mem::size_of::<AuthoritySetRaw>(), 256);
-const_assert_eq!(core::mem::size_of::<GlobalConfigPrefixRaw>(), 1104);
+const_assert_eq!(core::mem::size_of::<GlobalConfigPrefixRaw>(), 1120);
 
 // `native_sol_spot_metadata` was carved out of reserved bytes, so a drifting
 // prefix silently decodes garbage rather than failing a length check.
@@ -56,6 +56,15 @@ const_assert_eq!(
 const_assert_eq!(
     core::mem::offset_of!(GlobalConfigPrefixRaw, acknowledged_restart_slot),
     1096
+);
+
+const_assert_eq!(
+    core::mem::offset_of!(GlobalConfigPrefixRaw, global_liquidation_fee_bps),
+    1112
+);
+const_assert_eq!(
+    core::mem::offset_of!(GlobalConfigPrefixRaw, liquidation_fee_exchange_portion_bps),
+    1114
 );
 
 #[repr(C)]
@@ -93,6 +102,10 @@ struct GlobalConfigPrefixRaw {
     pending_authorities: AuthoritySetRaw,
     native_sol_spot_metadata: SpotCollateralMetadata,
     acknowledged_restart_slot: u64,
+    _pending_withdraw_throttle_replenishment: u64,
+    global_liquidation_fee_bps: u16,
+    liquidation_fee_exchange_portion_bps: u16,
+    _padding1: [u8; 4],
 }
 
 /// View over the GlobalConfig fields most CPI callers need.
@@ -231,6 +244,18 @@ impl GlobalConfig {
         self.raw.acknowledged_restart_slot
     }
 
+    /// Liquidation fee rate in bps for markets without an override.
+    #[inline(always)]
+    pub const fn global_liquidation_fee_bps(&self) -> u16 {
+        self.raw.global_liquidation_fee_bps
+    }
+
+    /// Share of each liquidation fee, in bps, routed to the exchange fee pool.
+    #[inline(always)]
+    pub const fn liquidation_fee_exchange_portion_bps(&self) -> u16 {
+        self.raw.liquidation_fee_exchange_portion_bps
+    }
+
     /// Returns whether the exchange is active for the observed restart slot.
     ///
     /// [`LastRestartSlot::Unknown`] evaluates only persisted status bits.
@@ -290,7 +315,7 @@ impl serde::Serialize for GlobalConfig {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_struct("GlobalConfig", 31)?;
+        let mut state = serializer.serialize_struct("GlobalConfig", 33)?;
         state.serialize_field("account_key", &pubkey_string(&self.account_key()))?;
         state.serialize_field("root_authority", &pubkey_string(&self.root_authority()))?;
         state.serialize_field("risk_authority", &pubkey_string(&self.risk_authority()))?;
@@ -376,6 +401,14 @@ impl serde::Serialize for GlobalConfig {
             "acknowledged_restart_slot",
             &self.acknowledged_restart_slot(),
         )?;
+        state.serialize_field(
+            "global_liquidation_fee_bps",
+            &self.global_liquidation_fee_bps(),
+        )?;
+        state.serialize_field(
+            "liquidation_fee_exchange_portion_bps",
+            &self.liquidation_fee_exchange_portion_bps(),
+        )?;
         state.end()
     }
 }
@@ -388,13 +421,15 @@ mod tests {
     };
 
     /// On-chain `GlobalConfiguration` is 2560 bytes; the prefix this crate
-    /// decodes is only the leading 1104.
+    /// decodes is only the leading 1120.
     const GLOBAL_CONFIG_ACCOUNT_LEN: usize = 2560;
     const SPOT_METADATA_OFFSET: usize = 776;
     const SPOT_FLAGS_OFFSET: usize = SPOT_METADATA_OFFSET + 104;
     const SPOT_MAX_GLOBAL_BALANCE_OFFSET: usize = SPOT_METADATA_OFFSET + 48;
     const EXCHANGE_STATUS_OFFSET: usize = 504;
     const ACKNOWLEDGED_RESTART_SLOT_OFFSET: usize = 1096;
+    const GLOBAL_LIQUIDATION_FEE_BPS_OFFSET: usize = 1112;
+    const LIQUIDATION_FEE_EXCHANGE_PORTION_BPS_OFFSET: usize = 1114;
 
     fn global_config_bytes(spot_flags: u8) -> Vec<u8> {
         let mut data = vec![0u8; GLOBAL_CONFIG_ACCOUNT_LEN];
@@ -454,5 +489,22 @@ mod tests {
             .copy_from_slice(&0u64.to_le_bytes());
         let config = GlobalConfig::try_from_account_bytes(&data).unwrap();
         assert!(config.is_exchange_active(LastRestartSlot::Known(42)));
+    }
+
+    #[test]
+    fn liquidation_fee_fields_decode_at_on_chain_offsets() {
+        let mut data = global_config_bytes(0);
+        data[ACKNOWLEDGED_RESTART_SLOT_OFFSET..ACKNOWLEDGED_RESTART_SLOT_OFFSET + 8]
+            .copy_from_slice(&42u64.to_le_bytes());
+        data[GLOBAL_LIQUIDATION_FEE_BPS_OFFSET..GLOBAL_LIQUIDATION_FEE_BPS_OFFSET + 2]
+            .copy_from_slice(&250u16.to_le_bytes());
+        data[LIQUIDATION_FEE_EXCHANGE_PORTION_BPS_OFFSET
+            ..LIQUIDATION_FEE_EXCHANGE_PORTION_BPS_OFFSET + 2]
+            .copy_from_slice(&2_500u16.to_le_bytes());
+
+        let config = GlobalConfig::try_from_account_bytes(&data).unwrap();
+        assert_eq!(config.global_liquidation_fee_bps(), 250);
+        assert_eq!(config.liquidation_fee_exchange_portion_bps(), 2_500);
+        assert_eq!(config.acknowledged_restart_slot(), 42);
     }
 }

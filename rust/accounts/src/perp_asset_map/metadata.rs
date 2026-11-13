@@ -72,7 +72,11 @@ pub struct RiskParams {
     pub upnl_risk_factor_for_withdrawals: UPnlRiskFactor,
     pub isolated_only: u8,
     pub post_only_market_price_radius_percentage: u8,
-    _padding: [u8; 6],
+    /// Fee override in bps; used only if `has_liquidation_fee_override` is set.
+    pub liquidation_fee_bps: u16,
+    /// Liquidation margin tolerance in basis points.
+    pub liquidation_margin_tolerance_bps: u16,
+    _padding: [u8; 2],
 }
 
 #[repr(C)]
@@ -118,6 +122,7 @@ pub struct AssetFlags {
     pub is_commodity: bool,
     pub is_commodities_reopen: bool,
     pub is_commodities_after_hours: bool,
+    pub has_liquidation_fee_override: bool,
 }
 
 #[repr(C)]
@@ -284,6 +289,7 @@ fn asset_flags_from_bits(bits: u8) -> AssetFlags {
         is_commodity: bits & (1 << 0) != 0,
         is_commodities_reopen: bits & (1 << 1) != 0,
         is_commodities_after_hours: bits & (1 << 2) != 0,
+        has_liquidation_fee_override: bits & (1 << 3) != 0,
     }
 }
 
@@ -321,7 +327,7 @@ impl serde::Serialize for RiskParams {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_struct("RiskParams", 9)?;
+        let mut state = serializer.serialize_struct("RiskParams", 11)?;
         state.serialize_field("leverage_tiers", &self.leverage_tiers)?;
         state.serialize_field("upnl_risk_factor", &self.upnl_risk_factor)?;
         state.serialize_field("max_liquidation_size", &self.max_liquidation_size)?;
@@ -336,6 +342,11 @@ impl serde::Serialize for RiskParams {
         state.serialize_field(
             "post_only_market_price_radius_percentage",
             &self.post_only_market_price_radius_percentage,
+        )?;
+        state.serialize_field("liquidation_fee_bps", &self.liquidation_fee_bps)?;
+        state.serialize_field(
+            "liquidation_margin_tolerance_bps",
+            &self.liquidation_margin_tolerance_bps,
         )?;
         state.end()
     }

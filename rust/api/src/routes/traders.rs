@@ -1,4 +1,7 @@
-use phoenix_rise_types::prelude::{PnlPoint, PnlQueryParams, TraderActivityState, TraderView};
+use phoenix_rise_types::prelude::{
+    OrderHistoryV2QueryParams, OrderHistoryV2Response, PnlPoint, PnlQueryParams,
+    TraderActivityState, TraderStateSnapshotResponse, TraderView,
+};
 use phoenix_rise_types::twap::{TwapOrdersQueryParams, TwapSnapshot};
 use solana_pubkey::Pubkey;
 
@@ -48,6 +51,44 @@ impl TradersClient<'_> {
             Err(err) if err.status() == Some(404) => Ok(None),
             Err(err) => Err(err),
         }
+    }
+
+    /// Fetches the trader-state snapshot of one trader PDA under `authority`
+    /// (`GET /v1/trader/state/{authority}`). The server defaults
+    /// `trader_pda_index` to 0 and returns empty subaccounts when that PDA has
+    /// no trader account. Each subaccount includes HTTP-only margin and risk
+    /// data, or `margin_error` when its margin cannot be calculated. Transport
+    /// and HTTP errors, including 404, are returned unchanged.
+    pub async fn get_trader_state_snapshot(
+        &self,
+        authority: &Pubkey,
+        trader_pda_index: Option<u8>,
+    ) -> Result<TraderStateSnapshotResponse, PhoenixHttpError> {
+        #[derive(serde::Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Query {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            trader_pda_index: Option<u8>,
+        }
+
+        self.http
+            .get_json_with_query(
+                &format!("/v1/trader/state/{authority}"),
+                &Query { trader_pda_index },
+            )
+            .await
+    }
+
+    /// Fetches order history V2 for one trader PDA
+    /// (`GET /v1/traders/{trader}/orders_v2`).
+    pub async fn get_trader_order_history_v2(
+        &self,
+        trader: &Pubkey,
+        query: OrderHistoryV2QueryParams,
+    ) -> Result<OrderHistoryV2Response, PhoenixHttpError> {
+        self.http
+            .get_json_with_query(&format!("/v1/traders/{trader}/orders_v2"), &query)
+            .await
     }
 
     pub async fn get_user_pnl(

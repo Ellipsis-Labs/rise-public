@@ -1,7 +1,7 @@
 use phoenix_rise_types::prelude::{
     CommodityMarketCalendarResponse, ExchangeMarketConfig, MarkPriceResponse,
-    MarketCalendarResponse, NextCommodityMarketTransition, NextMarketCalendarTransition,
-    OrderbookView,
+    MarketCalendarResponse, MarketView, NextCommodityMarketTransition,
+    NextMarketCalendarTransition, OrderbookView, PriceHistoryQuery, PriceHistoryResponse,
 };
 
 use crate::http_client::HttpClientInner;
@@ -20,6 +20,26 @@ impl MarketsClient<'_> {
         let symbol = self.http.canonical_market_symbol(symbol).await;
         self.http
             .get_json(&format!("/v1/view/exchange/market/{}", symbol))
+            .await
+    }
+
+    /// Fetches the detailed market view (`GET /v1/view/market/{symbol}`).
+    pub async fn get_market_view(&self, symbol: &str) -> Result<MarketView, PhoenixHttpError> {
+        let symbol = self.http.canonical_market_symbol(symbol).await;
+        self.http
+            .get_json(&format!("/v1/view/market/{}", symbol))
+            .await
+    }
+
+    /// Fetches mark-price history (`GET /v1/prices/{symbol}/history`).
+    pub async fn get_price_history(
+        &self,
+        symbol: &str,
+        query: PriceHistoryQuery,
+    ) -> Result<PriceHistoryResponse, PhoenixHttpError> {
+        let symbol = self.http.canonical_market_symbol(symbol).await;
+        self.http
+            .get_json_with_query(&format!("/v1/prices/{}/history", symbol), &query)
             .await
     }
 

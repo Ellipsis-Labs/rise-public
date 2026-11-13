@@ -1,0 +1,163 @@
+{
+  "authority": "AUTHORITY",
+  "traderPdaIndex": 0,
+  "slot": 355000000,
+  "slotIndex": 4,
+  "snapshot": {
+    "version": 1,
+    "capabilities": {
+      "flags": 63,
+      "state": "active",
+      "capabilities": {
+        "placeLimitOrder": {
+          "immediate": true
+        },
+        "placeMarketOrder": {
+          "immediate": true
+        },
+        "riskIncreasingTrade": {
+          "immediate": true
+        },
+        "riskReducingTrade": {
+          "immediate": true
+        },
+        "depositCollateral": {
+          "immediate": true
+        },
+        "withdrawCollateral": {
+          "immediate": true
+        }
+      }
+    },
+    "makerFeeOverrideMultiplier": 1.0,
+    "takerFeeOverrideMultiplier": 1.0,
+    "subaccounts": [
+      {
+        "subaccountIndex": 0,
+        "sequence": 10,
+        "collateral": "1000",
+        "spotCollaterals": [],
+        "margin": {
+          "effectiveCollateral": {
+            "value": 1000000000,
+            "decimals": 6,
+            "ui": "1000"
+          },
+          "effectiveCollateralForWithdrawals": {
+            "value": 1000000000,
+            "decimals": 6,
+            "ui": "1000"
+          },
+          "withdrawableQuoteCollateral": {
+            "value": 900000000,
+            "decimals": 6,
+            "ui": "900"
+          },
+          "lockedDepositRemaining": { "value": 0, "decimals": 6, "ui": "0" },
+          "unrealizedPnl": { "value": 10000000, "decimals": 6, "ui": "10" },
+          "discountedUnrealizedPnl": {
+            "value": 10000000,
+            "decimals": 6,
+            "ui": "10"
+          },
+          "unsettledFundingOwed": { "value": 0, "decimals": 6, "ui": "0" },
+          "accumulatedFunding": {
+            "value": -1000000,
+            "decimals": 6,
+            "ui": "-1"
+          },
+          "portfolioValue": {
+            "value": 1000000000,
+            "decimals": 6,
+            "ui": "1000"
+          },
+          "maintenanceMargin": { "value": 50000000, "decimals": 6, "ui": "50" },
+          "cancelMargin": { "value": 75000000, "decimals": 6, "ui": "75" },
+          "initialMargin": { "value": 100000000, "decimals": 6, "ui": "100" },
+          "initialMarginForWithdrawals": {
+            "value": 100000000,
+            "decimals": 6,
+            "ui": "100"
+          },
+          "riskState": "healthy",
+          "riskTier": "safe",
+          "positions": {
+            "SOL": {
+              "positionValue": {
+                "value": 1500000000,
+                "decimals": 6,
+                "ui": "1500"
+              },
+              "positionInitialMargin": {
+                "value": 100000000,
+                "decimals": 6,
+                "ui": "100"
+              },
+              "initialMargin": {
+                "value": 100000000,
+                "decimals": 6,
+                "ui": "100"
+              },
+              "maintenanceMargin": {
+                "value": 50000000,
+                "decimals": 6,
+                "ui": "50"
+              },
+              "backstopMargin": {
+                "value": 25000000,
+                "decimals": 6,
+                "ui": "25"
+              },
+              "limitOrderMargin": { "value": 0, "decimals": 6, "ui": "0" },
+              "liquidationPrice": {
+                "value": 125000000,
+                "decimals": 6,
+                "ui": "125"
+              }
+            }
+          }
+        }
+      },
+      {
+        "subaccountIndex": 3,
+        "sequence": 11,
+        "collateral": "250",
+        "spotCollaterals": [],
+        "margin": {
+          "effectiveCollateral": {
+            "value": 250000000,
+            "decimals": 6,
+            "ui": "250"
+          },
+          "effectiveCollateralForWithdrawals": {
+            "value": 250000000,
+            "decimals": 6,
+            "ui": "250"
+          },
+          "withdrawableQuoteCollateral": {
+            "value": 250000000,
+            "decimals": 6,
+            "ui": "250"
+          },
+          "lockedDepositRemaining": { "value": 0, "decimals": 6, "ui": "0" },
+          "unrealizedPnl": { "value": 0, "decimals": 6, "ui": "0" },
+          "discountedUnrealizedPnl": { "value": 0, "decimals": 6, "ui": "0" },
+          "unsettledFundingOwed": { "value": 0, "decimals": 6, "ui": "0" },
+          "accumulatedFunding": { "value": 0, "decimals": 6, "ui": "0" },
+          "portfolioValue": { "value": 250000000, "decimals": 6, "ui": "250" },
+          "maintenanceMargin": { "value": 0, "decimals": 6, "ui": "0" },
+          "cancelMargin": { "value": 0, "decimals": 6, "ui": "0" },
+          "initialMargin": { "value": 0, "decimals": 6, "ui": "0" },
+          "initialMarginForWithdrawals": {
+            "value": 0,
+            "decimals": 6,
+            "ui": "0"
+          },
+          "riskState": "healthy",
+          "riskTier": "safe",
+          "positions": {}
+        }
+      }
+    ]
+  }
+}

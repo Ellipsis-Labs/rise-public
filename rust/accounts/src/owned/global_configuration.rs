@@ -24,6 +24,8 @@ pub struct GlobalConfiguration {
     pub pending_authorities: AuthoritySet,
     pub native_sol_spot_metadata: SpotCollateralMetadata,
     pub acknowledged_restart_slot: u64,
+    pub global_liquidation_fee_bps: u16,
+    pub liquidation_fee_exchange_portion_bps: u16,
 }
 
 impl AccountDeserialize for GlobalConfiguration {
@@ -74,6 +76,8 @@ impl From<borrowed::GlobalConfig> for GlobalConfiguration {
             },
             native_sol_spot_metadata: value.native_sol_spot_metadata().into(),
             acknowledged_restart_slot: value.acknowledged_restart_slot(),
+            global_liquidation_fee_bps: value.global_liquidation_fee_bps(),
+            liquidation_fee_exchange_portion_bps: value.liquidation_fee_exchange_portion_bps(),
         }
     }
 }
@@ -93,5 +97,27 @@ impl GlobalConfiguration {
             self.acknowledged_restart_slot,
             last_restart_slot,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::discriminants::PhoenixAccount;
+
+    fn account_bytes() -> Vec<u8> {
+        let mut data = vec![0u8; 2560];
+        data[..8].copy_from_slice(&PhoenixAccount::GlobalConfiguration.discriminant());
+        data
+    }
+
+    #[test]
+    fn liquidation_fee_fields_decode_at_on_chain_offsets() {
+        let mut data = account_bytes();
+        data[1112..1114].copy_from_slice(&250u16.to_le_bytes());
+        data[1114..1116].copy_from_slice(&2_500u16.to_le_bytes());
+        let owned = GlobalConfiguration::try_from_account_bytes(&data).unwrap();
+        assert_eq!(owned.global_liquidation_fee_bps, 250);
+        assert_eq!(owned.liquidation_fee_exchange_portion_bps, 2_500);
     }
 }

@@ -55,11 +55,11 @@ mod ws_client;
 mod ws_error;
 
 pub use auth::{
-    AuthError, AuthSession, AuthSessionSnapshot, AuthSessionStore, FileAuthSessionStore,
-    MemoryAuthSessionStore, PhoenixAuthSigner, PhoenixHttpAuthConfig, PhoenixMemorySessionManager,
-    PhoenixServiceAuthClient, PhoenixServiceChallenge, PhoenixServiceLoginRequest,
-    PhoenixSessionManager, PhoenixWalletNonce, PhoenixWalletNonceRequest,
-    PhoenixWalletSessionManager, PhoenixWalletTransactionChallenge,
+    AuthError, AuthSession, AuthSessionSnapshot, AuthSessionStore, ExternalBearer,
+    FileAuthSessionStore, MemoryAuthSessionStore, PhoenixAuthSigner, PhoenixHttpAuthConfig,
+    PhoenixMemorySessionManager, PhoenixServiceAuthClient, PhoenixServiceChallenge,
+    PhoenixServiceLoginRequest, PhoenixSessionManager, PhoenixWalletNonce,
+    PhoenixWalletNonceRequest, PhoenixWalletSessionManager, PhoenixWalletTransactionChallenge,
     default_auth_session_store_path, is_auth_recovery_error,
 };
 pub use auth_lifecycle::{AuthLifecycleError, AuthLifecycleErrorReason, AuthLifecycleState};

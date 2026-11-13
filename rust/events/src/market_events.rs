@@ -196,6 +196,9 @@ pub enum MarketEvent {
     // Locked deposit events
     LockedDepositChanged(LockedDepositChangedEvent),
     FundingParametersUpdatedWithClamp(FundingParametersUpdatedWithClampEvent),
+    TraderPreferenceBitsUpdated(TraderPreferenceBitsUpdatedEvent),
+    /// Liquidation event that includes the liquidation fee outcome.
+    LiquidationWithFee(LiquidationWithFeeEvent),
 }
 
 /// Stable event type for a decoded [`MarketEvent`].
@@ -280,6 +283,8 @@ pub enum MarketEventType {
     SpotAssetPriceUpdated,
     LockedDepositChanged,
     FundingParametersUpdatedWithClamp,
+    TraderPreferenceBitsUpdated,
+    LiquidationWithFee,
 }
 
 impl fmt::Display for MarketEventType {
@@ -386,6 +391,10 @@ impl MarketEvent {
             MarketEvent::FundingParametersUpdatedWithClamp(_) => {
                 MarketEventType::FundingParametersUpdatedWithClamp
             }
+            MarketEvent::TraderPreferenceBitsUpdated(_) => {
+                MarketEventType::TraderPreferenceBitsUpdated
+            }
+            MarketEvent::LiquidationWithFee(_) => MarketEventType::LiquidationWithFee,
         }
     }
 }

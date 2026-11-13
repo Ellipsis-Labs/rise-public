@@ -144,6 +144,16 @@ pub struct LockedDepositChangedEvent {
     pub new_consumed: QuoteLots,
 }
 
+/// A trader's preference bits were updated.
+#[derive(Debug, Copy, Clone, BorshDeserialize, BorshSerialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TraderPreferenceBitsUpdatedEvent {
+    pub trader: Pubkey,
+    pub authority: Pubkey,
+    pub old_preference_bits: u32,
+    pub new_preference_bits: u32,
+}
+
 /// Collateral was transferred between trader accounts.
 #[derive(Debug, Copy, Clone, BorshDeserialize, BorshSerialize)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

@@ -3,6 +3,34 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.9.6 - 2026-11-13
+
+Source Phoenix commit: `2ea55b0cca007d5bbc019dbb12449193f6a745cc`
+
+### Summary
+
+- Adds typed REST routes. `markets()` gains `get_market_view` and `get_price_history` (with `PriceHistoryQuery`). `traders()` gains `get_trader_state_snapshot` and `get_trader_order_history_v2`. New `types` exports cover these: `MarketView` commodity metadata (`CommodityMetadata`, `MarketPriceBand`), order-history V2 item types, `price` types, and `TraderStateSnapshotResponse`.
+- Adds `ExternalBearer` (`api`), a session manager for integrations that own login and token refresh. Install tokens with `set_access_token` and reset them with `clear()`. Tokens are sent as-is, even after local expiry, with no automatic refresh. A 401 surfaces as `PhoenixHttpError::Authentication` with the server's error code and message. New `AuthError` variants: `EmptyAccessToken` and `InvalidExpiryTimestamp`.
+- Adds liquidation-fee support across `accounts`, `events`, and `ix`:
+  - New `accounts` fields: `global_liquidation_fee_bps`, `liquidation_fee_exchange_portion_bps`, per-market `liquidation_fee_bps`, `liquidation_margin_tolerance_bps`, and the `has_liquidation_fee_override` asset flag.
+  - New `events` variants: `MarketEvent::LiquidationWithFee` and `TraderPreferenceBitsUpdated`.
+  - Nine new `AdminParameterUpdateKind` variants.
+  - New `ix` instructions: `UpdatePerpLiquidationFee`, `UpdateGlobalLiquidationFee`, and `UpdatePerpLiquidationMarginTolerance`.
+- Version bumped from 0.9.5 to 0.9.6 across all Rise crates.
+
+### Breaking Changes
+
+- `events`: `AdminParameterUpdateKind::Reserved` (tag 17) is removed. Tags 17–25 are now `RiskFactors`, `TraderCapOverride`, `TransferFeeTiers`, `DisplayName`, `TraderPreferenceBits`, `LiquidationFeeBps`, `GlobalLiquidationFeeBps`, `LiquidationFeeExchangePortionBps`, and `LiquidationMarginToleranceBps`. Exhaustive matches on `AdminParameterUpdateKind`, `MarketEvent`, or `MarketEventType` need new arms.
+- `accounts`: Public fields are added to `GlobalConfiguration`, `RiskParams`, and `AssetFlags`. Code that builds these structs with literals must set them. The decoded `GlobalConfig` prefix grows from 1104 to 1120 bytes. The `RiskParams` padding shrinks from 6 to 2 bytes to make room for the new fields.
+- `types`: `TraderStateSubaccountSnapshot` gains the public fields `margin` and `margin_error`, and `MarketInfo` gains `commodity_metadata` and `metadata`. Struct literals must set them. Serde defaults keep decoding of older payloads compatible.
+- `api`: `get_trader_views` and the duplicate `traderViews` response field are removed. They were unreleased, so published consumers are unaffected. Use `get_trader_state_snapshot().snapshot.subaccounts` instead. The `PhoenixSessionManager` trait gains a defaulted method, `supports_automatic_refresh()`, which is non-breaking for existing implementors.
+
+### Consumer Notes
+
+- Margin and risk data on `get_trader_state_snapshot` is HTTP-only. Each subaccount carries `margin` on success, or `marginError: "margin_unavailable"` if the margin calculation fails, and positions and orders are still returned. Older servers may omit both fields, and WebSocket trader-state payloads are unchanged.
+- `get_trader_state_snapshot` defaults `trader_pda_index` to 0 and returns empty subaccounts when that PDA has no trader account. HTTP errors such as 404 pass through unchanged.
+- `PhoenixInstruction::ALL` grows from 113 to 116 entries. Regenerate any fixtures or exhaustive instruction tables that depend on the count.
+
 ## v0.9.5 - 2026-11-12
 
 Source Phoenix commit: `d81b7169152aaf231c1cdbd07c91a56c7293d257`

@@ -137,6 +137,138 @@ fn spot_collateral_events_use_the_expected_borsh_tags() {
     assert_eq!(funding_parameters_updated[0], 74);
 }
 
+/// Borsh enum tags are positional, so admin update kinds from 17 on must keep
+/// their tags and field layouts.
+#[test]
+fn admin_parameter_update_kinds_round_trip_with_expected_tags() {
+    use borsh::BorshDeserialize;
+
+    let tier = |limit: u64, fee_rate: u16| rise::TransferFeeTier {
+        position_size_limit: rise::BaseLots::new(limit),
+        fee_rate,
+        _padding: [0; 6],
+    };
+    let tiers = |base: u64| {
+        [
+            tier(base, 1),
+            tier(base * 2, 2),
+            tier(base * 3, 3),
+            tier(base * 4, 4),
+        ]
+    };
+
+    let mut risk_factors = vec![17];
+    for bps in [100u16, 50, 25, 90, 45, 20] {
+        risk_factors.extend_from_slice(&bps.to_le_bytes());
+    }
+    let mut trader_cap = vec![18];
+    trader_cap.extend_from_slice(&[9; 32]);
+    trader_cap.extend_from_slice(&5u32.to_le_bytes());
+    trader_cap.extend_from_slice(&6u64.to_le_bytes());
+    trader_cap.extend_from_slice(&7u64.to_le_bytes());
+    let mut transfer_fee_tiers = vec![19];
+    for base in [10u64, 20] {
+        for i in 1..=4u64 {
+            transfer_fee_tiers.extend_from_slice(&(base * i).to_le_bytes());
+            transfer_fee_tiers.extend_from_slice(&(i as u16).to_le_bytes());
+            transfer_fee_tiers.extend_from_slice(&[0; 6]);
+        }
+    }
+    let mut sol = [0; 16];
+    sol[..3].copy_from_slice(b"SOL");
+    let display_name = [&[20][..], &[0; 16], &sol].concat();
+    let mut trader_preference_bits = vec![21];
+    trader_preference_bits.extend_from_slice(&[8; 32]);
+    trader_preference_bits.extend_from_slice(&1u32.to_le_bytes());
+    trader_preference_bits.extend_from_slice(&3u32.to_le_bytes());
+    let mut liquidation_fee = vec![22, 0, 1];
+    liquidation_fee.extend_from_slice(&30u16.to_le_bytes());
+    let mut global_fee = vec![23];
+    global_fee.extend_from_slice(&10u16.to_le_bytes());
+    global_fee.extend_from_slice(&20u16.to_le_bytes());
+    let mut exchange_portion = vec![24];
+    exchange_portion.extend_from_slice(&5_000u16.to_le_bytes());
+    exchange_portion.extend_from_slice(&6_000u16.to_le_bytes());
+    let mut margin_tolerance = vec![25];
+    margin_tolerance.extend_from_slice(&0u16.to_le_bytes());
+    margin_tolerance.extend_from_slice(&25u16.to_le_bytes());
+
+    let cases = [
+        (
+            rise::AdminParameterUpdateKind::RiskFactors {
+                previous: [100, 50, 25],
+                new: [90, 45, 20],
+            },
+            risk_factors,
+        ),
+        (
+            rise::AdminParameterUpdateKind::TraderCapOverride {
+                trader: [9; 32],
+                asset_index: 5,
+                previous: 6,
+                new: 7,
+            },
+            trader_cap,
+        ),
+        (
+            rise::AdminParameterUpdateKind::TransferFeeTiers {
+                previous: tiers(10),
+                new: tiers(20),
+            },
+            transfer_fee_tiers,
+        ),
+        (
+            rise::AdminParameterUpdateKind::DisplayName {
+                previous: [0; 16],
+                new: sol,
+            },
+            display_name,
+        ),
+        (
+            rise::AdminParameterUpdateKind::TraderPreferenceBits {
+                trader: [8; 32],
+                previous: 1,
+                new: 3,
+            },
+            trader_preference_bits,
+        ),
+        (
+            rise::AdminParameterUpdateKind::LiquidationFeeBps {
+                previous: None,
+                new: Some(30),
+            },
+            liquidation_fee,
+        ),
+        (
+            rise::AdminParameterUpdateKind::GlobalLiquidationFeeBps {
+                previous: 10,
+                new: 20,
+            },
+            global_fee,
+        ),
+        (
+            rise::AdminParameterUpdateKind::LiquidationFeeExchangePortionBps {
+                previous: 5_000,
+                new: 6_000,
+            },
+            exchange_portion,
+        ),
+        (
+            rise::AdminParameterUpdateKind::LiquidationMarginToleranceBps {
+                previous: 0,
+                new: 25,
+            },
+            margin_tolerance,
+        ),
+    ];
+
+    for (kind, bytes) in cases {
+        assert_eq!(borsh::to_vec(&kind).unwrap(), bytes, "{kind}");
+        let decoded = rise::AdminParameterUpdateKind::try_from_slice(&bytes).unwrap();
+        assert_eq!(format!("{decoded:?}"), format!("{kind:?}"));
+    }
+}
+
 /// Regression: before the spot-collateral variants existed, an unknown trailing
 /// Borsh tag failed the whole batch rather than one event, so a single spot
 /// collateral event took down every event in the transaction.

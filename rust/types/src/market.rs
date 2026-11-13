@@ -6,6 +6,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::core::{Decimal, Price};
+use crate::exchange::MarketPublicMetadata;
+use crate::exchange_ws::CommodityMarketState;
 
 // ============================================================================
 // Market Configuration
@@ -187,6 +189,39 @@ pub struct MarkPriceResponse {
 // Market Views (HTTP API)
 // ============================================================================
 
+/// Price band bounds.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketPriceBand {
+    pub min: Decimal,
+    pub max: Decimal,
+}
+
+/// Commodity-specific market metadata.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommodityMetadata {
+    /// Always true when this object is present.
+    pub is_commodity: bool,
+    pub is_reopen: bool,
+    pub is_after_hours: bool,
+    pub status: CommodityMarketState,
+    /// Commodity after-hours radius in price units.
+    pub after_hours_radius: Decimal,
+    /// Last index price used for commodity after-hours/reopen behavior.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_known_index_price: Option<Decimal>,
+    /// Mark-price clamp band around the last known index price.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mark_price_band: Option<MarketPriceBand>,
+    /// Price band currently applied to execution-visible orderbook levels.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_price_band: Option<MarketPriceBand>,
+    /// Unix timestamp when the last known index price expires.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_index_expiry_timestamp: Option<u64>,
+}
+
 /// Full market information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -196,6 +231,12 @@ pub struct MarketInfo {
     pub display_name: Option<String>,
     pub asset_id: u64,
     pub market_status: MarketStatus,
+    /// Commodity-specific metadata, present only for commodity markets.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commodity_metadata: Option<CommodityMetadata>,
+    /// Public market metadata configured off-chain.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<MarketPublicMetadata>,
     pub market_key: String,
     pub units: MarketUnitConfig,
     pub fees: MarketFeeConfig,
