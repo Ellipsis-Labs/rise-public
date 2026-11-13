@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.8.1 - 2026-11-13
+
+Source Phoenix commit: `c18a11134a969691aba13699b804678b537771b2`
+
+### Summary
+
+- Adds transaction error diagnostics. `parseTransactionError` takes the resolved instructions plus the RPC `err` and `logs` (from a simulation or a transaction response). It returns the failing instruction index, the program and instruction name, the error code and name, and the IDL or runtime message.
+- Adds `identifyInstruction`, `decodeProgramError` and `decodeInstructionError`. These name an instruction from its discriminator, or look up a custom error code, for Eternal (including the beta address), Ember, Flame, Flight, Flicker, Hawkeye and Punchcard.
+- Adds `identifyInstructionFailureHint` and an `InstructionFailure.hint` field. For example, `conditionalOrdersAccountUninitialized` marks a failed instruction whose Eternal logs show the TP/SL conditional-orders account is missing.
+- Exports the new types `InstructionFailure`, `InstructionFailureHint`, `InstructionInfo`, `ParseTransactionErrorInput`, `ProgramErrorInfo` and `TransactionFailure` from the package root.
+- Documents the new helpers in the TypeScript README under "Transaction and program errors".
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- The parser returns `failure: null` when logs are missing, truncated, or don't match the submitted instructions and the custom error. In that case `instructionIndex`, `instruction` and the original `error` are still returned. Success and transaction-wide errors such as `BlockhashNotFound` return `null`.
+- For failures in nested (CPI) calls, the instruction name is `null` because logs don't include CPI instruction bytes. Treat the result as a propagation hint, and use `decodeInstructionError` if you have the CPI instruction.
+- Unknown programs, error codes and discriminators keep their raw code and have no decoded name. IDL messages keep `<field>` placeholders unless the failing frame logged a filled message under the matching error name.
+- These diagnostics don't establish whether a transaction was delivered and don't prescribe a retry policy. Confirm delivery before resending.
+
 ## v0.8.0 - 2026-11-13
 
 Source Phoenix commit: `f373db07b2c96ff656be0bcfb3be22f50163f251`

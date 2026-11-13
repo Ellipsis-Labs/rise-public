@@ -34,6 +34,18 @@ Where to start:
   borrowed Phoenix account views for on-chain CPI integrations without pulling
   in the full off-chain SDK
 
+## Transaction error diagnostics
+
+Rust and TypeScript expose transaction diagnostics with the failing program,
+instruction name when available, error code, and IDL/runtime message. See the
+[Rust diagnostics guide](./rust/core/README.md#transaction-errors) and
+[TypeScript diagnostics guide](./ts/README.md#transaction-and-program-errors).
+
+Both source-checkout SDK test suites read the same
+[failure corpus](./test-fixtures/transaction-errors.json). It contains synthetic
+parser cases and captured LiteSVM failures with named contract-test provenance.
+Applications select user-facing messages and recovery actions from these diagnostics.
+
 ## Install
 
 TypeScript:

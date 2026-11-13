@@ -148,6 +148,19 @@ export * from "./orderbooks";
 export * from "./market-data";
 
 export { PhoenixAuthError, PhoenixHttpError } from "./errors";
+export {
+  decodeInstructionError,
+  decodeProgramError,
+  identifyInstruction,
+  parseTransactionError,
+  identifyInstructionFailureHint,
+  type InstructionFailure,
+  type InstructionFailureHint,
+  type InstructionInfo,
+  type ParseTransactionErrorInput,
+  type ProgramErrorInfo,
+  type TransactionFailure,
+} from "./transactionErrors";
 export * as auth from "./auth";
 export * from "./auth";
 export * as flight from "./flight";

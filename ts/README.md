@@ -860,6 +860,65 @@ try {
 }
 ```
 
+### Transaction and program errors
+
+Use `parseTransactionError` with the resolved instructions you submitted and the
+`err` / `logs` from an RPC simulation (or `meta.err` / `meta.logMessages` from a
+transaction response):
+
+```ts
+import { parseTransactionError } from "@ellipsis-labs/rise";
+
+const failure = parseTransactionError({
+  instructions,
+  error: simulation.value.err,
+  logs: simulation.value.logs,
+});
+console.log(failure?.instructionIndex, failure?.instruction);
+console.log(failure?.failure);
+// Example failure hint:
+// {
+//   instruction: { programAddress: "Etrn...", programName: "Eternal",
+//                  instructionName: "PlaceMarketOrder" },
+//   errorCode: 20481, errorName: "MarginInsufficient", message: "Insufficient margin"
+// }
+```
+
+`identifyInstruction(ix)` names an instruction from its program and discriminator.
+If you already know which instruction originated a custom error,
+`decodeInstructionError(ix, code)` combines that identity with the IDL error.
+`decodeProgramError(programAddress, code)` looks up just the error code, name,
+and message. The catalogs cover Eternal (including the beta address), Ember, Flame,
+Flight, Flicker, Hawkeye, and Punchcard; an IDL without an error catalog still provides
+instruction names. Unknown programs/codes/discriminators retain their raw
+identity and have no decoded name. IDL messages retain `<field>` placeholders
+unless the failing frame logged a filled message under the matching error name.
+
+The transaction helper requires a complete invocation trace that agrees with the
+top-level instructions and custom error. Missing or truncated logs leave
+`failure` null, while preserving `instructionIndex`, `instruction`, and the
+original `error`. Transaction-wide errors and success return null. A nested
+failure is a best-effort propagation hint: a caller can catch and return the
+same code. Its instruction name is null because logs contain no CPI instruction
+bytes; decode the resolved CPI instruction separately when those bytes are
+available. Native errors without a recognized runtime reason also withhold
+attribution. These debugging hints do not prescribe retry policy.
+
+`failure.hint` adds verified context while preserving the native error. For
+example, `conditionalOrdersAccountUninitialized` requires Eternal's own
+zero-length `ConditionalOrderHeader` loader diagnostic and a matching native
+`InvalidAccountData` failure. Other invalid-account failures remain generic.
+Consumers can use the hint to ensure TP/SL setup exists before rebuilding;
+unknown transaction delivery still requires confirmation before another send.
+
+The Rust and TypeScript tests replay the same captured program failures for
+self-trade, IOC minimum fill, missing TP/SL setup, transfer margin, an uncreated
+transfer destination, and a child-account sweep requiring a signer.
+
+Applications own user-facing messages and recovery policy. Diagnostics do not
+establish delivery or authorize a retry. Keep partial scale placement, unknown
+delivery, and TWAP cancellation events distinct from a rejected transaction.
+
 ## Development
 
 ```bash
