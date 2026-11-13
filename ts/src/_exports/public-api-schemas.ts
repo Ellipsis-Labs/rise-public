@@ -529,3 +529,12 @@ export {
   TwapSnapshotSchema,
   type TwapOrdersQueryParams,
 } from "../api/traders/twap";
+
+export {
+  type SwapAsset,
+  SwapAssetSchema,
+  type BuildSwapTransactionRequest,
+  BuildSwapTransactionRequestSchema,
+  type BuildSwapTransactionResponse,
+  BuildSwapTransactionResponseSchema,
+} from "../api/collateral/swap";

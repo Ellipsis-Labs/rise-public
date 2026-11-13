@@ -518,3 +518,45 @@ Runnable TypeScript stream examples:
 ## License
 
 MIT, see [LICENSE](./LICENSE).
+
+## Multi-asset collateral HTTP APIs
+
+Both SDKs expose asset discovery, lifetime deposit/withdrawal totals, mixed
+quote/spot history, and unsigned swap construction through `collateral()`.
+The TypeScript equivalents are also available through `client.api.collateral()`.
+
+| Operation                   | TypeScript                                         | Rust                                                      |
+| --------------------------- | -------------------------------------------------- | --------------------------------------------------------- |
+| Asset registry              | `getAssets()`                                      | `get_assets()`                                            |
+| User totals                 | `getUserCollateralTotals(user)`                    | `get_user_collateral_totals(&user)`                       |
+| User mixed history          | `getUserCollateralHistoryV2(user, request)`        | `get_user_collateral_history_v2(&user, request)`          |
+| Trader mixed history        | `getTraderPdaCollateralHistoryV2(trader, request)` | `get_trader_collateral_history_v2(&trader_key, request)`  |
+| Authority/PDA mixed history | `getTraderCollateralHistoryV2(authority, request)` | `get_authority_collateral_history_v2(&authority, params)` |
+| Build a swap                | `buildSwapTransaction(request)`                    | `build_swap_transaction(&request)`                        |
+
+History requests require a `limit` and accept `nextCursor` / `prevCursor`
+(`next_cursor` / `prev_cursor` in Rust). History amounts are signed native
+units; totals are native-unit magnitudes with event-time USD values.
+
+```ts
+const swap = await client.collateral().buildSwapTransaction({
+  authority,
+  assetIn: "sol", // Or { spot: "SPL_MINT" } for SPL collateral.
+  assetOut: "quote",
+  amountAtoms: 1_000_000_000, // One SOL, in lamports.
+  traderPdaIndex: 0,
+  traderSubaccountIndex: 1,
+});
+```
+
+Rust request/response types live in `phoenix_rise::types::swap`; mixed history
+and totals types live in `phoenix_rise::types::collateral`. Rust amounts retain
+64-bit precision. TypeScript rejects integer amounts outside the safe integer
+range; `quantity` can specify swap inputs in whole asset units instead of atoms.
+
+The swap builder returns an unsigned transaction, venue quote, instruction
+breakdown, and optional sponsorship attestation. It does not sign or submit.
+`positionAuthority` selects the delegated signer; `authority` still determines
+the trader PDA. Preserve the returned message when using its sponsorship
+attestation. A nonzero `traderSubaccountIndex` requires an API deployment that
+supports the selector; older deployments may ignore it and target cross margin.

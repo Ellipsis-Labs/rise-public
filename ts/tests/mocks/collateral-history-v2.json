@@ -1,0 +1,35 @@
+{
+  "data": [
+    {
+      "slot": 400000000,
+      "slotIndex": 1,
+      "eventIndex": 2,
+      "traderPdaIndex": 2,
+      "traderSubaccountIndex": 3,
+      "assetIndex": 4294901760,
+      "symbol": "SOL",
+      "category": "swap",
+      "amount": -1000000000,
+      "balanceAfter": 2000000000,
+      "excess": 0,
+      "signature": "signature",
+      "timestamp": "2026-11-09T20:00:00Z"
+    },
+    {
+      "slot": 400000000,
+      "slotIndex": 1,
+      "eventIndex": 3,
+      "traderPdaIndex": 2,
+      "traderSubaccountIndex": 3,
+      "assetIndex": 4294967295,
+      "symbol": "USDC",
+      "category": "swap",
+      "amount": 150000000,
+      "balanceAfter": 100000000,
+      "excess": 0,
+      "timestamp": "2026-11-09T20:00:00Z"
+    }
+  ],
+  "nextCursor": "older+/=",
+  "hasMore": true
+}

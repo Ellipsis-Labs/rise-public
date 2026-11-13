@@ -1,0 +1,30 @@
+{
+  "transaction": "unsigned-base64",
+  "transactionVersion": 0,
+  "instructions": [
+    {
+      "programId": "phoenix",
+      "data": [1, 255],
+      "keys": [
+        {
+          "pubkey": "child",
+          "isSigner": false,
+          "isWritable": true
+        }
+      ]
+    }
+  ],
+  "addressLookupTableAddresses": ["lookup"],
+  "venue": "jupiter",
+  "amountInAtoms": 1000000000,
+  "swapNativeAmountInAtoms": 1000000000,
+  "expectedAmountOutAtoms": 150000000,
+  "minAmountOutAtoms": 149000000,
+  "priceImpactBps": 10,
+  "contextSlot": 400000000,
+  "computeUnitLimit": 300000,
+  "blockhash": "hash",
+  "lastValidBlockHeight": 200000,
+  "sponsorshipAttestation": "proof",
+  "attestationExpiresAt": 1800000000
+}

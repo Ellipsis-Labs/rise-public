@@ -1,0 +1,19 @@
+{
+  "totalDeposited": 300,
+  "totalWithdrawn": 150,
+  "assets": [
+    {
+      "assetIndex": 4294901760,
+      "symbol": "SOL",
+      "decimals": 9,
+      "deposited": {
+        "amount": 2000000000,
+        "value": 300
+      },
+      "withdrawn": {
+        "amount": 1000000000,
+        "value": 150
+      }
+    }
+  ]
+}
