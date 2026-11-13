@@ -10,13 +10,7 @@ import {
 // ---------------------------------------------------------------------------
 
 export type ParamValue =
-  | string
-  | number
-  | boolean
-  | string[]
-  | number[]
-  | null
-  | undefined;
+  string | number | boolean | string[] | number[] | null | undefined;
 
 export type QueryParams = Record<string, ParamValue> | URLSearchParams;
 

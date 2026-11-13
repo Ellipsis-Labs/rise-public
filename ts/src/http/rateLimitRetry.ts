@@ -26,8 +26,7 @@ export interface ResolvedRateLimitCooldownConfig {
 }
 
 export type RateLimitRetryDecision =
-  | RateLimitRetryAttempt
-  | RateLimitRetryExhausted;
+  RateLimitRetryAttempt | RateLimitRetryExhausted;
 
 export interface RateLimitRetryAttempt {
   readonly kind: "retry";

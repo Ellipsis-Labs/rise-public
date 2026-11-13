@@ -270,9 +270,7 @@ export const createPhoenixIxOperations = (
 ): PhoenixIxClient => {
   const buildWrappedOrder = async <
     TPacket extends
-      | LimitOrderPacket
-      | ImmediateOrCancelOrderPacket
-      | PostOnlyOrderPacket,
+      LimitOrderPacket | ImmediateOrCancelOrderPacket | PostOnlyOrderPacket,
     TInput extends ClientPlaceOrderInput<TPacket>,
     TIx extends InstructionsWithAccountsAndData,
   >(

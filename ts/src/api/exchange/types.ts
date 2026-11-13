@@ -7,10 +7,7 @@ import {
 } from "@/api/collateral/types";
 
 export type ExchangeRunningState =
-  | "unknown"
-  | "active"
-  | "maintenance"
-  | "suspended";
+  "unknown" | "active" | "maintenance" | "suspended";
 export const ExchangeRunningStateSchema: z.ZodType<ExchangeRunningState> =
   z.enum(["unknown", "active", "maintenance", "suspended"]);
 
@@ -280,11 +277,7 @@ export const EarningsDateSchema: z.ZodType<EarningsDate> = z.object({
 
 /** Asset class of a market's underlying; "unknown" for a class this client version does not recognize. */
 export type AssetClass =
-  | "crypto"
-  | "equities"
-  | "commodities"
-  | "other"
-  | "unknown";
+  "crypto" | "equities" | "commodities" | "other" | "unknown";
 
 export const AssetClassSchema: z.ZodType<AssetClass> = z.union([
   z.enum(["crypto", "equities", "commodities", "other"]),

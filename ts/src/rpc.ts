@@ -356,8 +356,7 @@ export type HawkeyeTraderLookup =
     };
 
 export type HawkeyeAssetLookup =
-  | { assetId: number; symbol?: Symbol }
-  | { symbol: Symbol; assetId?: number };
+  { assetId: number; symbol?: Symbol } | { symbol: Symbol; assetId?: number };
 
 export type HawkeyeTraderAssetLookup = HawkeyeTraderLookup & HawkeyeAssetLookup;
 

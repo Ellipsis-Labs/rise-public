@@ -966,16 +966,12 @@ const ASSET_FLAG_COMMODITIES_REOPEN = 1 << 1;
 const ASSET_FLAG_COMMODITIES_AFTER_HOURS = 1 << 2;
 
 export const getAssetFlagsDecoder = (): Decoder<AssetFlags> =>
-  transformDecoder(
-    getU8Decoder(),
-    (bits): AssetFlags => ({
-      bits,
-      isCommodity: (bits & ASSET_FLAG_COMMODITY) !== 0,
-      isCommoditiesReopen: (bits & ASSET_FLAG_COMMODITIES_REOPEN) !== 0,
-      isCommoditiesAfterHours:
-        (bits & ASSET_FLAG_COMMODITIES_AFTER_HOURS) !== 0,
-    })
-  );
+  transformDecoder(getU8Decoder(), (bits): AssetFlags => ({
+    bits,
+    isCommodity: (bits & ASSET_FLAG_COMMODITY) !== 0,
+    isCommoditiesReopen: (bits & ASSET_FLAG_COMMODITIES_REOPEN) !== 0,
+    isCommoditiesAfterHours: (bits & ASSET_FLAG_COMMODITIES_AFTER_HOURS) !== 0,
+  }));
 
 const getOptionalTicksDecoder = (): Decoder<Ticks | null> =>
   transformDecoder(getTicksDecoder(), (value) => (value === 0n ? null : value));

@@ -56,14 +56,11 @@ const getMintInternalEncoder = (): Encoder<Mint> =>
 export const getMintEncoder = (): Encoder<Mint> => getMintInternalEncoder();
 
 export const getMintDecoder = (): Decoder<Mint> =>
-  transformDecoder(
-    getMintInternalDecoder(),
-    (internal): Mint => ({
-      ...internal,
-      mintAuthorityOption: internal.mintAuthorityOption as 0 | 1,
-      freezeAuthorityOption: internal.freezeAuthorityOption as 0 | 1,
-    })
-  );
+  transformDecoder(getMintInternalDecoder(), (internal): Mint => ({
+    ...internal,
+    mintAuthorityOption: internal.mintAuthorityOption as 0 | 1,
+    freezeAuthorityOption: internal.freezeAuthorityOption as 0 | 1,
+  }));
 
 export const getMintCodec = (): Codec<Mint> =>
   combineCodec(getMintEncoder(), getMintDecoder());

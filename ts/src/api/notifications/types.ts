@@ -467,9 +467,7 @@ export interface GeneralNotificationItem {
 }
 
 export type NotificationItem =
-  | EventNotificationItem
-  | AdminNotificationItem
-  | GeneralNotificationItem;
+  EventNotificationItem | AdminNotificationItem | GeneralNotificationItem;
 
 const EventNotificationBaseSchema = z.object({
   source: z.literal("event"),

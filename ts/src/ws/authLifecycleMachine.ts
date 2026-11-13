@@ -441,11 +441,7 @@ const wsLifecycleMachine = setup({
 });
 
 export type RiseWsLifecycleState =
-  | "idle"
-  | "connecting"
-  | "awaitingAuth"
-  | "connected"
-  | "closed";
+  "idle" | "connecting" | "awaitingAuth" | "connected" | "closed";
 
 export class AuthWsLifecycleController {
   private readonly actor: ReturnType<

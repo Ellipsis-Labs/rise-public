@@ -21,8 +21,7 @@ import type {
 } from "./types";
 
 export type MarginMarketsInput =
-  | readonly MarketParams[]
-  | NormalizedMarketParamsBySymbol;
+  readonly MarketParams[] | NormalizedMarketParamsBySymbol;
 
 export type DraftOrderMarginInput = {
   symbol: string;

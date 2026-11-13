@@ -148,11 +148,9 @@ describe("rise auth config", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     const refreshHeaders = fetchMock.mock.calls[0]?.[1]?.headers as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
     const protectedHeaders = fetchMock.mock.calls[1]?.[1]?.headers as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
 
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
       "https://example.com/v1/auth/refresh"
@@ -220,11 +218,9 @@ describe("rise auth config", () => {
     );
 
     const refreshHeaders = fetchMock.mock.calls[0]?.[1]?.headers as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
     const protectedHeaders = fetchMock.mock.calls[1]?.[1]?.headers as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
     expect(refreshHeaders?.Authorization).toBeUndefined();
     expect(protectedHeaders?.Authorization).toBe(
       `Bearer ${refreshed.access_token}`
@@ -275,11 +271,9 @@ describe("rise auth config", () => {
     );
 
     const refreshHeaders = fetchMock.mock.calls[0]?.[1]?.headers as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
     const publicHeaders = fetchMock.mock.calls[1]?.[1]?.headers as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
     expect(refreshHeaders?.Authorization).toBeUndefined();
     expect(publicHeaders?.Authorization).toBeUndefined();
   });
@@ -351,8 +345,7 @@ describe("rise auth config", () => {
       "https://example.com/v1/protected"
     );
     const headers = fetchMock.mock.calls[0]?.[1]?.headers as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
     expect(headers?.Authorization).toBeUndefined();
   });
 
@@ -406,8 +399,7 @@ describe("rise auth config", () => {
     );
 
     const protectedHeaders = fetchMock.mock.calls[0]?.[1]?.headers as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
     expect(protectedHeaders?.Authorization).toBe(
       `Bearer ${initialSnapshot.accessToken}`
     );
@@ -499,8 +491,7 @@ describe("rise auth config", () => {
     );
 
     const protectedHeaders = fetchMock.mock.calls[0]?.[1]?.headers as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
     expect(protectedHeaders?.Authorization).toBe(
       `Bearer ${snapshot.accessToken}`
     );
@@ -538,8 +529,7 @@ describe("rise auth config", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const publicHeaders = fetchMock.mock.calls[0]?.[1]?.headers as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
     expect(publicHeaders?.Authorization).toBeUndefined();
     await expect(client.exportAuthSnapshot()).resolves.toEqual(snapshot);
   });

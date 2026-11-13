@@ -2,11 +2,7 @@ import type { StoreApi } from "zustand/vanilla";
 import type { L2BookPort } from "@/ws/adapters/l2-book";
 
 export type PhoenixOrderbookHealth =
-  | "cold"
-  | "bootstrapped"
-  | "live"
-  | "recovering"
-  | "closed";
+  "cold" | "bootstrapped" | "live" | "recovering" | "closed";
 
 export interface PhoenixOrderbookLevel {
   price: number;

@@ -1,6 +1,6 @@
 {
   "name": "@ellipsis-labs/rise",
-  "version": "0.7.13",
+  "version": "0.7.14",
   "packageManager": "bun@1.4.4",
   "repository": {
     "type": "git",
@@ -93,7 +93,7 @@
     "eslint-plugin-unused-imports": "^4.4.1",
     "litesvm": "1.4.1",
     "madge": "^8.0.0",
-    "prettier": "^3.8.1",
+    "prettier": "3.9.10",
     "tsdown": "^0.20.0-beta.4",
     "typescript": "^5.9.3",
     "vitest": "^4.1.12"

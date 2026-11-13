@@ -408,8 +408,7 @@ interface NonSponsoredBuildRegisterTraderParams extends BaseBuildRegisterTraderP
 }
 
 export type BuildRegisterTraderParams =
-  | SponsoredBuildRegisterTraderParams
-  | NonSponsoredBuildRegisterTraderParams;
+  SponsoredBuildRegisterTraderParams | NonSponsoredBuildRegisterTraderParams;
 
 export interface ClientSyncParentToChildInput {
   traderWallet: Authority;

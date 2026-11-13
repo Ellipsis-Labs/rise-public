@@ -276,30 +276,28 @@ export const TraderViewSchema: z.ZodType<TraderView> = z
     makerFeeOverrideMultiplier: z.number().default(1),
     takerFeeOverrideMultiplier: z.number().default(1),
   })
-  .transform(
-    (trader): TraderView => ({
-      ...trader,
-      verifyCapabilities() {
-        // placeLimitOrder: at least one of immediate or viaColdActivation must be true
-        if (
-          !this.capabilities.placeLimitOrder.immediate &&
-          !this.capabilities.placeLimitOrder.viaColdActivation
-        ) {
-          return false;
-        }
+  .transform((trader): TraderView => ({
+    ...trader,
+    verifyCapabilities() {
+      // placeLimitOrder: at least one of immediate or viaColdActivation must be true
+      if (
+        !this.capabilities.placeLimitOrder.immediate &&
+        !this.capabilities.placeLimitOrder.viaColdActivation
+      ) {
+        return false;
+      }
 
-        // All other capabilities: both immediate and viaColdActivation must be true
-        const otherCapabilities = [
-          this.capabilities.placeMarketOrder,
-          this.capabilities.riskIncreasingTrade,
-          this.capabilities.riskReducingTrade,
-          this.capabilities.depositCollateral,
-          this.capabilities.withdrawCollateral,
-        ];
+      // All other capabilities: both immediate and viaColdActivation must be true
+      const otherCapabilities = [
+        this.capabilities.placeMarketOrder,
+        this.capabilities.riskIncreasingTrade,
+        this.capabilities.riskReducingTrade,
+        this.capabilities.depositCollateral,
+        this.capabilities.withdrawCollateral,
+      ];
 
-        return otherCapabilities.every(
-          (cap) => cap.immediate || cap.viaColdActivation
-        );
-      },
-    })
-  );
+      return otherCapabilities.every(
+        (cap) => cap.immediate || cap.viaColdActivation
+      );
+    },
+  }));

@@ -53,9 +53,7 @@ export type ReferralActivationTransaction = Transaction &
 export type ReferralActivationRpc = ReturnType<typeof createSolanaRpc>;
 
 export type ReferralActivationTraderStatus =
-  | "missing"
-  | "registered"
-  | "activated";
+  "missing" | "registered" | "activated";
 
 export interface ReferralActivationTraderState {
   status: ReferralActivationTraderStatus;
@@ -109,11 +107,7 @@ export interface SerializableTransactionLike {
 }
 
 export type ReferralActivationSignedTransaction =
-  | Transaction
-  | string
-  | Uint8Array
-  | ArrayBuffer
-  | SerializableTransactionLike;
+  Transaction | string | Uint8Array | ArrayBuffer | SerializableTransactionLike;
 
 export type ReferralActivationTransactionSignerContext =
   ReferralActivationTransactionBuild;
