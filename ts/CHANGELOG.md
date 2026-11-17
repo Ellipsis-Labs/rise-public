@@ -3,6 +3,25 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.8.4 - 2026-11-17
+
+Source Phoenix commit: `33293120bd9f37cd98b02887d6b4b7e70f8f8e6e`
+
+### Summary
+
+- Fixes WebSocket session refresh handling for externally managed sessions: when the session manager imports a refreshed access token for the same session, the client now keeps its existing authenticated connection (and subscriptions) instead of reconnecting.
+- Newer credentials are used on the next connection. If the server closes a socket with an auth rejection and a newer token is available, the client reconnects once immediately with it. It does not retry again until the credentials change.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- Applies to `auto` and `authenticated` WebSocket auth modes. A switch to a different session or a logout still triggers a reconnect or close as before.
+- The package version moves from `0.8.2` to `0.8.4`. No public exports or types changed.
+- The `audit` script now ignores advisory `GHSA-fc5q-39xc-vjpf` (`picomatch`, pulled in by dev-only tooling), and the README documents the exception. This does not affect the published runtime dependencies.
+
 ## v0.8.2 - 2026-11-13
 
 Source Phoenix commit: `c464b5a9649ead1a6da5f479724fe0eab343a5a1`

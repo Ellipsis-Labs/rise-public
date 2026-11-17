@@ -88,7 +88,10 @@ const stubSuccessfulFetch = () => {
 const createSessionManager = () =>
   new auth.AuthSessionManager(new auth.MemoryAuthSessionStorage());
 
-const createExternalSessionClient = (sessionManager = createSessionManager()) =>
+const createExternalSessionClient = (
+  sessionManager = createSessionManager(),
+  authMode: "auto" | "authenticated" = "auto"
+) =>
   createPhoenixClient({
     baseUrl: "https://example.com",
     auth: true,
@@ -98,6 +101,7 @@ const createExternalSessionClient = (sessionManager = createSessionManager()) =>
     },
     ws: {
       url: "wss://example.com/v1/ws",
+      authMode,
       connectMode: "eager",
       // These tests assert the exact frames sent; skip the heartbeat's
       // internal allMids subscription.
@@ -121,6 +125,79 @@ afterEach(() => {
 });
 
 describe("rise external session control websocket integration", () => {
+  it.each(["auto", "authenticated"] as const)(
+    "keeps the %s socket on refresh and retries newer credentials once after auth rejection",
+    async (authMode) => {
+      vi.useFakeTimers();
+      stubWebSocket();
+      stubSuccessfulFetch();
+      const sessionManager = createSessionManager();
+      await sessionManager.importSnapshot(
+        makeSnapshot({ expiresAt: Date.now() + 120_000 })
+      );
+      const client = createExternalSessionClient(sessionManager, authMode);
+      await flushWs();
+      const socket = MockWebSocket.instances[0];
+      const close = vi.spyOn(socket, "close");
+
+      const refreshed = makeSnapshot({
+        accessJti: "refreshed-jti",
+        expiresAt: Date.now() + 240_000,
+      });
+      await sessionManager.importSnapshot(refreshed);
+      await flushWs();
+      client.streams?.notifications({ authority: "authority-1" });
+      await flushWs();
+      expect(close).not.toHaveBeenCalled();
+      expect(MockWebSocket.instances).toHaveLength(1);
+      expect(sentMessages(socket)).toContainEqual({
+        type: "subscribe",
+        subscription: { channel: "notifications", authority: "authority-1" },
+      });
+
+      socket.onclose?.({ code: 4401, reason: "authz_refresh_required" });
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(MockWebSocket.instances).toHaveLength(2);
+      expect(MockWebSocket.instances[1].protocol).toEqual([
+        "phoenix-jwt",
+        refreshed.accessToken,
+      ]);
+
+      MockWebSocket.instances[1].onclose?.({
+        code: 4401,
+        reason: "authz_refresh_required",
+      });
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(MockWebSocket.instances).toHaveLength(2);
+
+      const refreshedAgain = makeSnapshot({
+        accessJti: "refreshed-again-jti",
+        expiresAt: Date.now() + 240_000,
+      });
+      await sessionManager.importSnapshot(refreshedAgain);
+      await flushWs();
+      expect(MockWebSocket.instances).toHaveLength(3);
+      expect(MockWebSocket.instances[2].protocol).toEqual([
+        "phoenix-jwt",
+        refreshedAgain.accessToken,
+      ]);
+
+      const nextSession = makeNextSnapshot();
+      await sessionManager.importSnapshot(nextSession);
+      await flushWs();
+      expect(MockWebSocket.instances).toHaveLength(4);
+      expect(MockWebSocket.instances[3].protocol).toEqual([
+        "phoenix-jwt",
+        nextSession.accessToken,
+      ]);
+      const closeOnLogout = vi.spyOn(MockWebSocket.instances[3], "close");
+      await sessionManager.clearSession();
+      await flushWs();
+      expect(closeOnLogout).toHaveBeenCalledOnce();
+      client.dispose();
+    }
+  );
+
   it("waits for an external session update before connecting with expired auth", async () => {
     vi.useFakeTimers();
 

@@ -1,6 +1,6 @@
 {
   "name": "@ellipsis-labs/rise",
-  "version": "0.8.2",
+  "version": "0.8.4",
   "packageManager": "bun@1.4.4",
   "repository": {
     "type": "git",
@@ -38,7 +38,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "audit": "bun audit",
+    "audit": "bun audit --ignore GHSA-fc5q-39xc-vjpf",
     "build": "bun --bun run tsdown",
     "check": "bun run type-check",
     "circular-check": "bun --bun run madge --circular src/index.ts",
