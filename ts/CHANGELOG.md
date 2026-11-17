@@ -3,6 +3,25 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.8.3 - 2026-11-17
+
+Source Phoenix commit: `c92b01dc57e2cf4f9cdc914a3fd49cf8dd84ac45`
+
+### Summary
+
+- Improved WebSocket session handling in `@ellipsis-labs/rise` so that refreshing an externally managed session no longer drops the connection. If the refreshed credentials belong to the same session as the open socket, the client keeps that socket and any active subscriptions. It does not reconnect.
+- If the server closes the socket with an auth rejection (`4401`, `authz_refresh_required`), the client now reconnects immediately once newer credentials are available. A new session or a logout still reconnects or closes the socket as before.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- No code changes are needed. Public types and exports are unchanged, and the new session-ID tracking is internal to the WebSocket client.
+- This applies to apps that use `authMode` set to `"auto"` or `"authenticated"` with an externally managed session manager. Expect fewer reconnects and no dropped subscriptions on token refresh.
+- `package.json` is bumped to `0.8.3`. The `Cargo.lock` updates (`quinn-proto`, `quinn-udp`) are in the example programs only. They don't affect the published npm package.
+
 ## v0.8.2 - 2026-11-13
 
 Source Phoenix commit: `c464b5a9649ead1a6da5f479724fe0eab343a5a1`
