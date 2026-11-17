@@ -14,6 +14,15 @@ instruction builders, Flight routing, and WebSocket streams.
 - Low-level transport helpers (`get`, `post`, `put`, `patch`, `del`) for custom
   HTTP endpoints
 
+## Dependency audit exception
+
+The audit script temporarily ignores `GHSA-fc5q-39xc-vjpf` for `picomatch`,
+which is pulled in by development tools (`tsdown`, Vitest, TypeScript ESLint,
+and Madge). As checked on November 17, 2026, the latest release, 4.0.7, is
+affected and no patched release is available. The exception does not patch
+the dependency; avoid untrusted glob patterns in these tools. Remove it when
+a compatible fixed release is available.
+
 ## Install
 
 ```bash

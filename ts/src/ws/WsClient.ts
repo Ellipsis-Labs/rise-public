@@ -119,6 +119,8 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
   let authRefreshRetryTimer: ReturnType<typeof setTimeout> | null = null;
   let deferredScheduleImmediate = false;
   let suppressAuthChangeDuringProtocolRefresh = false;
+  let connectionSessionId: string | null = null;
+  let connectionAccessToken: string | null = null;
 
   const authMode =
     opts.authMode ?? (opts.sessionManager ? "auto" : "anonymous");
@@ -831,6 +833,13 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
     if (!sessionManager) return;
 
     if (sessionIsExternallyManaged) {
+      if (
+        lifecycle.knownAuthToken &&
+        lifecycle.knownAuthToken !== connectionAccessToken
+      ) {
+        requestReconnect("immediate");
+        return;
+      }
       awaitExternalSessionChange();
       return;
     }
@@ -952,7 +961,9 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
   };
 
   const getSessionForProtocol = async (): Promise<
-    { accessToken: string } | null | DeferredSessionOwnerConnect
+    | { accessToken: string; sessionId: string }
+    | null
+    | DeferredSessionOwnerConnect
   > => {
     const sessionManager = opts.sessionManager;
     if (!sessionManager || authMode === "anonymous") return null;
@@ -997,12 +1008,28 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
     if (session === DEFER_CONNECT_FOR_SESSION_OWNER) {
       return DEFER_CONNECT_FOR_SESSION_OWNER;
     }
+    connectionSessionId = session?.sessionId || null;
     if (!session) return config.protocol;
     return mergeProtocolToken(config.protocol, session.accessToken);
   };
 
-  const handleAuthChange = (session: { accessToken: string } | null) => {
+  const handleAuthChange = (
+    session: { accessToken: string; sessionId: string } | null
+  ) => {
     if (suppressAuthChangeDuringProtocolRefresh) return;
+    // The server retains the upgrade identity for plain subscriptions.
+    if (
+      lifecycle.isConnected &&
+      lifecycle.connectionAuth === "authenticated" &&
+      connectionSessionId &&
+      session?.sessionId === connectionSessionId
+    ) {
+      lifecycle.send({
+        type: "AUTH_TOKEN_OBSERVED",
+        token: session.accessToken,
+      });
+      return;
+    }
     lifecycle.send({
       type: "AUTH_SESSION_CHANGED",
       token: session?.accessToken ?? null,
@@ -1044,6 +1071,7 @@ export const createWsClient = (opts: WsClientOpts): WsClient => {
           url.searchParams.set("phoenixClient", clientIdentity);
         }
         const websocket = new WebSocket(url.toString(), protocol);
+        connectionAccessToken = protocolToken;
         ws = websocket;
 
         websocket.onopen = () => {
