@@ -82,6 +82,66 @@ describe("order packet builders", () => {
     expect(packet.minBaseLotsToFill).toEqual(baseLots(2n));
   });
 
+  describe("priceUsdToTicksWithMarketParams on negative base lot decimals", () => {
+    // Reference values match the `to_ticks` tests in
+    // `rise/rust/math/src/price.rs`: ticks are the exact floor of
+    // priceUsd * 1e6 * 10^-d / tickSize, with no intermediate rounding to
+    // micro-USD.
+    it("keeps digits finer than one micro-USD per base unit", () => {
+      // PUMP-like market: tickSize = 10, d = -2, so one tick is 1e-7 USD.
+      const pump = { tickSize: 10, baseLotsDecimals: -2 };
+      expect(priceUsdToTicksWithMarketParams("0.004853012", pump)).toEqual(
+        ticks(48530n)
+      );
+      // Sub-micro-USD digits cross tick boundaries: 48_539.95 -> 48_539.
+      // Flooring to micro-USD first (0.004853) gave 48_530.
+      expect(priceUsdToTicksWithMarketParams("0.004853995", pump)).toEqual(
+        ticks(48539n)
+      );
+
+      // Same lots, tickSize = 1 (1e-8 USD per tick).
+      expect(
+        priceUsdToTicksWithMarketParams("0.004853012", {
+          tickSize: 1,
+          baseLotsDecimals: -2,
+        })
+      ).toEqual(ticks(485301n));
+    });
+
+    it("matches the ultra-low-price sizing doc example", () => {
+      // dev-docs/09: P = 0.00001146, d = -4, tickSize = 1 => 1e-10 USD per
+      // tick => 114_600 ticks. Micro-USD flooring gave 110_000.
+      const params = { tickSize: 1, baseLotsDecimals: -4 };
+      expect(priceUsdToTicksWithMarketParams("0.00001146", params)).toEqual(
+        ticks(114600n)
+      );
+      expect(priceUsdToTicksWithMarketParams("0.0001146", params)).toEqual(
+        ticks(1146000n)
+      );
+      // Trailing zeros in the input must not change the result.
+      expect(priceUsdToTicksWithMarketParams("0.000011460000", params)).toEqual(
+        ticks(114600n)
+      );
+    });
+
+    it("still floors to the tick boundary for non-negative decimals", () => {
+      // BTC-like: tickSize = 100, d = 4 => 1 USD per tick.
+      expect(
+        priceUsdToTicksWithMarketParams("99443.1002", {
+          tickSize: 100,
+          baseLotsDecimals: 4,
+        })
+      ).toEqual(ticks(99443n));
+      // DOGE-like: d = 0, price has more digits than one micro-USD.
+      expect(
+        priceUsdToTicksWithMarketParams("0.2345678", {
+          tickSize: 1,
+          baseLotsDecimals: 0,
+        })
+      ).toEqual(ticks(234567n));
+    });
+  });
+
   it("builds a market order packet with explicit minimum fill overrides", () => {
     const packet = buildMarketOrderPacketFromMarketParams(
       {
