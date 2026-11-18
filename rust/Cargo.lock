@@ -1484,7 +1484,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2862,7 +2862,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -2889,7 +2889,7 @@ dependencies = [
  "solana-compute-budget-interface",
  "solana-instruction",
  "solana-keypair",
- "solana-pubkey 3.0.0",
+ "solana-pubkey 4.2.1",
  "solana-rpc-client",
  "solana-signer",
  "solana-transaction",
@@ -2902,7 +2902,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-accounts"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "borsh",
  "bs58",
@@ -2911,13 +2911,13 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2-const-stable",
- "solana-pubkey 3.0.0",
+ "solana-pubkey 4.2.1",
  "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "phoenix-rise-api"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -2943,7 +2943,7 @@ dependencies = [
  "solana-compute-budget-interface",
  "solana-instruction",
  "solana-keypair",
- "solana-pubkey 3.0.0",
+ "solana-pubkey 4.2.1",
  "solana-rpc-client",
  "solana-rpc-client-api",
  "solana-signature",
@@ -2962,7 +2962,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-cli"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "base64 0.22.1",
  "bincode",
@@ -2977,7 +2977,7 @@ dependencies = [
  "solana-instruction",
  "solana-keypair",
  "solana-message",
- "solana-pubkey 3.0.0",
+ "solana-pubkey 4.2.1",
  "solana-rpc-client",
  "solana-rpc-client-api",
  "solana-signature",
@@ -2990,7 +2990,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-core"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "base64 0.22.1",
  "borsh",
@@ -3006,7 +3006,7 @@ dependencies = [
  "serde_json",
  "solana-compute-budget-interface",
  "solana-instruction",
- "solana-pubkey 3.0.0",
+ "solana-pubkey 4.2.1",
  "solana-rpc-client",
  "solana-rpc-client-api",
  "solana-transaction",
@@ -3018,7 +3018,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-events"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "borsh",
  "five8",
@@ -3031,7 +3031,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-ix"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "borsh",
  "bytemuck",
@@ -3043,13 +3043,13 @@ dependencies = [
  "sha2 0.10.9",
  "sha2-const-stable",
  "solana-instruction",
- "solana-pubkey 3.0.0",
+ "solana-pubkey 4.2.1",
  "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "phoenix-rise-litesvm-test"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "base64 0.22.1",
  "borsh",
@@ -3063,7 +3063,7 @@ dependencies = [
  "solana-commitment-config",
  "solana-instruction",
  "solana-keypair",
- "solana-pubkey 3.0.0",
+ "solana-pubkey 4.2.1",
  "solana-rpc-client",
  "solana-signature",
  "solana-signer",
@@ -3073,7 +3073,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-math"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "borsh",
  "bytemuck",
@@ -3085,13 +3085,13 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2-const-stable",
- "solana-pubkey 3.0.0",
+ "solana-pubkey 4.2.1",
  "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "phoenix-rise-types"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "chrono",
  "phoenix-rise-math",
@@ -3292,9 +3292,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.11.18"
+version = "0.11.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9746dbde176634f4f2f1faf2404e30a31b2bc1e9cafb5329c95d8177a18c9fc"
+checksum = "0e750cca55fe4f0439a15d0bb529da9651e79993e8e72c61a899a36d462befbe"
 dependencies = [
  "bytes",
  "getrandom 0.4.3",
@@ -3314,16 +3314,16 @@ dependencies = [
 
 [[package]]
 name = "quinn-udp"
-version = "0.5.15"
+version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35a133f956daabe89a61a685c2649f13d82d5aa4bd5d12d1277e1072a21c0694"
+checksum = "af66907df18639dcf4db56ca65490cabc4b27a97dbadd96f2926cca73298f016"
 dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3641,7 +3641,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4914,7 +4914,6 @@ version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8909d399deb0851aa524420beeb5646b115fd253ef446e35fe4504c904da3941"
 dependencies = [
- "rand 0.8.8",
  "solana-address 1.1.0",
 ]
 
@@ -4924,6 +4923,7 @@ version = "4.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ab5a422939ca3b81180f79c87f43600728e4c5513d6034902675f96df25d033"
 dependencies = [
+ "rand 0.9.5",
  "solana-address 2.6.1",
 ]
 
@@ -6026,10 +6026,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6542,9 +6542,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "utoipa"
-version = "5.5.0"
+version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bde15df68e80b16c7d16b9616e80770ad158988daa56a27dccd1e55558b0160"
+checksum = "8765fe27aeff71012a3f90fa474cf1df863a7d0dd81ed25de4e63fff2544994f"
 dependencies = [
  "indexmap 2.14.2",
  "serde",
@@ -6554,13 +6554,13 @@ dependencies = [
 
 [[package]]
 name = "utoipa-gen"
-version = "5.5.0"
+version = "6.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ba0b99ee52df3028635d93840c797102da61f8a7bb3cf751032455895b52ef8"
+checksum = "d935f1c83fdf8b88f09bbe050d0cea78ea4afee6d7b0317403228c1200b2c8ab"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn 3.0.6",
 ]
 
 [[package]]

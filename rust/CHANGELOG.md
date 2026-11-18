@@ -3,6 +3,27 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.10.3 - 2026-11-18
+
+Source Phoenix commit: `b8f0a5c04cb6900070ba72e2c762dcdc54cc55d6`
+
+### Summary
+
+- Fixed `math` price-to-tick conversion for markets with negative `base_lot_decimals`. `Price::to_ticks` now applies the base-units-per-lot factor before rescaling to quote lots, so digits finer than one quote lot per base unit are no longer floored away. Tick values for such markets (e.g. 9-decimal oracle prices on a `base_lot_decimals = -2` market) can differ from 0.10.2 and now match the on-chain conversion.
+- Added `Price::to_scaled_value_with_multiplier(target_decimals, multiplier)` to `math`. It rescales `value * multiplier` to `target_decimals`, with the multiplier applied before any flooring.
+- `Price::to_scaled_value` and `to_ticks` now compute intermediates in `u128`. Only the final result must fit in `u64`, so valid large mantissas that previously overflowed now convert. Unrepresentable rescale factors (for example, `expo = 255`) return `MathError::Overflow`.
+- Bumped the workspace version to 0.10.3 across all Rise crates. Updated `utoipa` to 6.0 (the workspace dependency requirement changed from `5.4` to `6.0.0`).
+
+### Breaking Changes
+
+- None identified in the synced diff. There are no signature changes to existing public APIs. The `to_ticks` output change is a bug fix, but consumers that cached or hard-coded tick values for negative-`base_lot_decimals` markets may see different results.
+
+### Consumer Notes
+
+- If you compute ticks from prices on markets with negative `base_lot_decimals`, upgrade to get results that match on-chain behavior. Re-check any stored or expected tick values for those markets.
+- `to_scaled_value` on a zero divisor path now reports `MathError::Overflow` rather than `DivisionByZero` for oversized exponents. Match on `Overflow` if you handle these errors explicitly.
+- Downstream builds that unify `utoipa` with this workspace's types should move to `utoipa` 6.x. The lockfile now resolves `solana-pubkey 4.2.1` for the Rise crates.
+
 ## v0.10.2 - 2026-11-13
 
 Source Phoenix commit: `c464b5a9649ead1a6da5f479724fe0eab343a5a1`
