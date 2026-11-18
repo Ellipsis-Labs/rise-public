@@ -3,6 +3,25 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.8.5 - 2026-11-18
+
+Source Phoenix commit: `b8f0a5c04cb6900070ba72e2c762dcdc54cc55d6`
+
+### Summary
+
+- WebSocket clients using an external session manager (`authMode` `"auto"` or `"authenticated"`) now keep the current socket open when the access token is refreshed for the same session. The client observes the new token instead of reconnecting.
+- After the server closes an authenticated socket for an auth rejection, the client reconnects immediately if a newer access token is already known. It does not retry with the rejected token.
+- A different session or a logout still closes or replaces the socket, and the new connection uses the new session's token.
+- The package version is now `0.8.5`.
+
+### Breaking Changes
+
+- None identified in the synced diff.
+
+### Consumer Notes
+
+- No public exports, types, or options changed, so no code changes are needed. If you rely on a reconnect after every token refresh, note that refreshes within the same session no longer trigger one.
+
 ## v0.8.2 - 2026-11-13
 
 Source Phoenix commit: `c464b5a9649ead1a6da5f479724fe0eab343a5a1`
