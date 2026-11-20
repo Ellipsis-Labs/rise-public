@@ -117,8 +117,7 @@ pub struct TraderHeader {
     pub key: [u8; 32],
     pub authority: [u8; 32],
     pub trader_state: TraderState,
-    _padding0: [u8; 4],
-    pub withdraw_queue_node: u32,
+    _padding0: [u8; 8],
     pub max_positions: u32,
     pub trader_preference_bits: u32,
     pub position_authority: [u8; 32],
@@ -292,15 +291,6 @@ impl TraderHeader {
     #[inline(always)]
     pub const fn capabilities(&self) -> TraderCapabilities {
         self.trader_state.capabilities()
-    }
-
-    #[inline(always)]
-    pub const fn withdraw_queue_node(&self) -> Option<u32> {
-        if self.withdraw_queue_node == 0 {
-            None
-        } else {
-            Some(self.withdraw_queue_node)
-        }
     }
 
     #[inline(always)]
@@ -922,7 +912,7 @@ impl serde::Serialize for TraderHeader {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_struct("TraderHeader", 26)?;
+        let mut state = serializer.serialize_struct("TraderHeader", 25)?;
         state.serialize_field("sequence_number", &self.sequence_number())?;
         state.serialize_field("key", &pubkey_string(self.key()))?;
         state.serialize_field("authority", &pubkey_string(self.authority()))?;
@@ -930,7 +920,6 @@ impl serde::Serialize for TraderHeader {
         state.serialize_field("flags", &self.flags())?;
         state.serialize_field("capability_flags", &self.capability_flags())?;
         state.serialize_field("capabilities", &self.capabilities())?;
-        state.serialize_field("withdraw_queue_node", &self.withdraw_queue_node())?;
         state.serialize_field("max_positions", &self.max_positions())?;
         state.serialize_field("trader_preference_bits", &self.trader_preference_bits())?;
         state.serialize_field("trader_preference_flags", &self.trader_preference_flags())?;
