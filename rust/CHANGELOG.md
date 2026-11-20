@@ -3,6 +3,33 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.11.0 - 2026-11-20
+
+Source Phoenix commit: `1d2843be9ac9c4a057f881869630cfd10f4eda1c`
+
+### Summary
+
+- **accounts**: Removed the trader's `withdraw_queue_node` field. It is gone from the owned `Trader` struct, from the borrowed `TraderHeader` and its `withdraw_queue_node()` accessor, and from the serialized output. The two bytes of the header that held it are now padding, so the account layout is unchanged. `WithdrawTransitionReason::InvalidTraderState` is now documented as "the trader account was closed while the request was queued" instead of "reserved".
+- **math**: Fixed the price-to-ticks conversion for markets with negative `base_lot_decimals`. `Price::to_ticks` now multiplies by the base units per lot before it scales down to quote lots. Sub-quote-lot digits used to be floored away, so prices were quantized to coarser ticks than the market allows. For example, `0.0001146` with `base_lot_decimals = -4` and tick size 1 now gives `1_146_000` ticks, where it previously gave `1_140_000`.
+- **math**: Added `Price::to_scaled_value_with_multiplier(target_decimals, multiplier)`. `Price::to_scaled_value` now does its intermediate arithmetic in `u128`, so it only returns `MathError::Overflow` when the final value doesn't fit in `u64`.
+- **math**: Changed the initial margin calculation. The adverse-fill-loss reserve for resting limit orders is now the larger of the bid-side and ask-side reserves, not their sum. A trader with orders on both sides will see lower initial margin requirements.
+- **workspace**: Bumped all Rise crates to `0.11.0`. `utoipa` is now `6.0.0`, so consumers that enable its OpenAPI schema derives must use a compatible `utoipa` version.
+
+### Breaking Changes
+
+- **accounts**: `Trader::withdraw_queue_node` (owned) and `TraderHeader::withdraw_queue_node` / `withdraw_queue_node()` (borrowed) are removed. The `withdraw_queue_node` key is no longer in the serialized trader header JSON. Code that reads either one, or parses that key, must be updated.
+- **math**: Behavior changes that need no code changes but alter results:
+  - `Price::to_ticks` returns different, more precise tick values for markets with negative `base_lot_decimals`.
+  - Initial margin for accounts with limit orders on both sides is lower.
+  - Review any cached prices, order placement and margin checks that depend on these values.
+- **workspace**: `utoipa` moves from 5.x to 6.0 (`utoipa-gen` 6.0.1). Consumers that use the `utoipa` types re-exported or derived by Rise must be on a compatible major version.
+
+### Consumer Notes
+
+- Remove any use of `withdraw_queue_node`. To find queued withdrawals, use the withdraw queue accounts and their transition events instead.
+- If you convert oracle prices to ticks yourself, switch to `Price::to_ticks`. For other conversions that apply a factor before rescaling, use `Price::to_scaled_value_with_multiplier`.
+- The changes to `deny.toml` and the lockfiles, including the `quinn-proto` and `quinn-udp` bumps, don't affect published APIs.
+
 ## v0.10.2 - 2026-11-13
 
 Source Phoenix commit: `c464b5a9649ead1a6da5f479724fe0eab343a5a1`
