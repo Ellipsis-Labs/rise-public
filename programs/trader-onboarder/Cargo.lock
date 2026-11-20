@@ -1499,11 +1499,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
 dependencies = [
  "cfg-if",
- "js-sys",
  "libc",
  "r-efi 5.3.0",
  "wasip2",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -1513,9 +1511,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "300e883d756b2e4ec94e02791f39b04b522276138852cfc41d9fb7e904106099"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "r-efi 6.0.0",
  "rand_core 0.10.1",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2442,7 +2442,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise"
-version = "0.10.2"
+version = "0.11.0"
 dependencies = [
  "phoenix-rise-accounts",
  "phoenix-rise-api",
@@ -2454,7 +2454,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-accounts"
-version = "0.10.2"
+version = "0.11.0"
 dependencies = [
  "borsh",
  "bs58",
@@ -2468,7 +2468,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-api"
-version = "0.10.2"
+version = "0.11.0"
 dependencies = [
  "async-trait",
  "base64",
@@ -2506,7 +2506,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-core"
-version = "0.10.2"
+version = "0.11.0"
 dependencies = [
  "base64",
  "bytemuck",
@@ -2527,7 +2527,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-ix"
-version = "0.10.2"
+version = "0.11.0"
 dependencies = [
  "borsh",
  "bytemuck",
@@ -2543,7 +2543,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-litesvm-test"
-version = "0.10.2"
+version = "0.11.0"
 dependencies = [
  "base64",
  "borsh",
@@ -2567,7 +2567,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-math"
-version = "0.10.2"
+version = "0.11.0"
 dependencies = [
  "borsh",
  "bytemuck",
@@ -2582,7 +2582,7 @@ dependencies = [
 
 [[package]]
 name = "phoenix-rise-types"
-version = "0.10.2"
+version = "0.11.0"
 dependencies = [
  "chrono",
  "phoenix-rise-math",
@@ -2752,14 +2752,15 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.11.15"
+version = "0.11.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fcb935c5bec503c2f0e306bdd3e58bb9029dcb14fa8d9ac76e3a5256ac0763e"
+checksum = "0e750cca55fe4f0439a15d0bb529da9651e79993e8e72c61a899a36d462befbe"
 dependencies = [
  "bytes",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "lru-slab",
- "rand 0.9.4",
+ "rand 0.10.1",
+ "rand_pcg",
  "ring",
  "rustc-hash",
  "rustls",
@@ -2773,9 +2774,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-udp"
-version = "0.5.14"
+version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "addec6a0dcad8a8d96a771f815f0eaf55f9d1805756410b39f5fa81332574cbd"
+checksum = "af66907df18639dcf4db56ca65490cabc4b27a97dbadd96f2926cca73298f016"
 dependencies = [
  "cfg_aliases",
  "libc",
@@ -2887,6 +2888,15 @@ name = "rand_core"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
+
+[[package]]
+name = "rand_pcg"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "caa0f4137e1c0a72f4c651489402276c8e8e1cf081f3b0ba156d2cbeef09e86a"
+dependencies = [
+ "rand_core 0.10.1",
+]
 
 [[package]]
 name = "rand_xorshift"

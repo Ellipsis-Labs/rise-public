@@ -112,6 +112,26 @@ describe("limit order adverse-fill-loss reserve", () => {
     ]);
     expect(initialMargin).toBe("1000");
   });
+
+  it("reserves only the larger fill loss when both sides are adverse", () => {
+    // Bid at 200 ticks (loss 10_000) and ask at 50 ticks (loss 5_000) resting
+    // at once: leverage margin 1_000 plus the larger loss, not the 15_000 sum.
+    const { initialMargin } = computeInitialMargin([
+      {
+        side: "bid",
+        priceTicks: "200",
+        sizeRemainingLots: "10",
+        reduceOnly: false,
+      },
+      {
+        side: "ask",
+        priceTicks: "50",
+        sizeRemainingLots: "10",
+        reduceOnly: false,
+      },
+    ]);
+    expect(initialMargin).toBe("11000");
+  });
 });
 
 const computeInitialMarginWithPosition = (

@@ -2390,7 +2390,7 @@ const initialMarginForAsset = (
             fillLoss.tickSize
           )
         : 0n;
-    collateralRequired += bidFillLoss + askFillLoss;
+    collateralRequired += maxBigInt(bidFillLoss, askFillLoss);
   }
 
   return collateralRequired;

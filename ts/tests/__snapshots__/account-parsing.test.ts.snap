@@ -6256,6 +6256,5 @@ exports[`raw account parsing > decodes Trader fixtures 1`] = `
     "reservedBits": 0,
   },
   "traderSubaccountIndex": 0,
-  "withdrawQueueNode": null,
 }
 `;

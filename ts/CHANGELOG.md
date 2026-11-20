@@ -3,6 +3,29 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.9.0 - 2026-11-20
+
+Source Phoenix commit: `1d2843be9ac9c4a057f881869630cfd10f4eda1c`
+
+### Summary
+
+- Trader account decoding now matches the updated on-chain layout. The `withdrawQueueNode` field is gone and the preceding padding is 8 bytes.
+- Initial margin and liquidation calculations now reserve only the larger of the bid-side and ask-side adverse limit-order fill loss, instead of their sum. Required collateral is lower for accounts with adverse orders on both sides.
+- The WebSocket client keeps the existing authenticated socket open when the session token refreshes. It sends an `AUTH_TOKEN_OBSERVED` signal instead of reconnecting.
+- When an externally managed session supplies a newer token than the one the current connection used, the client now reconnects immediately with that token.
+
+### Breaking Changes
+
+- `Trader.withdrawQueueNode` is removed from the `Trader` type and from the account decoder. Remove any reads of this field. Trader account data that uses the old layout will not decode correctly.
+- The `events` channel is no longer treated as an auth-required subscription and is no longer in the server subscription identity fields. Review any code that subscribes to `events` through the WebSocket client.
+- Margin and liquidation results change for accounts with adverse resting orders on both sides. Any UI or logic that depends on the old summed reserve will see different values.
+
+### Consumer Notes
+
+- Re-run any code that reads Trader accounts, such as snapshots, fixtures or type usage, and drop references to `withdrawQueueNode`.
+- Check any cached or displayed initial-margin and liquidation-price values against the new max-based reserve.
+- `AuthSessionManager` consumers with externally managed sessions get faster reconnects after refresh or rejection. A token refresh within the same session no longer drops the socket, but a new session or logout still reconnects or closes it.
+
 ## v0.8.2 - 2026-11-13
 
 Source Phoenix commit: `c464b5a9649ead1a6da5f479724fe0eab343a5a1`
