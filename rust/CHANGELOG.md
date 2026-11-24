@@ -3,6 +3,31 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each entry in this
 repo before merging.
 
+## v0.12.0 - 2026-11-24
+
+Source Phoenix commit: `8c1f1c68980a84bff265414aaebf841ed0ba3b82`
+
+### Summary
+
+- Rust SDK moves to 0.12.0. The `api` crate gains display-name market-stats subscriptions: `PhoenixWSClient::subscribe_to_market_stats_v2_by_display_name` and `subscribe_to_market_by_display_name`. Both resolve a name case-insensitively against exchange snapshot markets when subscribing. Updates carry the canonical symbol (for example `kBONK`). A name that is unknown or ambiguous returns the new `PhoenixWsError::InvalidMarketDisplayName`.
+- `events` adds a `MarketInitialized` market event (Borsh tag 77), emitted when a market is added. It carries the spot, book and perp price stale thresholds and the funding start timestamp. `MarketAdded` and `MarketAddedEvent` are now deprecated.
+- `math` fixes `Price::to_ticks` for markets with negative `base_lot_decimals`. The base-units-per-lot factor is applied before rescaling to quote lots, so sub-quote-lot digits are no longer floored away. Tick results can differ from earlier releases for such markets, and the result now matches the on-chain conversion. `Price::to_scaled_value_with_multiplier` is a new public method. Intermediates are computed in `u128`, so results that previously overflowed can now succeed.
+- `math` initial margin with resting limit orders on both sides now reserves the larger of the bid and ask adverse-fill-loss amounts, not their sum. Margin requirements can come out lower than before.
+
+### Breaking Changes
+
+- `accounts`: `TraderHeader::withdraw_queue_node()`, the `withdraw_queue_node` field, and the owned `Trader::withdraw_queue_node` field are removed. The serialized `TraderHeader` no longer includes `withdraw_queue_node`; its former bytes are now padding. Remove any uses of the field.
+- `events`: `MarketEvent` and `MarketEventType` have a new `MarketInitialized` variant. Exhaustive `match` statements on either enum need a new arm. Code that uses `MarketAdded` will see deprecation warnings, and new markets now emit `MarketInitialized` in its place.
+- `api`: `PhoenixWsError` has a new `InvalidMarketDisplayName` variant, so exhaustive matches on it need a new arm.
+- Workspace: `utoipa` is upgraded from 5.x to 6.0. Downstream crates that use the `utoipa` schema derives on Rise types should align their own `utoipa` version.
+
+### Consumer Notes
+
+- In `accounts`, `WithdrawTransitionReason::InvalidTraderState` (7) is now documented as emitted when the trader account is closed while a withdrawal request is queued. It was previously documented as "reserved; not emitted".
+- Display-name subscriptions bind the name to a canonical symbol when you subscribe. Later changes to a market's display name do not affect an active subscription. Pass the current exchange snapshot's `markets`.
+- Indexers should handle `MarketInitialized` to read the stale thresholds and funding start for new markets.
+- The `programs/*` example lockfiles and the workspace lockfile were refreshed for the 0.12.0 release.
+
 ## v0.10.2 - 2026-11-13
 
 Source Phoenix commit: `c464b5a9649ead1a6da5f479724fe0eab343a5a1`

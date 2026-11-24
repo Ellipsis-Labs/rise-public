@@ -8,9 +8,23 @@ use super::*;
 // Admin events
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
+#[deprecated(note = "Superseded by MarketInitializedEvent")]
 #[derive(Copy, Clone, BorshDeserialize, BorshSerialize, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MarketAddedEvent {}
+
+/// Values assigned to a new market at creation that the AddMarket instruction
+/// data does not determine.
+#[derive(Copy, Clone, BorshDeserialize, BorshSerialize, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct MarketInitializedEvent {
+    /// Stale thresholds of the mark price components, in slots.
+    pub spot_price_stale_threshold: u64,
+    pub book_price_stale_threshold: u64,
+    pub perp_price_stale_threshold: u64,
+    /// Start of the first funding interval, in unix seconds.
+    pub funding_start_interval_timestamp: u64,
+}
 
 #[derive(Copy, Clone, BorshDeserialize, BorshSerialize, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

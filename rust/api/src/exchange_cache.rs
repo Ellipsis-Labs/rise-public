@@ -686,7 +686,7 @@ fn normalize_symbol(symbol: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use phoenix_rise_types::prelude::{
         AuthoritySet, CommodityMarketState, Decimal, ExchangeMarketParameterUpdate,
         ExchangeRunningState, ExchangeSnapshotMessage, ExchangeWsCommodityMetadata,
@@ -718,7 +718,7 @@ mod tests {
         }
     }
 
-    fn build_snapshot(slot: u64, slot_index: u32) -> ExchangeSnapshotView {
+    pub(crate) fn build_snapshot(slot: u64, slot_index: u32) -> ExchangeSnapshotView {
         ExchangeSnapshotView {
             version: 1,
             sequence_number: None,

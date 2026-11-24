@@ -89,6 +89,7 @@ pub enum MarketEvent {
     SplineParametersUpdated(SplineParametersUpdatedEvent),
 
     // Admin events
+    #[deprecated(note = "Superseded by MarketInitialized")]
     MarketAdded(MarketAddedEvent),
     MarketStatusChanged(MarketStatusChangedEvent),
     #[deprecated(note = "This event is no longer emitted and should not be used by indexers")]
@@ -199,6 +200,8 @@ pub enum MarketEvent {
     TraderPreferenceBitsUpdated(TraderPreferenceBitsUpdatedEvent),
     /// Liquidation event that includes the liquidation fee outcome.
     LiquidationWithFee(LiquidationWithFeeEvent),
+    /// Emitted when a market is added, in place of `MarketAdded`.
+    MarketInitialized(MarketInitializedEvent),
 }
 
 /// Stable event type for a decoded [`MarketEvent`].
@@ -285,6 +288,7 @@ pub enum MarketEventType {
     FundingParametersUpdatedWithClamp,
     TraderPreferenceBitsUpdated,
     LiquidationWithFee,
+    MarketInitialized,
 }
 
 impl fmt::Display for MarketEventType {
@@ -395,6 +399,7 @@ impl MarketEvent {
                 MarketEventType::TraderPreferenceBitsUpdated
             }
             MarketEvent::LiquidationWithFee(_) => MarketEventType::LiquidationWithFee,
+            MarketEvent::MarketInitialized(_) => MarketEventType::MarketInitialized,
         }
     }
 }
