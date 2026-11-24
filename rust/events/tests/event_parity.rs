@@ -135,6 +135,22 @@ fn spot_collateral_events_use_the_expected_borsh_tags() {
         ))
         .unwrap();
     assert_eq!(funding_parameters_updated[0], 74);
+
+    let market_initialized = borsh::to_vec(&rise::MarketEvent::MarketInitialized(
+        rise::MarketInitializedEvent {
+            spot_price_stale_threshold: 50,
+            book_price_stale_threshold: 200,
+            perp_price_stale_threshold: 51,
+            funding_start_interval_timestamp: 1_735_000_100,
+        },
+    ))
+    .unwrap();
+    let mut expected = vec![77];
+    expected.extend_from_slice(&50u64.to_le_bytes());
+    expected.extend_from_slice(&200u64.to_le_bytes());
+    expected.extend_from_slice(&51u64.to_le_bytes());
+    expected.extend_from_slice(&1_735_000_100u64.to_le_bytes());
+    assert_eq!(market_initialized, expected);
 }
 
 /// Borsh enum tags are positional, so admin update kinds from 17 on must keep

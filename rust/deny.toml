@@ -28,6 +28,9 @@ name          = "ring"
 
 [advisories]
 ignore = [
+  # chrono has no maintained release; API date/time types use its 0.4 API.
+  # Remove when these types migrate to a maintained alternative.
+  "RUSTSEC-2026-0543",
   # Temporary transitive exception: Solana's elliptic-curve 0.13 requires
   # crypto-bigint ^0.5; the fix requires >=0.7.6, outside that version range.
   # Remove this when these parents support a patched crypto-bigint release.

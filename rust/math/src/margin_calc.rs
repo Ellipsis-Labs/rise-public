@@ -288,15 +288,14 @@ fn initial_margin_for_asset_internal(
     };
 
     // Margin increase caused by limit orders: the larger of the two directional
-    // margin increases, plus the adverse-fill-loss reserve for each side.
+    // margin increases, plus the larger of the two adverse-fill-loss reserves.
     let collateral_required = position_margin
         .checked_add(if margin_bid > margin_ask {
             margin_bid
         } else {
             margin_ask
         })
-        .and_then(|x| x.checked_add(bid_fill_loss))
-        .and_then(|x| x.checked_add(ask_fill_loss))
+        .and_then(|x| x.checked_add(bid_fill_loss.max(ask_fill_loss)))
         .ok_or(MarginError::Overflow)?;
 
     Ok(collateral_required)
@@ -614,6 +613,30 @@ mod tests {
 
         assert_eq!(bid_margin, QuoteLots::new(11_000));
         assert_eq!(ask_margin, QuoteLots::new(6_000));
+
+        // Both orders resting at once: only one side can fill adversely, so the
+        // reserve is the larger loss (10_000), not the 15_000 sum.
+        let both_sides = LimitOrderMarginState::from_orders(
+            [
+                LimitOrderSummary {
+                    side: Side::Bid,
+                    price_in_ticks: Ticks::new(200),
+                    base_lots_remaining: BaseLots::new(10),
+                    reduce_only: false,
+                },
+                LimitOrderSummary {
+                    side: Side::Ask,
+                    price_in_ticks: Ticks::new(50),
+                    base_lots_remaining: BaseLots::new(10),
+                    reduce_only: false,
+                },
+            ],
+            flat_position.base_lot_position,
+        );
+        let both_sides_margin =
+            initial_margin_for_asset(&metadata, &flat_position, &both_sides, RiskAction::View)
+                .expect("both sides margin");
+        assert_eq!(both_sides_margin, QuoteLots::new(11_000));
     }
 
     fn position_at(base_lots: i64) -> TraderPosition {

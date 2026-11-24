@@ -13,10 +13,10 @@ use opentelemetry_http::HeaderInjector;
 use parking_lot::Mutex;
 use phoenix_rise_types::prelude::{
     AllMidsData, CandleData, CandlesSubscriptionRequest, ClientMessage, ErrorMessage,
-    ExchangeMessage, ExchangeSnapshotEncoding, ExchangeSubscriptionRequest, FillsMessage,
-    FillsSubscriptionRequest, FundingRateMessage, FundingRateSubscriptionRequest, L2BookMessage,
-    L2BookUpdate, L2OrderbookSubscriptionRequest, MarkPriceSubscriptionRequest, MarkPriceUpdate,
-    MarketStatsUpdate, MarketStatsV2SubscriptionRequest, MarketStatsV2Update,
+    ExchangeMarketSnapshot, ExchangeMessage, ExchangeSnapshotEncoding, ExchangeSubscriptionRequest,
+    FillsMessage, FillsSubscriptionRequest, FundingRateMessage, FundingRateSubscriptionRequest,
+    L2BookMessage, L2BookUpdate, L2OrderbookSubscriptionRequest, MarkPriceSubscriptionRequest,
+    MarkPriceUpdate, MarketStatsUpdate, MarketStatsV2SubscriptionRequest, MarketStatsV2Update,
     OrderbookSubscriptionRequest, ServerMessage, SubscriptionRequest, SubscriptionStatusMessage,
     Timeframe, TraderStateServerMessage, TraderStateSubscriptionRequest, TradesMessage,
     TradesSubscriptionRequest,
@@ -1034,6 +1034,42 @@ impl PhoenixWSClient {
         self.subscribe_to_market_stats_v2_channel(symbols, Subscriber::MarketStatsV2)
     }
 
+    /// Resolve a display name from exchange metadata before subscribing to
+    /// legacy market stats.
+    pub fn subscribe_to_market_by_display_name(
+        &self,
+        name: &str,
+        markets: &[ExchangeMarketSnapshot],
+    ) -> Result<
+        (
+            mpsc::UnboundedReceiver<MarketStatsUpdate>,
+            SubscriptionHandle,
+        ),
+        PhoenixWsError,
+    > {
+        self.subscribe_to_market(subscription_symbol(name, markets)?)
+    }
+
+    /// Bind display names to canonical symbols for the lifetime of a filtered
+    /// stats subscription.
+    pub fn subscribe_to_market_stats_v2_by_display_name(
+        &self,
+        names: &[&str],
+        markets: &[ExchangeMarketSnapshot],
+    ) -> Result<
+        (
+            mpsc::UnboundedReceiver<MarketStatsV2Update>,
+            SubscriptionHandle,
+        ),
+        PhoenixWsError,
+    > {
+        let symbols = names
+            .iter()
+            .map(|name| subscription_symbol(name, markets))
+            .collect::<Result<Vec<_>, _>>()?;
+        self.subscribe_to_market_stats_v2(Some(symbols))
+    }
+
     fn subscribe_to_market_stats_v2_channel<T>(
         &self,
         symbols: Option<Vec<String>>,
@@ -1994,6 +2030,23 @@ fn is_ws_auth_error(error: &TungsteniteError) -> bool {
 
 fn ws_auth_error(error: impl std::fmt::Display) -> PhoenixWsError {
     PhoenixWsError::Authentication(error.to_string())
+}
+
+fn subscription_symbol(
+    name: &str,
+    markets: &[ExchangeMarketSnapshot],
+) -> Result<String, PhoenixWsError> {
+    let name = name.trim();
+    let mut matches = markets.iter().filter(|market| {
+        market
+            .display_name
+            .as_deref()
+            .is_some_and(|alias| !alias.is_empty() && alias.eq_ignore_ascii_case(name))
+    });
+    match (matches.next(), matches.next()) {
+        (Some(market), None) => Ok(market.symbol.clone()),
+        _ => Err(PhoenixWsError::InvalidMarketDisplayName(name.to_owned())),
+    }
 }
 
 fn validate_market_stats_v2_symbols(symbols: &Option<Vec<String>>) -> Result<(), PhoenixWsError> {
@@ -3396,6 +3449,52 @@ mod tests {
 
     fn scripted_client(server: &ScriptedWsServer) -> PhoenixWSClient {
         PhoenixWSClient::new_with_connection_status(&server.url).expect("ws client should build")
+    }
+
+    #[tokio::test]
+    async fn display_name_subscription_receives_canonical_market_stats() {
+        let mut server = spawn_scripted_ws_server(None).await;
+        let client = scripted_client(&server);
+        let mut markets = crate::exchange_cache::tests::build_snapshot(1, 0).markets;
+        markets[0].symbol = "kBONK".into();
+        markets[0].display_name = Some("BONK".into());
+
+        let (mut batches, batch_handle) = client
+            .subscribe_to_market_stats_v2_by_display_name(&["Bonk", "bOnK"], &markets)
+            .unwrap();
+        let (mut legacy, legacy_handle) = client
+            .subscribe_to_market_by_display_name("bonk", &markets)
+            .unwrap();
+        assert!(
+            client
+                .subscribe_to_market_by_display_name("BONK", &markets)
+                .is_err()
+        );
+        markets[0].display_name = Some("RENAMED".into());
+        let request = server.ack_next_subscribe().await;
+        assert_eq!(
+            request,
+            json!({"channel": "marketStatsV2", "symbols": ["kBONK"]})
+        );
+        server.send(json!({
+            "channel": "marketStatsV2", "symbols": ["kBONK"],
+            "stats": [{"symbol": "kBONK", "timestamp": 1, "openInterest": 2.0,
+                "markPrice": 3.0, "oraclePrice": 4.0, "prevDayMarkPrice": 5.0,
+                "dayVolumeUsd": 6.0, "dayVolumeBase": 7.0, "currentFundingRate": 8.0,
+                "eightHourFundingRate": 9.0, "annualizedFundingRate": 10.0}]
+        }));
+        assert_eq!(timeout_recv(&mut batches).await.stats[0].symbol, "kBONK");
+        assert_eq!(timeout_recv(&mut legacy).await.symbol, "kBONK");
+        assert!(
+            client
+                .subscribe_to_market_by_display_name("unknown", &markets)
+                .is_err()
+        );
+        drop(batch_handle);
+        drop(legacy_handle);
+        let unsubscribe = server.next_client_frame().await;
+        assert_eq!(unsubscribe["type"], "unsubscribe");
+        assert_eq!(unsubscribe["subscription"], request);
     }
 
     fn all_mids_frame() -> serde_json::Value {

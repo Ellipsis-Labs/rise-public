@@ -88,7 +88,7 @@ pub enum WithdrawTransitionReason {
     Success                  = 4,
     RequestTooLarge          = 5,
     InsufficientMargin       = 6,
-    /// Reserved; not emitted.
+    /// The trader account was closed while the request was queued.
     InvalidTraderState       = 7,
     ExchangeInactive         = 8,
     /// Reserved; not emitted.

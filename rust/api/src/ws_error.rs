@@ -46,6 +46,9 @@ pub enum PhoenixWsError {
     #[error("Invalid trader key: {0}")]
     InvalidTraderKey(String),
 
+    #[error("Expected one market with display name '{0}'")]
+    InvalidMarketDisplayName(String),
+
     /// A filtered market-stats V2 subscription must include at least one
     /// symbol.
     #[error("marketStatsV2 symbols must not be empty; omit symbols to subscribe to all markets")]

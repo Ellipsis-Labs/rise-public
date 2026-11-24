@@ -22,6 +22,14 @@ Documentation: [docs.phoenix.trade](https://docs.phoenix.trade) ·
 Spline integrations: [onboarding and account reads](./rust/docs/spline-onboarding.md)
 · [indexing transaction events](./rust/docs/event-indexing.md).
 
+Filtered WebSocket market-stats batches carry canonical symbols. To subscribe
+using a display name, pass the current HTTP or WebSocket exchange snapshot's markets to
+`streams.marketStatsV2ByDisplayName("BONK", snapshot.markets)` in TypeScript
+or `ws.subscribe_to_market_stats_v2_by_display_name(&["BONK"], &snapshot.markets)`
+in Rust. The SDK resolves the name when subscribing and delivers the canonical
+symbol (for example, `kBONK`) throughout that subscription. The flattened
+stats equivalents are `marketStatsByDisplayName` and `subscribe_to_market_by_display_name`.
+
 Where to start:
 
 - `PhoenixHttpClient` / `client.api`: public HTTP data and referral activation
