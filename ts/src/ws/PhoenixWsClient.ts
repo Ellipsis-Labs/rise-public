@@ -61,6 +61,26 @@ export interface PhoenixWsFacadeConfig {
   ownsWsClient?: boolean;
 }
 
+type SubscriptionMarket = { symbol: string; displayName?: string };
+
+const foldAsciiCase = (value: string): string =>
+  value.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+
+const subscriptionSymbol = (
+  name: string,
+  markets: readonly SubscriptionMarket[]
+): string => {
+  const folded = foldAsciiCase(name.trim());
+  const matches = markets.filter(
+    ({ displayName }) => displayName && foldAsciiCase(displayName) === folded
+  );
+  const [market] = matches;
+  if (!market || matches.length !== 1) {
+    throw new Error(`Expected one market with display name '${name}'`);
+  }
+  return market.symbol;
+};
+
 export interface PhoenixWsClient {
   wsClient: PhoenixWsTransportClient;
   allMids: ReturnType<typeof createAllMidsAdapter>;
@@ -74,6 +94,16 @@ export interface PhoenixWsClient {
   market: ReturnType<typeof createMarketAdapter>;
   marketStats: ReturnType<typeof createMarketStatsAdapter>;
   marketStatsV2: ReturnType<typeof createMarketStatsV2Adapter>;
+  marketStatsByDisplayName: (
+    name: string,
+    markets: readonly SubscriptionMarket[],
+    signal?: AbortSignal
+  ) => ReturnType<PhoenixWsClient["marketStats"]>;
+  marketStatsV2ByDisplayName: (
+    names: string | readonly string[],
+    markets: readonly SubscriptionMarket[],
+    signal?: AbortSignal
+  ) => ReturnType<PhoenixWsClient["marketStatsV2"]>;
   notifications: ReturnType<typeof createNotificationsAdapter>;
   orderbook: ReturnType<typeof createL2BookAdapter>;
   orderbookSnapshot: ReturnType<typeof createOrderbookAdapter>;
@@ -255,6 +285,15 @@ export const createPhoenixWsFacade = ({
     market,
     marketStats,
     marketStatsV2,
+    marketStatsByDisplayName: (name, markets, signal) =>
+      marketStats(subscriptionSymbol(name, markets), signal),
+    marketStatsV2ByDisplayName: (names, markets, signal) =>
+      marketStatsV2(
+        (typeof names === "string" ? [names] : names).map((name) =>
+          subscriptionSymbol(name, markets)
+        ),
+        signal
+      ),
     notifications,
     orderbook,
     orderbookSnapshot,

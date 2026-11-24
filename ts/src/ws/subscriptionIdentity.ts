@@ -18,7 +18,6 @@ const SERVER_SUBSCRIPTION_FIELDS: Readonly<Record<string, readonly string[]>> =
     fundingRate: ["symbol"],
     orderbook: ["symbol", "bypassExecutionBand"],
     l2Book: ["coin", "bypassExecutionBand"],
-    events: [],
     trader: ["traderKey"],
     trades: ["symbol", "marketSymbol"],
     fills: ["marketSymbol"],

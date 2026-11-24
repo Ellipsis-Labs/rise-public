@@ -3,6 +3,26 @@
 Entries are drafted by Phoenix Rise sync PRs. Review and edit each
 entry in this repo before merging.
 
+## v0.10.0 - 2026-11-24
+
+Source Phoenix commit: `8c1f1c68980a84bff265414aaebf841ed0ba3b82`
+
+### Summary
+- Added display-name WebSocket subscriptions: `marketStatsByDisplayName` and `marketStatsV2ByDisplayName` resolve names against a markets list you pass in. Matching is ASCII case-insensitive and trims whitespace. The subscription uses the canonical symbol (e.g. `kBONK`).
+- Fixed `priceUsdToTicksWithMarketParams` for markets with negative `baseLotsDecimals`. It now computes ticks exactly, with no intermediate rounding to micro-USD.
+- Fixed initial-margin computation to reserve only the larger of the bid-side and ask-side adverse fill losses, not their sum. Margin and liquidation estimates may now be lower than before.
+- Improved WebSocket auth handling. An in-place token refresh on the same session now keeps the existing socket open. After an auth rejection (4401), the client retries once with newer credentials.
+- Bumped the package version from 0.8.2 to 0.10.0.
+
+### Breaking Changes
+- `Trader.withdrawQueueNode` is removed from the `Trader` type, and the decoder now treats those bytes as padding. Code that reads this field will no longer compile.
+- The `events` WebSocket channel is no longer treated as auth-required and is no longer a recognized server subscription identity. Code that relies on `events` subscriptions needs review.
+
+### Consumer Notes
+- `marketStatsByDisplayName` and `marketStatsV2ByDisplayName` throw if a display name matches zero markets or more than one. Pass the current exchange snapshot's `markets` when calling them.
+- Order-price conversion for markets with negative base-lot decimals can return different (more precise) tick values than before. Re-check any cached or hard-coded price-to-tick values.
+- Margin and liquidation helpers can return lower required collateral for accounts with both bid and ask orders resting.
+
 ## v0.8.2 - 2026-11-13
 
 Source Phoenix commit: `c464b5a9649ead1a6da5f479724fe0eab343a5a1`

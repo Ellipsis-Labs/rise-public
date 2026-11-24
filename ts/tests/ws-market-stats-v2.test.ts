@@ -1,3 +1,4 @@
+import { createPhoenixWsFacade } from "@/ws/PhoenixWsClient";
 import { createMarketStatsAdapter } from "@/ws/adapters/market-stats/adapter";
 import { createMarketStatsV2Adapter } from "@/ws/adapters/market-stats-v2/adapter";
 import { createMarketStatsV2Plugin } from "@/ws/adapters/market-stats-v2/plugin";
@@ -22,7 +23,7 @@ const createMockWsClient = () => {
     subscribe(_key, subMsg, onMessage, options) {
       subscriptions.push({ subMsg, onMessage, options });
     },
-    unsubscribe() {},
+    unsubscribe: vi.fn(),
     registerChannel() {
       return () => {};
     },
@@ -122,6 +123,59 @@ describe("marketStatsV2 websocket adapter", () => {
     await expect(iterator.next()).resolves.toMatchObject({
       done: false,
       value: { symbol: "SOL-PERP" },
+    });
+  });
+
+  it("routes display-name subscriptions through the canonical batch filter", async () => {
+    const { ws, subscriptions } = createMockWsClient();
+    const streams = createPhoenixWsFacade({ wsClient: ws });
+    const market = { symbol: "kBONK", displayName: "BONK" };
+    const markets = [market];
+    const batch = streams.marketStatsV2ByDisplayName(
+      [" Bonk ", "bOnK"],
+      markets
+    );
+    const legacy = streams.marketStatsByDisplayName("bonk", markets);
+    const frame = {
+      channel: "marketStatsV2",
+      symbols: ["kBONK"],
+      stats: [rawStats("kBONK")],
+    };
+    expect(() => streams.marketStatsByDisplayName("BONK", markets)).toThrow();
+    expect(() =>
+      streams.marketStatsByDisplayName("bonk", [
+        { ...market, displayName: "BONK" },
+      ])
+    ).toThrow("Expected one market");
+    market.displayName = "RENAMED";
+    const key = createMarketStatsV2Plugin().getKey(frame);
+    for (const sub of subscriptions) {
+      expect(sub.subMsg.subscription).toEqual({
+        channel: "marketStatsV2",
+        symbols: ["kBONK"],
+      });
+      expect(sub.options?.routingKey).toBe(key);
+      sub.onMessage(frame);
+    }
+    await expect(batch[Symbol.asyncIterator]().next()).resolves.toMatchObject({
+      value: { stats: [{ symbol: "kBONK" }] },
+    });
+    await expect(legacy[Symbol.asyncIterator]().next()).resolves.toMatchObject({
+      value: { symbol: "kBONK" },
+    });
+    expect(() =>
+      streams.marketStatsByDisplayName("unknown", markets)
+    ).toThrow();
+    expect(() =>
+      streams.marketStatsByDisplayName("RENAMED", [
+        market,
+        { ...market, symbol: "OTHER" },
+      ])
+    ).toThrow();
+    streams.close();
+    expect(ws.unsubscribe).toHaveBeenCalledWith(expect.any(String), {
+      type: "unsubscribe",
+      subscription: { channel: "marketStatsV2", symbols: ["kBONK"] },
     });
   });
 

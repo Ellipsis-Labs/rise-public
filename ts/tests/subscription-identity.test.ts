@@ -8,7 +8,6 @@ const serverRequests = [
   { channel: "fundingRate", symbol: "SOL-PERP" },
   { channel: "orderbook", symbol: "SOL-PERP", bypassExecutionBand: true },
   { channel: "l2Book", coin: "SOL-PERP", bypassExecutionBand: true },
-  { channel: "events" },
   { channel: "trader", traderKey: "trader-1" },
   { channel: "trades", marketSymbol: "SOL-PERP" },
   { channel: "fills", marketSymbol: "SOL-PERP" },

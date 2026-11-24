@@ -19,7 +19,6 @@ import {
   getTraderEntriesDecoder,
   getTraderStateDecoder,
   getAuthorityDecoder,
-  getOptionalNonZeroU32Decoder,
 } from "../internal";
 import { decodeTraderPreferenceFlags } from "./preferences";
 import type { Trader } from "./types";
@@ -32,8 +31,7 @@ export const getTraderDecoder = (): Decoder<Trader> =>
         ["key", getTraderAddressDecoder()],
         ["authority", getAuthorityDecoder()],
         ["state", getTraderStateDecoder()],
-        ["_padding0", getFixedArrayDecoder(getU8Decoder, 4)],
-        ["withdrawQueueNode", getOptionalNonZeroU32Decoder()],
+        ["_padding0", getFixedArrayDecoder(getU8Decoder, 8)],
         ["maxPositions", getU32Decoder()],
         ["traderPreferenceBits", getU32Decoder()],
         ["positionAuthority", getAuthorityDecoder()],

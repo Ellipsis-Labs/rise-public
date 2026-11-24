@@ -3246,7 +3246,6 @@
     },
     "traderPdaIndex": 0,
     "traderSubaccountIndex": 0,
-    "withdrawQueueNode": null,
     "disablePositionAuthoritySwap": false,
     "nativeSolCollateral": "0",
     "spotCollaterals": [],
