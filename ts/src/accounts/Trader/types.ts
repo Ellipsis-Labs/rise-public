@@ -14,7 +14,6 @@ export interface Trader {
   key: TraderAddress;
   authority: Authority;
   state: TraderState;
-  withdrawQueueNode: number | null;
   maxPositions: number;
   traderPreferenceBits: number;
   traderPreferenceFlags: TraderPreferenceFlags;

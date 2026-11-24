@@ -774,7 +774,7 @@ const initialMarginForAssetAtTicks = (
       : 0n;
 
   collateralRequired += maxBigInt(marginBid, marginAsk);
-  collateralRequired +=
+  const bidFillLoss =
     totalBidAll > 0n
       ? limitOrderFillLoss(
           "bid",
@@ -784,7 +784,7 @@ const initialMarginForAssetAtTicks = (
           tickSize
         )
       : 0n;
-  collateralRequired +=
+  const askFillLoss =
     totalAskAll > 0n
       ? limitOrderFillLoss(
           "ask",
@@ -794,6 +794,7 @@ const initialMarginForAssetAtTicks = (
           tickSize
         )
       : 0n;
+  collateralRequired += maxBigInt(bidFillLoss, askFillLoss);
 
   return collateralRequired;
 };
